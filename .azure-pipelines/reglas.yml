@@ -1,0 +1,40 @@
+# Pipeline de reglas/: verifica el SHA-256 de los conjuntos congelados (D-083).
+# Corre solo cuando cambia reglas/ o este archivo (ADR-001, filtros por carpeta).
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - reglas/*
+      - .azure-pipelines/reglas.yml
+
+pr:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - reglas/*
+      - .azure-pipelines/reglas.yml
+
+pool:
+  vmImage: ubuntu-24.04
+
+steps:
+  - checkout: self
+    fetchDepth: 1
+
+  - script: sha256sum --check --strict SHA256SUMS
+    workingDirectory: reglas/conjuntos
+    displayName: Los conjuntos coinciden con SHA256SUMS
+
+  # Los valores esperados también quedan aquí: cambiar un conjunto exige cambiar este pipeline,
+  # no solo SHA256SUMS.
+  - script: |
+      set -eu
+      esperado="297c6fbde186ab19ec82079ed1e90225aa51f156689a2da355aefe1defe72150  conjunto-de-prueba.jsonl
+      6c37977380200f2512055d09fc41126991672fb99aa114dfbdc07fcaf2a78fbc  conjunto-de-confirmacion.jsonl"
+      echo "$esperado" | sed 's/^ *//' | sha256sum --check --strict
+    workingDirectory: reglas/conjuntos
+    displayName: Los conjuntos coinciden con los SHA-256 congelados

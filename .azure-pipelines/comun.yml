@@ -1,0 +1,50 @@
+# Pipeline común: corre en todo PR hacia main y en cada push a main.
+# Busca secretos, valida el título del PR (E17-ECO 2.4, Q-3) y prueba los filtros por carpeta (Q-11).
+trigger:
+  branches:
+    include:
+      - main
+
+pr:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-24.04
+
+variables:
+  GITLEAKS_VERSION: v8.30.1
+  COMMITLINT_VERSION: 21.2.4
+  NODE_VERSION: 24.22.1
+
+steps:
+  - checkout: self
+    fetchDepth: 0
+
+  - script: >
+      docker run --rm -v "$(Build.SourcesDirectory)":/repo:ro
+      ghcr.io/gitleaks/gitleaks:$(GITLEAKS_VERSION)
+      git /repo --no-banner --redact
+    displayName: Sin secretos en el historial (gitleaks)
+
+  - task: UseNode@1
+    inputs:
+      version: $(NODE_VERSION)
+    condition: eq(variables['Build.Reason'], 'PullRequest')
+    displayName: Node para commitlint
+
+  - script: |
+      set -eu
+      titulo=$(curl -fsSL "https://api.github.com/repos/alcanzamos/alcanzamos/pulls/$(System.PullRequest.PullRequestNumber)" \
+        | python3 -c 'import json,sys; print(json.load(sys.stdin)["title"])')
+      echo "Título del PR: $titulo"
+      printf '%s\n' "$titulo" | npx --yes \
+        -p @commitlint/cli@$(COMMITLINT_VERSION) \
+        -p @commitlint/config-conventional@$(COMMITLINT_VERSION) \
+        commitlint --config .azure-pipelines/commitlint.config.mjs
+    condition: eq(variables['Build.Reason'], 'PullRequest')
+    displayName: El título del PR sigue Conventional Commits (commitlint)
+
+  - script: python3 -I -B .azure-pipelines/pruebas/filtros.py
+    displayName: Cada carpeta dispara solo sus pipelines
