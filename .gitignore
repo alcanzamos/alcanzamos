@@ -1,0 +1,45 @@
+# Secretos y entorno
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Go
+*.exe
+*.test
+*.out
+coverage.*
+/api/bin/
+vendor/
+go.work.sum
+
+# Node
+node_modules/
+dist/
+build/
+.expo/
+.vite/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+coverage/
+
+# OpenTofu / Terraform: nunca el estado ni las variables locales
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+crash.log
+
+# Volcados y respaldos de bases de datos
+*.dump
+*.sql.gz
+*.bak
+
+# Editor y sistema
+.idea/
+.vscode/
+.DS_Store
+*.swp
