@@ -21,7 +21,7 @@ Este repositorio contiene el código del producto y las decisiones de arquitectu
 
 ## Licencia y marca
 
-El código y los tokens de diseño van bajo [AGPLv3](LICENSE). El nombre «Alcanzamos», el logo, el símbolo y el ícono de la app **no** están licenciados bajo la AGPLv3; quien distribuya una versión modificada debe usar otro nombre y otro logo. Detalles en [TRADEMARK.md](TRADEMARK.md).
+El código y los tokens de diseño van bajo [AGPLv3](LICENSE); el aviso de marca está en [NOTICE](NOTICE). El nombre «Alcanzamos», el logo, el símbolo y el ícono de la app **no** están licenciados bajo la AGPLv3; quien distribuya una versión modificada debe usar otro nombre y otro logo. Detalles en [TRADEMARK.md](TRADEMARK.md).
 
 ## Seguridad
 
