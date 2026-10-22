@@ -6,4 +6,15 @@ Definiciones de pipelines de Azure Pipelines, uno por carpeta del monorepo, con 
 - Reglas: estándar de codificación (E17-ECO), `commitlint` valida el título del PR (Conventional Commits) y `main` exige PR y verificaciones.
 - Una prueba comprueba que cada carpeta dispara solo su pipeline.
 
-Aún no hay pipelines.
+## Pipelines
+
+| Archivo | Corre con | Qué hace |
+|---|---|---|
+| `comun.yml` | Todo PR hacia `main` y cada push a `main` | `gitleaks` sobre el historial; `commitlint` sobre el título del PR; prueba de los filtros por carpeta (`pruebas/filtros.py`) |
+| `reglas.yml` | Cambios en `reglas/` o en su YAML | Verifica los conjuntos congelados contra `SHA256SUMS` y contra los SHA-256 fijados en el pipeline |
+
+Los pipelines de `api/`, `web/`, `movil/`, `diseno/` e `infra/` se agregan cuando esas carpetas tengan código, cada uno con sus filtros y sus casos en `pruebas/filtros.py`.
+
+**Cupo:** el plan gratuito de Microsoft-hosted da 1 trabajo a la vez y 1.800 minutos al mes. Los filtros evitan compilar lo que no cambió.
+
+Versiones fijadas (verificadas en sus fuentes oficiales el 2026-10-21): gitleaks v8.30.1 (GitHub releases), `@commitlint/cli` y `@commitlint/config-conventional` 21.2.4 (registro de npm), Node 24.22.1 LTS (nodejs.org), imagen `ubuntu-24.04`.
