@@ -81,7 +81,8 @@ steps:
   - script: |
       set -eu
       npm run tokens
-      git diff --exit-code diseno/ web/ movil/
+      # El paso corre en web/: las rutas van relativas a esa carpeta y después de «--».
+      git diff --exit-code -- ../diseno ../web ../movil
     workingDirectory: web
     displayName: Los tokens regenerados no cambian nada
 
