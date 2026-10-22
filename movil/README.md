@@ -42,11 +42,14 @@ Verificación sin dispositivo: `npm run typecheck`, `npx expo-doctor` y `npm run
 - **Atkinson Hyperlegible Next 2.001** (GSUB): `tnum`, `pnum`, `case`, `frac`, `sups`, `ordn`, `locl`, `ccmp`, `aalt`. **No tiene** `zero`, ningún `ss01`–`ss20` ni `cv01`–`cv99`. Su cero está siempre **barrado** (el glifo `zero` tiene 3 contornos; la letra O, 2) y no hay variante sin barra.
 - React Native 0.86 en Android traduce `fontVariant` a `fontFeatureSettings` (`ReactTypefaceUtils.kt`): `tabular-nums`→`tnum`, `proportional-nums`→`pnum`, `stylistic-one`…`stylistic-twenty`→`ss01`…`ss20`. **No existe un valor para `zero`/`slashed-zero`**, así que ese rasgo no se puede pedir con `fontVariant` aunque la fuente lo tuviera.
 
-Conclusión: con `fontVariant` el cero de Atkinson no se puede cambiar (ni quitar la barra ni ponerla), porque la fuente no trae variante. El cero barrado es el comportamiento de la fuente, es el de diseño y es el que distingue 0 de O. Según D-122 no se fuerza una solución. Opciones, para decidir con el dueño:
+Conclusión: con `fontVariant` el cero de Atkinson no se puede cambiar (ni quitar la barra ni ponerla), porque la fuente no trae variante. Según D-122 no se fuerza una solución.
 
-1. **Aceptar el cero barrado** (recomendada: es la intención de Atkinson Hyperlegible Next, que lo diseñó para eso). Se anota en E14-SDD que no hay «cero liso» en el texto.
-2. Si en las cifras de dinero se quiere un cero liso, usar Figtree en cifras (ya lo prevén los tokens `cifra` y `cifra-grande`). Su cero por defecto es liso.
-3. Una derivada de Atkinson con un cero distinto, editada con una herramienta de fuentes: la OFL permite modificarla, pero exige renombrarla y mantenerla; costo alto, no recomendada.
+**Este caso ya lo decide D-085:** «si no la tiene, la regla de Figtree se extiende a todo número». Todo número va en Figtree, también dentro de una frase. Los tokens `cifra` y `cifra-grande` ya lo prevén. El cero de Figtree por defecto es liso.
+
+Otras salidas, descartadas por D-085 (cambiarlas pide una decisión nueva):
+
+- Aceptar el cero barrado de Atkinson en los números del texto.
+- Una derivada de Atkinson con otro cero: la OFL lo permite, pero exige renombrarla y mantenerla.
 
 ## Pantalla de prueba: qué mirar
 
