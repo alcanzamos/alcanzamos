@@ -57,5 +57,16 @@ docker compose -f ../infra/local/compose.yaml --env-file ../infra/local/.env.exa
 |---|---|---|
 | `github.com/jackc/pgx/v5` | v5.11.0 (2026-09-07) | MIT |
 | `github.com/pressly/goose/v3` | v3.29.0 (2026-10-11) | MIT |
+| `golang.org/x/crypto` | v0.58.0 (2026-10-09) | BSD de 3 cláusulas |
 
 Indirectas: `pgpassfile`, `pgservicefile`, `puddle/v2`, `mfridman/interpolate`, `multierr` (MIT), `go-retry` (Apache-2.0), `x/sync` y `x/text` (BSD de 3 cláusulas). Todas son compatibles con la AGPLv3.
+
+## Contraseñas (Argon2id)
+
+- Paquete `internal/argon2id`, sobre `golang.org/x/crypto/argon2`. Aún nadie lo usa: los endpoints de dominio son de I05.
+- Parámetros OWASP: 19 MiB, 2 iteraciones, paralelismo 1. Sal de 16 bytes, clave de 32.
+- Formato PHC: `$argon2id$v=19$m=19456,t=2,p=1$<sal>$<clave>`, base64 sin relleno.
+- `Verificar` lee los parámetros del hash y compara en tiempo constante. Rechaza hashes con parámetros fuera de tope (memoria máxima 256 MiB).
+- Un semáforo limita a 4 las operaciones simultáneas.
+- Pruebas con los vectores Argon2id de la implementación de referencia (D-083): `src/test.c` de `P-H-C/phc-winner-argon2`, commit `92cd2e19b50b9a58d177e61e1d8ce925315d3d91` (último cambio del archivo; HEAD de `master` `f57e61e19229e23c4445b85494dbf7c07de721cb`, 2021-06-25). Los 8 vectores del bloque Argon2id no usan secreto ni datos asociados, así que aplican todos.
+- Benchmark de una verificación: `go test -bench Verificar -run '^$' ./internal/argon2id`.

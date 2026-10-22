@@ -1,0 +1,42 @@
+package argon2id
+
+// Vectores de la implementación de referencia (P-H-C/phc-winner-argon2, src/test.c, commit 92cd2e19b50b9a58d177e61e1d8ce925315d3d91,
+// último que modificó el archivo; HEAD de master f57e61e19229e23c4445b85494dbf7c07de721cb, 2021-06-25). Bloque Argon2id, versión 0x13.
+var vectoresReferencia = []struct {
+	t, memoriaLog2              uint32
+	p                           uint8
+	clave, sal, hex, codificado string
+}{
+	{2, 16, 1, "password", "somesalt",
+		"09316115d5cf24ed5a15a31a3ba326e5cf32edc24702987c02b6566f61913cf7",
+		"$argon2id$v=19$m=65536,t=2,p=1$c29tZXNhbHQ" +
+			"$CTFhFdXPJO1aFaMaO6Mm5c8y7cJHAph8ArZWb2GRPPc"},
+	{2, 18, 1, "password", "somesalt",
+		"78fe1ec91fb3aa5657d72e710854e4c3d9b9198c742f9616c2f085bed95b2e8c",
+		"$argon2id$v=19$m=262144,t=2,p=1$c29tZXNhbHQ" +
+			"$eP4eyR+zqlZX1y5xCFTkw9m5GYx0L5YWwvCFvtlbLow"},
+	{2, 8, 1, "password", "somesalt",
+		"9dfeb910e80bad0311fee20f9c0e2b12c17987b4cac90c2ef54d5b3021c68bfe",
+		"$argon2id$v=19$m=256,t=2,p=1$c29tZXNhbHQ" +
+			"$nf65EOgLrQMR/uIPnA4rEsF5h7TKyQwu9U1bMCHGi/4"},
+	{2, 8, 2, "password", "somesalt",
+		"6d093c501fd5999645e0ea3bf620d7b8be7fd2db59c20d9fff9539da2bf57037",
+		"$argon2id$v=19$m=256,t=2,p=2$c29tZXNhbHQ" +
+			"$bQk8UB/VmZZF4Oo79iDXuL5/0ttZwg2f/5U52iv1cDc"},
+	{1, 16, 1, "password", "somesalt",
+		"f6a5adc1ba723dddef9b5ac1d464e180fcd9dffc9d1cbf76cca2fed795d9ca98",
+		"$argon2id$v=19$m=65536,t=1,p=1$c29tZXNhbHQ" +
+			"$9qWtwbpyPd3vm1rB1GThgPzZ3/ydHL92zKL+15XZypg"},
+	{4, 16, 1, "password", "somesalt",
+		"9025d48e68ef7395cca9079da4c4ec3affb3c8911fe4f86d1a2520856f63172c",
+		"$argon2id$v=19$m=65536,t=4,p=1$c29tZXNhbHQ" +
+			"$kCXUjmjvc5XMqQedpMTsOv+zyJEf5PhtGiUghW9jFyw"},
+	{2, 16, 1, "differentpassword", "somesalt",
+		"0b84d652cf6b0c4beaef0dfe278ba6a80df6696281d7e0d2891b817d8c458fde",
+		"$argon2id$v=19$m=65536,t=2,p=1$c29tZXNhbHQ" +
+			"$C4TWUs9rDEvq7w3+J4umqA32aWKB1+DSiRuBfYxFj94"},
+	{2, 16, 1, "password", "diffsalt",
+		"bdf32b05ccc42eb15d58fd19b1f856b113da1e9a5874fdcc544308565aa8141c",
+		"$argon2id$v=19$m=65536,t=2,p=1$ZGlmZnNhbHQ" +
+			"$vfMrBczELrFdWP0ZsfhWsRPaHppYdP3MVEMIVlqoFBw"},
+}
