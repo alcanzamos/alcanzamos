@@ -1,0 +1,7 @@
+# Copia como terraform.tfvars en el primer despliegue. Nunca se sube al repositorio.
+subscription_id          = "00000000-0000-0000-0000-000000000000"
+admin_postgres_object_id = "00000000-0000-0000-0000-000000000000"
+admin_postgres_nombre    = "andres@alcanzamos.co"
+alerta_umbral            = 0     # pendiente O-5
+alerta_ventana           = "PT15M" # pendiente O-5
+alerta_correo            = ""    # pendiente O-5
