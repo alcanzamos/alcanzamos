@@ -46,6 +46,10 @@ Conclusión: con `fontVariant` el cero de Atkinson no se puede cambiar (ni quita
 
 **Este caso ya lo decide D-085:** «si no la tiene, la regla de Figtree se extiende a todo número». Todo número va en Figtree, también dentro de una frase. Los tokens `cifra` y `cifra-grande` ya lo prevén. El cero de Figtree por defecto es liso.
 
+**Sin `ss02` (D-123).** El cero de Figtree por defecto no lleva barra, y eso es lo que busca D-085. `ss02` le pone barra, así que no se usa en la app. La pantalla de prueba lo muestra solo como control de que `fontVariant` funciona.
+
+**Verificado en el celular del dueño** con Expo Go, en modo LAN, el 2026-10-22: las fuentes cargan, las cifras tabulares se alinean y el cero de Atkinson siempre lleva barra.
+
 Otras salidas, descartadas por D-085 (cambiarlas pide una decisión nueva):
 
 - Aceptar el cero barrado de Atkinson en los números del texto.
@@ -56,3 +60,17 @@ Otras salidas, descartadas por D-085 (cambiarlas pide una decisión nueva):
 1. Columnas de montos: con `tabular-nums` las cifras de cada columna deben ocupar el mismo ancho; sin esa opción, no. Se nota con los 1 y 7 de «$ 111.111» y «$ 7.080».
 2. Cargó la fuente: aparece primero «Cargando fuentes…» y luego la pantalla con las cuatro filas de ceros en Atkinson y el renglón de Figtree. Si el texto se ve en Roboto, la fuente no cargó.
 3. Ceros de Atkinson: las cuatro filas (sin variante, `tabular-nums`, `stylistic-one`, `stylistic-two`) deben verse con el mismo cero barrado. En el control de Figtree, `stylistic-two` sí cambia el cero (prueba de que `fontVariant` funciona en ese equipo).
+
+## Alertas de `npm audit` (2026-10-22)
+
+`npm audit` marca 15 alertas altas. Todas salen de dos paquetes que usan las herramientas de desarrollo de Expo y Metro, no la app que se instala en el celular:
+
+| Paquete | Aviso | Quién lo trae |
+|---|---|---|
+| `braces` 3.0.3 | GHSA-vfj7-8cjw-p6xm: denegación de servicio con patrones muy anidados | `@expo/metro` → `metro-file-map` → `micromatch` |
+| `node-forge` 1.4.0 | GHSA-86w9-cpqp-85rv: la verificación de firmas RSA PKCS#1 v1.5 acepta elementos de más | `@expo/cli` y `@expo/code-signing-certificates` |
+
+Las otras 13 alertas son los paquetes que dependen de estos dos (`expo`, `react-native` y sus herramientas).
+
+- **No se usa `npm audit fix --force`:** bajaría o cambiaría versiones de Expo y React Native fuera del SDK 57.
+- **Se revisan cada vez que se sube de versión de Expo.**
