@@ -28,6 +28,21 @@ Genera `movil/src/tokens/tokens.generated.ts` (no se edita a mano) con un solo o
 - Tipos sin conversión: **ninguno** en este archivo. Si aparece uno nuevo, el generador lo omite y lo lista en la segunda línea del archivo generado.
 - Solo hay modo claro; el modo oscuro, cuando exista, es un conjunto más en `$metadata.tokenSetOrder`.
 
+## Conversión para la web (US-57, S1)
+
+[`style-dictionary.web.config.mjs`](style-dictionary.web.config.mjs) con el mismo Style Dictionary 5.7.0 (fijado en `web/package.json`). Desde `web/`:
+
+```
+npm run tokens
+```
+
+Genera `web/src/estilos/tokens.css` (no se edita a mano, y sí se versiona) con variables CSS en `:root`. Reutiliza el preprocesador de [`style-dictionary.config.mjs`](style-dictionary.config.mjs), que no cambia: la salida de React Native sale byte a byte igual.
+
+- Nombres: la ruta del token unida con guiones y con prefijo `--` (`color.fondo.pagina` da `--color-fondo-pagina`).
+- No se emite la paleta primitiva (`paleta.*`): la web solo usa tokens semánticos (E17-ECO 4.5).
+- Medidas (`fontSizes`, `spacing`, `borderRadius`, `borderWidth`, `sizing`) en `px`; `typography` se separa en `-font-family`, `-font-weight`, `-font-size`, `-line-height` (factor sin unidad) y `-letter-spacing`.
+- Verificación (E17-ECO 4.4): tras regenerar, `git diff --exit-code diseno/ web/ movil/` no debe mostrar cambios.
+
 ## Fuentes
 
 Archivos TTF estáticos, solo los pesos que usa la pantalla de prueba. Los de Google Fonts (`google/fonts`, carpeta `ofl/`) solo traen la fuente variable; los estáticos salen del repositorio de cada diseñador, en el mismo commit que registra Google Fonts en su `METADATA.pb` y `upstream_info.md` (commit `45e3d52` de `google/fonts`, consultado el 2026-10-22).

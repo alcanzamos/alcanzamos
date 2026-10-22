@@ -1,0 +1,36 @@
+/* Fuentes propias, servidas por la app desde diseno/fuentes (OFL). Sin pedidos a terceros (D-129). */
+@font-face {
+  font-family: "Figtree";
+  font-weight: 600;
+  font-display: swap;
+  src: url("../../../diseno/fuentes/figtree/Figtree-SemiBold.ttf")
+    format("truetype");
+}
+@font-face {
+  font-family: "Figtree";
+  font-weight: 700;
+  font-display: swap;
+  src: url("../../../diseno/fuentes/figtree/Figtree-Bold.ttf")
+    format("truetype");
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible Next";
+  font-weight: 400;
+  font-display: swap;
+  src: url("../../../diseno/fuentes/atkinson-hyperlegible-next/AtkinsonHyperlegibleNext-Regular.ttf")
+    format("truetype");
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible Next";
+  font-weight: 600;
+  font-display: swap;
+  src: url("../../../diseno/fuentes/atkinson-hyperlegible-next/AtkinsonHyperlegibleNext-SemiBold.ttf")
+    format("truetype");
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible Next";
+  font-weight: 700;
+  font-display: swap;
+  src: url("../../../diseno/fuentes/atkinson-hyperlegible-next/AtkinsonHyperlegibleNext-Bold.ttf")
+    format("truetype");
+}

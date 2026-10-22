@@ -1,0 +1,105 @@
+# Pipeline de web/: tipos, ESLint, Prettier, tokens sin diff, pruebas con cobertura, build y Playwright con axe-core.
+# No usa conexión de servicio ni secretos. Corre cuando cambia web/, diseno/ (tokens y fuentes) o este archivo
+# (ADR-001, filtros por carpeta).
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - web/*
+      - diseno/*
+      - .azure-pipelines/web.yml
+
+pr:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - web/*
+      - diseno/*
+      - .azure-pipelines/web.yml
+
+pool:
+  vmImage: ubuntu-24.04
+
+variables:
+  NODE_VERSION: 24.22.1
+  # SHA-256 fijado a mano desde https://nodejs.org/dist/v24.22.1/SHASUMS256.txt (consultado el 2026-10-22).
+  # Cambiar la versión obliga a cambiar también esta suma y el campo engines de web/package.json.
+  NODE_SHA256: 6c172a9ab6718f7b801fb5a7bd486af2ee5e32758086a04b84fcce2aa77095e6
+
+steps:
+  - checkout: self
+    fetchDepth: 1
+
+  # Se descarga el tarball oficial y se verifica antes de descomprimirlo.
+  - script: |
+      set -eu
+      tar_node="node-v$(NODE_VERSION)-linux-x64.tar.xz"
+      destino="$(Agent.TempDirectory)/node"
+      mkdir -p "$destino"
+      curl -fsSL "https://nodejs.org/dist/v$(NODE_VERSION)/$tar_node" -o "$destino/$tar_node"
+      (cd "$destino" && echo "$(NODE_SHA256)  $tar_node" | sha256sum --check --strict -)
+      tar -C "$destino" -xJf "$destino/$tar_node"
+      echo "##vso[task.prependpath]$destino/node-v$(NODE_VERSION)-linux-x64/bin"
+    displayName: Instalar Node $(NODE_VERSION) (SHA-256 verificado)
+
+  - script: |
+      set -eu
+      node --version
+      npm --version
+    displayName: Versión de Node
+
+  - script: npm ci
+    workingDirectory: web
+    displayName: Dependencias fijadas (npm ci)
+
+  # ADR-003, condición 4: vulnerabilidades altas o críticas en producción y licencias compatibles con AGPLv3.
+  - script: npm run auditoria
+    workingDirectory: web
+    displayName: Vulnerabilidades (npm audit, producción, altas o críticas)
+
+  - script: npm run licencias
+    workingDirectory: web
+    displayName: Licencias de producción compatibles con AGPLv3
+
+  - script: npm run typecheck
+    workingDirectory: web
+    displayName: Tipos (tsc --noEmit)
+
+  - script: npm run lint
+    workingDirectory: web
+    displayName: ESLint
+
+  - script: npm run format:check
+    workingDirectory: web
+    displayName: Prettier
+
+  # E17-ECO 4.4: regenerar los tokens no debe cambiar nada.
+  - script: |
+      set -eu
+      npm run tokens
+      # El paso corre en web/: las rutas van relativas a esa carpeta y después de «--».
+      git diff --exit-code -- ../diseno ../web ../movil
+    workingDirectory: web
+    displayName: Los tokens regenerados no cambian nada
+
+  - script: npm run test:coverage
+    workingDirectory: web
+    displayName: Pruebas unitarias con cobertura (mínimo 60 % de líneas)
+
+  - script: npm run build
+    workingDirectory: web
+    displayName: Compilación (vite build)
+
+  - script: npx playwright install --with-deps chromium
+    workingDirectory: web
+    displayName: Navegador de Playwright (Chromium)
+
+  - script: npm run e2e
+    workingDirectory: web
+    displayName: Playwright con axe-core sobre la app compilada
+    env:
+      CI: 'true'
