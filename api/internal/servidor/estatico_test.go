@@ -105,3 +105,27 @@ func TestSinIndiceDa404(t *testing.T) {
 		t.Fatalf("código %d, se esperaba 404", rr.Code)
 	}
 }
+
+func TestContentSecurityPolicyEnTodasLasRespuestas(t *testing.T) {
+	const esperada = "default-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+	if politicaCSP != esperada {
+		t.Fatalf("politicaCSP %q, se esperaba %q", politicaCSP, esperada)
+	}
+	casos := []struct{ nombre, metodo, ruta string }{
+		{"raíz", "GET", "/"},
+		{"ruta de la SPA", "GET", "/movimientos"},
+		{"asset", "GET", "/assets/index-abc123.js"},
+		{"API desconocida", "GET", "/api/no-existe"},
+		{"salud", "GET", "/salud"},
+		{"método no permitido", "POST", "/"},
+	}
+	for _, c := range casos {
+		t.Run(c.nombre, func(t *testing.T) {
+			rr := httptest.NewRecorder()
+			manejador(raizDePrueba()).ServeHTTP(rr, httptest.NewRequest(c.metodo, c.ruta, nil))
+			if got := rr.Header().Get("Content-Security-Policy"); got != esperada {
+				t.Fatalf("Content-Security-Policy %q, se esperaba %q", got, esperada)
+			}
+		})
+	}
+}

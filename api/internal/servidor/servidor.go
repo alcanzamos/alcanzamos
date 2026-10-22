@@ -13,9 +13,23 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/internal/web"
 )
 
+// politicaCSP es la Content-Security-Policy de todas las respuestas. La web carga todo del mismo
+// origen (sin scripts ni estilos en línea, sin terceros), así que admite una política estricta.
+// web/vite.config.ts (preview.headers) y web/e2e/csp.spec.ts repiten este texto: si cambia aquí,
+// debe cambiar allá.
+const politicaCSP = "default-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+
 // Manejador devuelve el ServeMux con las rutas del API y la web embebida.
 func Manejador() http.Handler {
 	return manejador(web.Archivos())
+}
+
+// conCSP añade la Content-Security-Policy a toda respuesta, incluidos los errores 404 y 405.
+func conCSP(siguiente http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Security-Policy", politicaCSP)
+		siguiente.ServeHTTP(w, r)
+	})
 }
 
 // manejador arma las rutas: /salud en la raíz, el API bajo /api/ y la web en todo lo demás.
@@ -25,7 +39,7 @@ func manejador(raizWeb fs.FS) http.Handler {
 	mux.HandleFunc("GET /salud", salud)
 	mux.HandleFunc("/api/", noEncontradoAPI)
 	mux.Handle("/", aplicacionWeb(raizWeb))
-	return mux
+	return conCSP(mux)
 }
 
 func salud(w http.ResponseWriter, _ *http.Request) {
