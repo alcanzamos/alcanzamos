@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/alcanzamos/alcanzamos/api/internal/bd"
 	"github.com/alcanzamos/alcanzamos/api/internal/servidor"
 )
 
@@ -32,6 +33,8 @@ func ejecutar(ctx context.Context, args []string, log *slog.Logger) error {
 	switch orden {
 	case "api":
 		return servidor.Servir(ctx, ":"+puerto(), log)
+	case "migrar":
+		return migrar(ctx, log)
 	default:
 		return fmt.Errorf("subcomando desconocido: %q", orden)
 	}
@@ -42,4 +45,19 @@ func puerto() string {
 		return p
 	}
 	return "8080"
+}
+
+// migrar aplica las migraciones pendientes y termina.
+func migrar(ctx context.Context, log *slog.Logger) error {
+	pool, err := bd.Conectar(ctx)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+	n, err := bd.Subir(ctx, pool)
+	if err != nil {
+		return err
+	}
+	log.Info("migraciones aplicadas", "cantidad", n)
+	return nil
 }

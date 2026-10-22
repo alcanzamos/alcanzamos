@@ -24,3 +24,11 @@ func TestPuertoPorDefectoYPorEntorno(t *testing.T) {
 		t.Fatalf("puerto %q", p)
 	}
 }
+
+func TestMigrarSinURLFalla(t *testing.T) {
+	t.Setenv("BASE_DE_DATOS_URL", "")
+	err := ejecutar(context.Background(), []string{"migrar"}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+	if err == nil {
+		t.Fatal("se esperaba un error por falta de la URL")
+	}
+}
