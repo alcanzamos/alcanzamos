@@ -1,0 +1,26 @@
+{
+  "name": "alcanzamos-movil",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start --lan",
+    "android": "expo start --android --lan",
+    "tokens": "style-dictionary build --config ../diseno/style-dictionary.config.mjs",
+    "typecheck": "tsc --noEmit",
+    "export:android": "expo export --platform android"
+  },
+  "dependencies": {
+    "expo": "57.0.31",
+    "expo-font": "57.0.4",
+    "expo-status-bar": "57.0.1",
+    "react": "19.2.3",
+    "react-native": "0.86.3"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.4",
+    "style-dictionary": "5.7.0",
+    "typescript": "6.0.3"
+  }
+}
