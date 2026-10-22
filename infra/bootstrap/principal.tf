@@ -40,6 +40,20 @@ resource "azurerm_storage_account" "estado" {
   shared_access_key_enabled       = false
   allow_nested_items_to_be_public = false
   tags                            = local.etiquetas
+
+  # Respaldo del estado: cada escritura deja una versión y lo borrado se
+  # recupera durante 30 días.
+  blob_properties {
+    versioning_enabled = true
+
+    delete_retention_policy {
+      days = 30
+    }
+
+    container_delete_retention_policy {
+      days = 30
+    }
+  }
 }
 
 resource "azurerm_storage_container" "estado" {

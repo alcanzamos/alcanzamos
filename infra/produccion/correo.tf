@@ -16,7 +16,8 @@ resource "azurerm_email_communication_service_domain" "avisos" {
   tags                             = local.etiquetas
 }
 
-# Remitente propuesto (lo aprueba el dueño): no-responder@avisos.alcanzamos.co.
+# Remitente aprobado (D-120): no-responder@avisos.alcanzamos.co. Condición: cada
+# correo dice dónde escribir, privacidad@alcanzamos.co (RF-060).
 resource "azurerm_email_communication_service_domain_sender_username" "avisos" {
   name                    = "no-responder"
   email_service_domain_id = azurerm_email_communication_service_domain.avisos.id

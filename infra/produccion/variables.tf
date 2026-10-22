@@ -4,9 +4,13 @@ variable "subscription_id" {
 }
 
 variable "imagen_api" {
-  description = "Imagen del API en GitHub Container Registry (D-076)."
+  description = "Imagen del API en GitHub Container Registry (D-076). La pasa el pipeline de despliegue, con versión o digest."
   type        = string
-  default     = "ghcr.io/alcanzamos/alcanzamos-api:latest"
+
+  validation {
+    condition     = can(regex("^ghcr\\.io/alcanzamos/[a-z0-9._/-]+(:[A-Za-z0-9._-]+|@sha256:[0-9a-f]{64})$", var.imagen_api)) && !endswith(var.imagen_api, ":latest")
+    error_message = "Elige una imagen de ghcr.io/alcanzamos con versión o digest. No se acepta «latest»."
+  }
 }
 
 variable "admin_postgres_object_id" {
@@ -19,18 +23,21 @@ variable "admin_postgres_nombre" {
   type        = string
 }
 
-# Pendiente O-5: el dueño decide umbral, ventana y canal del aviso (RNF-025).
+# O-5 (D-120): más de 10 eventos de un mismo tipo en 15 minutos, por correo.
 variable "alerta_umbral" {
-  description = "Pendiente O-5. Eventos de seguridad que disparan la alerta."
+  description = "Eventos de un mismo tipo que se pueden tolerar en la ventana; la alerta salta con más (O-5, D-120)."
   type        = number
+  default     = 10
 }
 
 variable "alerta_ventana" {
-  description = "Pendiente O-5. Ventana de evaluación en formato ISO 8601 (por ejemplo, PT15M)."
+  description = "Ventana de evaluación en formato ISO 8601 (O-5, D-120)."
   type        = string
+  default     = "PT15M"
 }
 
 variable "alerta_correo" {
-  description = "Pendiente O-5. Correo que recibe el aviso de la alerta."
+  description = "Correo que recibe el aviso de la alerta (O-5, D-120)."
   type        = string
+  default     = "andres@alcanzamos.co"
 }

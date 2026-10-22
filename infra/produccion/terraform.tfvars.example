@@ -2,6 +2,5 @@
 subscription_id          = "00000000-0000-0000-0000-000000000000"
 admin_postgres_object_id = "00000000-0000-0000-0000-000000000000"
 admin_postgres_nombre    = "andres@alcanzamos.co"
-alerta_umbral            = 0     # pendiente O-5
-alerta_ventana           = "PT15M" # pendiente O-5
-alerta_correo            = ""    # pendiente O-5
+imagen_api               = "ghcr.io/alcanzamos/alcanzamos-api@sha256:<digest>" # la pasa el pipeline
+# alerta_umbral, alerta_ventana y alerta_correo tienen los valores de O-5 (D-120).

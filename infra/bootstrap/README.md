@@ -23,6 +23,13 @@ Lo que se crea **una sola vez, con la cuenta del dueño**, en el primer desplieg
 6. Se borran los recursos de la prueba R-9 (`rg-alcanzamos-prueba-r9` y `sc-alcanzamos-prueba-r9`).
 7. Con la primera factura se confirma que el crédito de estudiante paga Communication Services (NV-15).
 
+## Dónde queda su estado y cómo se respalda
+
+- **El estado del bootstrap es local.** Al aplicar, OpenTofu escribe `infra/bootstrap/terraform.tfstate` en el equipo del dueño. Está en `.gitignore` y nunca se sube. No tiene contraseñas, porque nada aquí usa secretos, pero sí identificadores de la suscripción y de Entra ID.
+- **Respaldo.** Después del primer `apply`, el dueño sube una copia al contenedor `tfstate` como `bootstrap.tfstate`, con su cuenta: `az storage blob upload --auth-mode login --account-name stalcanzamostfmxc --container-name tfstate --name bootstrap.tfstate --file terraform.tfstate`. Repite la copia después de cada `apply` del bootstrap.
+- **Protección del contenedor.** La cuenta tiene versionado de blobs y borrado suave de 30 días para blobs y contenedores. Así se recupera una versión anterior del estado del bootstrap o de producción.
+- **Si se pierde el estado local,** se baja la copia del contenedor. Sin estado, OpenTofu no sabe que los recursos existen y habría que importarlos.
+
 ## Validación
 
 ```sh

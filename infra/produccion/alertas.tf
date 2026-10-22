@@ -1,5 +1,7 @@
 # Alerta de eventos de seguridad (RNF-025, E11-DAR §7).
-# Umbral, ventana y canal: pendiente O-5, lo decide el dueño.
+# O-5 (D-120): más de 10 eventos de un mismo tipo en 15 minutos; aviso por
+# correo a andres@alcanzamos.co. La prueba de que el aviso llega se hace en el
+# primer despliegue.
 resource "azurerm_monitor_action_group" "seguridad" {
   name                = "ag-seguridad-${local.sufijo}"
   resource_group_name = data.azurerm_resource_group.principal.name
@@ -20,18 +22,28 @@ resource "azurerm_monitor_scheduled_query_rules_alert_v2" "eventos_de_seguridad"
   severity             = 2
   evaluation_frequency = var.alerta_ventana
   window_duration      = var.alerta_ventana
-  description          = "RNF-025: eventos de seguridad por encima del umbral (O-5)."
+  description          = "RNF-025: un tipo de evento de seguridad supera el umbral (O-5, D-120)."
   tags                 = local.etiquetas
 
-  # El API escribe registros JSON con el campo «evento_seguridad» (E11-DAR §7).
+  # El API escribe una línea JSON por evento (E11-DAR §7). El nombre del campo
+  # con el tipo de evento, «evento_seguridad», se fija con el registro en la US-45.
+  # La dimensión «tipo» hace que el umbral se evalúe por cada tipo de evento.
   criteria {
     query                   = <<-KQL
       ContainerAppConsoleLogs_CL
-      | where Log_s has "evento_seguridad"
+      | extend evento = parse_json(Log_s)
+      | where isnotempty(tostring(evento.evento_seguridad))
+      | project TimeGenerated, tipo = tostring(evento.evento_seguridad)
     KQL
     time_aggregation_method = "Count"
     operator                = "GreaterThan"
     threshold               = var.alerta_umbral
+
+    dimension {
+      name     = "tipo"
+      operator = "Include"
+      values   = ["*"]
+    }
   }
 
   action {
