@@ -4,6 +4,12 @@ import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 import { defineConfig as defineVitest, mergeConfig } from "vitest/config";
 
+// Content-Security-Policy. Debe ser idéntica a politicaCSP en api/internal/servidor/servidor.go
+// (Go no puede embeber un archivo fuera de su módulo, así que son dos literales).
+// web/e2e/csp.spec.ts comprueba que `vite preview` la envía tal cual.
+const politicaCSP =
+  "default-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
+
 const diseno = fileURLToPath(new URL("../diseno/", import.meta.url));
 
 // Las fuentes se importan desde diseno/fuentes (única copia). La licencia OFL de cada familia
@@ -27,6 +33,8 @@ export default mergeConfig(
     // Los TTF no se incrustan en el CSS: se sirven como archivos propios de la app.
     build: { assetsInlineLimit: 0 },
     server: { fs: { allow: [".."] } },
+    // Playwright corre contra `vite preview`, no contra el servidor de Go: manda la misma política.
+    preview: { headers: { "Content-Security-Policy": politicaCSP } },
   }),
   defineVitest({
     test: {

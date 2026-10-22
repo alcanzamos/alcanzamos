@@ -9,7 +9,7 @@ API de Alcanzamos: monolito modular en Go con la biblioteca estándar (ADR-002).
 ## Uso
 
 - Un solo binario con subcomandos. Sin subcomando corre el servidor (`api`).
-- `GET /salud` responde 200 con `{"estado":"ok"}`.
+- `GET /salud` responde 200 con `{"estado":"ok"}` (queda en la raíz).
 - El puerto sale de `PUERTO` (por defecto 8080). El registro es JSON por la salida estándar.
 - Con `SIGTERM` o `Ctrl+C` el servidor termina las peticiones en curso (plazo de 10 s).
 
@@ -17,13 +17,47 @@ API de Alcanzamos: monolito modular en Go con la biblioteca estándar (ADR-002).
 cd api
 go test -race ./...
 go run ./cmd/api
-docker build -t alcanzamos-api:dev .
+cd ..    # la imagen se construye desde la raíz del monorepo
+docker build -f api/Dockerfile -t alcanzamos-api:dev .
 docker run --rm -p 127.0.0.1:8080:8080 alcanzamos-api:dev
 ```
 
+## Rutas y web embebida (ADR-004)
+
+Un solo origen: la web y el API comparten dominio, sin CORS. No hay dominio fijo en el código (D-129).
+
+| Ruta | Respuesta |
+|---|---|
+| `GET /salud` | `{"estado":"ok"}` |
+| `/api/...` | Todo endpoint nuevo del API va aquí. Una ruta desconocida da 404 con `{"error":"no_encontrado"}` en JSON, nunca `index.html` |
+| `GET`/`HEAD` de un archivo de la web (`/assets/...`, `/fuentes/...`) | El archivo. `/assets/` lleva `Cache-Control: public, max-age=31536000, immutable` (los nombres llevan hash) |
+| Cualquier otro `GET`/`HEAD` | `index.html` con 200 y `Cache-Control: no-cache` (aplicación de una página) |
+| Otro método fuera de `/salud` y `/api/` | 405 con `Allow: GET, HEAD` |
+
+- Paquete `internal/web`: `//go:embed` de `internal/web/estatico/`. En el repositorio esa carpeta solo tiene un `index.html` de relleno ("la web no está compilada"), para que `go build` y `go test` pasen sin compilar la web. El `Dockerfile` lo sobrescribe con el `web/dist` real. Un `npm run build` local no toca esa carpeta, así que no deja cambios en git (`web/dist` está ignorado).
+- Las respuestas de la web llevan `X-Content-Type-Options: nosniff`.
+- **Content-Security-Policy** en todas las respuestas (web, `/api/`, `/salud`, errores 404 y 405), puesta por un envoltorio del manejador en `internal/servidor` con una sola constante (`politicaCSP`):
+
+  ```
+  default-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'
+  ```
+
+  | Directiva | Para qué |
+  |---|---|
+  | `default-src 'self'` | Scripts, estilos, fuentes, imágenes y conexiones solo del mismo origen; sin scripts ni estilos en línea ni terceros (la web ya cumple: fuentes propias, bundle externo) |
+  | `object-src 'none'` | Sin `<object>`, `<embed>` ni applets |
+  | `base-uri 'none'` | Una etiqueta `<base>` inyectada no puede redirigir las rutas relativas |
+  | `frame-ancestors 'none'` | Nadie puede incrustar la web en un `<iframe>` (clickjacking); reemplaza a `X-Frame-Options` |
+  | `form-action 'self'` | Los formularios solo envían al mismo origen |
+
+  La prueba `TestContentSecurityPolicyEnTodasLasRespuestas` verifica el valor exacto. `vite preview` (que usa Playwright) repite el mismo texto en `web/vite.config.ts` y `web/e2e/csp.spec.ts` lo compara y falla ante cualquier violación; no hay un origen único posible porque Go no puede embeber archivos fuera de su módulo, así que son dos literales que hay que mantener iguales.
+- Cuando lleguen las cookies de sesión (US-49) serán `SameSite=Strict` (D-083).
+- Para ver la web real sin Docker: `cp -r web/dist/. api/internal/web/estatico/` y `go run ./cmd/api` (no confirmar ese cambio).
+
 ## Imagen
 
-- Dos etapas: `golang:1.27.3-alpine3.24` compila un binario estático; `gcr.io/distroless/static-debian13:nonroot` lo ejecuta, fijada por digest `sha256:d62067879de890a1def9da0e7766b7d20810a5e5555cef8506b752437d7a3e88` (índice multiarquitectura, resuelto el 2026-10-22).
+- Tres etapas: `node:24.22.1-alpine3.24` (digest `sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53`, índice multiarquitectura, resuelto el 2026-10-22; mismo Node que `.azure-pipelines/web.yml`) hace `npm ci` y `npm run build` en `web/` (necesita `diseno/`); `golang:1.27.3-alpine3.24` (digest `sha256:b8c9b82affbbb82a020bbcf998dad2ba9516944ac7e883524642a481a9505e9c`, índice multiarquitectura, resuelto el 2026-10-22) copia ese `web/dist` a `internal/web/estatico/` y compila un binario estático con la web embebida; `gcr.io/distroless/static-debian13:nonroot` lo ejecuta, fijada por digest `sha256:d62067879de890a1def9da0e7766b7d20810a5e5555cef8506b752437d7a3e88` (índice multiarquitectura, resuelto el 2026-10-22).
+- El contexto es la raíz del monorepo; el `.dockerignore` de la raíz deja pasar solo `api/`, `web/` y `diseno/`.
 - Distroless no trae shell, así que no hay `HEALTHCHECK` ni comandos en forma de shell; la salud se consulta por `/salud` desde fuera.
 - Corre como usuario 65532 (nonroot), sin root. El `ENTRYPOINT` es el binario.
 - Go 1.27.3 (go.dev, 2026-10-22; SHA-256 del tarball `65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40`, fijado en `.azure-pipelines/api.yml`).
@@ -82,6 +116,8 @@ docker run --rm --network alcanzamos-local_default \
   -e BASE_DE_DATOS_URL=postgres://alcanzamos:solo-local@postgres:5432/alcanzamos \
   alcanzamos-api:dev tareas
 ```
+
+La imagen es la misma, con la web incluida.
 
 ## Medición de O-10
 

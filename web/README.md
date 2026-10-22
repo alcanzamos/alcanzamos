@@ -13,7 +13,7 @@ Solo la base: una pantalla de prueba con tipografía, tokens y tres cifras inven
 - `src/dinero.ts`: la única función que muestra dinero. Recibe centavos enteros (nunca `parseFloat`) y da el formato colombiano; los centavos solo salen si no son cero. Un monto negativo lleva el signo antes del peso (`-$80.000`). Rechaza lo que no sea un entero seguro.
 - `src/estilos/tokens.css`: variables CSS **generadas** desde `diseno/tokens/alcanzamos.tokens.json` (no se edita a mano). No incluye la paleta primitiva: las hojas solo pueden usar tokens semánticos (`--color-*`).
 - Sin dominio fijo en el código (D-129): el API es del mismo origen, así que cualquier llamada futura usa rutas relativas como `/api/...`.
-- Pendiente (PR 2): embeber `web/dist` en la imagen del API (`embed` y `http.FileServerFS`), la web en `/` y el API en `/api/`.
+- La sirve el API: `web/dist` se embebe en la imagen (`embed` y `http.FileServerFS`), la web en `/` y el API en `/api/`. Ver [`api/README.md`](../api/README.md).
 
 ## Cómo se usa
 

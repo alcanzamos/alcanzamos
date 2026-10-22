@@ -35,9 +35,9 @@ func TestSaludSoloAceptaGET(t *testing.T) {
 	}
 }
 
-func TestRutaDesconocidaDa404(t *testing.T) {
+func TestRutaDesconocidaDelAPIDa404(t *testing.T) {
 	rr := httptest.NewRecorder()
-	Manejador().ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/nada", nil))
+	Manejador().ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/nada", nil))
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("código %d, se esperaba 404", rr.Code)
 	}

@@ -1,0 +1,17 @@
+# Contexto de construcción de la imagen del API (docker build -f api/Dockerfile .).
+# Solo entran las carpetas que las etapas necesitan: api/, web/ y diseno/ (tokens y fuentes de la web).
+*
+!api/
+!web/
+!diseno/
+
+# Lo que se regenera dentro de la imagen o no hace falta
+**/node_modules
+**/dist
+web/test-results
+web/playwright-report
+web/e2e
+api/bin
+**/*.test
+**/.env
+**/.env.*
