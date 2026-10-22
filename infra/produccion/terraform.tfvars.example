@@ -1,0 +1,6 @@
+# Copia como terraform.tfvars en el primer despliegue. Nunca se sube al repositorio.
+subscription_id          = "00000000-0000-0000-0000-000000000000"
+admin_postgres_object_id = "00000000-0000-0000-0000-000000000000"
+admin_postgres_nombre    = "andres@alcanzamos.co"
+imagen_api               = "ghcr.io/alcanzamos/alcanzamos-api@sha256:<digest>" # la pasa el pipeline
+# alerta_umbral, alerta_ventana y alerta_correo tienen los valores de O-5 (D-120).
