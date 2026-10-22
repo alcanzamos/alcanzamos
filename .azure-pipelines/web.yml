@@ -56,6 +56,15 @@ steps:
     workingDirectory: web
     displayName: Dependencias fijadas (npm ci)
 
+  # ADR-003, condición 4: vulnerabilidades altas o críticas en producción y licencias compatibles con AGPLv3.
+  - script: npm run auditoria
+    workingDirectory: web
+    displayName: Vulnerabilidades (npm audit, producción, altas o críticas)
+
+  - script: npm run licencias
+    workingDirectory: web
+    displayName: Licencias de producción compatibles con AGPLv3
+
   - script: npm run typecheck
     workingDirectory: web
     displayName: Tipos (tsc --noEmit)
