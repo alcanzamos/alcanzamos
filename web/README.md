@@ -29,6 +29,8 @@ npm run format:check  # Prettier (npm run format para aplicarlo)
 npm run tokens        # regenera src/estilos/tokens.css
 npm test              # Vitest + Testing Library
 npm run test:coverage # con umbral de 60 % de líneas
+npm run auditoria     # npm audit de producción; falla con altas o críticas
+npm run licencias     # licencias de producción contra la lista compatible con AGPLv3
 npm run e2e           # Playwright + axe-core sobre la app compilada
 ```
 
@@ -49,6 +51,36 @@ npx playwright install chromium            # en Linux, si faltan librerías: npx
 - `strict` en TypeScript; ESLint prohíbe `any` explícito y `@ts-ignore` sin descripción.
 - ESLint con las configuraciones recomendadas de `typescript-eslint`, `eslint-plugin-react-hooks` y `eslint-plugin-jsx-a11y`, más una regla que prohíbe en TypeScript colores sueltos (`#hex`, `rgb(`), medidas en `px`/`rem`, la paleta primitiva y dominios fijos. Las hojas CSS las revisa `src/estilos/estilos.test.ts`, que además verifica que no haya `ss02` ni `font-feature-settings`.
 - Prettier con la configuración por defecto (`.prettierrc.json` vacío).
+
+## Alertas de `npm audit` (2026-10-22)
+
+`npm audit` completo (con las herramientas de desarrollo) y `npm audit --omit=dev --audit-level=high` (lo que corre el pipeline) dan **0 vulnerabilidades**. No hay alertas que documentar.
+
+- **No se usa `npm audit fix --force`:** cambiaría versiones fijadas a mano fuera de lo verificado.
+- **Se revisan cada vez que se sube de versión** una dependencia.
+- Si una alerta alta o crítica viniera solo de herramientas de desarrollo, se documenta aquí como en [`movil/README.md`](../movil/README.md) (tabla de paquete, aviso y quién lo trae); el pipeline solo revisa producción.
+
+## Licencias
+
+El proyecto es `AGPL-3.0-only`. `npm run licencias` (`scripts/licencias.mjs`, sin dependencias) lee `package-lock.json`, toma todos los paquetes que no están marcados `"dev": true` (producción, incluidos los transitivos) y falla, listando los infractores, si alguna licencia no está en esta lista. Si el lockfile no trae el campo `license`, lo lee de `node_modules/<paquete>/package.json`; sin licencia o con una desconocida, falla. Al final imprime cuántos paquetes hay por licencia.
+
+Una expresión SPDX con `OR` pasa si alguna opción está permitida; con `AND`, solo si todas lo están (`AND` pesa más que `OR`; `WITH` no se acepta). La lógica tiene pruebas en `src/licencias.test.ts`.
+
+| Licencia        | Por qué es compatible con AGPLv3                                                    |
+| --------------- | ----------------------------------------------------------------------------------- |
+| `MIT`           | Permisiva, solo pide conservar el aviso                                             |
+| `ISC`           | Equivalente funcional de MIT                                                        |
+| `BSD-2-Clause`  | Permisiva, sin condiciones adicionales a la AGPL                                    |
+| `BSD-3-Clause`  | Igual que la anterior más la cláusula de no usar el nombre para promocionar         |
+| `Apache-2.0`    | Compatible con GPLv3 y, por tanto, con AGPLv3 (la FSF la declara compatible con v3) |
+| `0BSD`          | Sin condiciones                                                                     |
+| `CC0-1.0`       | Dedicación al dominio público                                                       |
+| `Unlicense`     | Dominio público                                                                     |
+| `Zlib`          | Permisiva, sin condiciones incompatibles                                            |
+| `BlueOak-1.0.0` | Permisiva, aceptada por la FSF como compatible con GPL                              |
+| `MPL-2.0`       | Su cláusula de compatibilidad secundaria permite combinarla con (A)GPL              |
+
+Las fuentes (Figtree y Atkinson Hyperlegible Next) son `OFL-1.1` y no son paquetes de npm: vienen de `diseno/fuentes/` y su licencia viaja en `dist/fuentes/`. Por eso esta revisión no las cubre.
 
 ## Versiones
 

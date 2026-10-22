@@ -60,6 +60,7 @@ export default tseslint.config(
   {
     files: [
       "**/*.config.{js,ts}",
+      "scripts/**",
       "e2e/**",
       "src/**/*.test.{ts,tsx}",
       "src/pruebas/**",
