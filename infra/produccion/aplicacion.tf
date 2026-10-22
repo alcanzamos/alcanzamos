@@ -86,7 +86,7 @@ resource "azurerm_container_app_job" "tareas" {
     container {
       name    = "tareas"
       image   = var.imagen_api
-      command = ["/api", "tareas"]
+      command = ["/alcanzamos", "tareas"]
       cpu     = 0.25
       memory  = "0.5Gi"
 

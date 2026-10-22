@@ -33,6 +33,8 @@ func ejecutar(ctx context.Context, args []string, log *slog.Logger) error {
 	switch orden {
 	case "api":
 		return servidor.Servir(ctx, ":"+puerto(), log)
+	case "tareas":
+		return tareas(ctx, log)
 	case "migrar":
 		return migrar(ctx, log)
 	default:
@@ -59,5 +61,18 @@ func migrar(ctx context.Context, log *slog.Logger) error {
 		return err
 	}
 	log.Info("migraciones aplicadas", "cantidad", n)
+	return nil
+}
+
+// tareas es el punto de entrada del trabajo programado. Todavía no hay tareas reales (son de I05):
+// conecta con la base, deja constancia del inicio y del fin, y termina con código 0.
+func tareas(ctx context.Context, log *slog.Logger) error {
+	log.Info("tareas: inicio")
+	pool, err := bd.Conectar(ctx)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+	log.Info("tareas: fin", "ejecutadas", 0)
 	return nil
 }
