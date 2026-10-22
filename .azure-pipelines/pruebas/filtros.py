@@ -14,7 +14,7 @@ RAIZ = pathlib.Path(__file__).resolve().parents[2]
 CARPETA = RAIZ / ".azure-pipelines"
 
 # Archivo de ejemplo -> pipelines que deben correr. Cuando llegue un pipeline nuevo
-# (web, movil, diseno), se agregan aquí sus casos.
+# (movil), se agregan aquí sus casos. `diseno/` dispara también el de web, que construye con sus tokens y fuentes.
 ESPERADO = {
     "reglas/conjuntos/conjunto-de-prueba.jsonl": {"comun", "reglas"},
     "reglas/README.md": {"comun", "reglas"},
@@ -23,9 +23,14 @@ ESPERADO = {
     "api/cmd/api/main.go": {"comun", "api"},
     "api/Dockerfile": {"comun", "api"},
     ".azure-pipelines/api.yml": {"comun", "api"},
-    "web/README.md": {"comun"},
+    "web/README.md": {"comun", "web"},
+    "web/src/PantallaPrueba.tsx": {"comun", "web"},
+    "web/package.json": {"comun", "web"},
+    ".azure-pipelines/web.yml": {"comun", "web"},
     "movil/README.md": {"comun"},
-    "diseno/README.md": {"comun"},
+    "diseno/README.md": {"comun", "web"},
+    "diseno/tokens/alcanzamos.tokens.json": {"comun", "web"},
+    "diseno/fuentes/figtree/Figtree-Bold.ttf": {"comun", "web"},
     "apix/README.md": {"comun"},
     "infra/README.md": {"comun", "infra"},
     "infra/bootstrap/principal.tf": {"comun", "infra"},
