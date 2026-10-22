@@ -69,3 +69,19 @@ Indirectas: `pgpassfile`, `pgservicefile`, `puddle/v2`, `mfridman/interpolate`, 
 - Un semáforo limita a 4 las operaciones simultáneas.
 - Pruebas con los vectores Argon2id de la implementación de referencia (D-083): `src/test.c` de `P-H-C/phc-winner-argon2`, commit `92cd2e19b50b9a58d177e61e1d8ce925315d3d91` (último cambio del archivo; HEAD de `master` `f57e61e19229e23c4445b85494dbf7c07de721cb`, 2021-06-25). Los 8 vectores del bloque Argon2id no usan secreto ni datos asociados, así que aplican todos.
 - Benchmark de una verificación: `go test -bench Verificar -run '^$' ./internal/argon2id`.
+
+## Tareas programadas
+
+- `api tareas` es el punto de entrada del trabajo programado. No tiene tareas reales: las tareas son de I05.
+- Se conecta con PostgreSQL, registra `tareas: inicio` y `tareas: fin`, y termina con código 0. Sin base alcanzable, termina con código 1.
+- Se prueba con la misma imagen del API:
+
+```sh
+docker run --rm --network alcanzamos-local_default \
+  -e BASE_DE_DATOS_URL=postgres://alcanzamos:solo-local@postgres:5432/alcanzamos \
+  alcanzamos-api:dev tareas
+```
+
+## Medición de O-10
+
+Método y cifras en [`MEDICION-O10.md`](MEDICION-O10.md).
