@@ -23,6 +23,7 @@ docker run --rm -p 127.0.0.1:8080:8080 alcanzamos-api:dev
 
 ## Imagen
 
-- Dos etapas: `golang:1.26.10-alpine3.24` compila un binario estático; `alpine:3.24.3` lo ejecuta.
-- Corre como usuario 65532, sin root. El `ENTRYPOINT` es el binario.
-- Go 1.26.10 es la versión instalada en el equipo del dueño. go.dev ya ofrece 1.27.3 (2026-10-22). La subida se decide aparte.
+- Dos etapas: `golang:1.27.3-alpine3.24` compila un binario estático; `gcr.io/distroless/static-debian13:nonroot` lo ejecuta, fijada por digest `sha256:d62067879de890a1def9da0e7766b7d20810a5e5555cef8506b752437d7a3e88` (índice multiarquitectura, resuelto el 2026-10-22).
+- Distroless no trae shell, así que no hay `HEALTHCHECK` ni comandos en forma de shell; la salud se consulta por `/salud` desde fuera.
+- Corre como usuario 65532 (nonroot), sin root. El `ENTRYPOINT` es el binario.
+- Go 1.27.3 (go.dev, 2026-10-22; SHA-256 del tarball `65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40`, fijado en `.azure-pipelines/api.yml`).
