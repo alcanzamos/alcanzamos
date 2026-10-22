@@ -1,0 +1,592 @@
+{
+  "base/color": {
+    "paleta": {
+      "monte": {
+        "base": {
+          "$value": "#1F5C55",
+          "$type": "color"
+        },
+        "oscuro": {
+          "$value": "#174641",
+          "$type": "color"
+        },
+        "claro": {
+          "$value": "#DCEDE9",
+          "$type": "color"
+        }
+      },
+      "teja": {
+        "base": {
+          "$value": "#C4643B",
+          "$type": "color"
+        },
+        "oscuro": {
+          "$value": "#9E4A27",
+          "$type": "color"
+        },
+        "claro": {
+          "$value": "#F6E1D6",
+          "$type": "color"
+        },
+        "luz": {
+          "$value": "#EFA27C",
+          "$type": "color"
+        }
+      },
+      "neutro": {
+        "arena": {
+          "$value": "#FBF7F1",
+          "$type": "color"
+        },
+        "blanco": {
+          "$value": "#FFFFFF",
+          "$type": "color"
+        },
+        "tinta": {
+          "$value": "#1E2B2A",
+          "$type": "color"
+        },
+        "tinta-secundaria": {
+          "$value": "#56635F",
+          "$type": "color"
+        },
+        "borde-decorativo": {
+          "$value": "#D9D2C7",
+          "$type": "color"
+        },
+        "borde-campo": {
+          "$value": "#857F75",
+          "$type": "color"
+        },
+        "deshabilitado": {
+          "$value": "#ECE7DF",
+          "$type": "color"
+        }
+      },
+      "logro": {
+        "base": {
+          "$value": "#2E6B45",
+          "$type": "color"
+        },
+        "fondo": {
+          "$value": "#E4F1E8",
+          "$type": "color"
+        }
+      },
+      "atencion": {
+        "base": {
+          "$value": "#8A5A00",
+          "$type": "color"
+        },
+        "fondo": {
+          "$value": "#FBEFD5",
+          "$type": "color"
+        }
+      },
+      "peligro": {
+        "base": {
+          "$value": "#B3261E",
+          "$type": "color"
+        },
+        "oscuro": {
+          "$value": "#8E1D17",
+          "$type": "color"
+        }
+      },
+      "informacion": {
+        "base": {
+          "$value": "#2C5A85",
+          "$type": "color"
+        },
+        "fondo": {
+          "$value": "#E3EDF6",
+          "$type": "color"
+        }
+      }
+    }
+  },
+  "base/tipografia": {
+    "fuente": {
+      "marca": {
+        "$value": "Figtree",
+        "$type": "fontFamilies"
+      },
+      "texto": {
+        "$value": "Atkinson Hyperlegible Next",
+        "$type": "fontFamilies"
+      }
+    },
+    "peso": {
+      "regular": {
+        "$value": "400",
+        "$type": "fontWeights"
+      },
+      "seminegrita": {
+        "$value": "600",
+        "$type": "fontWeights"
+      },
+      "negrita": {
+        "$value": "700",
+        "$type": "fontWeights"
+      }
+    },
+    "tamano-letra": {
+      "14": {
+        "$value": "14",
+        "$type": "fontSizes"
+      },
+      "16": {
+        "$value": "16",
+        "$type": "fontSizes"
+      },
+      "18": {
+        "$value": "18",
+        "$type": "fontSizes"
+      },
+      "20": {
+        "$value": "20",
+        "$type": "fontSizes"
+      },
+      "24": {
+        "$value": "24",
+        "$type": "fontSizes"
+      },
+      "32": {
+        "$value": "32",
+        "$type": "fontSizes"
+      },
+      "40": {
+        "$value": "40",
+        "$type": "fontSizes"
+      }
+    },
+    "tipografia": {
+      "display": {
+        "$value": {
+          "fontFamilies": "{fuente.marca}",
+          "fontWeights": "{peso.seminegrita}",
+          "fontSizes": "{tamano-letra.40}",
+          "lineHeight": "1.2",
+          "letterSpacing": "0",
+          "textCase": "none",
+          "textDecoration": "none"
+        },
+        "$type": "typography"
+      },
+      "titulo-1": {
+        "$value": {
+          "fontFamilies": "{fuente.marca}",
+          "fontWeights": "{peso.seminegrita}",
+          "fontSizes": "{tamano-letra.32}",
+          "lineHeight": "1.25",
+          "letterSpacing": "0",
+          "textCase": "none",
+          "textDecoration": "none"
+        },
+        "$type": "typography"
+      },
+      "titulo-2": {
+        "$value": {
+          "fontFamilies": "{fuente.marca}",
+          "fontWeights": "{peso.seminegrita}",
+          "fontSizes": "{tamano-letra.24}",
+          "lineHeight": "1.3333",
+          "letterSpacing": "0",
+          "textCase": "none",
+          "textDecoration": "none"
+        },
+        "$type": "typography"
+      },
+      "titulo-3": {
+        "$value": {
+          "fontFamilies": "{fuente.marca}",
+          "fontWeights": "{peso.seminegrita}",
+          "fontSizes": "{tamano-letra.20}",
+          "lineHeight": "1.4",
+          "letterSpacing": "0",
+          "textCase": "none",
+          "textDecoration": "none"
+        },
+        "$type": "typography"
+      },
+      "cuerpo": {
+        "$value": {
+          "fontFamilies": "{fuente.texto}",
+          "fontWeights": "{peso.regular}",
+          "fontSizes": "{tamano-letra.16}",
+          "lineHeight": "1.5",
+          "letterSpacing": "0",
+          "textCase": "none",
+          "textDecoration": "none"
+        },
+        "$type": "typography"
+      },
+      "cuerpo-destacado": {
+        "$value": {
+          "fontFamilies": "{fuente.texto}",
+          "fontWeights": "{peso.negrita}",
+          "fontSizes": "{tamano-letra.16}",
+          "lineHeight": "1.5",
+          "letterSpacing": "0",
+          "textCase": "none",
+          "textDecoration": "none"
+        },
+        "$type": "typography"
+      },
+      "pequeno": {
+        "$value": {
+          "fontFamilies": "{fuente.texto}",
+          "fontWeights": "{peso.regular}",
+          "fontSizes": "{tamano-letra.14}",
+          "lineHeight": "1.4286",
+          "letterSpacing": "0",
+          "textCase": "none",
+          "textDecoration": "none"
+        },
+        "$type": "typography"
+      },
+      "etiqueta": {
+        "$value": {
+          "fontFamilies": "{fuente.texto}",
+          "fontWeights": "{peso.seminegrita}",
+          "fontSizes": "{tamano-letra.14}",
+          "lineHeight": "1.2857",
+          "letterSpacing": "0",
+          "textCase": "none",
+          "textDecoration": "none"
+        },
+        "$type": "typography"
+      },
+      "cifra-grande": {
+        "$value": {
+          "fontFamilies": "{fuente.marca}",
+          "fontWeights": "{peso.negrita}",
+          "fontSizes": "{tamano-letra.32}",
+          "lineHeight": "1.25",
+          "letterSpacing": "0",
+          "textCase": "none",
+          "textDecoration": "none"
+        },
+        "$type": "typography"
+      },
+      "cifra": {
+        "$value": {
+          "fontFamilies": "{fuente.marca}",
+          "fontWeights": "{peso.seminegrita}",
+          "fontSizes": "{tamano-letra.18}",
+          "lineHeight": "1.3333",
+          "letterSpacing": "0",
+          "textCase": "none",
+          "textDecoration": "none"
+        },
+        "$type": "typography"
+      }
+    }
+  },
+  "base/dimension": {
+    "espacio": {
+      "0": {
+        "$value": "0",
+        "$type": "spacing"
+      },
+      "1": {
+        "$value": "4",
+        "$type": "spacing"
+      },
+      "2": {
+        "$value": "8",
+        "$type": "spacing"
+      },
+      "3": {
+        "$value": "12",
+        "$type": "spacing"
+      },
+      "4": {
+        "$value": "16",
+        "$type": "spacing"
+      },
+      "6": {
+        "$value": "24",
+        "$type": "spacing"
+      },
+      "8": {
+        "$value": "32",
+        "$type": "spacing"
+      },
+      "10": {
+        "$value": "40",
+        "$type": "spacing"
+      },
+      "12": {
+        "$value": "48",
+        "$type": "spacing"
+      },
+      "16": {
+        "$value": "64",
+        "$type": "spacing"
+      }
+    },
+    "radio": {
+      "pequeno": {
+        "$value": "8",
+        "$type": "borderRadius"
+      },
+      "medio": {
+        "$value": "12",
+        "$type": "borderRadius"
+      },
+      "grande": {
+        "$value": "16",
+        "$type": "borderRadius"
+      },
+      "total": {
+        "$value": "999",
+        "$type": "borderRadius"
+      }
+    },
+    "ancho-borde": {
+      "fino": {
+        "$value": "1",
+        "$type": "borderWidth"
+      },
+      "grueso": {
+        "$value": "2",
+        "$type": "borderWidth"
+      }
+    },
+    "tamano": {
+      "tactil-minimo": {
+        "$value": "48",
+        "$type": "sizing"
+      },
+      "icono": {
+        "$value": "24",
+        "$type": "sizing"
+      }
+    }
+  },
+  "modo/claro": {
+    "color": {
+      "fondo": {
+        "pagina": {
+          "$value": "{paleta.neutro.arena}",
+          "$type": "color"
+        },
+        "superficie": {
+          "$value": "{paleta.neutro.blanco}",
+          "$type": "color"
+        },
+        "marca": {
+          "$value": "{paleta.monte.base}",
+          "$type": "color"
+        },
+        "marca-suave": {
+          "$value": "{paleta.monte.claro}",
+          "$type": "color"
+        },
+        "acento-suave": {
+          "$value": "{paleta.teja.claro}",
+          "$type": "color"
+        }
+      },
+      "texto": {
+        "principal": {
+          "$value": "{paleta.neutro.tinta}",
+          "$type": "color"
+        },
+        "secundario": {
+          "$value": "{paleta.neutro.tinta-secundaria}",
+          "$type": "color"
+        },
+        "sobre-marca": {
+          "$value": "{paleta.neutro.blanco}",
+          "$type": "color"
+        },
+        "marca": {
+          "$value": "{paleta.monte.base}",
+          "$type": "color"
+        },
+        "acento": {
+          "$value": "{paleta.teja.oscuro}",
+          "$type": "color"
+        },
+        "deshabilitado": {
+          "$value": "{paleta.neutro.tinta-secundaria}",
+          "$type": "color"
+        }
+      },
+      "borde": {
+        "decorativo": {
+          "$value": "{paleta.neutro.borde-decorativo}",
+          "$type": "color"
+        },
+        "campo": {
+          "$value": "{paleta.neutro.borde-campo}",
+          "$type": "color"
+        },
+        "foco": {
+          "$value": "{paleta.informacion.base}",
+          "$type": "color"
+        }
+      },
+      "accion": {
+        "primaria": {
+          "fondo": {
+            "$value": "{paleta.monte.base}",
+            "$type": "color"
+          },
+          "fondo-presionado": {
+            "$value": "{paleta.monte.oscuro}",
+            "$type": "color"
+          },
+          "texto": {
+            "$value": "{paleta.neutro.blanco}",
+            "$type": "color"
+          }
+        },
+        "secundaria": {
+          "borde": {
+            "$value": "{paleta.monte.base}",
+            "$type": "color"
+          },
+          "texto": {
+            "$value": "{paleta.monte.base}",
+            "$type": "color"
+          },
+          "fondo-presionado": {
+            "$value": "{paleta.monte.claro}",
+            "$type": "color"
+          }
+        },
+        "destructiva": {
+          "fondo": {
+            "$value": "{paleta.peligro.base}",
+            "$type": "color"
+          },
+          "fondo-presionado": {
+            "$value": "{paleta.peligro.oscuro}",
+            "$type": "color"
+          },
+          "texto": {
+            "$value": "{paleta.neutro.blanco}",
+            "$type": "color"
+          }
+        },
+        "deshabilitada": {
+          "fondo": {
+            "$value": "{paleta.neutro.deshabilitado}",
+            "$type": "color"
+          },
+          "texto": {
+            "$value": "{paleta.neutro.tinta-secundaria}",
+            "$type": "color"
+          }
+        }
+      },
+      "estado": {
+        "logro": {
+          "texto": {
+            "$value": "{paleta.logro.base}",
+            "$type": "color"
+          },
+          "fondo": {
+            "$value": "{paleta.logro.fondo}",
+            "$type": "color"
+          },
+          "icono": {
+            "$value": "{paleta.logro.base}",
+            "$type": "color"
+          }
+        },
+        "atencion": {
+          "texto": {
+            "$value": "{paleta.atencion.base}",
+            "$type": "color"
+          },
+          "fondo": {
+            "$value": "{paleta.atencion.fondo}",
+            "$type": "color"
+          },
+          "icono": {
+            "$value": "{paleta.atencion.base}",
+            "$type": "color"
+          },
+          "borde": {
+            "$value": "{paleta.atencion.base}",
+            "$type": "color"
+          }
+        },
+        "informacion": {
+          "texto": {
+            "$value": "{paleta.informacion.base}",
+            "$type": "color"
+          },
+          "fondo": {
+            "$value": "{paleta.informacion.fondo}",
+            "$type": "color"
+          },
+          "icono": {
+            "$value": "{paleta.informacion.base}",
+            "$type": "color"
+          }
+        }
+      },
+      "grafico": {
+        "progreso": {
+          "$value": "{paleta.monte.base}",
+          "$type": "color"
+        },
+        "progreso-cumplido": {
+          "$value": "{paleta.logro.base}",
+          "$type": "color"
+        },
+        "pista": {
+          "$value": "{paleta.neutro.borde-decorativo}",
+          "$type": "color"
+        },
+        "llegada": {
+          "$value": "{paleta.teja.base}",
+          "$type": "color"
+        },
+        "punto-sobre-marca": {
+          "$value": "{paleta.teja.luz}",
+          "$type": "color"
+        }
+      },
+      "navegacion": {
+        "activo": {
+          "$value": "{paleta.monte.base}",
+          "$type": "color"
+        },
+        "inactivo": {
+          "$value": "{paleta.neutro.tinta-secundaria}",
+          "$type": "color"
+        },
+        "indicador": {
+          "$value": "{paleta.monte.claro}",
+          "$type": "color"
+        }
+      }
+    }
+  },
+  "$themes": [
+    {
+      "name": "Claro",
+      "group": "Modo",
+      "selectedTokenSets": {
+        "base/color": "enabled",
+        "base/tipografia": "enabled",
+        "base/dimension": "enabled",
+        "modo/claro": "enabled"
+      }
+    }
+  ],
+  "$metadata": {
+    "tokenSetOrder": [
+      "base/color",
+      "base/tipografia",
+      "base/dimension",
+      "modo/claro"
+    ]
+  }
+}
