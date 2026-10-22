@@ -1,0 +1,70 @@
+# Pipeline de api/: go vet, pruebas con detector de carreras, compilación y construcción de la imagen.
+# No usa conexión de servicio ni secretos. Las pruebas de integración (PostgreSQL) no corren aquí.
+# Corre solo cuando cambia api/ o este archivo (ADR-001, filtros por carpeta).
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - api/*
+      - .azure-pipelines/api.yml
+
+pr:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - api/*
+      - .azure-pipelines/api.yml
+
+pool:
+  vmImage: ubuntu-24.04
+
+variables:
+  GO_VERSION: 1.27.3
+  # SHA-256 fijado a mano desde https://go.dev/dl/?mode=json (consultado el 2026-10-22).
+  # Cambiar la versión obliga a cambiar también esta suma, el Dockerfile y go.mod.
+  GO_SHA256: 65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40
+
+steps:
+  - checkout: self
+    fetchDepth: 1
+
+  # Se descarga el tarball oficial y se verifica antes de descomprimirlo.
+  - script: |
+      set -eu
+      tar_go="go$(GO_VERSION).linux-amd64.tar.gz"
+      destino="$(Agent.TempDirectory)/go"
+      mkdir -p "$destino"
+      curl -fsSL "https://go.dev/dl/$tar_go" -o "$destino/$tar_go"
+      (cd "$destino" && echo "$(GO_SHA256)  $tar_go" | sha256sum --check --strict -)
+      tar -C "$destino" -xzf "$destino/$tar_go"
+      echo "##vso[task.prependpath]$destino/go/bin"
+    displayName: Instalar Go $(GO_VERSION) (SHA-256 verificado)
+
+  - script: |
+      set -eu
+      go version
+      test "$(go env GOTOOLCHAIN)" = "local" || echo "##vso[task.logissue type=warning]GOTOOLCHAIN no es local"
+    displayName: Versión de Go
+
+  - script: test -z "$(gofmt -l .)"
+    workingDirectory: api
+    displayName: El formato de Go es correcto
+
+  - script: go vet ./...
+    workingDirectory: api
+    displayName: go vet
+
+  - script: go test -race ./...
+    workingDirectory: api
+    displayName: Pruebas con detector de carreras
+
+  - script: CGO_ENABLED=0 go build -trimpath -o "$(Agent.TempDirectory)/alcanzamos" ./cmd/api
+    workingDirectory: api
+    displayName: go build
+
+  - script: docker build --tag alcanzamos-api:$(Build.BuildId) api
+    displayName: La imagen se construye
