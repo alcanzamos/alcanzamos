@@ -14,15 +14,19 @@ RAIZ = pathlib.Path(__file__).resolve().parents[2]
 CARPETA = RAIZ / ".azure-pipelines"
 
 # Archivo de ejemplo -> pipelines que deben correr. Cuando llegue un pipeline nuevo
-# (api, web, movil, diseno), se agregan aquí sus casos.
+# (web, movil, diseno), se agregan aquí sus casos.
 ESPERADO = {
     "reglas/conjuntos/conjunto-de-prueba.jsonl": {"comun", "reglas"},
     "reglas/README.md": {"comun", "reglas"},
     ".azure-pipelines/reglas.yml": {"comun", "reglas"},
-    "api/README.md": {"comun"},
+    "api/README.md": {"comun", "api"},
+    "api/cmd/api/main.go": {"comun", "api"},
+    "api/Dockerfile": {"comun", "api"},
+    ".azure-pipelines/api.yml": {"comun", "api"},
     "web/README.md": {"comun"},
     "movil/README.md": {"comun"},
     "diseno/README.md": {"comun"},
+    "apix/README.md": {"comun"},
     "infra/README.md": {"comun", "infra"},
     "infra/bootstrap/principal.tf": {"comun", "infra"},
     "infra/produccion/principal.tf": {"comun", "infra"},
