@@ -1,10 +1,24 @@
-# Imagen del API (ADR-002): binario estático en una base mínima, sin root.
-# Contexto de construcción: esta carpeta (api/). Versiones fijadas a mano.
+# Imagen del API con la web embebida (ADR-002, ADR-004): binario estático en una base mínima, sin root.
+# Contexto de construcción: la raíz del monorepo (docker build -f api/Dockerfile .). Versiones fijadas a mano.
+
+# Etapa 1: compila web/ (necesita diseno/: los tokens y las fuentes se importan desde ../diseno).
+# Etiqueta node:24.22.1-alpine3.24 (la misma versión de Node que .azure-pipelines/web.yml),
+# digest del índice multiarquitectura resuelto el 2026-10-22.
+FROM node:24.22.1-alpine3.24@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS web
+WORKDIR /fuente/web
+COPY web/package.json web/package-lock.json ./
+RUN npm ci
+COPY diseno /fuente/diseno
+COPY web ./
+RUN npm run build
+
+# Etapa 2: compila el API y embebe web/dist en internal/web/estatico (reemplaza el index.html de relleno).
 FROM golang:1.27.3-alpine3.24 AS construccion
-WORKDIR /fuente
-COPY go.mod go.sum* ./
+WORKDIR /fuente/api
+COPY api/go.mod api/go.sum* ./
 RUN go mod download
-COPY . .
+COPY api ./
+COPY --from=web /fuente/web/dist/ ./internal/web/estatico/
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /alcanzamos ./cmd/api
 
 # Base de ejecución: distroless static (sin shell ni gestor de paquetes), variante nonroot (uid 65532).

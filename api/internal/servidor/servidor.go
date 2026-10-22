@@ -5,15 +5,26 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/alcanzamos/alcanzamos/api/internal/web"
 )
 
-// Manejador devuelve el ServeMux con las rutas del API.
+// Manejador devuelve el ServeMux con las rutas del API y la web embebida.
 func Manejador() http.Handler {
+	return manejador(web.Archivos())
+}
+
+// manejador arma las rutas: /salud en la raíz, el API bajo /api/ y la web en todo lo demás.
+// Todo endpoint nuevo del API va bajo /api/.
+func manejador(raizWeb fs.FS) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /salud", salud)
+	mux.HandleFunc("/api/", noEncontradoAPI)
+	mux.Handle("/", aplicacionWeb(raizWeb))
 	return mux
 }
 

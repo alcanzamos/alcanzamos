@@ -1,6 +1,6 @@
 # Pipeline de api/: go vet, pruebas con detector de carreras, compilación y construcción de la imagen.
 # No usa conexión de servicio ni secretos. Las pruebas de integración (PostgreSQL) no corren aquí.
-# Corre solo cuando cambia api/ o este archivo (ADR-001, filtros por carpeta).
+# La imagen embebe la web, así que también corre cuando cambian web/ o diseno/ (ADR-001, filtros por carpeta).
 trigger:
   branches:
     include:
@@ -8,6 +8,8 @@ trigger:
   paths:
     include:
       - api/*
+      - web/*
+      - diseno/*
       - .azure-pipelines/api.yml
 
 pr:
@@ -17,6 +19,8 @@ pr:
   paths:
     include:
       - api/*
+      - web/*
+      - diseno/*
       - .azure-pipelines/api.yml
 
 pool:
@@ -66,5 +70,6 @@ steps:
     workingDirectory: api
     displayName: go build
 
-  - script: docker build --tag alcanzamos-api:$(Build.BuildId) api
+  # Contexto: la raíz del monorepo (la imagen compila web/ con Node y la embebe en el binario).
+  - script: docker build --file api/Dockerfile --tag alcanzamos-api:$(Build.BuildId) .
     displayName: La imagen se construye

@@ -14,7 +14,7 @@ RAIZ = pathlib.Path(__file__).resolve().parents[2]
 CARPETA = RAIZ / ".azure-pipelines"
 
 # Archivo de ejemplo -> pipelines que deben correr. Cuando llegue un pipeline nuevo
-# (movil), se agregan aquí sus casos. `diseno/` dispara también el de web, que construye con sus tokens y fuentes.
+# (movil), se agregan aquí sus casos. `diseno/` dispara también el de web (construye con sus tokens y fuentes) y el de api (la imagen embebe la web).
 ESPERADO = {
     "reglas/conjuntos/conjunto-de-prueba.jsonl": {"comun", "reglas"},
     "reglas/README.md": {"comun", "reglas"},
@@ -23,14 +23,15 @@ ESPERADO = {
     "api/cmd/api/main.go": {"comun", "api"},
     "api/Dockerfile": {"comun", "api"},
     ".azure-pipelines/api.yml": {"comun", "api"},
-    "web/README.md": {"comun", "web"},
-    "web/src/PantallaPrueba.tsx": {"comun", "web"},
-    "web/package.json": {"comun", "web"},
+    "web/README.md": {"comun", "web", "api"},
+    "web/src/PantallaPrueba.tsx": {"comun", "web", "api"},
+    "web/package.json": {"comun", "web", "api"},
     ".azure-pipelines/web.yml": {"comun", "web"},
     "movil/README.md": {"comun"},
-    "diseno/README.md": {"comun", "web"},
-    "diseno/tokens/alcanzamos.tokens.json": {"comun", "web"},
-    "diseno/fuentes/figtree/Figtree-Bold.ttf": {"comun", "web"},
+    "diseno/README.md": {"comun", "web", "api"},
+    "diseno/tokens/alcanzamos.tokens.json": {"comun", "web", "api"},
+    "diseno/fuentes/figtree/Figtree-Bold.ttf": {"comun", "web", "api"},
+    "api/internal/web/web.go": {"comun", "api"},
     "apix/README.md": {"comun"},
     "infra/README.md": {"comun", "infra"},
     "infra/bootstrap/principal.tf": {"comun", "infra"},

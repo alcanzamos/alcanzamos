@@ -12,11 +12,11 @@ Definiciones de pipelines de Azure Pipelines, uno por carpeta del monorepo, con 
 |---|---|---|
 | `comun.yml` | Todo PR hacia `main` y cada push a `main` | `gitleaks` sobre el historial; `commitlint` sobre el título del PR; prueba de los filtros por carpeta (`pruebas/filtros.py`) |
 | `reglas.yml` | Cambios en `reglas/` o en su YAML | Verifica los conjuntos congelados contra `SHA256SUMS` y contra los SHA-256 fijados en el pipeline |
-| `api.yml` | Cambios en `api/` o en su YAML | Instala Go 1.27.3 desde el tarball oficial con SHA-256 verificado; `gofmt`, `go vet`, `go test -race`, `go build` y `docker build` de la imagen. No corre las pruebas de integración |
+| `api.yml` | Cambios en `api/`, `web/`, `diseno/` o su YAML | Instala Go 1.27.3 desde el tarball oficial con SHA-256 verificado; `gofmt`, `go vet`, `go test -race`, `go build` y `docker build` de la imagen, con la raíz del monorepo como contexto (`docker build -f api/Dockerfile .`): una etapa de Node compila `web/` y la de Go la embebe. No corre las pruebas de integración |
 | `web.yml` | Cambios en `web/`, `diseno/` o su YAML | Instala Node 24.22.1 desde el tarball oficial con SHA-256 verificado; `npm ci`, tipos, ESLint, Prettier, tokens regenerados sin diff (`git diff --exit-code diseno/ web/ movil/`), pruebas con cobertura (mínimo 60 % de líneas), `vite build` y Playwright con axe-core |
 | `infra.yml` | Cambios en `infra/` o en su YAML | Verifica el SHA-256 de OpenTofu, `tofu fmt -check`, `tofu init -backend=false` y `tofu validate` de `bootstrap/` y `produccion/`, y `docker compose config` del compose local. Nunca hace plan ni apply |
 
-Los pipelines de `movil/` y de `diseno/` se agregan cuando haga falta, cada uno con sus filtros y sus casos en `pruebas/filtros.py`. Un cambio en `diseno/` dispara el de `web/`, que construye con sus tokens y fuentes.
+Los pipelines de `movil/` y de `diseno/` se agregan cuando haga falta, cada uno con sus filtros y sus casos en `pruebas/filtros.py`. Un cambio en `diseno/` dispara el de `web/`, que construye con sus tokens y fuentes, y el de `api/`, porque la imagen del API embebe la web. Un cambio en `web/` dispara también el de `api/`.
 
 **Cupo:** el plan gratuito de Microsoft-hosted da 1 trabajo a la vez y 1.800 minutos al mes. Los filtros evitan compilar lo que no cambió.
 
