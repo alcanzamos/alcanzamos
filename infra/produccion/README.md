@@ -41,6 +41,7 @@ No bloquean la US-44.
 3. **Comprobar con `list-skus`** que PostgreSQL 18 y la zona 1 existen en México Central.
 4. **Costos en ADR-006:** Communication Services, la regla de alerta y la retención de 90 días.
 5. **Probar que el aviso de la alerta llega** a `andres@alcanzamos.co` (O-5).
+6. **Variables de la base (D-123).** La configuración pasa `PGHOST`, `PGDATABASE`, `PGUSER` y `PGSSLMODE`, pero el API lee `BASE_DE_DATOS_URL`. Se resuelve en I05, con la conexión por Entra ID.
 
 ## Para la US-45
 

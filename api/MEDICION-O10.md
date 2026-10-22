@@ -39,3 +39,5 @@ Fecha: 2026-10-22. Solo datos sintéticos. Sin red de producción.
 - El arranque en frío incluye crear el contenedor (`docker run`). El arranque del proceso solo es menor. No hay conexión a la base en `api`.
 - El tiempo de Argon2id depende del CPU del equipo. En un vCPU de Azure puede ser distinto.
 - Una sola ejecución de cada medida, salvo el arranque. Sirve para el orden de magnitud, no para un contrato.
+
+**Nota del 2026-10-22 (D-123).** Estas cifras se midieron con Go 1.26.10 y la imagen sobre `alpine:3.24.3`. Después la imagen pasó a Go 1.27.3 y `gcr.io/distroless/static-debian13:nonroot`. No se volvió a medir; se mide otra vez si cambia algo del arranque o de la memoria.
