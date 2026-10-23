@@ -10,9 +10,18 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/alcanzamos/alcanzamos/api/internal/argon2id"
 	"github.com/alcanzamos/alcanzamos/api/internal/bd"
+	"github.com/alcanzamos/alcanzamos/api/internal/config"
+	"github.com/alcanzamos/alcanzamos/api/internal/correo"
+	"github.com/alcanzamos/alcanzamos/api/internal/cuenta"
+	"github.com/alcanzamos/alcanzamos/api/internal/pg"
+	"github.com/alcanzamos/alcanzamos/api/internal/reloj"
 	"github.com/alcanzamos/alcanzamos/api/internal/seguridad"
 	"github.com/alcanzamos/alcanzamos/api/internal/servidor"
+	"github.com/alcanzamos/alcanzamos/api/internal/sesion"
 )
 
 func main() {
@@ -55,20 +64,57 @@ func ejecutar(ctx context.Context, args []string, log *slog.Logger) error {
 	}
 }
 
-// servir arma el servidor con las rutas de /api/ y lo atiende hasta que ctx se cancele. Una ruta mal declarada hace
-// fallar Construir y el servidor no arranca.
+// servir arma el servidor: configuración, base de datos, servicios y rutas de /api/. Es el compositor de E12:
+// crea los adaptadores y los pasa a los servicios; no tiene reglas. Sin la configuración completa no arranca.
 func servir(ctx context.Context, log *slog.Logger) error {
-	api, err := armarEnrutador(log).Construir()
+	cfg, err := config.Cargar(os.Getenv)
 	if err != nil {
 		return err
 	}
+	pool, err := bd.Conectar(ctx)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	enrutador, esperarEnvios, err := armarEnrutador(cfg, pool, log)
+	if err != nil {
+		return err
+	}
+	api, err := enrutador.Construir()
+	if err != nil {
+		return err
+	}
+	// Al apagar, los correos que ya salieron en segundo plano terminan antes de cerrar la base.
+	defer esperarEnvios()
 	return servidor.Servir(ctx, ":"+puerto(), log, api)
 }
 
-// armarEnrutador es el compositor de E12: registra todas las rutas de /api/, cada una con su nivel de acceso. Todavía
-// no hay rutas ni almacén de sesiones (llegan en los PR siguientes de la US-49): ninguna petición tiene sesión.
-func armarEnrutador(log *slog.Logger) *servidor.Enrutador {
-	return servidor.NuevoEnrutador(servidor.SinSesiones{}, seguridad.NuevoRegistro(log), log)
+// armarEnrutador registra todas las rutas de /api/, cada una con su nivel de acceso. Una ruta sin nivel hace fallar
+// Construir y el servidor no arranca. Devuelve también la función que espera los envíos de correo en curso.
+// Falla si la clave de las sesiones de mentira no sirve (la configuración ya exige 32 bytes).
+func armarEnrutador(cfg config.Config, pool *pgxpool.Pool, log *slog.Logger) (*servidor.Enrutador, func(), error) {
+	hora := reloj.Sistema{}
+	limitador := seguridad.NuevoLimitadorDeIntentos(hora)
+	senuelos, err := sesion.NuevosSenuelos(cfg.SesionSenuelo.Bytes(), hora)
+	if err != nil {
+		return nil, nil, err
+	}
+	cuentas := cuenta.NuevoServicio(cuenta.Dependencias{
+		Repo:      pg.NuevoCuentas(pool),
+		Correo:    correo.NuevoSMTP(cfg, hora),
+		Politica:  seguridad.NuevaPoliticaDeContrasena(),
+		Hasher:    argon2id.Predeterminado(),
+		Reloj:     hora,
+		Limitador: limitador,
+		Senuelos:  senuelos,
+		Log:       log,
+	})
+	sesiones := sesion.NuevoResolutor(pg.NuevoSesiones(pool), senuelos, hora)
+
+	enrutador := servidor.NuevoEnrutador(sesiones, seguridad.NuevoRegistro(log), log)
+	cuenta.NuevoHandler(cuentas, log).Registrar(enrutador)
+	return enrutador, cuentas.Esperar, nil
 }
 
 func puerto() string {
