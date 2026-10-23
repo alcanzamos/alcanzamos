@@ -56,7 +56,7 @@ Un solo origen: la web y el API comparten dominio, sin CORS. No hay dominio fijo
 
 ## Configuración
 
-Ningún dominio ni dirección va fija en el código (D-129). `config.Cargar` lee estas variables y, si falta alguna o no es válida, devuelve un error que las nombra todas. Hoy nadie la llama todavía: el comando `api` empieza a exigirla cuando monta la cuenta (PR 5 de la US-49); `internal/sesion` ya usa `SESION_SENUELO_CLAVE`. `migrar` y `tareas` no la necesitan.
+Ningún dominio ni dirección va fija en el código (D-129). `config.Cargar` lee estas variables y, si falta alguna o no es válida, devuelve un error que las nombra todas. El comando `api` la exige al arrancar; `migrar` y `tareas` no la necesitan. `migrar` y `tareas` no la necesitan.
 
 | Variable | Qué es | Ejemplo local (Mailpit de `infra/local`) |
 |---|---|---|
@@ -76,7 +76,7 @@ Toda ruta de `/api/` se registra con `Enrutador.Registrar(nivel, patron, manejad
 
 | Nivel | Qué exige | Rutas |
 |---|---|---|
-| `publica` | nada | crear la cuenta, verificar el correo con el enlace; en la US-49 parte 2, iniciar sesión y recuperar el acceso |
+| `publica` | nada | crear la cuenta; en el PR 6, verificar el correo con el enlace; en la US-49 parte 2, iniciar sesión y recuperar el acceso |
 | `sin_verificar` | una sesión, aunque sea la **limitada** de una cuenta con el correo sin verificar (o la sesión de mentira de D-141) | PN-59: revisar el estado, reenviar, cambiar el correo; cerrar sesión |
 | `sin_autorizacion` | cuenta con el correo **verificado**, aunque no haya autorizado lo necesario | cerrar sesión y las acciones de PN-63 y PN-64 (US-50) |
 | `requiere_autorizacion` | cuenta verificada y con las finalidades necesarias de su etapa **autorizadas** (`ReglaDeFinalidades`) | todo lo demás |
@@ -90,7 +90,7 @@ Toda ruta de `/api/` se registra con `Enrutador.Registrar(nivel, patron, manejad
 
 - **Un nivel más bajo no hereda las rutas de uno más alto.** Lo contrario sí: una cuenta ya verificada sigue pudiendo *revisar el estado* en PN-59 (si abrió el enlace en otro dispositivo, «Ya lo confirmé» debe poder contestar «verificado» con la misma sesión).
 - Sin sesión: `401 {"error":"sin_sesion"}` y evento `error_autorizacion`. Con sesión que no alcanza el nivel: `403` con `verificacion_pendiente` o `autorizacion_pendiente` y evento `acceso_denegado` con la cuenta (la sesión de mentira queda como `desconocida`). Si falla la resolución de la sesión, `500`: ante la duda no pasa.
-- **`seguridad.Sujeto`** (`Persona`, `Verificada`, `Autorizada`, `Senuelo`) lo arma quien implementa `servidor.Sesiones` (la interfaz `SujetoDe(r)` que resuelve la sesión; el almacén llega en el PR 1c) y el `Enrutador` lo deja en el contexto (`servidor.SujetoDe`). La sesión de mentira de D-141 se trata como la limitada real en todas las rutas, diga lo que diga el resto de sus campos.
+- **`seguridad.Sujeto`** (`Persona`, `Verificada`, `Autorizada`, `Senuelo`) lo arma quien implementa `servidor.Sesiones` (la interfaz `SujetoDe(r)` que resuelve la sesión; ver `sesion.Resolutor`) y el `Enrutador` lo deja en el contexto (`servidor.SujetoDe`). La sesión de mentira de D-141 se trata como la limitada real en todas las rutas, diga lo que diga el resto de sus campos.
 - **Prueba por ruta** (`internal/servidor/accesotest`): `ProbarRutas` recorre las rutas registradas y, para cada una y cada clase de Sujeto, comprueba el estado, el código de error y el evento de seguridad de la tabla de arriba. Una ruta nueva entra sola. `TestTodaRutaDeAPITieneSuNivelDeclarado` (`cmd/api`) es además el inventario de rutas: una ruta nueva obliga a añadirla con su nivel.
 
 ### Finalidades necesarias por etapa del titular (`cuenta.ReglaDeFinalidades`, D-139)
@@ -155,9 +155,39 @@ Una prueba por regla en `contrasena_test.go`. Las reglas miran la contraseña en
 
 SMTP de la biblioteca estándar; texto plano en español. Los dos correos (el de verificación y el aviso de D-141, E14-PCP 4.2 bis) terminan **exactamente** con «Si tienes dudas sobre tus datos, escribe a <CORREO_PRIVACIDAD>.» (D-143); una prueba compara el texto en los dos. El puerto `Correo` tiene un `Falso` para las pruebas. Nunca se registra el token, la dirección ni el cuerpo.
 
+## Cuenta (US-49)
+
+| Ruta | Nivel | Qué hace |
+|---|---|---|
+| `POST /api/v1/cuentas` | `publica` | Crea la cuenta de una persona adulta, envía el correo de verificación y da una **sesión limitada** (CU-43, PN-58). Cuerpo: `{correo, contrasena, nombre, mayor_de_edad}` |
+
+### Crear la cuenta
+
+- **Respuesta.** `202 {"estado":"verificacion_pendiente"}` con la sesión (ver abajo), `Cache-Control: no-store`. `mayor_de_edad` debe ser `true` (la web lo manda desde la casilla de PN-58; Android, tras PN-65). **La fecha de nacimiento no se recibe ni se guarda:** un campo que no esté en el contrato da `400 solicitud_invalida` (D-089). Errores de campo: `422 {"error":"validacion","campos":{campo: código}}`, con `correo_vacio`, `correo_invalido`, `contrasena_vacia`, `contrasena_corta`, `contrasena_comun`, `contrasena_personal`, `nombre_vacio`, `nombre_largo` y `mayor_de_edad_requerido`. El API no manda textos: los clientes los toman de E14.
+- **Una transacción** guarda `persona` (etapa `adulta`), `perfil_adulto` (correo en minúsculas, sin verificar), `credencial` (Argon2id, no temporal), `enlace_un_uso` de verificación (24 horas) y `sesion`. Los tokens son de 32 bytes de `crypto/rand`; en la base solo está su SHA-256. Si el envío del correo falla, la cuenta queda y se registra el error (sin correo ni token); la persona pide otro enlace con «Reenviar» (PN-59, PR 6).
+- **Límite por origen (D-140):** 20 intentos por hora, **todos**: correos nuevos, correos ya registrados, contraseñas rechazadas y JSON roto. El 21 es `429 {"error":"demasiados_intentos"}` con el mismo cuerpo siempre. El origen es la IP del otro extremo de la conexión (para IPv6, el prefijo /64) y vive solo en la memoria del limitador; **no se lee `X-Forwarded-For`**: detrás de Azure Container Apps hay que confiar solo en la dirección que agrega su entrada (fila 17 del primer despliegue, D-143 (4); ver «Gaps»). **Límite por dirección (D-140):** como máximo 3 correos por hora a una misma dirección, sumando el de verificación y el aviso de abajo; el correo que no sale por el límite no cambia la respuesta.
+
+### Correo que ya tiene cuenta (D-141)
+
+La respuesta nunca revela si el correo estaba registrado, ni da la sesión de esa cuenta.
+
+| El correo… | Qué pasa | Sesión | Correo |
+|---|---|---|---|
+| no tiene cuenta | se crea | limitada real | verificación |
+| tiene una cuenta **sin verificar** | se **borra** la pendiente (`ON DELETE CASCADE` se lleva sus sesiones y enlaces) y se crea de nuevo con la contraseña de ahora. Evita el *pre-hijacking*: crear una cuenta con un correo ajeno y esperar a que su dueña la verifique | limitada real nueva; la anterior y su enlace dejan de servir | verificación nueva (el enlace anterior ya no sirve) |
+| tiene una cuenta **verificada** | no se toca nada | **de mentira** (abajo) | aviso «Alguien intentó crear una cuenta con tu correo» al dueño |
+
+- **Sesión de mentira** (`sesion.Senuelos`, ver [Sesiones](#sesión-de-mentira-firmada-d-141-d-143-2)): un token firmado con HMAC y la clave `SESION_SENUELO_CLAVE`, del mismo formato y largo que uno real (43 caracteres). **No se guarda en ningún lado:** el API lo reconoce con la clave, así que sobrevive a un reinicio y funciona con varias réplicas. No está en la base ni apunta a ninguna cuenta. El router la trata como la limitada real **en todas las rutas** (`seguridad.Sujeto.Senuelo`): `sin_verificar` pasa; `sin_autorizacion` y `requiere_autorizacion` dan `403 verificacion_pendiente`.
+- **Argon2id corre antes de saber en cuál caso estamos**, y los dos casos mandan un correo en segundo plano: el tiempo de respuesta tampoco los delata.
+- **No se distingue** (SEG-013): mismo estado, mismas cabeceras (los nombres), mismos atributos de la cookie, mismo formato y largo del token y mismo cuerpo, en la web y en Android. Lo prueban `TestCrearCuentaNoSeDistingueEntreCorreoNuevoSinVerificarYVerificado` (que además comprueba que Argon2id corre una vez en cada caso, sin medir tiempos de reloj, que serían frágiles) y, contra la base, `TestPuntaAPuntaConElEnrutadorYLaBase`.
+- **Aviso al dueño** (`correo.EnviarAvisoDeCorreoRegistrado`): asunto y cuerpo de E14-PCP 4.2 bis palabra por palabra (**texto propuesto, lo revisa el dueño**), pie «Si tienes dudas sobre tus datos, escribe a `CORREO_PRIVACIDAD`.» Sin enlaces ni contraseñas, desde `CORREO_REMITENTE`.
+- Nunca se registran tokens, correos ni cuerpos.
+
+- **Android** (D-143 (3)): con `X-Alcanzamos-Cliente: android` el token va en el cuerpo (`{"estado":"verificacion_pendiente","token":"…"}`) y no hay `Set-Cookie`. Si el pedido trae `Origin` o `Sec-Fetch-Site`, responde `400 {"error":"solicitud_invalida"}` sin token ni cookie y sin crear nada (`sesion.EntregaDe`; ver [Sesiones](#token-para-android-d-143-3)). La decisión solo depende de las cabeceras, así que no delata si el correo estaba registrado. El pedido cuenta contra el límite del origen como cualquier intento. `TestAndroidConCabecerasDeNavegadorSeRechaza` lo prueba con y sin cuenta verificada.
+
 ## Sesiones (US-49)
 
-Es la capa de sesiones: todavía no hay ninguna ruta que cree cuentas ni sesiones (eso es del PR 5). El `Enrutador` ya resuelve la sesión de cada pedido con `sesion.Resolutor`.
+Es la capa de sesiones: el `Enrutador` resuelve la sesión de cada pedido con `sesion.Resolutor`, y la crea `POST /api/v1/cuentas` (arriba).
 
 - **Almacén en PostgreSQL** (`pg.Sesiones`, E13 §5.3, D-081): `sesion` guarda solo el SHA-256 del token. Vencimiento **deslizante de 30 días** con **tope de 90 días** desde la creación (`vence_en = menor(ahora + 30 días, creada_en + 90 días)`). `ultimo_uso_en` solo se escribe si pasaron **más de 5 minutos** desde el anterior. **Máximo 5 sesiones por persona:** al crear una más se borran las menos recientes en la misma transacción. Cada sesión lleva un token nuevo. En cada petición se lee si la cuenta confirmó el correo y si tiene autorizadas las finalidades necesarias de su etapa (`ReglaDeFinalidades`), sin guardarlo: retirar una autorización surte efecto al instante.
 - **Web: cookie `__Host-sesion`** con `HttpOnly; Secure; SameSite=Strict; Path=/` y `Max-Age=7776000` (90 días, el tope; el vencimiento real lo decide el servidor). El prefijo `__Host-` hace que el navegador exija `Secure` y `Path=/` y no deje fijarla a un subdominio.
@@ -166,7 +196,7 @@ Es la capa de sesiones: todavía no hay ninguna ruta que cree cuentas ni sesione
 
 ### Sesión de mentira firmada (D-141, D-143 (2))
 
-Cuando alguien cree una cuenta con el correo de una ya verificada, la respuesta es idéntica a la de una cuenta nueva y lleva un token de mentira (el PR 5 lo usa). **No se guarda en ningún lado.** Si se guardara en memoria, un reinicio del API lo borraría y la sesión real no, y esa diferencia las distinguiría. Es un token firmado que el API reconoce con una clave de la configuración (`SESION_SENUELO_CLAVE`), así que sobrevive a un reinicio y lo reconoce cualquier réplica con la misma clave. No hay mapa en memoria ni tarea de purga.
+Cuando alguien crea una cuenta con el correo de una ya verificada, la respuesta es idéntica a la de una cuenta nueva y lleva un token de mentira (`POST /api/v1/cuentas`). **No se guarda en ningún lado.** Si se guardara en memoria, un reinicio del API lo borraría y la sesión real no, y esa diferencia las distinguiría. Es un token firmado que el API reconoce con una clave de la configuración (`SESION_SENUELO_CLAVE`), así que sobrevive a un reinicio y lo reconoce cualquier réplica con la misma clave. No hay mapa en memoria ni tarea de purga.
 
 ```
 token = base64url sin relleno( aleatorio(16) ‖ HMAC-SHA-256(clave, aleatorio ‖ día de creación "AAAA-MM-DD" en UTC)[:16] )
@@ -241,7 +271,7 @@ Indirectas: `pgpassfile`, `pgservicefile`, `puddle/v2`, `mfridman/interpolate`, 
 
 ## Contraseñas (Argon2id)
 
-- Paquete `internal/argon2id`, sobre `golang.org/x/crypto/argon2`. Aún nadie lo usa: lo usa la creación de la cuenta (PR 5 de la US-49). La política de contraseñas está en [Seguridad](#política-de-contraseñas-politicadecontrasena-rf-035-d-089-d-142).
+- Paquete `internal/argon2id`, sobre `golang.org/x/crypto/argon2`. Lo usa `cuenta.Servicio` al crear la cuenta. La política de contraseñas está en [Seguridad](#política-de-contraseñas-politicadecontrasena-rf-035-d-089-d-142).
 - Parámetros OWASP: 19 MiB, 2 iteraciones, paralelismo 1. Sal de 16 bytes, clave de 32.
 - Formato PHC: `$argon2id$v=19$m=19456,t=2,p=1$<sal>$<clave>`, base64 sin relleno.
 - `Verificar` lee los parámetros del hash y compara en tiempo constante. Rechaza hashes con parámetros fuera de tope (memoria máxima 256 MiB).
