@@ -24,6 +24,59 @@ type repoFalso struct {
 	reemplazos  int
 	verificadas map[string]bool // correo → true si la cuenta existente está verificada
 	err         error
+
+	// VerificarCorreo
+	errVerif    error
+	huellaVerif []byte
+	// NuevoEnlaceDeVerificacion
+	enlaces   []nuevoEnlaceFalso
+	errEnlace error
+	correoDe  string // el correo de la cuenta, para el reenvío
+	// CambiarCorreoSinVerificar
+	cambios   []cambioFalso
+	errCambio error
+	// BorrarSinConfirmar
+	hasta, conservar time.Time
+	necesarias       []string
+}
+
+type nuevoEnlaceFalso struct {
+	persona string
+	huella  []byte
+}
+
+type cambioFalso struct {
+	persona, nuevo string
+	huella         []byte
+}
+
+func (r *repoFalso) VerificarCorreo(_ context.Context, h []byte, _ time.Time) (string, error) {
+	r.huellaVerif = h
+	return "0192f3c4-0000-7000-8000-000000000001", r.errVerif
+}
+
+func (r *repoFalso) NuevoEnlaceDeVerificacion(_ context.Context, persona string, h []byte, _, _ time.Time) (string, error) {
+	if r.errEnlace != nil {
+		return "", r.errEnlace
+	}
+	r.enlaces = append(r.enlaces, nuevoEnlaceFalso{persona, h})
+	return r.correoDe, nil
+}
+
+func (r *repoFalso) CambiarCorreoSinVerificar(_ context.Context, persona, nuevo string, h []byte, _, _ time.Time) error {
+	r.cambios = append(r.cambios, cambioFalso{persona, nuevo, h})
+	if r.errCambio != nil {
+		return r.errCambio
+	}
+	if r.verificadas[nuevo] {
+		return ErrCorreoYaRegistrado
+	}
+	return nil
+}
+
+func (r *repoFalso) BorrarSinConfirmar(_ context.Context, hasta, _, conservar time.Time, necesarias []string) (int, error) {
+	r.hasta, r.conservar, r.necesarias = hasta, conservar, necesarias
+	return 3, nil
 }
 
 func (r *repoFalso) Crear(_ context.Context, c NuevaCuenta) (string, error) {
@@ -71,6 +124,7 @@ type entorno struct {
 	reloj     *reloj.Fijo
 	limitador *seguridad.LimitadorDeIntentos
 	senuelos  *senuelosContados
+	almacen   almacenFalso
 	registro  *bytes.Buffer
 }
 
@@ -89,7 +143,7 @@ func (s *senuelosContados) Crear() string {
 func (s *senuelosContados) Cantidad() int { return s.creados }
 
 func nuevoEntorno() *entorno {
-	e := &entorno{repo: &repoFalso{}, correo: &correo.Falso{}, hasher: &hasheadorFalso{}, reloj: &reloj.Fijo{T: ahoraDePrueba}, registro: &bytes.Buffer{}}
+	e := &entorno{repo: &repoFalso{}, correo: &correo.Falso{}, hasher: &hasheadorFalso{}, reloj: &reloj.Fijo{T: ahoraDePrueba}, almacen: almacenFalso{}, registro: &bytes.Buffer{}}
 	e.limitador = seguridad.NuevoLimitadorDeIntentos(e.reloj)
 	real, err := sesion.NuevosSenuelos(bytes.Repeat([]byte{9}, 32), e.reloj)
 	if err != nil {

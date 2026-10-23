@@ -22,8 +22,9 @@ import (
 func apiDePrueba(t *testing.T, e *entorno) http.Handler {
 	t.Helper()
 	log := slog.New(slog.NewJSONHandler(io.Discard, nil))
-	enr := servidor.NuevoEnrutador(sesion.NuevoResolutor(sinAlmacen{}, e.senuelos.Senuelos, e.reloj), seguridad.NuevoRegistro(log), log)
-	NuevoHandler(e.svc, log).Registrar(enr)
+	resolutor := sesion.NuevoResolutor(e.almacen, e.senuelos.Senuelos, e.reloj)
+	enr := servidor.NuevoEnrutador(resolutor, seguridad.NuevoRegistro(log), log)
+	NuevoHandler(e.svc, resolutor, log).Registrar(enr)
 	h, err := enr.Construir()
 	if err != nil {
 		t.Fatal(err)
@@ -31,11 +32,21 @@ func apiDePrueba(t *testing.T, e *entorno) http.Handler {
 	return servidor.ManejadorConAPI(h)
 }
 
-// sinAlmacen es el almacén de sesiones reales sin ninguna: solo valen las de mentira.
-type sinAlmacen struct{}
+// almacenFalso es el almacén de sesiones reales: huella (en texto) → Sujeto. Solo valen estas y las de mentira.
+type almacenFalso map[string]seguridad.Sujeto
 
-func (sinAlmacen) Sujeto(context.Context, []byte, time.Time) (seguridad.Sujeto, error) {
+func (a almacenFalso) Sujeto(_ context.Context, huella []byte, _ time.Time) (seguridad.Sujeto, error) {
+	if s, ok := a[string(huella)]; ok {
+		return s, nil
+	}
 	return seguridad.Sujeto{}, seguridad.ErrSinSesion
+}
+
+// sesionReal registra en el almacén una sesión real del Sujeto dado y devuelve su token.
+func (e *entorno) sesionReal(s seguridad.Sujeto) string {
+	token, huella := seguridad.NuevoTokenOpaco()
+	e.almacen[string(huella)] = s
+	return token
 }
 
 func post(h http.Handler, origen, ruta, cuerpo string, encabezados ...string) *httptest.ResponseRecorder {

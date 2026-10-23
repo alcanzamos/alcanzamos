@@ -113,7 +113,7 @@ func armarEnrutador(cfg config.Config, pool *pgxpool.Pool, log *slog.Logger) (*s
 	sesiones := sesion.NuevoResolutor(pg.NuevoSesiones(pool), senuelos, hora)
 
 	enrutador := servidor.NuevoEnrutador(sesiones, seguridad.NuevoRegistro(log), log)
-	cuenta.NuevoHandler(cuentas, log).Registrar(enrutador)
+	cuenta.NuevoHandler(cuentas, sesiones, log).Registrar(enrutador)
 	return enrutador, cuentas.Esperar, nil
 }
 
