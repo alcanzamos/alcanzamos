@@ -64,7 +64,7 @@ Ningún dominio ni dirección va fija en el código (D-129). `config.Cargar` lee
 | `CORREO_SMTP` | `host:puerto` del servidor SMTP. Usa STARTTLS si el servidor lo ofrece; todavía no autentica (el proveedor de producción está por definir, O-4) | `127.0.0.1:1025` |
 | `CORREO_REMITENTE` | Dirección que envía; no recibe respuestas (D-120). El valor sale de la configuración, no del código | `no-responder@avisos.ejemplo.test` |
 | `CORREO_PRIVACIDAD` | Dirección del pie de cada correo, donde escribir sobre los datos (D-120, RF-060) | `privacidad@ejemplo.test` |
-| `URL_PUBLICA` | Base de los enlaces de los correos, sin parámetros; la barra final se quita. El enlace de verificación es `URL_PUBLICA/verificar?t=<token>` | `http://127.0.0.1:8080` |
+| `URL_PUBLICA` | Base de los enlaces de los correos, sin parámetros; la barra final se quita. El enlace de verificación es `URL_PUBLICA/verificar?t=<token>` y el de recuperación, `URL_PUBLICA/recuperar?t=<token>` | `http://127.0.0.1:8080` |
 | `SESION_SENUELO_CLAVE` | Clave que firma las sesiones de mentira (D-141, D-143 (2)). Base64 estándar o de URL; decodificada debe tener **32 bytes o más**. Obligatoria para `api`; nunca se registra ni sale en un error (`config.Clave` se imprime como `[oculta]`). Todas las réplicas deben tener la misma. Genera una con `openssl rand -base64 32` | `Zm9vLWJhci1iYXotcXV4LXF1dXgtY29ycmUtbG9jYWw=` (solo local) |
 | `PUERTO` | Puerto del servidor (opcional, 8080) | `8080` |
 
@@ -76,10 +76,10 @@ Toda ruta de `/api/` se registra con `Enrutador.Registrar(nivel, patron, manejad
 
 | Nivel | Qué exige | Rutas |
 |---|---|---|
-| `publica` | nada | crear la cuenta, verificar el correo con el enlace e iniciar sesión; en la rama siguiente, recuperar el acceso |
+| `publica` | nada | crear la cuenta, verificar el correo con el enlace, iniciar sesión y recuperar el acceso (pedir el enlace y elegir la contraseña con él) |
 | `sin_verificar` | una sesión, aunque sea la **limitada** de una cuenta con el correo sin verificar (o la sesión de mentira de D-141) | PN-59: revisar el estado, reenviar, cambiar el correo; cerrar sesión |
 | `sin_autorizacion` | cuenta con el correo **verificado**, aunque no haya autorizado lo necesario | cerrar sesión y las acciones de PN-63 y PN-64 (US-50) |
-| `requiere_autorizacion` | cuenta verificada y con las finalidades necesarias de su etapa **autorizadas** (`ReglaDeFinalidades`) | el ingreso anterior de PN-71 y todo lo demás |
+| `requiere_autorizacion` | cuenta verificada y con las finalidades necesarias de su etapa **autorizadas** (`ReglaDeFinalidades`) | el ingreso anterior de PN-71, el cambio de contraseña de PN-73 y todo lo demás |
 
 | Sujeto → | sin sesión | limitada o de mentira | verificada sin autorizar | autorizada |
 |---|---|---|---|---|
@@ -123,7 +123,7 @@ Es una **espera, no un bloqueo**: cada intento cuenta durante su ventana (desliz
 
 | Qué | Por cuenta o dirección | Por origen | Ventana | Decisión |
 |---|---|---|---|---|
-| Inicio de sesión (cuenta los **fallos**) | 5 | 20 | 15 minutos | D-136 |
+| Inicio de sesión (cuenta los **fallos**, también la contraseña de ahora errónea de PN-73) | 5 | 20 | 15 minutos | D-136 |
 | Pedido del enlace de recuperación | 3 | 20 | 1 hora | D-136 (4) |
 | Reenvío del correo de verificación y cambio de correo (contador propio), más una espera corta de 30 segundos entre uno y otro de la misma cuenta | 3 | 20 | 1 hora | D-138 (2), E14-PCP 4.2 (D-143 (5)) |
 | Crear una cuenta (cuenta **todos** los intentos) | — | 20 | 1 hora | D-140 (1) |
@@ -253,6 +253,9 @@ Los navegadores mandan `Origin` o `Sec-Fetch-Site` siempre y un script de una p�
 | `POST /api/v1/sesiones` | `publica` | Inicia sesión (CU-52, PN-60). Cuerpo: `{identificador, contrasena}` |
 | `DELETE /api/v1/sesiones/actual` | `sin_verificar` | Cierra la sesión de la petición, cualquiera: real, limitada o de mentira |
 | `GET /api/v1/cuenta/seguridad` | `requiere_autorizacion` | El ingreso anterior (PN-71, RF-062) |
+| `POST /api/v1/recuperacion` | `publica` | Pide el enlace para elegir una contraseña nueva (PN-61, RF-036). Cuerpo: `{correo}` |
+| `POST /api/v1/recuperacion/contrasena` | `publica` | Elige la contraseña nueva con el enlace (PN-62). Cuerpo: `{token, contrasena}` |
+| `POST /api/v1/cuenta/contrasena` | `requiere_autorizacion` | Cambia la contraseña con la sesión iniciada (PN-73, RF-065). Cuerpo: `{contrasena_actual, contrasena_nueva}` |
 
 Código en `internal/autenticacion` (`Servicio` y `Handler`; E12 `AutenticacionServicio`) y `pg.Autenticacion`.
 
@@ -274,7 +277,27 @@ Código en `internal/autenticacion` (`Servicio` y `Handler`; E12 `AutenticacionS
 
 `GET /api/v1/cuenta/seguridad` responde `{"ingreso_anterior":"2026-11-02T02:40:00Z"}` (RFC 3339 en UTC) o `{"ingreso_anterior":null}`. El cliente pone en `null` «Este es tu primer ingreso.» y convierte la fecha a su zona. Es el ingreso **anterior**, nunca el de la sesión de ahora. Con la cuenta sin autorizar o con la sesión limitada o de mentira lo niega el `Enrutador` (`403`).
 
-### Códigos de error para los clientes (rama 7)
+### Recuperar el acceso (PN-61 y PN-62, RF-036)
+
+- **Pedir el enlace** (`POST /api/v1/recuperacion`, `{correo}`). **Responde siempre** `202 {"estado":"enlace_enviado"}` si el correo está bien escrito, tenga cuenta o no: mismo estado, mismas cabeceras y mismo cuerpo (CU-44 2a). Un correo vacío o sin dominio da `422 validacion` (`correo_vacio` o `correo_invalido`), que no depende de la cuenta.
+  - Cuenta con el correo **verificado**: se borran los enlaces de recuperación pendientes (pedir uno nuevo invalida los anteriores, E13 §5.4) y se guarda uno nuevo, con un token de 32 bytes (en la base solo su SHA-256) que **vence a la hora y sirve una vez**. El correo lleva `URL_PUBLICA/recuperar?t=<token>`, sale en segundo plano y termina con el pie de D-143.
+  - **Cuenta sin verificar: no se manda nada**, con la misma respuesta (ver «Gaps»).
+  - Sin cuenta: no se hace nada.
+- **Límites.** D-136 (4): **3 pedidos por hora por correo y 20 por origen**, exista o no la cuenta; el siguiente es `429 {"error":"demasiados_intentos"}`, idéntico para todos, y un pedido frenado no cuenta. D-140: como máximo **3 correos por hora a una misma dirección** (suma verificación, reenvíos, aviso y recuperación); si la dirección ya llegó al tope, la respuesta es la misma y el correo no sale. La recuperación tiene su propio contador: no mezcla con el del inicio de sesión.
+- **Elegir la contraseña** (`POST /api/v1/recuperacion/contrasena`, `{token, contrasena}`). Primero mira el enlace, sin calcular nada: inexistente, mal formado, usado, vencido o de otro propósito (el de verificación no sirve aquí ni al revés) da `400 {"error":"enlace_invalido"}` («Ese enlace ya no sirve.»). Después aplica la política de contraseñas con el correo de la cuenta (`contrasena_personal`, D-142): si no cumple, `422 validacion` con el código en `contrasena` y **el enlace no se gasta**, así la persona corrige y vuelve a intentar.
+- **Al guardar, en una sola transacción:** se marca el enlace usado (un `UPDATE` con las condiciones en el `WHERE`, atómico: de varios usos simultáneos pasa uno), se guarda el hash Argon2id nuevo y se **borran todas las sesiones de la persona**, la actual incluida (recuperar significa que la contraseña vieja pudo estar comprometida). Responde `200 {"estado":"contrasena_cambiada"}` **sin iniciar sesión** y sin cookie: el cliente va a PN-60 con «Listo, cambiaste tu contraseña.» E12 (s2, CU-44) y E14 (PN-62) dicen lo mismo: no hay inicio automático.
+- Pruebas: `TestRecuperarElAccesoCierraTodasLasSesiones`, `TestElEnlaceDeRecuperacionVenceALaHora`, `TestPedirOtroEnlaceDeRecuperacionInvalidaLosPendientes`, `TestRecuperacionSoloParaCuentasVerificadas`, `TestLosEnlacesNoSeIntercambian` y `TestDosUsosSimultaneosDelEnlaceSoloPasaUno` (contra la base); las del 429, de los 3 correos por hora y de la política, en `internal/autenticacion/contrasenas_test.go`.
+
+### Cambiar la contraseña con la sesión iniciada (PN-73, RF-065, D-090)
+
+`POST /api/v1/cuenta/contrasena`, `{contrasena_actual, contrasena_nueva}`, nivel `requiere_autorizacion`.
+
+- La de ahora se verifica con Argon2id. Si no es la de la cuenta: `400 {"error":"contrasena_actual_incorrecta"}` («No pudimos confirmar tu contraseña de ahora. Escríbela de nuevo.»). **Cuenta como un fallo del mismo límite por cuenta del inicio de sesión** (D-136: 5 en 15 minutos por correo, y 20 por origen) y deja `inicio_sesion_fallido` con la cuenta (aquí quien llama ya tiene sesión, así que se atribuye). Con el límite alcanzado: `429 demasiados_intentos`, también con evento, **aunque la de ahora sea la correcta**. Los dos caminos comparten el contador, así que el cambio de contraseña no da cinco intentos más para adivinar la contraseña.
+- La nueva pasa la política con el correo de la cuenta: `422 validacion` con el código en `contrasena_nueva`; sin la de ahora, `contrasena_actual: contrasena_vacia`.
+- **En una transacción:** hash nuevo y se borran todas las **demás** sesiones de la persona, **menos la actual** (la de la cookie o el `Bearer` de la petición, D-090). `200 {"estado":"contrasena_cambiada"}`; el cliente vuelve a PN-71 con «Listo, cambiamos tu contraseña. Cerramos tus otras sesiones. Esta sigue abierta.»
+- Pruebas: `TestCambiarLaContrasenaCierraLasOtrasSesionesYConservaLaActual` (cuatro sesiones: la de crear la cuenta y tres de inicio de sesión; cambia desde una, las demás dan `401` y la actual sigue), `TestCambiarLaContrasenaConLaActualIncorrectaNoCambiaNada`, `TestLaContrasenaActualIncorrectaCuentaComoFalloDeIngreso`.
+
+### Códigos de error para los clientes (iniciar sesión, recuperar y cambiar la contraseña)
 
 | Ruta | Estado | `error` | Para el cliente |
 |---|---|---|---|
@@ -282,7 +305,17 @@ Código en `internal/autenticacion` (`Servicio` y `Handler`; E12 `AutenticacionS
 | `POST /api/v1/sesiones` | 429 | `demasiados_intentos` | PN-60 «Demasiados intentos» |
 | `POST /api/v1/sesiones` | 422 | `validacion` (`identificador_vacio`, `contrasena_vacia`) | errores de campo de PN-60 |
 | `POST /api/v1/sesiones` | 400 | `solicitud_invalida` | cuerpo roto, campo desconocido, o modo Android con cabeceras de navegador |
-| rutas con sesión | 401 | `sin_sesion` | PN-60 «Sesión cerrada» |
+| `POST /api/v1/recuperacion` | 202 | — (`estado: enlace_enviado`) | PN-61 «Enlace enviado», tenga cuenta o no |
+| `POST /api/v1/recuperacion` | 422 | `validacion` (`correo_vacio`, `correo_invalido`) | errores de campo de PN-61 |
+| `POST /api/v1/recuperacion` | 429 | `demasiados_intentos` | PN-61 «Demasiados intentos» |
+| `POST /api/v1/recuperacion/contrasena` | 200 | — (`estado: contrasena_cambiada`) | a PN-60 con «Listo, cambiaste tu contraseña.» |
+| `POST /api/v1/recuperacion/contrasena` | 400 | `enlace_invalido` | PN-62 «Enlace vencido» («Ese enlace ya no sirve.») |
+| `POST /api/v1/recuperacion/contrasena` | 422 | `validacion` (`contrasena`: `contrasena_vacia`, `contrasena_corta`, `contrasena_comun`, `contrasena_personal`) | errores de campo de PN-62 |
+| `POST /api/v1/cuenta/contrasena` | 200 | — (`estado: contrasena_cambiada`) | a PN-71 con el aviso de logro |
+| `POST /api/v1/cuenta/contrasena` | 400 | `contrasena_actual_incorrecta` | PN-73 «No pudimos confirmar tu contraseña de ahora…» |
+| `POST /api/v1/cuenta/contrasena` | 422 | `validacion` (`contrasena_actual`: `contrasena_vacia`; `contrasena_nueva`: los de la política) | errores de campo de PN-73 |
+| `POST /api/v1/cuenta/contrasena` | 429 | `demasiados_intentos` | PN-73, mismo texto de espera que PN-60 |
+| las de `/api/` que piden sesión | 401 | `sin_sesion` | PN-60 «Sesión cerrada» |
 | `GET /api/v1/cuenta/seguridad` | 403 | `verificacion_pendiente`, `autorizacion_pendiente` | el cliente sigue a PN-59 o a PN-63 |
 
 ## Gaps de la US-49
@@ -290,6 +323,10 @@ Código en `internal/autenticacion` (`Servicio` y `Handler`; E12 `AutenticacionS
 - **Origen detrás de un proxy:** el límite por origen usa la dirección de la conexión. Detrás de Azure Container Apps todos los pedidos llegarían con la dirección de su entrada y el límite se volvería de todos juntos. Es la fila 17 del primer despliegue (D-143 (4)): se confiará solo en la dirección que agregue esa entrada. No se lee `X-Forwarded-For` mientras tanto.
 - **Rotar `SESION_SENUELO_CLAVE`** deja sin sesión (401) a quien tenga una de mentira viva, a lo sumo 8 días de cuentas con un correo ajeno ya verificado. No hay clave anterior ni lista de claves: se evitó la complejidad. Si hace falta rotarla sin ese efecto, habría que aceptar dos claves.
 - **Holgura de un día:** una sesión de mentira vive hasta el final del día D+7 (UTC), hasta un día más que la cuenta sin verificar que imita (D-135); en la práctica la tarea diaria que borra la cuenta real tiene la misma holgura.
+- **Recuperar con la cuenta sin verificar (decisión conservadora):** no se manda enlace y la respuesta es la misma. Quien no confirmó su correo no tiene qué recuperar y un enlace a una dirección que nadie confirmó daría a quien la escribió una puerta a la cuenta; esa persona vuelve a crear la cuenta y D-141 reemplaza la pendiente con la contraseña de ahora. El cliente no distingue el caso (E14-PCP 4.4 no pide uno). Si el dueño prefiere mandar el enlace de verificación en su lugar, es un cambio de `PedirRecuperacion`; hoy no lo hace.
+- **Texto del correo de recuperación:** E14-PCP solo dice que lleva el pie de D-143; el asunto («Recupera el acceso a tu cuenta de Alcanzamos») y el cuerpo son una **propuesta que revisa el dueño** (`correo.mensajeDeRecuperacion`).
+- **Tiempo de respuesta de la recuperación:** con cuenta verificada hay una transacción y un envío en segundo plano; sin cuenta, una consulta. La diferencia es de milisegundos, sin Argon2id en ninguno de los dos; no se igualó con trabajo de relleno.
+- **Recuperar y cambiar la contraseña de un menor:** el menor no tiene correo (no hay enlace) y PN-73 le llega con I11, cuando exista su inicio de sesión; por ahora `requiere_autorizacion` lo deja fuera.
 - **Hash de relleno y parámetros viejos:** E12 pide subir los parámetros del hash al iniciar sesión cuando son más viejos que los vigentes. Hoy hay un solo juego de parámetros (OWASP), así que no se implementó; el hash de relleno usa los del `Hasheador` al arrancar.
 - **Inicio de sesión de menores y de cuentas con credencial temporal:** solo entra quien tiene correo (I11 suma el nombre de usuario; la exigencia de fijar contraseña propia, NM-14, tampoco está).
 - **Respuesta `200` al iniciar sesión** (no `201`) y `204` al cerrar: E12 no fija el código; la web y Android solo dependen del cuerpo.
