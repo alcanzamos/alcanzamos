@@ -26,7 +26,7 @@ func TestSubirYBajarMigraciones(t *testing.T) {
 		t.Fatal(err)
 	}
 	n, err := Subir(ctx, pool)
-	if err != nil || n != 2 {
+	if err != nil || n != 3 {
 		t.Fatalf("Subir: %d migraciones, error %v", n, err)
 	}
 	var tablas, finalidades int
@@ -43,7 +43,7 @@ func TestSubirYBajarMigraciones(t *testing.T) {
 	}
 
 	n, err = Bajar(ctx, pool)
-	if err != nil || n != 2 {
+	if err != nil || n != 3 {
 		t.Fatalf("Bajar: %d migraciones, error %v", n, err)
 	}
 	if err := pool.QueryRow(ctx, "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name <> 'goose_db_version'").Scan(&tablas); err != nil || tablas != 0 {
