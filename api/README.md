@@ -70,6 +70,41 @@ Ningún dominio ni dirección va fija en el código (D-129). `config.Cargar` lee
 
 `infra/local/` queda fuera de esta carpeta: para una variable nueva allí, copia la tabla a su `.env.example`. Las pruebas inyectan los valores (`config.Cargar` recibe la función de lectura del entorno).
 
+## Acceso negado por defecto (RNF-012, D-138)
+
+Toda ruta de `/api/` se registra con `Enrutador.Registrar(nivel, patron, manejador)` y **declara su nivel de acceso**. No existe un registro sin nivel: el valor cero, una ruta fuera de `/api/`, un patrón repetido (con el mismo nivel o con otro) o en conflicto hacen que `Construir` devuelva un error y el servidor no arranque. `Registrar` nunca hace `panic`. El nivel que se declara para «todo lo demás» es `requiere_autorizacion`: ante la duda, el más estricto.
+
+| Nivel | Qué exige | Rutas |
+|---|---|---|
+| `publica` | nada | crear la cuenta, verificar el correo con el enlace; en la US-49 parte 2, iniciar sesión y recuperar el acceso |
+| `sin_verificar` | una sesión, aunque sea la **limitada** de una cuenta con el correo sin verificar (o la sesión de mentira de D-141) | PN-59: revisar el estado, reenviar, cambiar el correo; cerrar sesión |
+| `sin_autorizacion` | cuenta con el correo **verificado**, aunque no haya autorizado lo necesario | cerrar sesión y las acciones de PN-63 y PN-64 (US-50) |
+| `requiere_autorizacion` | cuenta verificada y con las finalidades necesarias de su etapa **autorizadas** (`ReglaDeFinalidades`) | todo lo demás |
+
+| Sujeto → | sin sesión | limitada o de mentira | verificada sin autorizar | autorizada |
+|---|---|---|---|---|
+| `publica` | 200 | 200 | 200 | 200 |
+| `sin_verificar` | 401 `sin_sesion` | 200 | 200 | 200 |
+| `sin_autorizacion` | 401 `sin_sesion` | 403 `verificacion_pendiente` | 200 | 200 |
+| `requiere_autorizacion` | 401 `sin_sesion` | 403 `verificacion_pendiente` | 403 `autorizacion_pendiente` | 200 |
+
+- **Un nivel más bajo no hereda las rutas de uno más alto.** Lo contrario sí: una cuenta ya verificada sigue pudiendo *revisar el estado* en PN-59 (si abrió el enlace en otro dispositivo, «Ya lo confirmé» debe poder contestar «verificado» con la misma sesión).
+- Sin sesión: `401 {"error":"sin_sesion"}` y evento `error_autorizacion`. Con sesión que no alcanza el nivel: `403` con `verificacion_pendiente` o `autorizacion_pendiente` y evento `acceso_denegado` con la cuenta (la sesión de mentira queda como `desconocida`). Si falla la resolución de la sesión, `500`: ante la duda no pasa.
+- **`seguridad.Sujeto`** (`Persona`, `Verificada`, `Autorizada`, `Senuelo`) lo arma quien implementa `servidor.Sesiones` (la interfaz `SujetoDe(r)` que resuelve la sesión; el almacén llega en el PR 1c) y el `Enrutador` lo deja en el contexto (`servidor.SujetoDe`). La sesión de mentira de D-141 se trata como la limitada real en todas las rutas, diga lo que diga el resto de sus campos.
+- **Prueba por ruta** (`internal/servidor/accesotest`): `ProbarRutas` recorre las rutas registradas y, para cada una y cada clase de Sujeto, comprueba el estado, el código de error y el evento de seguridad de la tabla de arriba. Una ruta nueva entra sola. `TestTodaRutaDeAPITieneSuNivelDeclarado` (`cmd/api`) es además el inventario de rutas: una ruta nueva obliga a añadirla con su nivel.
+
+### Finalidades necesarias por etapa del titular (`cuenta.ReglaDeFinalidades`, D-139)
+
+`0002_catalogo.sql` tiene tres finalidades necesarias y activas, pero a cada persona solo le tocan algunas. La regla está en un solo lugar (`internal/cuenta/finalidades.go`) y según la etapa del **titular** (de quién son los datos; `autorizacion` separa `titular_id` de `otorgante_id`):
+
+| Etapa del titular | Finalidades necesarias | Quién las otorga |
+|---|---|---|
+| adulta | `cuenta_y_acceso`, `funciones_financieras` | el titular mismo (`otorgante_id = titular_id`, PN-64) |
+| menor | `cuenta_del_menor` | su tutor (PN-36) |
+| a los 18 años (pasa a `adulta`) | la lista de adulto | la persona (PN-54), sin `cuenta_del_menor` |
+
+Las accesorias (`avisos`, `horas_de_vida`, `correo_del_menor`) y `transferencia` (inactiva) no entran. `Cumple(etapa, titular, vigentes, tutores)` dice si se cumple; una etapa desconocida no cumple. **Prueba guardiana** (`TestElCatalogoNoTieneNecesariasSinClasificar`): lee las finalidades del INSERT de `0002_catalogo.sql` (la migración embebida, la misma que se aplica a la base) y falla si hay una necesaria y activa que la regla no clasifica; la prueba inversa falla si la regla exige un código que el catálogo no tiene como necesario y activo.
+
 ## Seguridad (`internal/seguridad`, US-49)
 
 Lo que no depende de ningún módulo de negocio (E12 §5.9).
