@@ -354,6 +354,13 @@ func normalizarCorreo(correo string) (normalizado, codigo string) {
 	return strings.ToLower(normalizado), codigo
 }
 
+// NormalizarCorreo es el correo recortado y en minúsculas, y si tiene la forma de PN-58. El inicio de sesión lo usa
+// para saber si un identificador puede ser un correo (el nombre de usuario llega en I11).
+func NormalizarCorreo(correo string) (normalizado string, valido bool) {
+	normalizado, codigo := normalizarCorreo(correo)
+	return normalizado, codigo == ""
+}
+
 // validarCorreo valida un correo suelto (el nuevo de «Cambiar el correo») con las reglas de PN-58.
 func validarCorreo(correo string) (string, error) {
 	normalizado, codigo := normalizarCorreo(correo)
