@@ -1,11 +1,11 @@
-// Comprueba que node-forge no entra en el paquete de JavaScript de la app (D-150): genera el paquete de Android con
+// Comprueba que node-forge y zod no entran en el paquete de JavaScript de la app (D-150, D-154): genera el paquete de Android con
 // `expo export` en una carpeta temporal fuera del repositorio y falla si aparece. Sin dependencias.
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { revisarArchivos } from "./bundle-logica.mjs";
+import { MARCAS_POR_PAQUETE, revisarArchivos } from "./bundle-logica.mjs";
 
 const raiz = fileURLToPath(new URL("../", import.meta.url));
 const salida = mkdtempSync(join(tmpdir(), "movil-bundle-"));
@@ -36,7 +36,7 @@ try {
     for (const f of fallas) console.error(`  ${f}`);
     codigo = 1;
   } else {
-    console.log("node-forge no está en el paquete de la app.");
+    console.log(`${Object.keys(MARCAS_POR_PAQUETE).join(" y ")} no están en el paquete de la app.`);
   }
 } catch (error) {
   console.error(`No se pudo comprobar el paquete: ${error.message}`);
