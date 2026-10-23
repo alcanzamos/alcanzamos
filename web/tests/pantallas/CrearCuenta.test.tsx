@@ -21,6 +21,16 @@ const crear = () =>
   fireEvent.click(screen.getByRole("button", { name: "Crear cuenta" }));
 
 describe("PN-58 · Crear la cuenta", () => {
+  it("lleva el logo de E14 con su texto alternativo, arriba del título", () => {
+    render(<CrearCuenta />);
+    const logo = screen.getByRole("img", { name: "Alcanzamos" });
+    expect(
+      logo.compareDocumentPosition(
+        screen.getByRole("heading", { level: 1, name: "Crea tu cuenta" }),
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("muestra los textos de E14 con la casilla sin marcar", () => {
     render(<CrearCuenta />);
     expect(

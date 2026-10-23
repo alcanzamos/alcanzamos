@@ -22,6 +22,7 @@ test.describe("PN-58 · Crear la cuenta", () => {
       page.getByRole("heading", { level: 1, name: "Crea tu cuenta" }),
     ).toBeVisible();
     await expect(page.getByLabel("Soy mayor de edad")).not.toBeChecked();
+    await expect(page.getByRole("img", { name: "Alcanzamos" })).toBeVisible();
     await sinViolaciones(page);
   });
 

@@ -73,7 +73,7 @@ export function CrearCuenta() {
   }
 
   return (
-    <Pagina titulo="Crea tu cuenta">
+    <Pagina titulo="Crea tu cuenta" conLogo>
       <p>Solo necesitamos tres datos.</p>
       <form className="formulario" noValidate onSubmit={enviar}>
         {aviso && <Aviso {...aviso} />}
