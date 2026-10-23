@@ -25,6 +25,9 @@ var rutasEsperadas = []servidor.Ruta{
 	{Patron: "POST /api/v1/sesiones", Nivel: seguridad.Publica},
 	{Patron: "DELETE /api/v1/sesiones/actual", Nivel: seguridad.SinVerificar},
 	{Patron: "GET /api/v1/cuenta/seguridad", Nivel: seguridad.RequiereAutorizacion},
+	{Patron: "POST /api/v1/recuperacion", Nivel: seguridad.Publica},
+	{Patron: "POST /api/v1/recuperacion/contrasena", Nivel: seguridad.Publica},
+	{Patron: "POST /api/v1/cuenta/contrasena", Nivel: seguridad.RequiereAutorizacion},
 }
 
 func enrutadorDePrueba(t *testing.T) *servidor.Enrutador {
@@ -43,7 +46,7 @@ func enrutadorDePrueba(t *testing.T) *servidor.Enrutador {
 	if err != nil {
 		t.Fatal(err)
 	}
-	e, _, err := armarEnrutador(cfg, pool, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+	e, _, err := armarEnrutador(context.Background(), cfg, pool, slog.New(slog.NewJSONHandler(io.Discard, nil)))
 	if err != nil {
 		t.Fatal(err)
 	}

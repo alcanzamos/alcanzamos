@@ -36,7 +36,23 @@ type entornoDeAcceso struct {
 	api http.Handler
 }
 
+// nuevoEntornoDeAcceso arma el API con los trabajadores de la recuperación andando (paran al terminar la prueba).
 func nuevoEntornoDeAcceso(t *testing.T) *entornoDeAcceso {
+	t.Helper()
+	e := nuevoEntornoDeAccesoSinTrabajadores(t)
+	e.iniciar(t)
+	return e
+}
+
+func (e *entornoDeAcceso) iniciar(t *testing.T) {
+	t.Helper()
+	ctx, cancelar := context.WithCancel(context.Background())
+	t.Cleanup(func() { cancelar(); e.aut.Esperar() })
+	e.aut.Iniciar(ctx)
+}
+
+// nuevoEntornoDeAccesoSinTrabajadores deja los pedidos de recuperación en la cola, para ver qué hace el pedido solo.
+func nuevoEntornoDeAccesoSinTrabajadores(t *testing.T) *entornoDeAcceso {
 	t.Helper()
 	e := &entornoDeAcceso{entornoDeCuentas: nuevoEntornoDeCuentas(t)}
 	hasher := argon2id.Nuevo(parametrosVigentes, 4)
@@ -49,6 +65,7 @@ func nuevoEntornoDeAcceso(t *testing.T) *entornoDeAcceso {
 	var err error
 	e.aut, err = autenticacion.NuevoServicio(autenticacion.Dependencias{
 		Repo: NuevoAutenticacion(e.pool), Hasher: hasher, Limitador: e.limitador, Reloj: e.reloj,
+		Correo: e.correo, Politica: seguridad.NuevaPoliticaDeContrasena(), Log: log,
 	})
 	if err != nil {
 		t.Fatal(err)

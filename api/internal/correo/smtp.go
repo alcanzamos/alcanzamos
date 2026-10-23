@@ -57,6 +57,19 @@ func (s *SMTP) EnviarVerificacion(ctx context.Context, destino, token string) er
 	return s.enviar(ctx, dir.Address, mensaje)
 }
 
+// EnviarRecuperacion manda el enlace de recuperación del acceso. No registra el destino, el token ni el cuerpo.
+func (s *SMTP) EnviarRecuperacion(ctx context.Context, destino, token string) error {
+	dir, err := mail.ParseAddress(destino)
+	if err != nil {
+		return fmt.Errorf("destino inválido: %w", err)
+	}
+	mensaje, err := s.mensajeDeRecuperacion(dir.Address, token)
+	if err != nil {
+		return err
+	}
+	return s.enviar(ctx, dir.Address, mensaje)
+}
+
 // EnviarAvisoDeCorreoRegistrado manda al dueño del correo el aviso de que alguien intentó crear una cuenta con él
 // (D-141). No registra el destino ni el cuerpo.
 func (s *SMTP) EnviarAvisoDeCorreoRegistrado(ctx context.Context, destino string) error {
@@ -86,6 +99,24 @@ func (s *SMTP) mensajeDeVerificacion(destino, token string) ([]byte, error) {
 		"Este mensaje sale de una dirección que no recibe respuestas.\r\n" +
 		s.pie()
 	return s.mensaje(destino, "Confirma tu correo en Alcanzamos", cuerpo)
+}
+
+// enlaceDeRecuperacion es URL_PUBLICA + /recuperar?t=<token> (PN-62).
+func (s *SMTP) enlaceDeRecuperacion(token string) string {
+	return s.urlPublica + "/recuperar?t=" + url.QueryEscape(token)
+}
+
+// mensajeDeRecuperacion arma el correo de recuperación del acceso. E14-PCP no escribe su texto, solo que lleva el mismo
+// pie (D-143): el texto es una propuesta que revisa el dueño. El enlace sirve 1 hora y una sola vez (E13 §5.4).
+func (s *SMTP) mensajeDeRecuperacion(destino, token string) ([]byte, error) {
+	cuerpo := "Hola,\r\n\r\n" +
+		"Pediste recuperar el acceso a tu cuenta de Alcanzamos. Para elegir una contraseña nueva, abre este enlace. Sirve durante 1 hora y una sola vez:\r\n\r\n" +
+		s.enlaceDeRecuperacion(token) + "\r\n\r\n" +
+		"Si no lo pediste, ignora este mensaje: tu contraseña sigue igual.\r\n\r\n" +
+		"--\r\n" +
+		"Este mensaje sale de una dirección que no recibe respuestas.\r\n" +
+		s.pie()
+	return s.mensaje(destino, "Recupera el acceso a tu cuenta de Alcanzamos", cuerpo)
 }
 
 // Texto del aviso de correo ya registrado: E14-PCP v1.11, 4.2 bis, palabra por palabra (texto propuesto, lo revisa el
