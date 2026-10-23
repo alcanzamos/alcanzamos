@@ -54,6 +54,38 @@ Un solo origen: la web y el API comparten dominio, sin CORS. No hay dominio fijo
 - Cuando lleguen las cookies de sesión (US-49) serán `SameSite=Strict` (D-083).
 - Para ver la web real sin Docker: `cp -r web/dist/. api/internal/web/estatico/` y `go run ./cmd/api` (no confirmar ese cambio).
 
+## Configuración
+
+Ningún dominio ni dirección va fija en el código (D-129). `config.Cargar` lee estas variables y, si falta alguna o no es válida, devuelve un error que las nombra todas. Hoy nadie la llama todavía: el comando `api` empieza a exigirla cuando monta la cuenta (PR 5 de la US-49). `migrar` y `tareas` no la necesitan.
+
+| Variable | Qué es | Ejemplo local (Mailpit de `infra/local`) |
+|---|---|---|
+| `BASE_DE_DATOS_URL` | Cadena de conexión de PostgreSQL | `postgres://alcanzamos:solo-local@127.0.0.1:5432/alcanzamos` |
+| `CORREO_SMTP` | `host:puerto` del servidor SMTP. Usa STARTTLS si el servidor lo ofrece; todavía no autentica (el proveedor de producción está por definir, O-4) | `127.0.0.1:1025` |
+| `CORREO_REMITENTE` | Dirección que envía; no recibe respuestas (D-120). El valor sale de la configuración, no del código | `no-responder@avisos.ejemplo.test` |
+| `CORREO_PRIVACIDAD` | Dirección del pie de cada correo, donde escribir sobre los datos (D-120, RF-060) | `privacidad@ejemplo.test` |
+| `URL_PUBLICA` | Base de los enlaces de los correos, sin parámetros; la barra final se quita. El enlace de verificación es `URL_PUBLICA/verificar?t=<token>` | `http://127.0.0.1:8080` |
+| `SESION_SENUELO_CLAVE` | Clave que firma las sesiones de mentira (D-141, D-143 (2)). Base64 estándar o de URL; decodificada debe tener **32 bytes o más**. Obligatoria para `api`; nunca se registra ni sale en un error (`config.Clave` se imprime como `[oculta]`). Todas las réplicas deben tener la misma. Genera una con `openssl rand -base64 32` | `Zm9vLWJhci1iYXotcXV4LXF1dXgtY29ycmUtbG9jYWw=` (solo local) |
+| `PUERTO` | Puerto del servidor (opcional, 8080) | `8080` |
+
+`infra/local/` queda fuera de esta carpeta: para una variable nueva allí, copia la tabla a su `.env.example`. Las pruebas inyectan los valores (`config.Cargar` recibe la función de lectura del entorno).
+
+## Seguridad (`internal/seguridad`, US-49)
+
+Lo que no depende de ningún módulo de negocio (E12 §5.9). Los límites de intentos y la política de contraseñas llegan en el PR 2.
+
+### Eventos de seguridad (RNF-025, E17-VTE 2.1)
+
+Una línea JSON de `slog` por evento (`seguridad.Registro`), nivel `WARN`, `msg` «evento de seguridad», con estos campos y ninguno más: `time` (siempre en UTC: `nuevoRegistro` de `cmd/api`), `level`, `msg`, `evento_seguridad` (`inicio_sesion_fallido`, `acceso_denegado` o `error_autorizacion`), `cuenta` (uuid o `desconocida`), `ruta` (el patrón de `Request.Pattern`, sin valores), `codigo` (HTTP) y `peticion`. **No hay origen ni IP** (D-123), ni contraseñas, tokens, correos o cuerpos. El `peticion` es de 16 bytes aleatorios en hexadecimal; nunca se acepta el que mande el cliente.
+
+### Tokens opacos (D-081)
+
+`NuevoTokenOpaco` da 32 bytes de `crypto/rand` en base64 de URL sin relleno y su SHA-256, que es lo único que llega a la base. `HuellaDeToken` rechaza, sin tocar la base, lo que no decodifica a 32 bytes.
+
+### Correo (`internal/correo`)
+
+SMTP de la biblioteca estándar; texto plano en español. Los dos correos (el de verificación y el aviso de D-141, E14-PCP 4.2 bis) terminan **exactamente** con «Si tienes dudas sobre tus datos, escribe a <CORREO_PRIVACIDAD>.» (D-143); una prueba compara el texto en los dos. El puerto `Correo` tiene un `Falso` para las pruebas. Nunca se registra el token, la dirección ni el cuerpo.
+
 ## Imagen
 
 - Tres etapas: `node:24.22.1-alpine3.24` (digest `sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53`, índice multiarquitectura, resuelto el 2026-10-22; mismo Node que `.azure-pipelines/web.yml`) hace `npm ci` y `npm run build` en `web/` (necesita `diseno/`); `golang:1.27.3-alpine3.24` (digest `sha256:b8c9b82affbbb82a020bbcf998dad2ba9516944ac7e883524642a481a9505e9c`, índice multiarquitectura, resuelto el 2026-10-22) copia ese `web/dist` a `internal/web/estatico/` y compila un binario estático con la web embebida; `gcr.io/distroless/static-debian13:nonroot` lo ejecuta, fijada por digest `sha256:d62067879de890a1def9da0e7766b7d20810a5e5555cef8506b752437d7a3e88` (índice multiarquitectura, resuelto el 2026-10-22).
