@@ -86,6 +86,54 @@ func TestMensajeDeVerificacion(t *testing.T) {
 	}
 }
 
+// El aviso de correo ya registrado lleva el asunto y el cuerpo de E14-PCP 4.2 bis palabra por palabra, el pie sale de
+// CORREO_PRIVACIDAD y no trae enlaces ni contraseñas (SEG-014).
+func TestMensajeDeAvisoDeCorreoRegistrado(t *testing.T) {
+	s := NuevoSMTP(configDePrueba("127.0.0.1:1025"), relojDePrueba())
+	crudo, err := s.mensajeDeAviso("laura@ejemplo.test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	enc, cuerpo := leerMensaje(t, crudo)
+	asunto, err := new(mime.WordDecoder).DecodeHeader(enc.Get("Subject"))
+	if err != nil || asunto != "Alguien intentó crear una cuenta con tu correo" {
+		t.Fatalf("asunto %q (%v)", asunto, err)
+	}
+	if enc.Get("From") != "no-responder@avisos.ejemplo.test" || enc.Get("To") != "laura@ejemplo.test" {
+		t.Fatalf("encabezados: %v", enc)
+	}
+	esperado := "Hola.\r\n\r\n" +
+		"Alguien intentó crear una cuenta en Alcanzamos con este correo.\r\n\r\n" +
+		"No creamos ninguna cuenta nueva. Tu cuenta sigue igual.\r\n\r\n" +
+		"Si fuiste tú, puedes iniciar sesión. Si no recuerdas tu contraseña, puedes recuperar el acceso desde la pantalla de inicio de sesión.\r\n\r\n" +
+		"Si no fuiste tú, no tienes que hacer nada.\r\n\r\n" +
+		"--\r\n" +
+		"Si tienes dudas sobre tus datos, escribe a privacidad@ejemplo.test.\r\n"
+	if cuerpo != esperado {
+		t.Fatalf("cuerpo:\n%q\nse esperaba:\n%q", cuerpo, esperado)
+	}
+	for _, prohibido := range []string{"http://", "https://", "verificar", "contraseña:"} {
+		if strings.Contains(cuerpo, prohibido) {
+			t.Errorf("el aviso no debe llevar %q", prohibido)
+		}
+	}
+}
+
+func TestEnviarAvisoPorSMTP(t *testing.T) {
+	dir, salida := servidorSMTP(t, false)
+	s := NuevoSMTP(configDePrueba(dir), relojDePrueba())
+	if err := s.EnviarAvisoDeCorreoRegistrado(context.Background(), "laura@ejemplo.test"); err != nil {
+		t.Fatal(err)
+	}
+	rec := <-salida
+	if rec.remitente != "no-responder@avisos.ejemplo.test" || rec.destinatario != "laura@ejemplo.test" {
+		t.Fatalf("sobre inesperado: %+v", rec)
+	}
+	if err := s.EnviarAvisoDeCorreoRegistrado(context.Background(), "no es un correo"); err == nil {
+		t.Fatal("un destino inválido debe fallar")
+	}
+}
+
 // servidorSMTP es un servidor SMTP mínimo: acepta un mensaje y entrega lo que recibió.
 type recibido struct {
 	remitente, destinatario, datos string
@@ -198,11 +246,20 @@ func TestFalsoGuardaYFalla(t *testing.T) {
 	if err := f.EnviarVerificacion(context.Background(), "a@b.test", "t"); err != nil {
 		t.Fatal(err)
 	}
-	if e := f.Enviados(); len(e) != 1 || e[0] != (Envio{"a@b.test", "t"}) {
+	if e := f.Enviados(); len(e) != 1 || e[0] != (Envio{Destino: "a@b.test", Token: "t"}) {
+		t.Fatalf("enviados: %+v", e)
+	}
+	if err := f.EnviarAvisoDeCorreoRegistrado(context.Background(), "e@f.test"); err != nil {
+		t.Fatal(err)
+	}
+	if e := f.Enviados(); len(e) != 2 || e[1] != (Envio{Destino: "e@f.test", Aviso: true}) {
 		t.Fatalf("enviados: %+v", e)
 	}
 	f.Error = errors.New("caído")
-	if err := f.EnviarVerificacion(context.Background(), "c@d.test", "u"); err == nil || len(f.Enviados()) != 1 {
+	if err := f.EnviarVerificacion(context.Background(), "c@d.test", "u"); err == nil || len(f.Enviados()) != 2 {
 		t.Fatal("con Error no debe guardar y debe devolverlo")
+	}
+	if err := f.EnviarAvisoDeCorreoRegistrado(context.Background(), "c@d.test"); err == nil || len(f.Enviados()) != 2 {
+		t.Fatal("el aviso con Error tampoco guarda")
 	}
 }

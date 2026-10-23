@@ -57,12 +57,26 @@ func (s *SMTP) EnviarVerificacion(ctx context.Context, destino, token string) er
 	return s.enviar(ctx, dir.Address, mensaje)
 }
 
+// EnviarAvisoDeCorreoRegistrado manda al dueño del correo el aviso de que alguien intentó crear una cuenta con él
+// (D-141). No registra el destino ni el cuerpo.
+func (s *SMTP) EnviarAvisoDeCorreoRegistrado(ctx context.Context, destino string) error {
+	dir, err := mail.ParseAddress(destino)
+	if err != nil {
+		return fmt.Errorf("destino inválido: %w", err)
+	}
+	mensaje, err := s.mensajeDeAviso(dir.Address)
+	if err != nil {
+		return err
+	}
+	return s.enviar(ctx, dir.Address, mensaje)
+}
+
 // enlaceDeVerificacion es URL_PUBLICA + /verificar?t=<token>. La ruta de la web existe desde la US-49 (PR 3).
 func (s *SMTP) enlaceDeVerificacion(token string) string {
 	return s.urlPublica + "/verificar?t=" + url.QueryEscape(token)
 }
 
-// mensajeDeVerificacion arma el mensaje completo: encabezados y cuerpo de texto plano en UTF-8.
+// mensajeDeVerificacion arma el mensaje de verificación.
 func (s *SMTP) mensajeDeVerificacion(destino, token string) ([]byte, error) {
 	cuerpo := "Hola,\r\n\r\n" +
 		"Para confirmar tu correo y seguir con tu cuenta de Alcanzamos, abre este enlace. Sirve durante 24 horas:\r\n\r\n" +
@@ -71,7 +85,28 @@ func (s *SMTP) mensajeDeVerificacion(destino, token string) ([]byte, error) {
 		"--\r\n" +
 		"Este mensaje sale de una dirección que no recibe respuestas.\r\n" +
 		"Si tienes preguntas sobre tus datos, escribe a " + s.privacidad + ".\r\n"
+	return s.mensaje(destino, "Confirma tu correo en Alcanzamos", cuerpo)
+}
 
+// Texto del aviso de correo ya registrado: E14-PCP v1.11, 4.2 bis, palabra por palabra (texto propuesto, lo revisa el
+// dueño). No lleva enlaces ni contraseñas. El pie sale de CORREO_PRIVACIDAD.
+const (
+	asuntoDelAviso = "Alguien intentó crear una cuenta con tu correo"
+	cuerpoDelAviso = "Hola.\r\n\r\n" +
+		"Alguien intentó crear una cuenta en Alcanzamos con este correo.\r\n\r\n" +
+		"No creamos ninguna cuenta nueva. Tu cuenta sigue igual.\r\n\r\n" +
+		"Si fuiste tú, puedes iniciar sesión. Si no recuerdas tu contraseña, puedes recuperar el acceso desde la pantalla de inicio de sesión.\r\n\r\n" +
+		"Si no fuiste tú, no tienes que hacer nada.\r\n\r\n" +
+		"--\r\n"
+)
+
+// mensajeDeAviso arma el aviso de correo ya registrado.
+func (s *SMTP) mensajeDeAviso(destino string) ([]byte, error) {
+	return s.mensaje(destino, asuntoDelAviso, cuerpoDelAviso+"Si tienes dudas sobre tus datos, escribe a "+s.privacidad+".\r\n")
+}
+
+// mensaje arma el mensaje completo: encabezados y cuerpo de texto plano en UTF-8.
+func (s *SMTP) mensaje(destino, asunto, cuerpo string) ([]byte, error) {
 	idAleatorio := make([]byte, 16)
 	if _, err := rand.Read(idAleatorio); err != nil {
 		return nil, fmt.Errorf("generar el identificador del mensaje: %w", err)
@@ -82,13 +117,14 @@ func (s *SMTP) mensajeDeVerificacion(destino, token string) ([]byte, error) {
 	encabezado := func(k, v string) { b.WriteString(k + ": " + v + "\r\n") }
 	encabezado("From", s.remitente)
 	encabezado("To", destino)
-	encabezado("Subject", mime.QEncoding.Encode("utf-8", "Confirma tu correo en Alcanzamos"))
+	encabezado("Subject", mime.QEncoding.Encode("utf-8", asunto))
 	encabezado("Date", s.reloj.Ahora().Format(time.RFC1123Z))
 	encabezado("Message-ID", "<"+hex.EncodeToString(idAleatorio)+"@"+dominio+">")
 	encabezado("MIME-Version", "1.0")
 	encabezado("Content-Type", "text/plain; charset=utf-8")
 	encabezado("Content-Transfer-Encoding", "quoted-printable")
 	b.WriteString("\r\n")
+
 	qp := quotedprintable.NewWriter(&b)
 	if _, err := qp.Write([]byte(cuerpo)); err != nil {
 		return nil, err
