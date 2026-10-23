@@ -1,9 +1,7 @@
 package cuenta
 
 import (
-	"encoding/json"
 	"errors"
-	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -13,9 +11,6 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/internal/servidor"
 	"github.com/alcanzamos/alcanzamos/api/internal/sesion"
 )
-
-// tamanoMaximoDelCuerpo basta de sobra para tres campos de texto y corta cuerpos abusivos antes de calcular un hash.
-const tamanoMaximoDelCuerpo = 16 << 10
 
 // Handler traduce HTTP a las operaciones del Servicio (E12 `CuentaHandler`). No tiene reglas: los códigos de
 // error de campo los pone el Servicio y los textos, el cliente.
@@ -42,16 +37,9 @@ func (h *Handler) Registrar(e *servidor.Enrutador) {
 	e.Registrar(seguridad.SinVerificar, "POST /api/v1/cuentas/correo", http.HandlerFunc(h.cambiarCorreo))
 }
 
-// leer decodifica un cuerpo JSON de un solo objeto. Un campo que no esté en destino es un error: así, un cliente que
-// mande la fecha de nacimiento recibe 400 y el API nunca la lee (D-089).
+// leer decodifica el cuerpo JSON de la petición (ver servidor.LeerJSON).
 func leer(w http.ResponseWriter, r *http.Request, destino any) bool {
-	d := json.NewDecoder(http.MaxBytesReader(w, r.Body, tamanoMaximoDelCuerpo))
-	d.DisallowUnknownFields()
-	if err := d.Decode(destino); err != nil || d.Decode(&struct{}{}) != io.EOF {
-		servidor.EscribirError(w, http.StatusBadRequest, "solicitud_invalida")
-		return false
-	}
-	return true
+	return servidor.LeerJSON(w, r, destino)
 }
 
 func (h *Handler) fallar(w http.ResponseWriter, r *http.Request, que string, err error) {

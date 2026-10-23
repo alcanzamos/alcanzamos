@@ -45,6 +45,14 @@ func Cookie(token string) *http.Cookie {
 	}
 }
 
+// CookieVencida es la orden de borrar la cookie de sesión al cerrarla: mismo nombre y mismos atributos que Cookie, con
+// `Max-Age=0`. Se manda igual para una sesión real, de mentira o ya vencida: no deben distinguirse por fuera.
+func CookieVencida() *http.Cookie {
+	c := Cookie("")
+	c.MaxAge = -1 // net/http lo escribe como `Max-Age=0`
+	return c
+}
+
 // TokenDe devuelve el token de la petición: `Authorization: Bearer <token>` (Android) o la cookie (web). Si vienen
 // las dos gana el encabezado. Devuelve "" si no hay ninguno. El formato no se valida aquí.
 func TokenDe(r *http.Request) string {

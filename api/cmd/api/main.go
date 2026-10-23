@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/alcanzamos/alcanzamos/api/internal/argon2id"
+	"github.com/alcanzamos/alcanzamos/api/internal/autenticacion"
 	"github.com/alcanzamos/alcanzamos/api/internal/bd"
 	"github.com/alcanzamos/alcanzamos/api/internal/config"
 	"github.com/alcanzamos/alcanzamos/api/internal/correo"
@@ -101,20 +102,29 @@ func armarEnrutador(cfg config.Config, pool *pgxpool.Pool, log *slog.Logger) (*s
 	if err != nil {
 		return nil, nil, err
 	}
+	hasher := argon2id.Predeterminado()
 	cuentas := cuenta.NuevoServicio(cuenta.Dependencias{
 		Repo:      pg.NuevoCuentas(pool),
 		Correo:    correo.NuevoSMTP(cfg, hora),
 		Politica:  seguridad.NuevaPoliticaDeContrasena(),
-		Hasher:    argon2id.Predeterminado(),
+		Hasher:    hasher,
 		Reloj:     hora,
 		Limitador: limitador,
 		Senuelos:  senuelos,
 		Log:       log,
 	})
+	autenticaciones, err := autenticacion.NuevoServicio(autenticacion.Dependencias{
+		Repo: pg.NuevoAutenticacion(pool), Hasher: hasher, Limitador: limitador, Reloj: hora, Log: log,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
 	sesiones := sesion.NuevoResolutor(pg.NuevoSesiones(pool), senuelos, hora)
 
-	enrutador := servidor.NuevoEnrutador(sesiones, seguridad.NuevoRegistro(log), log)
+	eventos := seguridad.NuevoRegistro(log)
+	enrutador := servidor.NuevoEnrutador(sesiones, eventos, log)
 	cuenta.NuevoHandler(cuentas, sesiones, log).Registrar(enrutador)
+	autenticacion.NuevoHandler(autenticaciones, eventos, log).Registrar(enrutador)
 	return enrutador, cuentas.Esperar, nil
 }
 
