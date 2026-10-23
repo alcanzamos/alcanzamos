@@ -1,4 +1,4 @@
-/* Columna de antes de entrar (E14-PCP 1) y su título. Los componentes de E14-SDD van en el PR siguiente.
+/* Componentes de E14-SDD (5.2 Botón, 5.3 Campo de texto, 5.4 Aviso, 5.17 Casilla, 5.18 Campo de contraseña).
    Solo tokens semánticos: nada de colores ni medidas sueltas (E17-ECO 4.5). */
 .columna {
   box-sizing: border-box;
@@ -23,4 +23,271 @@
   font-size: var(--tipografia-titulo-2-font-size);
   line-height: var(--tipografia-titulo-2-line-height);
   color: var(--color-texto-principal);
+}
+
+.formulario {
+  display: grid;
+  gap: var(--espacio-4);
+}
+
+.icono {
+  flex: none;
+  width: var(--tamano-icono);
+  height: var(--tamano-icono);
+}
+
+.nota,
+.ayuda {
+  font-size: var(--tipografia-pequeno-font-size);
+  line-height: var(--tipografia-pequeno-line-height);
+}
+
+.nota {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--espacio-2);
+  color: var(--color-estado-informacion-texto);
+}
+
+.ayuda {
+  color: var(--color-texto-secundario);
+}
+
+/* Botón (5.2) */
+.boton {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tamano-tactil-minimo);
+  padding: var(--espacio-3) var(--espacio-6);
+  border: var(--ancho-borde-grueso) solid transparent;
+  border-radius: var(--radio-medio);
+  font-family: var(--tipografia-cuerpo-destacado-font-family), sans-serif;
+  font-weight: var(--tipografia-cuerpo-destacado-font-weight);
+  font-size: var(--tipografia-cuerpo-destacado-font-size);
+  line-height: var(--tipografia-cuerpo-destacado-line-height);
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.boton--primario {
+  background: var(--color-accion-primaria-fondo);
+  color: var(--color-accion-primaria-texto);
+}
+
+.boton--primario:active {
+  background: var(--color-accion-primaria-fondo-presionado);
+}
+
+.boton--secundario {
+  background: var(--color-fondo-superficie);
+  border-color: var(--color-accion-secundaria-borde);
+  color: var(--color-accion-secundaria-texto);
+}
+
+.boton--secundario:active {
+  background: var(--color-accion-secundaria-fondo-presionado);
+}
+
+/* Botón de texto: caja de 48 px con tipografía.etiqueta */
+.boton--texto {
+  background: transparent;
+  color: var(--color-accion-secundaria-texto);
+  font-family: var(--tipografia-etiqueta-font-family), sans-serif;
+  font-weight: var(--tipografia-etiqueta-font-weight);
+  font-size: var(--tipografia-etiqueta-font-size);
+  justify-self: start;
+}
+
+.boton[aria-disabled="true"] {
+  background: var(--color-accion-deshabilitada-fondo);
+  border-color: transparent;
+  color: var(--color-accion-deshabilitada-texto);
+  cursor: default;
+}
+
+/* Campo de texto (5.3) y de contraseña (5.18) */
+.campo {
+  display: grid;
+  gap: var(--espacio-1);
+}
+
+.campo__etiqueta {
+  font-family: var(--tipografia-etiqueta-font-family), sans-serif;
+  font-weight: var(--tipografia-etiqueta-font-weight);
+  font-size: var(--tipografia-etiqueta-font-size);
+  line-height: var(--tipografia-etiqueta-line-height);
+}
+
+.campo__caja {
+  display: flex;
+  align-items: center;
+  min-height: var(--tamano-tactil-minimo);
+  border: var(--ancho-borde-fino) solid var(--color-borde-campo);
+  border-radius: var(--radio-pequeno);
+  background: var(--color-fondo-superficie);
+}
+
+.campo__caja:focus-within {
+  border-color: var(--color-borde-foco);
+  outline: var(--ancho-borde-grueso) solid var(--color-borde-foco);
+  outline-offset: calc(var(--ancho-borde-fino) * -1);
+}
+
+.campo__caja--error {
+  border: var(--ancho-borde-grueso) solid var(--color-estado-atencion-borde);
+}
+
+.campo__caja input {
+  flex: 1;
+  min-width: 0;
+  min-height: calc(var(--tamano-tactil-minimo) - var(--ancho-borde-grueso));
+  padding: 0 var(--espacio-3);
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-texto-principal);
+  font-family: var(--tipografia-cuerpo-font-family), sans-serif;
+  font-size: var(--tipografia-cuerpo-font-size);
+}
+
+.campo__ver {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tamano-tactil-minimo);
+  height: var(--tamano-tactil-minimo);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radio-pequeno);
+  background: transparent;
+  color: var(--color-texto-secundario);
+  cursor: pointer;
+}
+
+.campo__ayuda {
+  margin: 0;
+  color: var(--color-texto-secundario);
+  font-size: var(--tipografia-pequeno-font-size);
+  line-height: var(--tipografia-pequeno-line-height);
+}
+
+.campo__error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--espacio-2);
+  color: var(--color-estado-atencion-texto);
+  font-size: var(--tipografia-pequeno-font-size);
+  line-height: var(--tipografia-pequeno-line-height);
+}
+
+/* Casilla de verificación (5.17): la caja es nativa y está oculta; su aspecto lo da .casilla__caja */
+.casilla-grupo {
+  display: grid;
+  gap: var(--espacio-1);
+}
+
+.casilla {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-2);
+  min-height: var(--tamano-tactil-minimo);
+  cursor: pointer;
+}
+
+.casilla input {
+  position: absolute;
+  opacity: 0;
+  width: var(--tamano-icono);
+  height: var(--tamano-icono);
+  margin: 0;
+}
+
+.casilla__caja {
+  box-sizing: border-box;
+  display: inline-flex;
+  flex: none;
+  width: var(--tamano-icono);
+  height: var(--tamano-icono);
+  border: var(--ancho-borde-fino) solid var(--color-borde-campo);
+  border-radius: var(--radio-pequeno);
+  background: var(--color-fondo-superficie);
+  color: transparent;
+}
+
+.casilla__caja--error {
+  border: var(--ancho-borde-grueso) solid var(--color-estado-atencion-borde);
+}
+
+.casilla input:checked + .casilla__caja {
+  border-color: var(--color-accion-primaria-fondo);
+  background: var(--color-accion-primaria-fondo);
+  color: var(--color-accion-primaria-texto);
+}
+
+.casilla input:focus-visible + .casilla__caja {
+  outline: var(--ancho-borde-grueso) solid var(--color-borde-foco);
+  outline-offset: var(--espacio-1);
+}
+
+.casilla__caja .icono {
+  width: 100%;
+  height: 100%;
+}
+
+/* Aviso (5.4) */
+.aviso {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--espacio-3);
+  padding: var(--espacio-4);
+  border-radius: var(--radio-grande);
+}
+
+.aviso p {
+  margin: 0;
+}
+
+.aviso__titulo {
+  font-family: var(--tipografia-cuerpo-destacado-font-family), sans-serif;
+  font-weight: var(--tipografia-cuerpo-destacado-font-weight);
+}
+
+.aviso--informacion {
+  background: var(--color-estado-informacion-fondo);
+  color: var(--color-texto-principal);
+}
+
+.aviso--informacion .icono,
+.aviso--informacion .aviso__titulo {
+  color: var(--color-estado-informacion-texto);
+}
+
+.aviso--atencion {
+  background: var(--color-estado-atencion-fondo);
+  color: var(--color-texto-principal);
+}
+
+.aviso--atencion .icono,
+.aviso--atencion .aviso__titulo {
+  color: var(--color-estado-atencion-texto);
+}
+
+.aviso--logro {
+  background: var(--color-estado-logro-fondo);
+  color: var(--color-texto-principal);
+}
+
+.aviso--logro .icono,
+.aviso--logro .aviso__titulo {
+  color: var(--color-estado-logro-texto);
+}
+
+/* Números (D-123): Figtree con cifras tabulares y sin ss02. No se activa ninguna característica de la fuente. */
+.cifra {
+  font-family: var(--fuente-marca), sans-serif;
+  font-variant-numeric: tabular-nums;
 }
