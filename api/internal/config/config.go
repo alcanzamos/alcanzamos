@@ -3,7 +3,9 @@
 package config
 
 import (
+	"encoding/base64"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/mail"
 	"net/url"
@@ -17,7 +19,28 @@ const (
 	VariableCorreoRemitente  = "CORREO_REMITENTE"  // dirección que envía; no recibe respuestas (D-120)
 	VariableCorreoPrivacidad = "CORREO_PRIVACIDAD" // dirección del pie de cada correo: dónde escribir (D-120, RF-060)
 	VariableURLPublica       = "URL_PUBLICA"       // base de los enlaces de los correos, sin barra final
+	// VariableSesionSenuelo es la clave que firma las sesiones de mentira (D-141, D-143 (2)): base64 estándar o de URL.
+	VariableSesionSenuelo = "SESION_SENUELO_CLAVE"
 )
+
+// LongitudMinimaDeClaveDeSenuelo son los bytes que debe tener la clave ya decodificada.
+const LongitudMinimaDeClaveDeSenuelo = 32
+
+// Clave es un secreto de la configuración. Nunca se escribe en el registro ni en un error: al imprimirla, con fmt o
+// con slog, sale «[oculta]». Los bytes se leen con Bytes.
+type Clave struct{ bytes []byte }
+
+// Bytes devuelve el valor de la clave.
+func (c Clave) Bytes() []byte { return c.bytes }
+
+// String evita que la clave salga por un %v o un %+v.
+func (Clave) String() string { return "[oculta]" }
+
+// GoString evita que la clave salga por un %#v.
+func (Clave) GoString() string { return "config.Clave{[oculta]}" }
+
+// LogValue evita que la clave salga por slog.
+func (Clave) LogValue() slog.Value { return slog.StringValue("[oculta]") }
 
 // Config es la configuración que necesita el servidor de la API.
 type Config struct {
@@ -25,6 +48,7 @@ type Config struct {
 	CorreoRemitente  string
 	CorreoPrivacidad string
 	URLPublica       string
+	SesionSenuelo    Clave
 }
 
 // Cargar lee y valida la configuración con la función entorno (os.Getenv en producción).
@@ -44,6 +68,19 @@ func Cargar(entorno func(string) string) (Config, error) {
 		CorreoRemitente:  faltante(VariableCorreoRemitente),
 		CorreoPrivacidad: faltante(VariableCorreoPrivacidad),
 		URLPublica:       faltante(VariableURLPublica),
+	}
+
+	crudo := faltante(VariableSesionSenuelo)
+	if crudo != "" {
+		clave, err := decodificarClave(crudo)
+		switch {
+		case err != nil:
+			problemas = append(problemas, VariableSesionSenuelo+" debe estar en base64")
+		case len(clave) < LongitudMinimaDeClaveDeSenuelo:
+			problemas = append(problemas, fmt.Sprintf("%s debe tener al menos %d bytes decodificada", VariableSesionSenuelo, LongitudMinimaDeClaveDeSenuelo))
+		default:
+			c.SesionSenuelo = Clave{bytes: clave}
+		}
 	}
 
 	if c.CorreoSMTP != "" {
@@ -76,4 +113,13 @@ func Cargar(entorno func(string) string) (Config, error) {
 		return Config{}, fmt.Errorf("configuración incompleta o inválida: %s", strings.Join(problemas, "; "))
 	}
 	return c, nil
+}
+
+// decodificarClave acepta base64 estándar o de URL, con o sin relleno. El error no repite el valor.
+func decodificarClave(v string) ([]byte, error) {
+	v = strings.TrimRight(v, "=")
+	if b, err := base64.RawStdEncoding.DecodeString(v); err == nil {
+		return b, nil
+	}
+	return base64.RawURLEncoding.DecodeString(v)
 }
