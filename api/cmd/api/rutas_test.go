@@ -18,6 +18,10 @@ import (
 // Esta tabla es el inventario de /api/: añadir una ruta obliga a añadirla aquí con su nivel (RNF-012, D-138).
 var rutasEsperadas = []servidor.Ruta{
 	{Patron: "POST /api/v1/cuentas", Nivel: seguridad.Publica},
+	{Patron: "POST /api/v1/cuentas/verificacion", Nivel: seguridad.Publica},
+	{Patron: "GET /api/v1/cuentas/estado", Nivel: seguridad.SinVerificar},
+	{Patron: "POST /api/v1/cuentas/verificacion/reenvio", Nivel: seguridad.SinVerificar},
+	{Patron: "POST /api/v1/cuentas/correo", Nivel: seguridad.SinVerificar},
 }
 
 func enrutadorDePrueba(t *testing.T) *servidor.Enrutador {

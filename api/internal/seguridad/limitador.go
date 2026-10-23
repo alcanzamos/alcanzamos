@@ -24,6 +24,10 @@ const (
 	// Crear una cuenta (D-140): todos los intentos de un origen, no solo las cuentas creadas.
 	CreacionesPorOrigen = 20
 
+	// EsperaCortaDeReenvio es la espera corta de PN-59 entre un reenvío y el siguiente de la misma cuenta («Puedes pedir
+	// otro en un momento.»). Son 30 segundos: D-143 (5) los documenta en E14-PCP 4.2 (v1.12, nota del 2026-10-22).
+	EsperaCortaDeReenvio = 30 * time.Second
+
 	// Correos a una misma dirección de destino (D-140), sumando verificación, reenvíos y el aviso de D-141.
 	CorreosPorDestino = 3
 
@@ -88,10 +92,24 @@ func (l *LimitadorDeIntentos) PermitirRecuperacion(identificador, origen string)
 	return l.permitirDos("recuperacion", identificador, origen)
 }
 
-// PermitirReenvio cuenta un reenvío del correo de verificación o un cambio de correo, y dice si pasa: 3 por hora
-// por cuenta y 20 por origen, las cifras de la recuperación (D-138 (2)) pero con su propio contador.
+// PermitirReenvio cuenta un reenvío del correo de verificación o un cambio de correo, y dice si pasa: la espera corta
+// de PN-59 desde el último de la cuenta, 3 por hora por cuenta y 20 por origen, las cifras de la recuperación (D-138 (2))
+// pero con su propio contador. Solo cuenta si pasan las tres. «cuenta» es la persona o, para la sesión de mentira de
+// D-141, su token: los dos se limitan igual, así el 429 no los distingue.
 func (l *LimitadorDeIntentos) PermitirReenvio(cuenta, origen string) bool {
-	return l.permitirDos("reenvio", cuenta, origen)
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	ahora := l.reloj.Ahora()
+	l.barrer(ahora)
+	espera, kc, ko := claveDeCuenta("reenvio-espera", cuenta), claveDeCuenta("reenvio", cuenta), claveDeOrigen("reenvio", origen)
+	if !l.libre(ahora, espera, 1, EsperaCortaDeReenvio) || !l.libre(ahora, kc, EnlacesPorCuenta, VentanaPorHora) ||
+		!l.libre(ahora, ko, EnlacesPorOrigen, VentanaPorHora) {
+		return false
+	}
+	l.anotar(ahora, espera, 1, EsperaCortaDeReenvio)
+	l.anotar(ahora, kc, EnlacesPorCuenta, VentanaPorHora)
+	l.anotar(ahora, ko, EnlacesPorOrigen, VentanaPorHora)
+	return true
 }
 
 // PermitirCreacion cuenta un intento de crear una cuenta y dice si pasa: 20 por hora por origen (D-140 (1)).
@@ -114,7 +132,7 @@ func (l *LimitadorDeIntentos) PermitirCorreo(destino string) bool {
 	return l.intentar(ahora, claveDeCuenta("correo", destino), CorreosPorDestino, VentanaPorHora)
 }
 
-// permitirDos aplica un límite por cuenta y otro por origen, y solo cuenta si pasan los dos.
+// permitirDos aplica un límite por cuenta y otro por origen, y solo cuenta si pasan los dos. Es el de la recuperación.
 func (l *LimitadorDeIntentos) permitirDos(familia, cuenta, origen string) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()

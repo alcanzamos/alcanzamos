@@ -21,6 +21,8 @@ const (
 	VigenciaDelEnlaceDeVerificacion = 24 * time.Hour
 	// PlazoParaConfirmar: la cuenta que no confirma el correo o no autoriza se borra a los 7 días de creada (D-135).
 	PlazoParaConfirmar = 7 * 24 * time.Hour
+	// AniosDeLaPruebaDeAutorizacion: lo que se conserva tras borrar la cuenta, 3 años, es provisional (E13 §7, D-085).
+	AniosDeLaPruebaDeAutorizacion = 3
 
 	longitudMaximaDelNombre = 60  // ck_persona_nombre
 	longitudMaximaDelCorreo = 254 // RFC 5321
@@ -32,6 +34,10 @@ var (
 	// ErrCorreoYaRegistrado lo devuelve el Repositorio cuando el correo ya tiene una cuenta con el correo verificado.
 	// CrearCuenta no lo expone: responde igual (D-141).
 	ErrCorreoYaRegistrado = errors.New("el correo ya tiene una cuenta verificada")
+	// ErrEnlaceInvalido: el enlace no existe, ya se usó, venció o ya no es el vigente. PN-59: «Ese enlace ya no sirve.»
+	ErrEnlaceInvalido = errors.New("el enlace ya no sirve")
+	// ErrYaVerificado: el correo de la cuenta ya estaba confirmado.
+	ErrYaVerificado = errors.New("el correo ya está verificado")
 	// ErrDemasiadosIntentos: el origen pasó el límite de intentos (D-140). El cliente muestra «Hiciste muchos intentos…».
 	ErrDemasiadosIntentos = errors.New("demasiados intentos")
 )
@@ -91,6 +97,24 @@ type Repositorio interface {
 	// sesiones y enlaces) y crea la nueva con la contraseña de ahora. Si la cuenta es **verificada**, no toca nada y
 	// devuelve ErrCorreoYaRegistrado. Devuelve el uuid de la persona.
 	Crear(ctx context.Context, c NuevaCuenta) (string, error)
+
+	// VerificarCorreo consume el enlace y marca el correo como verificado en una transacción. Devuelve el uuid de la
+	// persona, o ErrEnlaceInvalido si el enlace no existe, ya se usó o venció.
+	VerificarCorreo(ctx context.Context, huella []byte, ahora time.Time) (string, error)
+	// NuevoEnlaceDeVerificacion invalida los enlaces de verificación pendientes de la persona y guarda uno nuevo
+	// (E13 §5.4). Devuelve el correo de la cuenta, o ErrYaVerificado.
+	NuevoEnlaceDeVerificacion(ctx context.Context, persona string, huella []byte, ahora, vence time.Time) (string, error)
+	// CambiarCorreoSinVerificar cambia el correo de una cuenta sin verificar (PN-59) con las mismas reglas de D-141:
+	// invalida los enlaces pendientes y guarda el nuevo; si el correo nuevo tiene otra cuenta **sin verificar**, la
+	// borra y se queda con el correo; si tiene una **verificada**, no cambia el correo de la cuenta y devuelve
+	// ErrCorreoYaRegistrado (los enlaces pendientes quedan invalidados igual, para que el enlace del correo viejo no
+	// verifique una cuenta que la persona ya quiso cambiar). Devuelve ErrYaVerificado si la cuenta ya está verificada.
+	CambiarCorreoSinVerificar(ctx context.Context, persona, nuevo string, huella []byte, ahora, vence time.Time) error
+	// BorrarSinConfirmar borra, con todo lo que tengan (sesiones incluidas), las cuentas adultas creadas hasta
+	// `creadasHasta` que no confirmaron el correo o no tienen vigente cada una de las `necesarias` otorgadas por la
+	// propia persona (D-135, D-139), y devuelve cuántas. Las autorizaciones que tuvieran quedan retiradas en `ahora`
+	// y se conservan hasta `conservarHasta`.
+	BorrarSinConfirmar(ctx context.Context, creadasHasta, ahora, conservarHasta time.Time, necesarias []string) (int, error)
 }
 
 // Hasheador calcula el hash de una contraseña (internal/argon2id).
@@ -187,6 +211,84 @@ func (s *Servicio) CrearCuenta(ctx context.Context, sol SolicitudDeCuenta) (Sesi
 	return SesionNueva{Token: tokenDeSesion}, nil
 }
 
+// VerificarCorreo confirma el correo con el token del enlace (CU-43 paso 3). El token es la autoridad: no hace falta
+// sesión y sirve desde cualquier dispositivo. Un token mal formado, usado, vencido o inexistente da ErrEnlaceInvalido,
+// siempre el mismo. Devuelve el uuid de la persona cuyo correo quedó verificado.
+func (s *Servicio) VerificarCorreo(ctx context.Context, token string) (string, error) {
+	huella, err := seguridad.HuellaDeToken(token)
+	if err != nil {
+		return "", ErrEnlaceInvalido
+	}
+	return s.d.Repo.VerificarCorreo(ctx, huella, s.d.Reloj.Ahora())
+}
+
+// ReenviarVerificacion invalida los enlaces pendientes y manda uno nuevo (PN-59, «Reenviar el correo»). cuenta es la
+// persona del Sujeto o, para la sesión de mentira, su token: con la espera corta de E14 y los límites de 3 por hora por
+// cuenta y 20 por origen (D-138) y 3 correos por hora a la dirección (D-140) responde igual para las dos. La de mentira
+// cuenta contra los límites, no toca nada y no manda nada: no tiene dirección y no se le escribe a quien no la pidió.
+// Devuelve ErrDemasiadosIntentos o ErrYaVerificado.
+func (s *Servicio) ReenviarVerificacion(ctx context.Context, sujeto seguridad.Sujeto, cuenta, origen string) error {
+	if !s.d.Limitador.PermitirReenvio(cuenta, origen) {
+		return ErrDemasiadosIntentos
+	}
+	if sujeto.Senuelo {
+		return nil
+	}
+	token, huella := seguridad.NuevoTokenOpaco()
+	ahora := s.d.Reloj.Ahora()
+	destino, err := s.d.Repo.NuevoEnlaceDeVerificacion(ctx, sujeto.Persona, huella, ahora, ahora.Add(VigenciaDelEnlaceDeVerificacion))
+	if err != nil {
+		return err
+	}
+	s.enviar(ctx, destino, "verificación", func(ctx context.Context) error {
+		return s.d.Correo.EnviarVerificacion(ctx, destino, token)
+	})
+	return nil
+}
+
+// CambiarCorreoSinVerificar cambia el correo de una cuenta sin verificar (PN-59, «Cambiar el correo»): valida el correo
+// nuevo como en PN-58, invalida los enlaces pendientes y manda uno nuevo. Con los mismos límites que el reenvío. Si el
+// correo nuevo ya tiene cuenta se aplica D-141 (ver Repositorio.CambiarCorreoSinVerificar): la respuesta es la misma, y
+// si la cuenta es verificada el dueño recibe el aviso en lugar de la persona. La sesión de mentira valida y cuenta
+// contra los límites, y no hace nada más.
+func (s *Servicio) CambiarCorreoSinVerificar(ctx context.Context, sujeto seguridad.Sujeto, cuenta, origen, nuevo string) error {
+	if !s.d.Limitador.PermitirReenvio(cuenta, origen) {
+		return ErrDemasiadosIntentos
+	}
+	correoNormalizado, err := validarCorreo(nuevo)
+	if err != nil {
+		return err
+	}
+	if sujeto.Senuelo {
+		return nil
+	}
+	token, huella := seguridad.NuevoTokenOpaco()
+	ahora := s.d.Reloj.Ahora()
+	err = s.d.Repo.CambiarCorreoSinVerificar(ctx, sujeto.Persona, correoNormalizado, huella, ahora, ahora.Add(VigenciaDelEnlaceDeVerificacion))
+	switch {
+	case errors.Is(err, ErrCorreoYaRegistrado):
+		s.enviar(ctx, correoNormalizado, "aviso", func(ctx context.Context) error {
+			return s.d.Correo.EnviarAvisoDeCorreoRegistrado(ctx, correoNormalizado)
+		})
+	case err != nil:
+		return err
+	default:
+		s.enviar(ctx, correoNormalizado, "verificación", func(ctx context.Context) error {
+			return s.d.Correo.EnviarVerificacion(ctx, correoNormalizado, token)
+		})
+	}
+	return nil
+}
+
+// BorrarCuentasSinConfirmar borra, con todo lo que tengan, las cuentas de 7 días o más que no confirmaron el correo o
+// no autorizaron lo necesario (D-135). Lo necesario sale de ReglaDeFinalidades para una persona adulta (D-139). No
+// envía correo: la dirección no está confirmada y puede ser de otra persona. Es idempotente: una cuenta ya borrada no
+// vuelve a aparecer. Devuelve cuántas borró.
+func (s *Servicio) BorrarCuentasSinConfirmar(ctx context.Context, ahora time.Time) (int, error) {
+	return s.d.Repo.BorrarSinConfirmar(ctx, ahora.Add(-PlazoParaConfirmar), ahora,
+		ahora.AddDate(AniosDeLaPruebaDeAutorizacion, 0, 0), ReglaDeFinalidades{}.Codigos(EtapaAdulta))
+}
+
 // enviar manda un correo en segundo plano si la dirección no pasó el límite de 3 por hora (D-140). Quien llama
 // responde igual al cliente haya enviado o no. Nunca registra la dirección, el token ni el cuerpo: solo qué correo era.
 func (s *Servicio) enviar(ctx context.Context, destino, que string, envio func(context.Context) error) {
@@ -208,14 +310,10 @@ func (s *Servicio) enviar(ctx context.Context, destino, que string, envio func(c
 // validar aplica las reglas de PN-58 y devuelve el correo y el nombre normalizados, o un *ErrValidacion.
 func (s *Servicio) validar(sol SolicitudDeCuenta) (correoNormalizado, nombre string, err error) {
 	campos := map[string]string{}
-	correoNormalizado = strings.TrimSpace(sol.Correo)
-	switch dir, errCorreo := mail.ParseAddress(correoNormalizado); {
-	case correoNormalizado == "":
-		campos[campoCorreo] = CorreoVacio
-	case errCorreo != nil || dir.Address != correoNormalizado || len(correoNormalizado) > longitudMaximaDelCorreo || !tieneDominio(correoNormalizado):
-		campos[campoCorreo] = CorreoInvalido
+	correoNormalizado, codigoDelCorreo := normalizarCorreo(sol.Correo)
+	if codigoDelCorreo != "" {
+		campos[campoCorreo] = codigoDelCorreo
 	}
-	correoNormalizado = strings.ToLower(correoNormalizado)
 
 	switch errContrasena := s.d.Politica.Validar(sol.Contrasena, correoNormalizado, ""); {
 	case errors.Is(errContrasena, seguridad.ErrContrasenaVacia):
@@ -242,6 +340,27 @@ func (s *Servicio) validar(sol SolicitudDeCuenta) (correoNormalizado, nombre str
 		return "", "", &ErrValidacion{Campos: campos}
 	}
 	return correoNormalizado, nombre, nil
+}
+
+// normalizarCorreo recorta y pasa a minúsculas el correo, y devuelve el código de error de PN-58 si no sirve ("" si sirve).
+func normalizarCorreo(correo string) (normalizado, codigo string) {
+	normalizado = strings.TrimSpace(correo)
+	switch dir, err := mail.ParseAddress(normalizado); {
+	case normalizado == "":
+		codigo = CorreoVacio
+	case err != nil || dir.Address != normalizado || len(normalizado) > longitudMaximaDelCorreo || !tieneDominio(normalizado):
+		codigo = CorreoInvalido
+	}
+	return strings.ToLower(normalizado), codigo
+}
+
+// validarCorreo valida un correo suelto (el nuevo de «Cambiar el correo») con las reglas de PN-58.
+func validarCorreo(correo string) (string, error) {
+	normalizado, codigo := normalizarCorreo(correo)
+	if codigo != "" {
+		return "", &ErrValidacion{Campos: map[string]string{campoCorreo: codigo}}
+	}
+	return normalizado, nil
 }
 
 // tieneDominio exige un punto en el dominio, como en el ejemplo de PN-58: nombre@correo.com.

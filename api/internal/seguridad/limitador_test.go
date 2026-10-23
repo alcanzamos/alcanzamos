@@ -34,7 +34,6 @@ func TestLimitesDeIntentos(t *testing.T) {
 			return ok
 		}},
 		{"recuperación por cuenta", time.Hour, 3, func(l *LimitadorDeIntentos, c, o string) bool { return l.PermitirRecuperacion(c, o) }},
-		{"reenvío por cuenta", time.Hour, 3, func(l *LimitadorDeIntentos, c, o string) bool { return l.PermitirReenvio(c, o) }},
 		{"correos por destino", time.Hour, 3, func(l *LimitadorDeIntentos, c, o string) bool { return l.PermitirCorreo(c) }},
 	}
 	for _, c := range casos {
@@ -83,7 +82,6 @@ func TestLimitesPorOrigen(t *testing.T) {
 			return ok
 		}},
 		{"recuperación por origen", time.Hour, 20, func(l *LimitadorDeIntentos, c, o string) bool { return l.PermitirRecuperacion(c, o) }},
-		{"reenvío por origen", time.Hour, 20, func(l *LimitadorDeIntentos, c, o string) bool { return l.PermitirReenvio(c, o) }},
 		{"creación por origen", time.Hour, 20, func(l *LimitadorDeIntentos, c, o string) bool { return l.PermitirCreacion(o) }},
 	}
 	for _, c := range casos {
@@ -109,6 +107,61 @@ func TestLimitesPorOrigen(t *testing.T) {
 				t.Fatal("al cumplirse la ventana debe pasar de nuevo")
 			}
 		})
+	}
+}
+
+// PN-59: el reenvío tiene, además de las cifras de la recuperación, la espera corta de E14.
+func TestReenvioConEsperaCortaYLimiteDeLaHora(t *testing.T) {
+	l, r := nuevoLimitadorDePrueba()
+	en := func(d time.Duration) bool {
+		r.T = inicio.Add(d)
+		return l.PermitirReenvio("laura@ejemplo.test", "o")
+	}
+	if !en(0) {
+		t.Fatal("el primero pasa")
+	}
+	if en(time.Second) || en(EsperaCortaDeReenvio-time.Second) {
+		t.Fatal("dentro de la espera corta se frena")
+	}
+	if !en(EsperaCortaDeReenvio) {
+		t.Fatal("pasada la espera corta pasa (los frenados no la alargan)")
+	}
+	if !en(2 * EsperaCortaDeReenvio) {
+		t.Fatal("el tercero de la hora pasa")
+	}
+	if en(3 * EsperaCortaDeReenvio) {
+		t.Fatal("el cuarto de la hora se frena aunque haya pasado la espera corta")
+	}
+	if en(time.Hour - time.Second) {
+		t.Fatal("un segundo antes de que venza el primero sigue frenado")
+	}
+	if !en(time.Hour) {
+		t.Fatal("al vencer el primero hay lugar otra vez")
+	}
+	if !l.PermitirReenvio("otra@ejemplo.test", "o") {
+		t.Fatal("otra cuenta no se ve afectada")
+	}
+}
+
+func TestReenvioPorOrigenYElTokenDeLaSesionDeMentiraCuentaComoCuenta(t *testing.T) {
+	l, r := nuevoLimitadorDePrueba()
+	for i := range EnlacesPorOrigen {
+		if !l.PermitirReenvio(fmt.Sprintf("cuenta-%d", i), "203.0.113.7") {
+			t.Fatalf("el pedido %d debía pasar", i+1)
+		}
+	}
+	if l.PermitirReenvio("token-de-mentira", "203.0.113.7") {
+		t.Fatal("el origen está lleno")
+	}
+	if !l.PermitirReenvio("token-de-mentira", "203.0.113.8") {
+		t.Fatal("desde otro origen pasa, y ya gastó su espera corta")
+	}
+	if l.PermitirReenvio("token-de-mentira", "203.0.113.9") {
+		t.Fatal("su espera corta vale igual que la de una cuenta real")
+	}
+	r.T = inicio.Add(time.Hour)
+	if !l.PermitirReenvio("cuenta-0", "203.0.113.7") {
+		t.Fatal("a la hora vuelve a pasar")
 	}
 }
 
@@ -166,14 +219,14 @@ func TestSoloCuentaSiPasanLosDosLimites(t *testing.T) {
 	l, _ := nuevoLimitadorDePrueba()
 	// Se llena el origen con otras cuentas.
 	for i := range EnlacesPorOrigen {
-		l.PermitirReenvio(fmt.Sprintf("c%d", i), "o")
+		l.PermitirRecuperacion(fmt.Sprintf("c%d", i), "o")
 	}
-	if l.PermitirReenvio("laura", "o") {
+	if l.PermitirRecuperacion("laura", "o") {
 		t.Fatal("el origen está lleno")
 	}
 	// El pedido frenado no gastó nada de la cuenta: desde otro origen todavía tiene sus 3.
 	for i := range EnlacesPorCuenta {
-		if !l.PermitirReenvio("laura", fmt.Sprintf("otro-%d", i)) {
+		if !l.PermitirRecuperacion("laura", fmt.Sprintf("otro-%d", i)) {
 			t.Fatalf("el pedido %d de la cuenta debía pasar", i+1)
 		}
 	}
