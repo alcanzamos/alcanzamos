@@ -39,6 +39,9 @@ func (n NivelDeAcceso) String() string {
 	return "sin_declarar"
 }
 
+// ErrSinSesion: la petición no trae una sesión válida (falta, venció, fue revocada o no existe).
+var ErrSinSesion = errors.New("sin sesión")
+
 // Por qué un Sujeto no alcanza un nivel. Son los códigos del 403.
 var (
 	ErrVerificacionPendiente = errors.New("verificacion_pendiente") // el correo de la cuenta no está verificado

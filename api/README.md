@@ -51,12 +51,12 @@ Un solo origen: la web y el API comparten dominio, sin CORS. No hay dominio fijo
   | `form-action 'self'` | Los formularios solo envían al mismo origen |
 
   La prueba `TestContentSecurityPolicyEnTodasLasRespuestas` verifica el valor exacto. `vite preview` (que usa Playwright) repite el mismo texto en `web/vite.config.ts` y `web/e2e/csp.spec.ts` lo compara y falla ante cualquier violación; no hay un origen único posible porque Go no puede embeber archivos fuera de su módulo, así que son dos literales que hay que mantener iguales.
-- Cuando lleguen las cookies de sesión (US-49) serán `SameSite=Strict` (D-083).
+- La cookie de sesión es `__Host-sesion`, con `SameSite=Strict` (D-083); ver [Sesiones](#sesiones-us-49).
 - Para ver la web real sin Docker: `cp -r web/dist/. api/internal/web/estatico/` y `go run ./cmd/api` (no confirmar ese cambio).
 
 ## Configuración
 
-Ningún dominio ni dirección va fija en el código (D-129). `config.Cargar` lee estas variables y, si falta alguna o no es válida, devuelve un error que las nombra todas. Hoy nadie la llama todavía: el comando `api` empieza a exigirla cuando monta la cuenta (PR 5 de la US-49). `migrar` y `tareas` no la necesitan.
+Ningún dominio ni dirección va fija en el código (D-129). `config.Cargar` lee estas variables y, si falta alguna o no es válida, devuelve un error que las nombra todas. Hoy nadie la llama todavía: el comando `api` empieza a exigirla cuando monta la cuenta (PR 5 de la US-49); `internal/sesion` ya usa `SESION_SENUELO_CLAVE`. `migrar` y `tareas` no la necesitan.
 
 | Variable | Qué es | Ejemplo local (Mailpit de `infra/local`) |
 |---|---|---|
@@ -154,6 +154,49 @@ Una prueba por regla en `contrasena_test.go`. Las reglas miran la contraseña en
 ### Correo (`internal/correo`)
 
 SMTP de la biblioteca estándar; texto plano en español. Los dos correos (el de verificación y el aviso de D-141, E14-PCP 4.2 bis) terminan **exactamente** con «Si tienes dudas sobre tus datos, escribe a <CORREO_PRIVACIDAD>.» (D-143); una prueba compara el texto en los dos. El puerto `Correo` tiene un `Falso` para las pruebas. Nunca se registra el token, la dirección ni el cuerpo.
+
+## Sesiones (US-49)
+
+Es la capa de sesiones: todavía no hay ninguna ruta que cree cuentas ni sesiones (eso es del PR 5). El `Enrutador` ya resuelve la sesión de cada pedido con `sesion.Resolutor`.
+
+- **Almacén en PostgreSQL** (`pg.Sesiones`, E13 §5.3, D-081): `sesion` guarda solo el SHA-256 del token. Vencimiento **deslizante de 30 días** con **tope de 90 días** desde la creación (`vence_en = menor(ahora + 30 días, creada_en + 90 días)`). `ultimo_uso_en` solo se escribe si pasaron **más de 5 minutos** desde el anterior. **Máximo 5 sesiones por persona:** al crear una más se borran las menos recientes en la misma transacción. Cada sesión lleva un token nuevo. En cada petición se lee si la cuenta confirmó el correo y si tiene autorizadas las finalidades necesarias de su etapa (`ReglaDeFinalidades`), sin guardarlo: retirar una autorización surte efecto al instante.
+- **Web: cookie `__Host-sesion`** con `HttpOnly; Secure; SameSite=Strict; Path=/` y `Max-Age=7776000` (90 días, el tope; el vencimiento real lo decide el servidor). El prefijo `__Host-` hace que el navegador exija `Secure` y `Path=/` y no deje fijarla a un subdominio.
+- **Android: `Authorization: Bearer <token>`.** La web y Android se resuelven igual (gana el encabezado si vienen los dos). Un token ausente, mal formado o desconocido es `401 sin_sesion`.
+- **Resolución** (`sesion.Resolutor`): consulta siempre el almacén real primero y, si no hay sesión, mira si el token es de mentira. Un fallo del almacén no se confunde con «sin sesión».
+
+### Sesión de mentira firmada (D-141, D-143 (2))
+
+Cuando alguien cree una cuenta con el correo de una ya verificada, la respuesta es idéntica a la de una cuenta nueva y lleva un token de mentira (el PR 5 lo usa). **No se guarda en ningún lado.** Si se guardara en memoria, un reinicio del API lo borraría y la sesión real no, y esa diferencia las distinguiría. Es un token firmado que el API reconoce con una clave de la configuración (`SESION_SENUELO_CLAVE`), así que sobrevive a un reinicio y lo reconoce cualquier réplica con la misma clave. No hay mapa en memoria ni tarea de purga.
+
+```
+token = base64url sin relleno( aleatorio(16) ‖ HMAC-SHA-256(clave, aleatorio ‖ día de creación "AAAA-MM-DD" en UTC)[:16] )
+```
+
+- Son 32 bytes y **43 caracteres**, igual que un token real (`seguridad.NuevoTokenOpaco`): mismo formato y mismo largo; la cookie y el cuerpo son los mismos.
+- **Reconocimiento sin almacenar** (`Senuelos.Reconoce`): si el almacén real no tiene la sesión, se recalcula la firma para cada día de creación **de hoy menos 7 días hasta hoy, ambos incluidos** (8 días de calendario UTC; los 7 días de D-135). Un token creado el día D se reconoce hasta que termina el día D+7: entre 7 y 8 días después de crearse, según la hora. Se calculan siempre los 8 HMAC y se comparan en tiempo constante. Un token de un día futuro no se acepta.
+- **Qué prueba cada cosa** (`senuelos_test.go`): una instancia nueva con la misma clave (reinicio) y una segunda (réplica) lo reconocen; otra clave no; vence al terminar el día D+7 con el reloj inyectado; un token aleatorio de 32 bytes no es de mentira; mismo formato y largo; y `TestPuntaAPuntaConElEnrutadorYLaBase` lo recorre contra la base.
+- Rotar la clave invalida todas las sesiones de mentira vivas (y solo esas): quien tenga una recibirá `401`, mientras que las reales siguen. Es un efecto aceptado, ver «Gaps».
+
+### Token para Android (D-143 (3))
+
+Android no tiene cookies. Al crear la cuenta manda `X-Alcanzamos-Cliente: android` y recibe el token en el cuerpo, para guardarlo y mandarlo después en `Authorization: Bearer`. La web lo recibe solo en la cookie `HttpOnly`, que su JavaScript no puede leer.
+
+`sesion.EntregaDe(r)` decide cómo entregar el token:
+
+| `X-Alcanzamos-Cliente` | `Origin` o `Sec-Fetch-Site` | Resultado |
+|---|---|---|
+| ausente o distinto de `android` | cualquiera | cookie (camino de la web, sin cambios) |
+| `android` | ninguno de los dos | token en el cuerpo, sin `Set-Cookie` |
+| `android` | alguno presente, con **cualquier valor** | `400 {"error":"solicitud_invalida"}`, sin token ni `Set-Cookie` |
+
+Los navegadores mandan `Origin` o `Sec-Fetch-Site` siempre y un script de una página no puede quitarlos (son cabeceras prohibidas para `fetch`): así un script de la web no puede pedir el token en el cuerpo para saltarse la cookie `HttpOnly`. La app de Android no las manda. Una prueba de tabla cubre cada combinación.
+
+## Gaps de la US-49
+
+- **Origen detrás de un proxy:** el límite por origen usa la dirección de la conexión. Detrás de Azure Container Apps todos los pedidos llegarían con la dirección de su entrada y el límite se volvería de todos juntos. Es la fila 17 del primer despliegue (D-143 (4)): se confiará solo en la dirección que agregue esa entrada. No se lee `X-Forwarded-For` mientras tanto.
+- **Rotar `SESION_SENUELO_CLAVE`** deja sin sesión (401) a quien tenga una de mentira viva, a lo sumo 8 días de cuentas con un correo ajeno ya verificado. No hay clave anterior ni lista de claves: se evitó la complejidad. Si hace falta rotarla sin ese efecto, habría que aceptar dos claves.
+- **Holgura de un día:** una sesión de mentira vive hasta el final del día D+7 (UTC), hasta un día más que la cuenta sin verificar que imita (D-135); en la práctica la tarea diaria que borra la cuenta real tiene la misma holgura.
+- **Menores:** una persona menor no tiene correo que verificar y su `Verificada` queda en falso: no llega más allá de las rutas `sin_verificar` hasta que I11 defina su ingreso.
 
 ## Imagen
 

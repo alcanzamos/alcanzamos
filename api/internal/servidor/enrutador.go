@@ -12,7 +12,7 @@ import (
 )
 
 // ErrSinSesion lo devuelve Sesiones cuando la petición no trae una sesión válida: falta, venció o fue revocada.
-var ErrSinSesion = errors.New("sin sesión")
+var ErrSinSesion = seguridad.ErrSinSesion
 
 // Sesiones resuelve el Sujeto de una petición (E12 `ResolutorDeSujeto` sobre el almacén de sesiones). El Enrutador
 // no sabe cómo se guardan las sesiones ni cómo se sabe si una cuenta está verificada o autorizada: eso lo trae quien
