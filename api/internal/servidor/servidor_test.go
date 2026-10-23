@@ -53,7 +53,7 @@ func TestServirApagaAlCancelarElContexto(t *testing.T) {
 
 	ctx, cancelar := context.WithCancel(context.Background())
 	hecho := make(chan error, 1)
-	go func() { hecho <- Servir(ctx, direccion, slog.New(slog.NewJSONHandler(io.Discard, nil))) }()
+	go func() { hecho <- Servir(ctx, direccion, slog.New(slog.NewJSONHandler(io.Discard, nil)), nil) }()
 
 	var resp *http.Response
 	for i := 0; i < 50; i++ {

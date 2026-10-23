@@ -19,9 +19,14 @@ import (
 // debe cambiar allá.
 const politicaCSP = "default-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
 
-// Manejador devuelve el ServeMux con las rutas del API y la web embebida.
+// Manejador devuelve el ServeMux con la web embebida y un /api/ sin rutas registradas.
 func Manejador() http.Handler {
 	return manejador(web.Archivos())
+}
+
+// ManejadorConAPI es Manejador con las rutas de /api/ ya construidas por el Enrutador.
+func ManejadorConAPI(api http.Handler) http.Handler {
+	return manejadorConAPI(web.Archivos(), api)
 }
 
 // conCSP añade la Content-Security-Policy a toda respuesta, incluidos los errores 404 y 405.
@@ -35,11 +40,15 @@ func conCSP(siguiente http.Handler) http.Handler {
 // manejador arma las rutas: /salud en la raíz, el API bajo /api/ y la web en todo lo demás.
 // Todo endpoint nuevo del API va bajo /api/.
 func manejador(raizWeb fs.FS) http.Handler {
+	return manejadorConAPI(raizWeb, http.HandlerFunc(noEncontradoAPI))
+}
+
+func manejadorConAPI(raizWeb fs.FS, api http.Handler) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /salud", salud)
-	mux.HandleFunc("/api/", noEncontradoAPI)
+	mux.Handle("/api/", api)
 	mux.Handle("/", aplicacionWeb(raizWeb))
-	return conCSP(mux)
+	return conCSP(conPeticion(mux))
 }
 
 func salud(w http.ResponseWriter, _ *http.Request) {
@@ -49,10 +58,15 @@ func salud(w http.ResponseWriter, _ *http.Request) {
 }
 
 // Servir atiende en direccion hasta que ctx se cancele; luego apaga con un plazo de 10 s.
-func Servir(ctx context.Context, direccion string, log *slog.Logger) error {
+// api son las rutas de /api/ (Enrutador.Construir); con nil, /api/ solo responde 404.
+func Servir(ctx context.Context, direccion string, log *slog.Logger, api http.Handler) error {
+	h := Manejador()
+	if api != nil {
+		h = ManejadorConAPI(api)
+	}
 	srv := &http.Server{
 		Addr:              direccion,
-		Handler:           Manejador(),
+		Handler:           h,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      10 * time.Second,
