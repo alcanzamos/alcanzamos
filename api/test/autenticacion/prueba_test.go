@@ -31,10 +31,11 @@ var ahoraDePrueba = time.Date(2026, 10, 22, 15, 0, 0, 0, time.UTC)
 // hasheadorFalso «hashea» como "$argon2id$falso$"+contraseña y cuenta cada verificación.
 // Un hash que empieza por prefijoViejo vale (verifica) pero necesita mejora.
 type hasheadorFalso struct {
-	mu           sync.Mutex
-	hashes       int
-	verificadas  int
-	falloHashear error // si no es nil, Hashear falla con él
+	mu             sync.Mutex
+	hashes         int
+	verificadas    int
+	falloHashear   error // si no es nil, Hashear falla con él
+	falloVerificar error // si no es nil, Verificar falla con él
 }
 
 const (
@@ -56,6 +57,9 @@ func (h *hasheadorFalso) Verificar(_ context.Context, c, hash string) (bool, err
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.verificadas++
+	if h.falloVerificar != nil {
+		return false, h.falloVerificar
+	}
 	return hash == prefijoActual+c || hash == prefijoViejo+c, nil
 }
 
@@ -92,11 +96,16 @@ type repoFalso struct {
 	fijadas []string                // hashes guardados con un enlace; cada uno borra todas las sesiones
 	cambios []cambioFalso           // cambios con la sesión iniciada
 
+	errores map[string]error // si un método tiene error, falla con él sin hacer nada más
+
 	consultasDeRecuperacion atomic.Int32  // veces que se buscó la cuenta para recuperar
 	compuerta               chan struct{} // si no es nil, esa búsqueda espera a que se cierre
 }
 
 func (r *repoFalso) CredencialDe(_ context.Context, persona string) (autenticacion.Credencial, error) {
+	if err := r.fallo("CredencialDe"); err != nil {
+		return autenticacion.Credencial{}, err
+	}
 	for correo, c := range r.cuentas {
 		if c.Persona == persona {
 			c.Correo = correo
@@ -107,6 +116,9 @@ func (r *repoFalso) CredencialDe(_ context.Context, persona string) (autenticaci
 }
 
 func (r *repoFalso) NuevoEnlaceDeRecuperacion(_ context.Context, correo string, huella []byte, ahora, vence time.Time) (bool, error) {
+	if err := r.fallo("NuevoEnlaceDeRecuperacion"); err != nil {
+		return false, err
+	}
 	r.consultasDeRecuperacion.Add(1)
 	if r.compuerta != nil {
 		<-r.compuerta
@@ -135,6 +147,9 @@ func (r *repoFalso) CorreoDelEnlaceDeRecuperacion(_ context.Context, huella []by
 }
 
 func (r *repoFalso) FijarContrasenaConEnlace(ctx context.Context, huella []byte, hash string, ahora time.Time) error {
+	if err := r.fallo("FijarContrasenaConEnlace"); err != nil {
+		return err
+	}
 	correo, err := r.CorreoDelEnlaceDeRecuperacion(ctx, huella, ahora)
 	if err != nil {
 		return err
@@ -148,11 +163,17 @@ func (r *repoFalso) FijarContrasenaConEnlace(ctx context.Context, huella []byte,
 }
 
 func (r *repoFalso) CambiarContrasena(_ context.Context, persona, hash string, conservar []byte) error {
+	if err := r.fallo("CambiarContrasena"); err != nil {
+		return err
+	}
 	r.cambios = append(r.cambios, cambioFalso{persona, hash, conservar})
 	return nil
 }
 
 func (r *repoFalso) CredencialPorCorreo(_ context.Context, correo string) (autenticacion.Credencial, error) {
+	if err := r.fallo("CredencialPorCorreo"); err != nil {
+		return autenticacion.Credencial{}, err
+	}
 	if c, ok := r.cuentas[correo]; ok {
 		return c, nil
 	}
@@ -160,6 +181,9 @@ func (r *repoFalso) CredencialPorCorreo(_ context.Context, correo string) (auten
 }
 
 func (r *repoFalso) IniciarSesion(_ context.Context, persona string, huella []byte, ahora time.Time, mejora *autenticacion.MejoraDeHash) error {
+	if err := r.fallo("IniciarSesion"); err != nil {
+		return err
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.mejoras = append(r.mejoras, mejora)
@@ -168,13 +192,21 @@ func (r *repoFalso) IniciarSesion(_ context.Context, persona string, huella []by
 }
 
 func (r *repoFalso) CerrarSesion(_ context.Context, huella []byte) error {
+	if err := r.fallo("CerrarSesion"); err != nil {
+		return err
+	}
 	r.cerradas = append(r.cerradas, huella)
 	return nil
 }
 
 func (r *repoFalso) IngresoAnterior(context.Context, string) (*time.Time, error) {
+	if err := r.fallo("IngresoAnterior"); err != nil {
+		return nil, err
+	}
 	return r.anterior, nil
 }
+
+func (r *repoFalso) fallo(metodo string) error { return r.errores[metodo] }
 
 type entorno struct {
 	svc       *autenticacion.Servicio
@@ -263,4 +295,22 @@ func llamar(h http.Handler, metodo, ruta, cuerpo, origen string, encabezados ...
 
 func entrar(correo, clave string) string {
 	return `{"identificador":"` + correo + `","contrasena":"` + clave + `"}`
+}
+
+// pedido arma un pedido para llamar2: el cuerpo y los encabezados (pares nombre, valor) son los de llamar.
+func pedido(metodo, ruta, cuerpo string, encabezados ...string) func(*testing.T, *entorno) *http.Request {
+	return func(*testing.T, *entorno) *http.Request {
+		r := httptest.NewRequest(metodo, ruta, strings.NewReader(cuerpo))
+		r.RemoteAddr = "203.0.113.7:4321"
+		for i := 0; i+1 < len(encabezados); i += 2 {
+			r.Header.Set(encabezados[i], encabezados[i+1])
+		}
+		return r
+	}
+}
+
+func llamar2(h http.Handler, r *http.Request) *httptest.ResponseRecorder {
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, r)
+	return rr
 }

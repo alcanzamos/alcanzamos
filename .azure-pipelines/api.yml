@@ -1,5 +1,7 @@
-# Pipeline de api/: go vet, pruebas con detector de carreras, compilación y construcción de la imagen.
-# No usa conexión de servicio ni secretos. Las pruebas de integración (PostgreSQL) no corren aquí.
+# Pipeline de api/: go vet, pruebas con detector de carreras, barrera de cobertura con PostgreSQL, compilación y
+# construcción de la imagen.
+# No usa conexión de servicio ni secretos. La barrera de cobertura (E17-ECO 5.5) levanta un PostgreSQL desechable en
+# Docker (datos sintéticos, solo en 127.0.0.1) para correr también las pruebas de integración.
 # La imagen embebe la web, así que también corre cuando cambian web/ o diseno/ (ADR-001, filtros por carpeta).
 trigger:
   branches:
@@ -11,6 +13,7 @@ trigger:
       - web/*
       - diseno/*
       - .azure-pipelines/api.yml
+      - .azure-pipelines/pruebas/cobertura.py
 
 pr:
   branches:
@@ -22,6 +25,7 @@ pr:
       - web/*
       - diseno/*
       - .azure-pipelines/api.yml
+      - .azure-pipelines/pruebas/cobertura.py
 
 pool:
   vmImage: ubuntu-24.04
@@ -31,6 +35,11 @@ variables:
   # SHA-256 fijado a mano desde https://go.dev/dl/?mode=json (consultado el 2026-10-22).
   # Cambiar la versión obliga a cambiar también esta suma, el Dockerfile y go.mod.
   GO_SHA256: 65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40
+  # Etiqueta postgres:18.6-alpine (la de infra/local/compose.yaml), digest del índice multiarquitectura resuelto el
+  # 2026-10-23 con `docker buildx imagetools inspect`. Cambiar la etiqueta obliga a cambiar también el digest.
+  # Contraseña sintética de un contenedor que no sale del agente.
+  POSTGRES_IMAGEN: postgres:18.6-alpine@sha256:898c60cb390d1085bc97bdd6a1ae968757421df394b071848b52b1c09c89d6a5
+  BASE_DE_DATOS_URL: postgres://alcanzamos:solo-local@127.0.0.1:55432/alcanzamos?sslmode=disable
 
 steps:
   - checkout: self
@@ -65,6 +74,43 @@ steps:
   - script: go test -race ./...
     workingDirectory: api
     displayName: Pruebas con detector de carreras
+
+  # Barrera de cobertura (E17-ECO 5.5, D-146, D-148): las pruebas aparte de api/test miden api/src con -coverpkg.
+  - script: python3 -I -B .azure-pipelines/pruebas/cobertura.py probar
+    displayName: La barrera de cobertura se prueba a sí misma
+
+  - script: |
+      set -eu
+      docker run --detach --name pg-cobertura \
+        --env POSTGRES_DB=alcanzamos --env POSTGRES_USER=alcanzamos --env POSTGRES_PASSWORD=solo-local \
+        --publish 127.0.0.1:55432:5432 "$(POSTGRES_IMAGEN)"
+      for i in $(seq 1 30); do
+        docker exec pg-cobertura pg_isready --username alcanzamos --dbname alcanzamos && exit 0
+        sleep 2
+      done
+      docker logs pg-cobertura
+      exit 1
+    displayName: PostgreSQL para las pruebas de integración
+
+  - script: go run ./src/cmd/api migrar
+    workingDirectory: api
+    displayName: Aplicar las migraciones (migrar)
+
+  # -p 1: las pruebas de integración crean y borran bases propias en el mismo PostgreSQL.
+  - script: >
+      go test -count=1 -p 1 -tags integration -coverpkg=./src/...
+      -coverprofile="$(Agent.TempDirectory)/cobertura.out" ./test/...
+    workingDirectory: api
+    displayName: Pruebas de integración con cobertura de src/
+
+  - script: >
+      python3 -I -B .azure-pipelines/pruebas/cobertura.py medir
+      "$(Agent.TempDirectory)/cobertura.out" api/test/cobertura-base.json api/src
+    displayName: Barrera de cobertura por grupo (90 % núcleo y seguridad, 75 % resto, sin bajar de la base, sin paquetes sin clasificar)
+
+  - script: docker rm --force pg-cobertura
+    condition: always()
+    displayName: Quitar PostgreSQL
 
   - script: CGO_ENABLED=0 go build -trimpath -o "$(Agent.TempDirectory)/alcanzamos" ./src/cmd/api
     workingDirectory: api
