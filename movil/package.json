@@ -9,7 +9,9 @@
     "android": "expo start --android --lan",
     "tokens": "style-dictionary build --config ../diseno/style-dictionary.config.mjs",
     "typecheck": "tsc --noEmit",
-    "export:android": "expo export --platform android"
+    "export:android": "expo export --platform android",
+    "test": "jest",
+    "test:coverage": "jest --coverage"
   },
   "dependencies": {
     "expo": "57.0.31",
@@ -19,8 +21,36 @@
     "react-native": "0.86.3"
   },
   "devDependencies": {
+    "@react-native/jest-preset": "0.86.3",
+    "@testing-library/react-native": "14.1.0",
+    "@types/jest": "30.0.0",
     "@types/react": "19.2.4",
+    "jest": "30.5.2",
+    "jest-expo": "57.0.6",
     "style-dictionary": "5.7.0",
+    "test-renderer": "1.3.1",
     "typescript": "6.0.3"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "roots": [
+      "<rootDir>/tests"
+    ],
+    "testMatch": [
+      "<rootDir>/tests/**/*.test.{ts,tsx}"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.{ts,tsx}",
+      "!src/tokens/**"
+    ],
+    "coverageReporters": [
+      "text",
+      "text-summary"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "lines": 50
+      }
+    }
   }
 }

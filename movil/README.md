@@ -3,12 +3,27 @@
 App móvil en React Native con Expo, primero Android y después iOS (ADR-003). Las notificaciones usan FCM sin pasar por el servicio de notificaciones de Expo.
 
 - Archivo de construcción: `package.json` en esta carpeta.
-- Reglas: estándar de codificación (E17-ECO), misma configuración de TypeScript, ESLint y Prettier que `web/`.
+- Reglas: estándar de codificación (E17-ECO), misma configuración de TypeScript, ESLint y Prettier que `web/`. Código en `src/` y pruebas en `tests/`.
 - Los tokens de diseño vienen de [`diseno/`](../diseno/) y se convierten con `npm run tokens`.
 
 ## Estado (US-45, T3)
 
 Solo hay una pantalla de prueba con cifras inventadas (`src/PantallaCifras.tsx`): cifras tabulares de Figtree, cero de Atkinson Hyperlegible Next y qué fuente cargó. No hay lógica de negocio. ESLint y Prettier todavía no están configurados aquí (pendiente con `web/`).
+
+## Pruebas (US-58, D-145)
+
+Jest con el preset `jest-expo`, siguiendo la guía de Expo (<https://docs.expo.dev/develop/unit-testing/>). Las pruebas van en `tests/`, en espejo de `src/` (E17-ECO 4.1 bis): `src/fuentes.ts` se prueba en `tests/fuentes.test.ts`. Jest solo busca ahí (`roots` y `testMatch` apuntan a `tests/`) y mide `src/` (sin `src/tokens/`, que se genera) con un umbral de **50 % de líneas** (E17-ECO 5.5; hoy 100 %).
+
+```
+npm ci
+npm test                # jest
+npm run test:coverage   # con el umbral de 50 % de líneas
+npm run typecheck       # incluye las pruebas
+```
+
+Todavía no hay pipeline de `movil/` (ver `.azure-pipelines/README.md`): las pruebas se corren en local hasta que exista. Cuando se cree, debe correr `npm ci`, `npm run typecheck` y `npm run test:coverage`.
+
+Versiones fijadas sin `~` ni `^`, verificadas en el registro de npm el 2026-10-23: `jest-expo` 57.0.6 (etiqueta `sdk-57`, publicada el 2026-10-12; `expo/bundledNativeModules.json` pide `~57.0.6`), `@react-native/jest-preset` 0.86.3 (peer de `jest-expo`, misma versión que `react-native`), `jest` 30.5.2 (2026-09-18, última), `@types/jest` 30.0.0 (última), `@testing-library/react-native` 14.1.0 (2026-10-08, última) y `test-renderer` 1.3.1 (2026-10-12; peer de la anterior).
 
 ## Versión de Expo
 
