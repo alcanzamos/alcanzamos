@@ -75,22 +75,49 @@ func TestFormatoInvalido(t *testing.T) {
 	}
 }
 
-// pesados son parámetros que tardan unas décimas de segundo: mantienen ocupado un cupo mientras la prueba mira.
-var pesados = argon2id.Parametros{MemoriaKiB: 64 * 1024, Iteraciones: 8, Paralelismo: 1}
+// pesados son parámetros que tardan cientos de milisegundos: mantienen ocupado un cupo mientras la prueba mira. Ningún
+// resultado de las pruebas depende de cuánto tardan: solo de que sigan en curso cuando se mira, y se vuelve a mirar
+// (con un plazo generoso que solo acota el fallo) hasta verlo.
+var pesados = argon2id.Parametros{MemoriaKiB: 64 * 1024, Iteraciones: 10, Paralelismo: 1}
 
-// ocupar lanza n hashes pesados en segundo plano y espera a que tomen su cupo. El resultado espera a que terminen.
+// ocupar lanza n hashes pesados en segundo plano. El resultado espera a que terminen.
 func ocupar(h *argon2id.Hasher, n int) (esperar func()) {
 	var hechos sync.WaitGroup
 	for range n {
 		hechos.Go(func() { _, _ = h.Hashear(context.Background(), "x") })
 	}
-	time.Sleep(50 * time.Millisecond)
 	return hechos.Wait
+}
+
+// probar intenta una verificación ligera con ese plazo para tomar cupo.
+func probar(h *argon2id.Hasher, plazo time.Duration) error {
+	ctx, cancelar := context.WithTimeout(context.Background(), plazo)
+	defer cancelar()
+	_, err := h.Verificar(ctx, "password", vectoresReferencia[2].codificado)
+	return err
+}
+
+// hastaVerLleno repite la sonda hasta que no consigue cupo. No duerme: cada sonda ya espera su plazo corto. El plazo de
+// 30 s solo acota el fallo (si los hashes terminaron antes de verse el cupo lleno, la prueba falla).
+func hastaVerLleno(t *testing.T, h *argon2id.Hasher) {
+	t.Helper()
+	limite := time.Now().Add(30 * time.Second)
+	for time.Now().Before(limite) {
+		err := probar(h, 10*time.Millisecond)
+		if errors.Is(err, context.DeadlineExceeded) {
+			return
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Fatal("nunca se vio el cupo lleno")
 }
 
 func TestCancelarMientrasEsperaCupo(t *testing.T) {
 	h := argon2id.Nuevo(pesados, 1)
 	defer ocupar(h, 1)() // el único cupo está ocupado
+	hastaVerLleno(t, h)
 	ctx, cancelar := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancelar()
 	if _, err := h.Hashear(ctx, "x"); !errors.Is(err, context.DeadlineExceeded) {
@@ -101,30 +128,23 @@ func TestCancelarMientrasEsperaCupo(t *testing.T) {
 	}
 }
 
-// El tope es de cuatro: con tres hashes pesados en curso todavía cabe una verificación; con cuatro, no.
+// El tope es de cuatro: con cuatro hashes pesados en curso no cabe otra operación, y mientras haya tres sí cabe (una
+// sonda con plazo largo entra en cuanto hay cupo).
 func TestNuncaMasDeCuatroSimultaneas(t *testing.T) {
 	if argon2id.MaxSimultaneas != 4 {
 		t.Fatalf("MaxSimultaneas %d, se esperaba 4", argon2id.MaxSimultaneas)
 	}
 	h := argon2id.Nuevo(pesados, argon2id.MaxSimultaneas)
-	ligera := func(plazo time.Duration) error {
-		ctx, cancelar := context.WithTimeout(context.Background(), plazo)
-		defer cancelar()
-		_, err := h.Verificar(ctx, "password", vectoresReferencia[2].codificado)
-		return err
-	}
 
 	esperar := ocupar(h, argon2id.MaxSimultaneas-1)
-	if err := ligera(2 * time.Second); err != nil {
+	if err := probar(h, 30*time.Second); err != nil {
 		t.Errorf("con tres en curso cabe una más: %v", err)
 	}
 	esperar()
 
 	esperar = ocupar(h, argon2id.MaxSimultaneas)
-	if err := ligera(20 * time.Millisecond); !errors.Is(err, context.DeadlineExceeded) {
-		t.Errorf("con cuatro en curso no cabe otra: %v", err)
-	}
-	esperar()
+	defer esperar()
+	hastaVerLleno(t, h)
 }
 
 func BenchmarkVerificar(b *testing.B) {
