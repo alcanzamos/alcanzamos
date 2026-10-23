@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alcanzamos/alcanzamos/api/internal/correo"
+	"github.com/alcanzamos/alcanzamos/api/internal/cuenta"
 	"github.com/alcanzamos/alcanzamos/api/internal/reloj"
 	"github.com/alcanzamos/alcanzamos/api/internal/seguridad"
 	"github.com/alcanzamos/alcanzamos/api/internal/servidor"
@@ -51,12 +53,79 @@ type sesionGuardada struct {
 	en      time.Time
 }
 
+type enlaceFalso struct {
+	correo string
+	vence  time.Time
+	usado  bool
+}
+
+type cambioFalso struct {
+	persona, hash string
+	conservar     []byte
+}
+
 type repoFalso struct {
 	mu       sync.Mutex
 	cuentas  map[string]Credencial // correo → credencial
 	sesiones []sesionGuardada
 	cerradas [][]byte
 	anterior *time.Time
+
+	enlaces map[string]*enlaceFalso // huella → enlace de recuperación
+	fijadas []string                // hashes guardados con un enlace; cada uno borra todas las sesiones
+	cambios []cambioFalso           // cambios con la sesión iniciada
+}
+
+func (r *repoFalso) CredencialDe(_ context.Context, persona string) (Credencial, error) {
+	for correo, c := range r.cuentas {
+		if c.Persona == persona {
+			c.Correo = correo
+			return c, nil
+		}
+	}
+	return Credencial{}, ErrNoExiste
+}
+
+func (r *repoFalso) NuevoEnlaceDeRecuperacion(_ context.Context, correo string, huella []byte, ahora, vence time.Time) (bool, error) {
+	c, ok := r.cuentas[correo]
+	if !ok || !c.Verificada {
+		return false, nil
+	}
+	if r.enlaces == nil {
+		r.enlaces = map[string]*enlaceFalso{}
+	}
+	for _, e := range r.enlaces {
+		if e.correo == correo {
+			e.usado = true // los pendientes dejan de servir
+		}
+	}
+	r.enlaces[string(huella)] = &enlaceFalso{correo: correo, vence: vence}
+	return true, nil
+}
+
+func (r *repoFalso) CorreoDelEnlaceDeRecuperacion(_ context.Context, huella []byte, ahora time.Time) (string, error) {
+	if e, ok := r.enlaces[string(huella)]; ok && !e.usado && e.vence.After(ahora) {
+		return e.correo, nil
+	}
+	return "", cuenta.ErrEnlaceInvalido
+}
+
+func (r *repoFalso) FijarContrasenaConEnlace(ctx context.Context, huella []byte, hash string, ahora time.Time) error {
+	correo, err := r.CorreoDelEnlaceDeRecuperacion(ctx, huella, ahora)
+	if err != nil {
+		return err
+	}
+	r.enlaces[string(huella)].usado = true
+	c := r.cuentas[correo]
+	c.Hash = hash
+	r.cuentas[correo] = c
+	r.fijadas = append(r.fijadas, hash)
+	return nil
+}
+
+func (r *repoFalso) CambiarContrasena(_ context.Context, persona, hash string, conservar []byte) error {
+	r.cambios = append(r.cambios, cambioFalso{persona, hash, conservar})
+	return nil
 }
 
 func (r *repoFalso) CredencialPorCorreo(_ context.Context, correo string) (Credencial, error) {
@@ -89,6 +158,7 @@ type entorno struct {
 	reloj     *reloj.Fijo
 	limitador *seguridad.LimitadorDeIntentos
 	registro  *bytes.Buffer // los eventos de seguridad y el resto del registro
+	correo    *correo.Falso
 }
 
 func nuevoEntorno(t *testing.T) *entorno {
@@ -101,9 +171,13 @@ func nuevoEntorno(t *testing.T) *entorno {
 		hasher:   &hasheadorFalso{},
 		reloj:    &reloj.Fijo{T: ahoraDePrueba},
 		registro: &bytes.Buffer{},
+		correo:   &correo.Falso{},
 	}
 	e.limitador = seguridad.NuevoLimitadorDeIntentos(e.reloj)
-	svc, err := NuevoServicio(Dependencias{Repo: e.repo, Hasher: e.hasher, Limitador: e.limitador, Reloj: e.reloj})
+	svc, err := NuevoServicio(Dependencias{
+		Repo: e.repo, Hasher: e.hasher, Limitador: e.limitador, Reloj: e.reloj,
+		Correo: e.correo, Politica: seguridad.NuevaPoliticaDeContrasena(), Log: slog.New(slog.NewJSONHandler(e.registro, nil)),
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -43,6 +43,7 @@ func nuevoEntornoDeAcceso(t *testing.T) *entornoDeAcceso {
 	var err error
 	e.aut, err = autenticacion.NuevoServicio(autenticacion.Dependencias{
 		Repo: NuevoAutenticacion(e.pool), Hasher: hasher, Limitador: e.limitador, Reloj: e.reloj,
+		Correo: e.correo, Politica: seguridad.NuevaPoliticaDeContrasena(), Log: log,
 	})
 	if err != nil {
 		t.Fatal(err)

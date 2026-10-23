@@ -103,10 +103,12 @@ func armarEnrutador(cfg config.Config, pool *pgxpool.Pool, log *slog.Logger) (*s
 		return nil, nil, err
 	}
 	hasher := argon2id.Predeterminado()
+	correoSMTP := correo.NuevoSMTP(cfg, hora)
+	politica := seguridad.NuevaPoliticaDeContrasena()
 	cuentas := cuenta.NuevoServicio(cuenta.Dependencias{
 		Repo:      pg.NuevoCuentas(pool),
-		Correo:    correo.NuevoSMTP(cfg, hora),
-		Politica:  seguridad.NuevaPoliticaDeContrasena(),
+		Correo:    correoSMTP,
+		Politica:  politica,
 		Hasher:    hasher,
 		Reloj:     hora,
 		Limitador: limitador,
@@ -115,6 +117,7 @@ func armarEnrutador(cfg config.Config, pool *pgxpool.Pool, log *slog.Logger) (*s
 	})
 	autenticaciones, err := autenticacion.NuevoServicio(autenticacion.Dependencias{
 		Repo: pg.NuevoAutenticacion(pool), Hasher: hasher, Limitador: limitador, Reloj: hora,
+		Correo: correoSMTP, Politica: politica, Log: log,
 	})
 	if err != nil {
 		return nil, nil, err
@@ -125,7 +128,7 @@ func armarEnrutador(cfg config.Config, pool *pgxpool.Pool, log *slog.Logger) (*s
 	enrutador := servidor.NuevoEnrutador(sesiones, eventos, log)
 	cuenta.NuevoHandler(cuentas, sesiones, log).Registrar(enrutador)
 	autenticacion.NuevoHandler(autenticaciones, eventos, log).Registrar(enrutador)
-	return enrutador, cuentas.Esperar, nil
+	return enrutador, func() { cuentas.Esperar(); autenticaciones.Esperar() }, nil
 }
 
 func puerto() string {

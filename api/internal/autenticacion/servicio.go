@@ -9,9 +9,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/alcanzamos/alcanzamos/api/internal/correo"
 	"github.com/alcanzamos/alcanzamos/api/internal/cuenta"
 	"github.com/alcanzamos/alcanzamos/api/internal/reloj"
 	"github.com/alcanzamos/alcanzamos/api/internal/seguridad"
@@ -24,6 +27,8 @@ var (
 	ErrCredencialesInvalidas = errors.New("credenciales inválidas")
 	// ErrDemasiadosIntentos: la cuenta o el origen pasaron el límite de fallos (D-136).
 	ErrDemasiadosIntentos = errors.New("demasiados intentos")
+	// ErrContrasenaActualIncorrecta: en PN-73 la contraseña de ahora no es la de la cuenta.
+	ErrContrasenaActualIncorrecta = errors.New("la contraseña de ahora no coincide")
 	// ErrNoExiste lo devuelve el Repositorio cuando no hay credencial para el correo.
 	ErrNoExiste = errors.New("no existe")
 )
@@ -39,7 +44,8 @@ const (
 type Credencial struct {
 	Persona    string
 	Hash       string
-	Verificada bool // el correo ya se confirmó
+	Correo     string // solo lo llena CredencialDe
+	Verificada bool   // el correo ya se confirmó
 }
 
 // Repositorio es la persistencia que el servicio necesita (la implementa internal/pg).
@@ -53,6 +59,21 @@ type Repositorio interface {
 	CerrarSesion(ctx context.Context, huella []byte) error
 	// IngresoAnterior devuelve el inicio de sesión anterior al último, o nil si es el primer ingreso (RF-062).
 	IngresoAnterior(ctx context.Context, persona string) (*time.Time, error)
+
+	// CredencialDe lee el hash y el correo de la persona (PN-73).
+	CredencialDe(ctx context.Context, persona string) (Credencial, error)
+	// NuevoEnlaceDeRecuperacion invalida los enlaces de recuperación pendientes de la cuenta con ese correo y guarda
+	// el nuevo (E13 §5.4). Devuelve false, sin guardar nada, si no hay cuenta o su correo no está verificado.
+	NuevoEnlaceDeRecuperacion(ctx context.Context, correo string, huella []byte, ahora, vence time.Time) (bool, error)
+	// CorreoDelEnlaceDeRecuperacion devuelve el correo de la cuenta de un enlace vigente y sin usar, sin consumirlo
+	// (la política de contraseñas lo necesita), o cuenta.ErrEnlaceInvalido.
+	CorreoDelEnlaceDeRecuperacion(ctx context.Context, huella []byte, ahora time.Time) (string, error)
+	// FijarContrasenaConEnlace, en una transacción: consume el enlace (cuenta.ErrEnlaceInvalido si ya no sirve),
+	// guarda el hash nuevo y borra **todas** las sesiones de la persona (RF-036).
+	FijarContrasenaConEnlace(ctx context.Context, huella []byte, hash string, ahora time.Time) error
+	// CambiarContrasena, en una transacción: guarda el hash nuevo y borra todas las sesiones de la persona **menos**
+	// la de `conservar` (RF-065, D-090).
+	CambiarContrasena(ctx context.Context, persona, hash string, conservar []byte) error
 }
 
 // Hasheador calcula y comprueba contraseñas (internal/argon2id).
@@ -67,11 +88,15 @@ type Dependencias struct {
 	Hasher    Hasheador
 	Limitador *seguridad.LimitadorDeIntentos
 	Reloj     reloj.Reloj
+	Correo    correo.Correo
+	Politica  *seguridad.PoliticaDeContrasena
+	Log       *slog.Logger
 }
 
 // Servicio son los casos de uso de entrar y salir.
 type Servicio struct {
-	d Dependencias
+	d      Dependencias
+	envios sync.WaitGroup
 	// hashDeRelleno es un hash válido de una contraseña que nadie conoce: contra él se verifica cuando la cuenta no
 	// existe, para hacer el mismo trabajo y no delatarlo por el tiempo.
 	hashDeRelleno string

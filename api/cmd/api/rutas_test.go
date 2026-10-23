@@ -25,6 +25,9 @@ var rutasEsperadas = []servidor.Ruta{
 	{Patron: "POST /api/v1/sesiones", Nivel: seguridad.Publica},
 	{Patron: "DELETE /api/v1/sesiones/actual", Nivel: seguridad.SinVerificar},
 	{Patron: "GET /api/v1/cuenta/seguridad", Nivel: seguridad.RequiereAutorizacion},
+	{Patron: "POST /api/v1/recuperacion", Nivel: seguridad.Publica},
+	{Patron: "POST /api/v1/recuperacion/contrasena", Nivel: seguridad.Publica},
+	{Patron: "POST /api/v1/cuenta/contrasena", Nivel: seguridad.RequiereAutorizacion},
 }
 
 func enrutadorDePrueba(t *testing.T) *servidor.Enrutador {
