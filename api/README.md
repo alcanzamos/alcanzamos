@@ -56,7 +56,7 @@ Un solo origen: la web y el API comparten dominio, sin CORS. No hay dominio fijo
 
 ## Configuración
 
-Ningún dominio ni dirección va fija en el código (D-129). `config.Cargar` lee estas variables y, si falta alguna o no es válida, devuelve un error que las nombra todas. El comando `api` la exige al arrancar; `migrar` y `tareas` no la necesitan. `migrar` y `tareas` no la necesitan.
+Ningún dominio ni dirección va fija en el código (D-129). `config.Cargar` lee estas variables y, si falta alguna o no es válida, devuelve un error que las nombra todas. El comando `api` la exige al arrancar; `migrar` y `tareas` no la necesitan.
 
 | Variable | Qué es | Ejemplo local (Mailpit de `infra/local`) |
 |---|---|---|
@@ -76,7 +76,7 @@ Toda ruta de `/api/` se registra con `Enrutador.Registrar(nivel, patron, manejad
 
 | Nivel | Qué exige | Rutas |
 |---|---|---|
-| `publica` | nada | crear la cuenta; en el PR 6, verificar el correo con el enlace; en la US-49 parte 2, iniciar sesión y recuperar el acceso |
+| `publica` | nada | crear la cuenta y verificar el correo con el enlace; en la US-49 parte 2, iniciar sesión y recuperar el acceso |
 | `sin_verificar` | una sesión, aunque sea la **limitada** de una cuenta con el correo sin verificar (o la sesión de mentira de D-141) | PN-59: revisar el estado, reenviar, cambiar el correo; cerrar sesión |
 | `sin_autorizacion` | cuenta con el correo **verificado**, aunque no haya autorizado lo necesario | cerrar sesión y las acciones de PN-63 y PN-64 (US-50) |
 | `requiere_autorizacion` | cuenta verificada y con las finalidades necesarias de su etapa **autorizadas** (`ReglaDeFinalidades`) | todo lo demás |
@@ -125,7 +125,7 @@ Es una **espera, no un bloqueo**: cada intento cuenta durante su ventana (desliz
 |---|---|---|---|---|
 | Inicio de sesión (cuenta los **fallos**) | 5 | 20 | 15 minutos | D-136 |
 | Pedido del enlace de recuperación | 3 | 20 | 1 hora | D-136 (4) |
-| Reenvío del correo de verificación y cambio de correo (contador propio) | 3 | 20 | 1 hora | D-138 (2) |
+| Reenvío del correo de verificación y cambio de correo (contador propio), más una espera corta de 30 segundos entre uno y otro de la misma cuenta | 3 | 20 | 1 hora | D-138 (2), E14-PCP 4.2 (D-143 (5)) |
 | Crear una cuenta (cuenta **todos** los intentos) | — | 20 | 1 hora | D-140 (1) |
 | Correos a una misma dirección (verificación, reenvíos y aviso de D-141), desde cualquier origen | 3 | — | 1 hora | D-140 (2) |
 
@@ -160,11 +160,19 @@ SMTP de la biblioteca estándar; texto plano en español. Los dos correos (el de
 | Ruta | Nivel | Qué hace |
 |---|---|---|
 | `POST /api/v1/cuentas` | `publica` | Crea la cuenta de una persona adulta, envía el correo de verificación y da una **sesión limitada** (CU-43, PN-58). Cuerpo: `{correo, contrasena, nombre, mayor_de_edad}` |
+| `POST /api/v1/cuentas/verificacion` | `publica` | Confirma el correo con el token del enlace (PN-59) |
+| `GET /api/v1/cuentas/estado` | `sin_verificar` | Revisa si el correo ya se verificó (PN-59, «Ya lo confirmé») |
+| `POST /api/v1/cuentas/verificacion/reenvio` | `sin_verificar` | Reenvía el correo de verificación (PN-59) |
+| `POST /api/v1/cuentas/correo` | `sin_verificar` | Cambia el correo de una cuenta sin verificar (PN-59) |
+| `POST /api/v1/cuentas/verificacion` | `publica` | Confirma el correo con `{token}` (PN-59). El token del enlace es la autoridad |
+| `GET /api/v1/cuentas/estado` | `sin_verificar` | «Ya lo confirmé»: `{"verificada":bool}` |
+| `POST /api/v1/cuentas/verificacion/reenvio` | `sin_verificar` | «Reenviar el correo»: invalida los enlaces pendientes y manda uno nuevo |
+| `POST /api/v1/cuentas/correo` | `sin_verificar` | «Cambiar el correo»: `{correo}` |
 
 ### Crear la cuenta
 
 - **Respuesta.** `202 {"estado":"verificacion_pendiente"}` con la sesión (ver abajo), `Cache-Control: no-store`. `mayor_de_edad` debe ser `true` (la web lo manda desde la casilla de PN-58; Android, tras PN-65). **La fecha de nacimiento no se recibe ni se guarda:** un campo que no esté en el contrato da `400 solicitud_invalida` (D-089). Errores de campo: `422 {"error":"validacion","campos":{campo: código}}`, con `correo_vacio`, `correo_invalido`, `contrasena_vacia`, `contrasena_corta`, `contrasena_comun`, `contrasena_personal`, `nombre_vacio`, `nombre_largo` y `mayor_de_edad_requerido`. El API no manda textos: los clientes los toman de E14.
-- **Una transacción** guarda `persona` (etapa `adulta`), `perfil_adulto` (correo en minúsculas, sin verificar), `credencial` (Argon2id, no temporal), `enlace_un_uso` de verificación (24 horas) y `sesion`. Los tokens son de 32 bytes de `crypto/rand`; en la base solo está su SHA-256. Si el envío del correo falla, la cuenta queda y se registra el error (sin correo ni token); la persona pide otro enlace con «Reenviar» (PN-59, PR 6).
+- **Una transacción** guarda `persona` (etapa `adulta`), `perfil_adulto` (correo en minúsculas, sin verificar), `credencial` (Argon2id, no temporal), `enlace_un_uso` de verificación (24 horas) y `sesion`. Los tokens son de 32 bytes de `crypto/rand`; en la base solo está su SHA-256. Si el envío del correo falla, la cuenta queda y se registra el error (sin correo ni token); la persona pide otro enlace con «Reenviar» (PN-59, abajo).
 - **Límite por origen (D-140):** 20 intentos por hora, **todos**: correos nuevos, correos ya registrados, contraseñas rechazadas y JSON roto. El 21 es `429 {"error":"demasiados_intentos"}` con el mismo cuerpo siempre. El origen es la IP del otro extremo de la conexión (para IPv6, el prefijo /64) y vive solo en la memoria del limitador; **no se lee `X-Forwarded-For`**: detrás de Azure Container Apps hay que confiar solo en la dirección que agrega su entrada (fila 17 del primer despliegue, D-143 (4); ver «Gaps»). **Límite por dirección (D-140):** como máximo 3 correos por hora a una misma dirección, sumando el de verificación y el aviso de abajo; el correo que no sale por el límite no cambia la respuesta.
 
 ### Correo que ya tiene cuenta (D-141)
@@ -184,6 +192,23 @@ La respuesta nunca revela si el correo estaba registrado, ni da la sesión de es
 - Nunca se registran tokens, correos ni cuerpos.
 
 - **Android** (D-143 (3)): con `X-Alcanzamos-Cliente: android` el token va en el cuerpo (`{"estado":"verificacion_pendiente","token":"…"}`) y no hay `Set-Cookie`. Si el pedido trae `Origin` o `Sec-Fetch-Site`, responde `400 {"error":"solicitud_invalida"}` sin token ni cookie y sin crear nada (`sesion.EntregaDe`; ver [Sesiones](#token-para-android-d-143-3)). La decisión solo depende de las cabeceras, así que no delata si el correo estaba registrado. El pedido cuenta contra el límite del origen como cualquier intento. `TestAndroidConCabecerasDeNavegadorSeRechaza` lo prueba con y sin cuenta verificada.
+
+### Verificar el correo y las acciones de PN-59
+
+| Ruta | Nivel | Qué hace |
+|---|---|---|
+| `POST /api/v1/cuentas/verificacion` | `publica` | Confirma el correo con `{token}` (PN-59). El token del enlace es la autoridad |
+| `GET /api/v1/cuentas/estado` | `sin_verificar` | «Ya lo confirmé»: `{"verificada":bool}` |
+| `POST /api/v1/cuentas/verificacion/reenvio` | `sin_verificar` | «Reenviar el correo»: invalida los enlaces pendientes y manda uno nuevo |
+| `POST /api/v1/cuentas/correo` | `sin_verificar` | «Cambiar el correo»: `{correo}` |
+
+- **Verificar.** Un enlace vigente y sin usar marca `usado_en` y `correo_verificado = true` en una transacción y responde `200 {"estado":"verificado","con_sesion":bool}`. **Funciona en cualquier dispositivo, con o sin sesión:** `con_sesion` es verdadero solo si la petición trae la sesión real de la cuenta que se acaba de verificar. El cliente muestra «Listo, confirmamos tu correo.» y, con sesión, sigue a PN-63; sin ella (el enlace se abrió en otro dispositivo, o en otro navegador) sigue a PN-60 para entrar. Cualquier otro caso (usado, vencido, anulado, inexistente o mal formado) da `400 {"error":"enlace_invalido"}` («Ese enlace ya no sirve.»).
+- **Estado.** `{"verificada":false}` para la sesión limitada (y para la de mentira, siempre); `true` si la cuenta ya se verificó, por ejemplo desde otro dispositivo, con la misma sesión: por eso las rutas `sin_verificar` también las pasa una cuenta verificada.
+- **Reenviar.** `202 {"estado":"verificacion_pendiente"}`. Además de la **espera corta** de E14 (30 segundos entre un reenvío y el siguiente, `seguridad.EsperaCortaDeReenvio`; documentada en E14-PCP 4.2 desde la v1.12, D-143 (5)) tiene los límites de la recuperación: **3 por hora por cuenta y 20 por origen** (D-138 (2)) y 3 correos por hora a la dirección (D-140). La espera corta y los límites de la hora dan el mismo `429 {"error":"demasiados_intentos"}` (el «mismo texto de espera» de E14). Un reenvío frenado no cuenta. Con la cuenta ya verificada: `409 {"error":"ya_verificada"}`. Si el límite de la dirección impide el envío, la respuesta es la misma que si hubiera salido.
+- **Cambiar el correo.** Valida el correo nuevo como PN-58 (`422 validacion` con `correo_vacio` o `correo_invalido`), **invalida los enlaces pendientes** (el del correo anterior deja de servir), cambia el correo y manda un enlace de 24 horas al nuevo. Cuenta contra los mismos límites que el reenvío. Con un correo nuevo que ya existe aplica D-141: si es el de **otra cuenta sin verificar**, esa se borra y la cuenta se queda con el correo; si es el de una **cuenta verificada**, no cambia nada de la cuenta (conserva su correo, con los enlaces pendientes anulados), al dueño le llega el aviso y la respuesta es la misma. El mismo correo de la cuenta solo renueva el enlace.
+- **Con la sesión de mentira** (D-141): cada una de estas acciones responde **igual** que con la sesión limitada de una cuenta real, también los `429` y los `422`. Cuenta contra los mismos límites (su token hace de cuenta) y valida igual; lo único que no hace es tocar la base ni escribirle a nadie: no tiene dirección y no se le escribe a quien no lo pidió. `TestLasAccionesDePN59RespondenIgualConLaSesionDeMentira` recorre un guion de 14 pasos (éxitos, espera corta, límite de la hora, validaciones y el correo de una cuenta verificada) y compara el estado, las cabeceras y el cuerpo de cada respuesta.
+- **Ninguna de estas rutas manda texto** a la persona: los clientes toman los de E14-PCP.
+- **Con un reinicio.** La sesión de mentira es un token firmado, no una fila ni una entrada en memoria: tras reiniciar el API (o en otra réplica con la misma `SESION_SENUELO_CLAVE`) cada acción responde lo mismo que antes y lo mismo que una sesión limitada real. Lo prueba `TestLaSesionDeMentiraRespondeIgualTrasUnReinicio`, que crea la sesión con un servidor, arma uno nuevo y una réplica con la misma clave sobre la misma base, y compara las seis respuestas de un guion; con otra clave el token da `401`. Los contadores de límites sí se reinician (viven en la memoria, D-123), igual para la sesión real y para la de mentira.
 
 ## Sesiones (US-49)
 
@@ -227,6 +252,10 @@ Los navegadores mandan `Origin` o `Sec-Fetch-Site` siempre y un script de una p�
 - **Rotar `SESION_SENUELO_CLAVE`** deja sin sesión (401) a quien tenga una de mentira viva, a lo sumo 8 días de cuentas con un correo ajeno ya verificado. No hay clave anterior ni lista de claves: se evitó la complejidad. Si hace falta rotarla sin ese efecto, habría que aceptar dos claves.
 - **Holgura de un día:** una sesión de mentira vive hasta el final del día D+7 (UTC), hasta un día más que la cuenta sin verificar que imita (D-135); en la práctica la tarea diaria que borra la cuenta real tiene la misma holgura.
 - **Menores:** una persona menor no tiene correo que verificar y su `Verificada` queda en falso: no llega más allá de las rutas `sin_verificar` hasta que I11 defina su ingreso.
+- **La espera corta y el límite de la hora dan el mismo código** (`demasiados_intentos`): E14 dice que comparten texto.
+- **Una cuenta verificada en una ruta `sin_verificar`:** se dejó pasar (para que «Ya lo confirmé» conteste «verificada» con la misma sesión), aunque E12 dice que cada nivel incluye solo lo que dice. Reenviar y cambiar el correo responden `409 ya_verificada`.
+- **Cambiar el correo al de una cuenta verificada:** la cuenta queda con su correo anterior y sin enlace vigente (el cliente ya mostró «Revisa tu correo»); la persona puede pedir otro con «Reenviar». Alternativa descartada: dejar vivo el enlace del correo anterior, que verificaría una cuenta que la persona ya quiso cambiar.
+- **Contadores y réplicas:** los contadores de los límites y la espera de 30 segundos viven en la memoria de cada réplica (D-123): con varias, cada una cuenta aparte. No afecta a la sesión de mentira, que se reconoce sin estado.
 
 ## Imagen
 
@@ -281,8 +310,10 @@ Indirectas: `pgpassfile`, `pgservicefile`, `puddle/v2`, `mfridman/interpolate`, 
 
 ## Tareas programadas
 
-- `api tareas` es el punto de entrada del trabajo programado. No tiene tareas reales: las tareas son de I05.
-- Se conecta con PostgreSQL, registra `tareas: inicio` y `tareas: fin`, y termina con código 0. Sin base alcanzable, termina con código 1.
+- `api tareas` es el punto de entrada del trabajo programado (`tareas.Ejecutor`, E12 `EjecutorDeTareas`). Se conecta con PostgreSQL, corre cada tarea aunque otra falle, registra `tareas: inicio` y `tareas: fin` (con cuántas terminaron bien) y termina con código 0, o 1 si una tarea falla o no hay base.
+- **`BorrarCuentasSinConfirmar` (D-135, DAT-006):** borra la `persona` (el `CASCADE` se lleva perfil, credencial, **sesiones**, enlaces y datos) de las cuentas adultas creadas hace 7 días o más que no confirmaron el correo **o** no tienen vigente cada finalidad necesaria de una persona adulta, otorgada por ella misma. **La lista sale de `cuenta.ReglaDeFinalidades` (D-139), no del SQL:** la consulta la recibe como parámetro. Sin correo de aviso. Nunca toca una cuenta con el correo confirmado y lo necesario autorizado. Excluye las cuentas que pasaron de menor a adulta (`fecha_de_paso`) y las de menores. Como `autorizacion` no tiene llave a la persona, las filas que hubiera quedan retiradas en ese instante y conservadas 3 años (E13 §7, plazo provisional). Es idempotente.
+- **`LimpiarSesionesYEnlaces` (CU-52):** borra las filas de `sesion` y `enlace_un_uso` con `vence_en` anterior a ahora. Es idempotente.
+- **Sesiones de mentira:** no hay nada que limpiar: no se guardan en ninguna parte (son tokens firmados, ver [Sesiones](#sesión-de-mentira-firmada-d-141-d-143-2)), así que no necesitan tarea de purga.
 - Se prueba con la misma imagen del API:
 
 ```sh
