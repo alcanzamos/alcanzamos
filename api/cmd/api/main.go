@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"github.com/alcanzamos/alcanzamos/api/internal/bd"
+	"github.com/alcanzamos/alcanzamos/api/internal/seguridad"
 	"github.com/alcanzamos/alcanzamos/api/internal/servidor"
 )
 
@@ -44,7 +45,7 @@ func ejecutar(ctx context.Context, args []string, log *slog.Logger) error {
 	}
 	switch orden {
 	case "api":
-		return servidor.Servir(ctx, ":"+puerto(), log)
+		return servir(ctx, log)
 	case "tareas":
 		return tareas(ctx, log)
 	case "migrar":
@@ -52,6 +53,22 @@ func ejecutar(ctx context.Context, args []string, log *slog.Logger) error {
 	default:
 		return fmt.Errorf("subcomando desconocido: %q", orden)
 	}
+}
+
+// servir arma el servidor con las rutas de /api/ y lo atiende hasta que ctx se cancele. Una ruta mal declarada hace
+// fallar Construir y el servidor no arranca.
+func servir(ctx context.Context, log *slog.Logger) error {
+	api, err := armarEnrutador(log).Construir()
+	if err != nil {
+		return err
+	}
+	return servidor.Servir(ctx, ":"+puerto(), log, api)
+}
+
+// armarEnrutador es el compositor de E12: registra todas las rutas de /api/, cada una con su nivel de acceso. Todavía
+// no hay rutas ni almacén de sesiones (llegan en los PR siguientes de la US-49): ninguna petición tiene sesión.
+func armarEnrutador(log *slog.Logger) *servidor.Enrutador {
+	return servidor.NuevoEnrutador(servidor.SinSesiones{}, seguridad.NuevoRegistro(log), log)
 }
 
 func puerto() string {
