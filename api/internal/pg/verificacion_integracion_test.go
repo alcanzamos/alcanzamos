@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -512,5 +513,123 @@ func TestPuntaAPuntaConLaCuentaYElEnrutadorYLaBase(t *testing.T) {
 	desconocido, _ := seguridad.NuevoTokenOpaco()
 	if c, _ := pedir(rutas[seguridad.SinVerificar], desconocido); c != 401 {
 		t.Errorf("token desconocido: %d", c)
+	}
+}
+
+// servidorNuevo arma un servidor de la API sobre la misma base, como al arrancar el proceso: servicio, limitador y
+// generador de sesiones de mentira nuevos, y solo la clave en común. Es lo que ve el cliente tras un reinicio o en otra
+// réplica (D-143 (2)).
+func (e *entornoDeCuentas) servidorNuevo(t *testing.T, clave []byte) (http.Handler, *cuenta.Servicio) {
+	t.Helper()
+	log := slog.New(slog.NewJSONHandler(io.Discard, nil))
+	senuelos, err := sesion.NuevosSenuelos(clave, e.reloj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc := cuenta.NuevoServicio(cuenta.Dependencias{
+		Repo: e.repo, Correo: e.correo, Politica: seguridad.NuevaPoliticaDeContrasena(), Hasher: e.hasher,
+		Reloj: e.reloj, Limitador: seguridad.NuevoLimitadorDeIntentos(e.reloj), Senuelos: senuelos, Log: log,
+	})
+	resolutor := sesion.NuevoResolutor(e.sesiones, senuelos, e.reloj)
+	enr := servidor.NuevoEnrutador(resolutor, seguridad.NuevoRegistro(log), log)
+	cuenta.NuevoHandler(svc, resolutor, log).Registrar(enr)
+	api, err := enr.Construir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return servidor.ManejadorConAPI(api), svc
+}
+
+type respuestaVista struct {
+	Codigo    int
+	Cabeceras string // nombres, ordenados
+	Cuerpo    string
+}
+
+// RESTART (D-143 (2)): una sesión de mentira creada por un servidor la reconoce otro, nuevo, con la misma clave, y
+// responde en cada acción de PN-59 lo mismo que antes y lo mismo que una sesión limitada real. Con otra clave, no.
+func TestLaSesionDeMentiraRespondeIgualTrasUnReinicio(t *testing.T) {
+	e := nuevoEntornoDeCuentas(t)
+	clave := bytes.Repeat([]byte{5}, 32)
+	antes, svcAntes := e.servidorNuevo(t, clave)
+
+	crear := func(h http.Handler, svc *cuenta.Servicio, correo string) string {
+		t.Helper()
+		r := httptest.NewRequest(http.MethodPost, "/api/v1/cuentas",
+			strings.NewReader(`{"correo":"`+correo+`","contrasena":"`+contrasenaDePrueba+`","nombre":"Laura","mayor_de_edad":true}`))
+		r.RemoteAddr = "203.0.113.7:1"
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, r)
+		svc.Esperar()
+		cs := rr.Result().Cookies()
+		if rr.Code != 202 || len(cs) != 1 {
+			t.Fatalf("crear %s: %d %v", correo, rr.Code, rr.Header())
+		}
+		return cs[0].Value
+	}
+	guion := func(h http.Handler, token, origen string) []respuestaVista {
+		t.Helper()
+		pasos := []struct{ metodo, ruta, cuerpo string }{
+			{"GET", "/api/v1/cuentas/estado", ""},
+			{"POST", "/api/v1/cuentas/verificacion/reenvio", ""},
+			{"POST", "/api/v1/cuentas/verificacion/reenvio", ""}, // dentro de la espera corta
+			{"POST", "/api/v1/cuentas/correo", `{"correo":"nuevo-` + origen + `@ejemplo.test"}`},
+			{"POST", "/api/v1/cuentas/correo", `{"correo":"no es un correo"}`},
+			{"GET", "/api/v1/cuentas/estado", ""},
+		}
+		var vistas []respuestaVista
+		for _, p := range pasos {
+			r := httptest.NewRequest(p.metodo, p.ruta, strings.NewReader(p.cuerpo))
+			r.RemoteAddr = origen + ":4321"
+			r.AddCookie(sesion.Cookie(token))
+			rr := httptest.NewRecorder()
+			h.ServeHTTP(rr, r)
+			var nombres []string
+			for k := range rr.Header() {
+				nombres = append(nombres, k)
+			}
+			sort.Strings(nombres)
+			vistas = append(vistas, respuestaVista{rr.Code, strings.Join(nombres, ","), strings.TrimSpace(rr.Body.String())})
+		}
+		return vistas
+	}
+
+	// Cuenta verificada de laura y su sesión de mentira, creada por el servidor «antes»; y una limitada real de otra.
+	crear(antes, svcAntes, "laura@ejemplo.test")
+	verificar(t, e.pool, personaDe(t, e.entorno, "laura@ejemplo.test"))
+	senuelo := crear(antes, svcAntes, "laura@ejemplo.test")
+	limitada := crear(antes, svcAntes, "otra@ejemplo.test")
+
+	respuestasAntes := guion(antes, senuelo, "198.51.100.1")
+	if respuestasAntes[0].Codigo != 200 || respuestasAntes[0].Cuerpo != `{"verificada":false}` || respuestasAntes[1].Codigo != 202 || respuestasAntes[2].Codigo != 429 {
+		t.Fatalf("la sesión de mentira antes del reinicio: %+v", respuestasAntes)
+	}
+
+	// «Reinicio»: un servidor nuevo, sin nada en memoria salvo la clave. Y una réplica al mismo tiempo.
+	despues, _ := e.servidorNuevo(t, clave)
+	replica, _ := e.servidorNuevo(t, clave)
+	respuestasDespues := guion(despues, senuelo, "198.51.100.2")
+	respuestasReplica := guion(replica, senuelo, "198.51.100.3")
+	respuestasReal := guion(despues, limitada, "198.51.100.4")
+	for i := range respuestasAntes {
+		if respuestasDespues[i] != respuestasAntes[i] || respuestasReplica[i] != respuestasAntes[i] {
+			t.Errorf("paso %d: antes %+v, tras el reinicio %+v, en la réplica %+v", i, respuestasAntes[i], respuestasDespues[i], respuestasReplica[i])
+		}
+	}
+	// Salvo el correo nuevo del paso 3, que va en el cuerpo y no en la respuesta, la limitada real responde igual.
+	for i := range respuestasAntes {
+		if respuestasReal[i] != respuestasDespues[i] {
+			t.Errorf("paso %d: la sesión de mentira tras el reinicio %+v, la limitada real %+v", i, respuestasDespues[i], respuestasReal[i])
+		}
+	}
+
+	// Con otra clave (otro despliegue) el token ya no es de nadie: 401 en una ruta que pide sesión.
+	otraClave, _ := e.servidorNuevo(t, bytes.Repeat([]byte{6}, 32))
+	r := httptest.NewRequest("GET", "/api/v1/cuentas/estado", nil)
+	r.AddCookie(sesion.Cookie(senuelo))
+	rr := httptest.NewRecorder()
+	otraClave.ServeHTTP(rr, r)
+	if rr.Code != 401 {
+		t.Errorf("con otra clave se esperaba 401: %d %s", rr.Code, rr.Body)
 	}
 }
