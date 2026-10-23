@@ -17,8 +17,77 @@ describe("textos de E14", () => {
     expect(textoDeErrorDeCampo(codigo)).toBe(texto);
   });
 
+  it.each([
+    ["contrasena_vacia", "Falta la contraseña."],
+    [
+      "contrasena_corta",
+      "Falta que la contraseña tenga al menos 15 caracteres.",
+    ],
+    [
+      "contrasena_comun",
+      "Falta una contraseña que no sea tan común. Prueba con una frase de tres o cuatro palabras.",
+    ],
+    [
+      "contrasena_personal",
+      "Falta una contraseña que no incluya tu correo ni el nombre de la app.",
+    ],
+    ["nombre_vacio", "Falta el nombre para mostrar."],
+    // E14-PCP 4.16 T5 (D-153)
+    ["nombre_largo", "Escribe un nombre de hasta 60 caracteres."],
+    ["mayor_de_edad_requerido", "Falta marcar que eres mayor de edad."],
+  ])("en PN-58 el código %s da su texto", (codigo, texto) => {
+    expect(textoDeErrorDeCampo(codigo, "crearCuenta")).toBe(texto);
+  });
+
+  it("el campo del correo de PN-59 solo tiene los errores del correo", () => {
+    expect(textoDeErrorDeCampo("correo_vacio", "correo")).toBe(
+      "Falta el correo electrónico.",
+    );
+    expect(textoDeErrorDeCampo("nombre_vacio", "correo")).toBeUndefined();
+  });
+
   it("un código sin texto en E14 no inventa uno", () => {
     expect(textoDeErrorDeCampo("desconocido")).toBeUndefined();
+  });
+
+  // Textos de avisos de E14-PCP 4.1, 4.2 y 4.16 (T6, T8, T9, T11), palabra por palabra.
+  it.each([
+    [
+      avisos.errorAlCrearCuenta,
+      "No pudimos crear la cuenta.",
+      "Tus datos no se perdieron. Intenta de nuevo.",
+    ],
+    [
+      avisos.errorAlEnviarCorreo,
+      "No pudimos enviar el correo.",
+      "Intenta de nuevo.",
+    ],
+    [
+      avisos.errorAlRevisarElCorreo,
+      "No pudimos revisar si confirmaste tu correo.",
+      "Intenta de nuevo.",
+    ],
+    [
+      avisos.errorAlConfirmarElCorreo,
+      "No pudimos confirmar tu correo.",
+      "Intenta de nuevo.",
+    ],
+    [
+      avisos.sinConfirmarTodavia,
+      "Todavía no confirmaste tu correo.",
+      "Abre el enlace que te enviamos.",
+    ],
+    [avisos.correoReenviado, "Te enviamos otro correo.", undefined],
+    [avisos.correoConfirmado, "Listo, confirmamos tu correo.", undefined],
+    [avisos.enlaceVencido, "Ese enlace ya no sirve.", "Pide uno nuevo."],
+    [avisos.sesionCerrada, "Tu sesión se cerró. Entra de nuevo.", undefined],
+  ] as const)("el aviso «%j» dice lo de E14", (aviso, titulo, mensaje) => {
+    expect(aviso.titulo).toBe(titulo);
+    expect("mensaje" in aviso ? aviso.mensaje : undefined).toBe(mensaje);
+  });
+
+  it("el aviso de «Listo, confirmamos tu correo.» es de logro", () => {
+    expect(avisos.correoConfirmado.tipo).toBe("logro");
   });
 
   it("T1 y T10 (E14-PCP 4.16) son los textos aprobados, palabra por palabra", () => {
