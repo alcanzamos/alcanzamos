@@ -32,7 +32,7 @@ test("la página llega con la CSP exacta y el navegador no reporta violaciones",
 
   await page.evaluate(() => document.fonts.ready);
   await expect(
-    page.getByRole("heading", { level: 1, name: "Alcanzamos" }),
+    page.getByRole("heading", { level: 1, name: "Inicia sesión" }),
   ).toBeVisible();
   // El logo es un archivo propio: la CSP (default-src 'self') lo deja pasar.
   await expect(page.getByRole("img", { name: "Alcanzamos" })).toBeVisible();

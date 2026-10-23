@@ -61,3 +61,9 @@ export const IconoOcultar = () => (
     <path d="m4 4 16 16" />
   </Icono>
 );
+
+export const IconoAtras = () => (
+  <Icono>
+    <path d="M19 12H5M11 6l-6 6 6 6" />
+  </Icono>
+);

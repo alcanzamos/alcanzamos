@@ -39,6 +39,20 @@ describe("textos de E14", () => {
     expect(textoDeErrorDeCampo(codigo, "crearCuenta")).toBe(texto);
   });
 
+  it.each([
+    ["entrar", "identificador_vacio", "Falta el correo electrónico."],
+    ["entrar", "contrasena_vacia", "Falta la contraseña."],
+    ["contrasenaNueva", "contrasena_vacia", "Falta la contraseña nueva."],
+    ["contrasenaDeAhora", "contrasena_vacia", "Falta tu contraseña de ahora."],
+    [
+      "contrasenaDeAhora",
+      "contrasena_actual_incorrecta",
+      "No pudimos confirmar tu contraseña de ahora. Escríbela de nuevo.",
+    ],
+  ] as const)("en %s el código %s da su texto", (pantalla, codigo, texto) => {
+    expect(textoDeErrorDeCampo(codigo, pantalla)).toBe(texto);
+  });
+
   it("el campo del correo de PN-59 solo tiene los errores del correo", () => {
     expect(textoDeErrorDeCampo("correo_vacio", "correo")).toBe(
       "Falta el correo electrónico.",
@@ -81,6 +95,37 @@ describe("textos de E14", () => {
     [avisos.correoConfirmado, "Listo, confirmamos tu correo.", undefined],
     [avisos.enlaceVencido, "Ese enlace ya no sirve.", "Pide uno nuevo."],
     [avisos.sesionCerrada, "Tu sesión se cerró. Entra de nuevo.", undefined],
+    [
+      avisos.datosNoCoinciden,
+      "No pudimos entrar con esos datos.",
+      "Revisa lo que escribiste e intenta de nuevo.",
+    ],
+    // E14-PCP 4.16 T7 (D-153)
+    [
+      avisos.errorAlIniciarSesion,
+      "No pudimos iniciar tu sesión.",
+      "El problema es de nuestro lado. Intenta de nuevo en un momento.",
+    ],
+    [
+      avisos.errorAlCambiarContrasena,
+      "No pudimos guardar tu contraseña.",
+      "Tu contraseña de ahora sigue igual. Intenta de nuevo.",
+    ],
+    [
+      avisos.contrasenaCambiada,
+      "Listo, cambiamos tu contraseña.",
+      "Cerramos tus otras sesiones. Esta sigue abierta.",
+    ],
+    [
+      avisos.errorAlCargarIngreso,
+      "No pudimos cargar tu último ingreso.",
+      undefined,
+    ],
+    [
+      avisos.noReconoceElIngreso,
+      "¿No reconoces este ingreso?",
+      "Cambia tu contraseña y cerramos tus otras sesiones.",
+    ],
   ] as const)("el aviso «%j» dice lo de E14", (aviso, titulo, mensaje) => {
     expect(aviso.titulo).toBe(titulo);
     expect("mensaje" in aviso ? aviso.mensaje : undefined).toBe(mensaje);

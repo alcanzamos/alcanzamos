@@ -1,8 +1,11 @@
 import { useEffect, type ReactElement } from "react";
 import { Pendiente } from "./componentes/Pendiente";
 import { navegar, useUbicacion } from "./enrutador";
+import { CambiarContrasena } from "./pantallas/CambiarContrasena";
 import { CrearCuenta } from "./pantallas/CrearCuenta";
+import { Entrar } from "./pantallas/Entrar";
 import { RevisaTuCorreo } from "./pantallas/RevisaTuCorreo";
+import { SeguridadDeLaCuenta } from "./pantallas/SeguridadDeLaCuenta";
 import { SinAutorizacion } from "./pantallas/SinAutorizacion";
 import { Verificar } from "./pantallas/Verificar";
 
@@ -13,15 +16,15 @@ function Redirigir({ a }: { a: string }) {
 
 // Las pantallas de la US-49 entran de a una en los PR siguientes; mientras, cada ruta muestra `Pendiente`.
 const pantallas: Record<string, () => ReactElement> = {
-  "/entrar": Pendiente,
+  "/entrar": Entrar,
   "/crear-cuenta": CrearCuenta,
   "/revisa-tu-correo": RevisaTuCorreo,
   "/verificar": Verificar,
   "/sin-autorizacion": SinAutorizacion,
   "/recuperar-acceso": Pendiente,
   "/recuperar": Pendiente,
-  "/cuenta/seguridad": Pendiente,
-  "/cuenta/contrasena": Pendiente,
+  "/cuenta/seguridad": SeguridadDeLaCuenta,
+  "/cuenta/contrasena": CambiarContrasena,
 };
 
 // Rutas de la app. `/` y toda ruta que no existe llevan a `/entrar`: no hay una pantalla de «no encontrada» en E14.

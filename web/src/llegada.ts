@@ -6,6 +6,7 @@ import { avisos, type DatosDeAviso } from "./textos";
 const porLlegada = {
   sesion_cerrada: avisos.sesionCerrada,
   correo_confirmado: avisos.correoConfirmado,
+  contrasena_cambiada: avisos.contrasenaCambiada,
 } satisfies Record<string, DatosDeAviso>;
 
 export type Llegada = keyof typeof porLlegada;

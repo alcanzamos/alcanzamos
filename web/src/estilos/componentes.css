@@ -291,3 +291,45 @@
   font-family: var(--fuente-marca), sans-serif;
   font-variant-numeric: tabular-nums;
 }
+/* Barra superior (E14-SDD 5.10): Atrás en una caja de 48 px y el título */
+.barra {
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-2);
+}
+
+.barra__atras {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--tamano-tactil-minimo);
+  height: var(--tamano-tactil-minimo);
+  border-radius: var(--radio-pequeno);
+  color: var(--color-texto-principal);
+}
+
+.barra__atras:active {
+  background: var(--color-accion-secundaria-fondo-presionado);
+}
+
+/* Tarjeta (E14-SDD 5.7) */
+.tarjeta {
+  display: grid;
+  gap: var(--espacio-2);
+  padding: var(--espacio-4);
+  border-radius: var(--radio-medio);
+  background: var(--color-fondo-superficie);
+}
+
+.tarjeta p {
+  margin: 0;
+}
+
+.titulo-3 {
+  margin: 0;
+  font-family: var(--tipografia-titulo-3-font-family), sans-serif;
+  font-weight: var(--tipografia-titulo-3-font-weight);
+  font-size: var(--tipografia-titulo-3-font-size);
+  line-height: var(--tipografia-titulo-3-line-height);
+}

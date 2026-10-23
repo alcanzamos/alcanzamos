@@ -1,13 +1,13 @@
 import { expect, test } from "@playwright/test";
 import { sinViolaciones } from "./ayudas";
 
-test("«/» lleva a /entrar y la pantalla pendiente no tiene violaciones de axe", async ({
+test("«/» lleva a /entrar, que no tiene violaciones de axe", async ({
   page,
 }) => {
   await page.goto("/");
   await expect(page).toHaveURL(/\/entrar$/);
   await expect(
-    page.getByRole("heading", { level: 1, name: "Alcanzamos" }),
+    page.getByRole("heading", { level: 1, name: "Inicia sesión" }),
   ).toBeVisible();
   await sinViolaciones(page);
 });

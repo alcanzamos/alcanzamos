@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { App } from "../src/App";
+import { json, simularApi } from "./ayudas";
 
 function irA(ruta: string) {
   window.history.replaceState(null, "", ruta);
@@ -12,10 +13,20 @@ describe("App · rutas", () => {
     ["/crear-cuenta", "Crea tu cuenta"],
     ["/revisa-tu-correo", "Revisa tu correo"],
     ["/sin-autorizacion", "Sin esta autorización no podemos darte la cuenta."],
+    ["/entrar", "Inicia sesión"],
+    ["/cuenta/contrasena", "Cambiar mi contraseña"],
   ])("%s muestra su pantalla", (ruta, titulo) => {
     irA(ruta);
     expect(
       screen.getByRole("heading", { level: 1, name: titulo }),
+    ).toBeInTheDocument();
+  });
+
+  it("/cuenta/seguridad muestra PN-71, que pide el ingreso anterior", () => {
+    simularApi(() => json(200, { ingreso_anterior: null }));
+    irA("/cuenta/seguridad");
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Seguridad de la cuenta" }),
     ).toBeInTheDocument();
   });
 
@@ -24,13 +35,7 @@ describe("App · rutas", () => {
     expect(screen.getByText("Ese enlace ya no sirve.")).toBeInTheDocument();
   });
 
-  it.each([
-    "/entrar",
-    "/recuperar-acceso",
-    "/recuperar?t=x",
-    "/cuenta/contrasena",
-    "/cuenta/seguridad",
-  ])(
+  it.each(["/recuperar-acceso", "/recuperar?t=x"])(
     "%s tiene su ruta y, por ahora, la pantalla pendiente con el logo",
     (ruta) => {
       irA(ruta);
@@ -49,7 +54,7 @@ describe("App · rutas", () => {
       irA(ruta);
       await waitFor(() => expect(window.location.pathname).toBe("/entrar"));
       expect(
-        screen.getByRole("heading", { name: "Alcanzamos" }),
+        screen.getByRole("heading", { name: "Inicia sesión" }),
       ).toBeInTheDocument();
     },
   );
