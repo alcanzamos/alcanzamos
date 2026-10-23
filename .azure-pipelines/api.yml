@@ -2,7 +2,8 @@
 # construcción de la imagen.
 # No usa conexión de servicio ni secretos. La barrera de cobertura (E17-ECO 5.5) levanta un PostgreSQL desechable en
 # Docker (datos sintéticos, solo en 127.0.0.1) para correr también las pruebas de integración.
-# La imagen embebe la web, así que también corre cuando cambian web/ o diseno/ (ADR-001, filtros por carpeta).
+# La imagen embebe la web, así que también corre cuando cambian web/, diseno/ o el logo que la web importa
+# (marca/logo-horizontal-color.svg, D-152) (ADR-001, filtros por carpeta).
 trigger:
   branches:
     include:
@@ -12,6 +13,7 @@ trigger:
       - api/*
       - web/*
       - diseno/*
+      - marca/logo-horizontal-color.svg
       - .azure-pipelines/api.yml
       - .azure-pipelines/pruebas/cobertura.py
 
@@ -24,6 +26,7 @@ pr:
       - api/*
       - web/*
       - diseno/*
+      - marca/logo-horizontal-color.svg
       - .azure-pipelines/api.yml
       - .azure-pipelines/pruebas/cobertura.py
 
