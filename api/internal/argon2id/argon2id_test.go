@@ -140,3 +140,52 @@ func BenchmarkVerificar(b *testing.B) {
 		}
 	}
 }
+
+func TestNecesitaMejora(t *testing.T) {
+	h := Nuevo(Recomendados, MaxSimultaneas) // m=19456, t=2, p=1
+	sal16, clave32 := make([]byte, 16), make([]byte, 32)
+	hash := func(p Parametros, sal, clave []byte) string { return codificar(p, sal, clave) }
+	con := func(f func(*Parametros)) Parametros { p := Recomendados; f(&p); return p }
+	casos := []struct {
+		nombre string
+		hash   string
+		quiere bool
+	}{
+		{"iguales", hash(Recomendados, sal16, clave32), false},
+		{"memoria menor", hash(con(func(p *Parametros) { p.MemoriaKiB = 8192 }), sal16, clave32), true},
+		{"iteraciones menores", hash(con(func(p *Parametros) { p.Iteraciones = 1 }), sal16, clave32), true},
+		{"memoria y paralelismo mayores, iteraciones menores", hash(Parametros{MemoriaKiB: 65536, Iteraciones: 1, Paralelismo: 4}, sal16, clave32), true},
+		{"memoria mayor", hash(con(func(p *Parametros) { p.MemoriaKiB = 32768 }), sal16, clave32), false},
+		{"iteraciones mayores", hash(con(func(p *Parametros) { p.Iteraciones = 3 }), sal16, clave32), false},
+		{"paralelismo mayor", hash(con(func(p *Parametros) { p.Paralelismo = 2 }), sal16, clave32), false},
+		{"sal más corta", hash(Recomendados, make([]byte, 8), clave32), true},
+		{"clave más corta", hash(Recomendados, sal16, make([]byte, 16)), true},
+		{"sal y clave más largas", hash(Recomendados, make([]byte, 24), make([]byte, 48)), false},
+	}
+	for _, c := range casos {
+		got, err := h.NecesitaMejora(c.hash)
+		if err != nil || got != c.quiere {
+			t.Errorf("%s: dio %v, %v; se esperaba %v", c.nombre, got, err, c.quiere)
+		}
+	}
+	// Con un Hasher de paralelismo mayor, el guardado de p=1 queda atrás.
+	if got, err := Nuevo(Parametros{MemoriaKiB: 19456, Iteraciones: 2, Paralelismo: 2}, 1).NecesitaMejora(hash(Recomendados, sal16, clave32)); err != nil || !got {
+		t.Errorf("paralelismo menor: dio %v, %v", got, err)
+	}
+	for _, malo := range []string{"", "$argon2id$v=19$m=0,t=2,p=1$AAAA$AAAA", "no es un hash", strings.Replace(hash(Recomendados, sal16, clave32), "argon2id", "argon2i", 1)} {
+		if got, err := h.NecesitaMejora(malo); got || !errors.Is(err, ErrFormato) {
+			t.Errorf("%q: dio %v, %v; se esperaba ErrFormato", malo, got, err)
+		}
+	}
+}
+
+func TestUnHashRecienCalculadoNoNecesitaMejora(t *testing.T) {
+	h := Predeterminado()
+	hash, err := h.Hashear(context.Background(), "x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := h.NecesitaMejora(hash); err != nil || got {
+		t.Errorf("dio %v, %v", got, err)
+	}
+}

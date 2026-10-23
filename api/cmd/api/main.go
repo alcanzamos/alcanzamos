@@ -114,7 +114,7 @@ func armarEnrutador(cfg config.Config, pool *pgxpool.Pool, log *slog.Logger) (*s
 		Log:       log,
 	})
 	autenticaciones, err := autenticacion.NuevoServicio(autenticacion.Dependencias{
-		Repo: pg.NuevoAutenticacion(pool), Hasher: hasher, Limitador: limitador, Reloj: hora,
+		Repo: pg.NuevoAutenticacion(pool), Hasher: hasher, Limitador: limitador, Reloj: hora, Log: log,
 	})
 	if err != nil {
 		return nil, nil, err

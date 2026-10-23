@@ -25,24 +25,38 @@ const (
 var ahoraDePrueba = time.Date(2026, 10, 22, 15, 0, 0, 0, time.UTC)
 
 // hasheadorFalso «hashea» como "$argon2id$falso$"+contraseña y cuenta cada verificación.
+// Un hash que empieza por prefijoViejo vale (verifica) pero necesita mejora.
 type hasheadorFalso struct {
-	mu          sync.Mutex
-	hashes      int
-	verificadas int
+	mu           sync.Mutex
+	hashes       int
+	verificadas  int
+	falloHashear error // si no es nil, Hashear falla con él
 }
+
+const (
+	prefijoActual = "$argon2id$falso$"
+	prefijoViejo  = "$argon2id$viejo$"
+)
 
 func (h *hasheadorFalso) Hashear(_ context.Context, c string) (string, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.hashes++
-	return "$argon2id$falso$" + c, nil
+	if h.falloHashear != nil {
+		return "", h.falloHashear
+	}
+	return prefijoActual + c, nil
 }
 
 func (h *hasheadorFalso) Verificar(_ context.Context, c, hash string) (bool, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.verificadas++
-	return hash == "$argon2id$falso$"+c, nil
+	return hash == prefijoActual+c || hash == prefijoViejo+c, nil
+}
+
+func (h *hasheadorFalso) NecesitaMejora(hash string) (bool, error) {
+	return strings.HasPrefix(hash, prefijoViejo), nil
 }
 
 type sesionGuardada struct {
@@ -55,6 +69,7 @@ type repoFalso struct {
 	mu       sync.Mutex
 	cuentas  map[string]Credencial // correo → credencial
 	sesiones []sesionGuardada
+	mejoras  []*MejoraDeHash // una por cada inicio de sesión, nil si no hubo
 	cerradas [][]byte
 	anterior *time.Time
 }
@@ -66,9 +81,10 @@ func (r *repoFalso) CredencialPorCorreo(_ context.Context, correo string) (Crede
 	return Credencial{}, ErrNoExiste
 }
 
-func (r *repoFalso) IniciarSesion(_ context.Context, persona string, huella []byte, ahora time.Time) error {
+func (r *repoFalso) IniciarSesion(_ context.Context, persona string, huella []byte, ahora time.Time, mejora *MejoraDeHash) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.mejoras = append(r.mejoras, mejora)
 	r.sesiones = append(r.sesiones, sesionGuardada{persona, huella, ahora})
 	return nil
 }
@@ -96,6 +112,7 @@ func nuevoEntorno(t *testing.T) *entorno {
 	e := &entorno{
 		repo: &repoFalso{cuentas: map[string]Credencial{
 			correoDePrueba:         {Persona: personaDePrueba, Hash: "$argon2id$falso$" + claveDePrueba, Verificada: true},
+			"viejo@ej.test":        {Persona: "0192f3c4-0000-7000-8000-000000000003", Hash: prefijoViejo + claveDePrueba, Verificada: true},
 			"sinverificar@ej.test": {Persona: "0192f3c4-0000-7000-8000-000000000002", Hash: "$argon2id$falso$" + claveDePrueba},
 		}},
 		hasher:   &hasheadorFalso{},

@@ -102,6 +102,21 @@ func (h *Hasher) Verificar(ctx context.Context, contrasena, codificado string) (
 	return subtle.ConstantTimeCompare(obtenida, clave) == 1, nil
 }
 
+// NecesitaMejora indica si el hash guardado quedó por debajo de los parámetros vigentes del Hasher: memoria,
+// iteraciones o paralelismo menores, o sal o clave más cortas (ADR-002 §5.1, OWASP «Upgrading the Work Factor»).
+// Quien llama vuelve a calcular el hash con la contraseña, que solo tiene a mano al iniciar sesión. Un valor mayor
+// en cualquiera de ellos no cuenta. Devuelve ErrFormato si el hash está mal formado.
+func (h *Hasher) NecesitaMejora(codificado string) (bool, error) {
+	p, sal, clave, err := decodificar(codificado)
+	if err != nil {
+		return false, err
+	}
+	return p.MemoriaKiB < h.params.MemoriaKiB ||
+		p.Iteraciones < h.params.Iteraciones ||
+		p.Paralelismo < h.params.Paralelismo ||
+		len(sal) < longSal || len(clave) < longClave, nil
+}
+
 func derivar(contrasena string, sal []byte, p Parametros, largo uint32) []byte {
 	return argon2.IDKey([]byte(contrasena), sal, p.Iteraciones, p.MemoriaKiB, p.Paralelismo, largo)
 }

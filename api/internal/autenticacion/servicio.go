@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -47,18 +48,25 @@ type Repositorio interface {
 	// CredencialPorCorreo busca la credencial de la cuenta con ese correo (normalizado), o ErrNoExiste.
 	CredencialPorCorreo(ctx context.Context, correo string) (Credencial, error)
 	// IniciarSesion guarda la sesión nueva y, **en la misma transacción**, `ingreso_anterior = ultimo_ingreso` y
-	// `ultimo_ingreso = ahora` (D-134).
-	IniciarSesion(ctx context.Context, persona string, huella []byte, ahora time.Time) error
+	// `ultimo_ingreso = ahora` (D-134). Si `mejora` no es nil, en esa misma transacción reemplaza el hash de la
+	// credencial (D-144: subir los parámetros viejos), pero solo si el hash guardado sigue siendo el verificado:
+	// un cambio de contraseña en medio no se pisa.
+	IniciarSesion(ctx context.Context, persona string, huella []byte, ahora time.Time, mejora *MejoraDeHash) error
 	// CerrarSesion borra la fila de la sesión. Si no existe no hace nada.
 	CerrarSesion(ctx context.Context, huella []byte) error
 	// IngresoAnterior devuelve el inicio de sesión anterior al último, o nil si es el primer ingreso (RF-062).
 	IngresoAnterior(ctx context.Context, persona string) (*time.Time, error)
 }
 
+// MejoraDeHash es el reemplazo de un hash de parámetros viejos: el que se verificó y el que lo sustituye.
+type MejoraDeHash struct{ Viejo, Nuevo string }
+
 // Hasheador calcula y comprueba contraseñas (internal/argon2id).
 type Hasheador interface {
 	Hashear(ctx context.Context, contrasena string) (string, error)
 	Verificar(ctx context.Context, contrasena, hash string) (bool, error)
+	// NecesitaMejora indica si el hash guardado tiene parámetros menores que los vigentes (E12, ADR-002 §5.1).
+	NecesitaMejora(hash string) (bool, error)
 }
 
 // Dependencias son los puertos del servicio.
@@ -67,6 +75,7 @@ type Dependencias struct {
 	Hasher    Hasheador
 	Limitador *seguridad.LimitadorDeIntentos
 	Reloj     reloj.Reloj
+	Log       *slog.Logger // opcional: sin él, no se registra nada
 }
 
 // Servicio son los casos de uso de entrar y salir.
@@ -79,6 +88,9 @@ type Servicio struct {
 
 // NuevoServicio arma el servicio y calcula el hash de relleno, con los mismos parámetros del Hasheador.
 func NuevoServicio(d Dependencias) (*Servicio, error) {
+	if d.Log == nil {
+		d.Log = slog.New(slog.DiscardHandler)
+	}
 	azar := make([]byte, 16)
 	_, _ = rand.Read(azar)
 	hash, err := d.Hasher.Hashear(context.Background(), hex.EncodeToString(azar))
@@ -106,6 +118,9 @@ type SesionIniciada struct {
 //     correo), contra el de relleno. Los dos fallos son ErrCredencialesInvalidas y cuentan en los límites.
 //  4. Con la contraseña correcta, sesión nueva con token nuevo (nunca se reutiliza uno) y, en la misma transacción,
 //     el ingreso anterior (D-134).
+//  5. Si el hash guardado tiene parámetros menores que los vigentes, se calcula uno nuevo con la contraseña (fuera de
+//     la transacción, con el cupo de Argon2id) y se guarda en esa misma transacción (D-144, E12 `NecesitaMejora`).
+//     Si no se puede calcular, la sesión se inicia igual y queda el hash viejo.
 func (s *Servicio) IniciarSesion(ctx context.Context, identificador, contrasena, origen string) (SesionIniciada, error) {
 	identificador = strings.TrimSpace(identificador)
 	campos := map[string]string{}
@@ -141,11 +156,27 @@ func (s *Servicio) IniciarSesion(ctx context.Context, identificador, contrasena,
 		return SesionIniciada{}, ErrCredencialesInvalidas
 	}
 
+	mejora := s.hashMejorado(ctx, contrasena, cred)
 	token, huella := seguridad.NuevoTokenOpaco()
-	if err := s.d.Repo.IniciarSesion(ctx, cred.Persona, huella, s.d.Reloj.Ahora()); err != nil {
+	if err := s.d.Repo.IniciarSesion(ctx, cred.Persona, huella, s.d.Reloj.Ahora(), mejora); err != nil {
 		return SesionIniciada{}, err
 	}
 	return SesionIniciada{Token: token, Verificada: cred.Verificada}, nil
+}
+
+// hashMejorado devuelve el reemplazo del hash si el guardado quedó con parámetros viejos, o nil si no hace
+// falta o no se pudo calcular: subir el hash nunca impide entrar. El registro no lleva la contraseña ni el hash.
+func (s *Servicio) hashMejorado(ctx context.Context, contrasena string, cred Credencial) *MejoraDeHash {
+	viejo, err := s.d.Hasher.NecesitaMejora(cred.Hash)
+	if err != nil || !viejo {
+		return nil
+	}
+	nuevo, err := s.d.Hasher.Hashear(ctx, contrasena)
+	if err != nil {
+		s.d.Log.WarnContext(ctx, "no se pudo subir el hash de la contraseña; queda el anterior", "persona", cred.Persona, "error", err)
+		return nil
+	}
+	return &MejoraDeHash{Viejo: cred.Hash, Nuevo: nuevo}
 }
 
 // CerrarSesion borra la sesión del token (CU-52). Con un token de mentira o ya borrado no hace nada y no falla:
