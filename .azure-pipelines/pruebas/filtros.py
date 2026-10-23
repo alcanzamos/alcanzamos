@@ -26,6 +26,8 @@ ESPERADO = {
     "api/test/pgtest/pgtest.go": {"comun", "api"},
     "api/Dockerfile": {"comun", "api"},
     ".azure-pipelines/api.yml": {"comun", "api"},
+    ".azure-pipelines/pruebas/cobertura.py": {"comun", "api"},
+    "api/test/cobertura-base.json": {"comun", "api"},
     "web/README.md": {"comun", "web", "api"},
     "web/src/PantallaPrueba.tsx": {"comun", "web", "api"},
     "web/package.json": {"comun", "web", "api"},

@@ -372,6 +372,28 @@ BASE_DE_DATOS_URL=postgres://alcanzamos:solo-local@127.0.0.1:55432/alcanzamos go
 docker compose -f ../infra/local/compose.yaml --env-file ../infra/local/.env.example down -v
 ```
 
+## Cobertura y barrera del pipeline (E17-ECO 5.5, D-146, D-148)
+
+Las pruebas viven en `test/` y miden `src/` con `-coverpkg=./src/...`. El pipeline `api` (`.azure-pipelines/api.yml`) falla si:
+
+- el grupo **núcleo y seguridad** (`nucleo` cuando exista, `seguridad`, `argon2id`, `sesion`, `servidor` y `autenticacion`) queda bajo **90 %**;
+- el grupo **resto del API** (los demás paquetes de `src/`) queda bajo **75 %**;
+- algún grupo queda bajo la base de `test/cobertura-base.json` (sin bajar respecto de `main`). Un PR que sube la cobertura puede subir la base (valores con un decimal, redondeados hacia abajo); **nunca bajarla**.
+
+Para correr la barrera en local, con el PostgreSQL del compose (ver arriba) y desde la raíz del monorepo:
+
+```sh
+cd api
+export BASE_DE_DATOS_URL=postgres://alcanzamos:solo-local@127.0.0.1:55432/alcanzamos?sslmode=disable
+go run ./src/cmd/api migrar
+go test -count=1 -p 1 -tags integration -coverpkg=./src/... -coverprofile=c.out ./test/...
+cd ..
+python3 -I -B .azure-pipelines/pruebas/cobertura.py medir api/c.out api/test/cobertura-base.json
+python3 -I -B .azure-pipelines/pruebas/cobertura.py probar   # prueba del propio script
+```
+
+La salida es una tabla por grupo y por paquete; el código de salida es 1 si algo falla. `c.out` no se confirma. Sin PostgreSQL las pruebas de integración se saltan y la cobertura sale más baja de lo que el pipeline mide.
+
 ## Dependencias
 
 Últimas versiones estables, verificadas en `proxy.golang.org` el 2026-10-22.
