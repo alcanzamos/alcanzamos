@@ -123,6 +123,12 @@ export const avisos = {
     tipo: 'logro',
     titulo: 'Listo, cambiaste tu contraseña.',
   },
+  // E14-PCP 4.8, PN-65: «Menos de 18 años» (D-090). Sin el botón «Ya tengo un usuario: iniciar sesión» hasta I11 (D-137).
+  menorDeEdad: {
+    tipo: 'informacion',
+    titulo: 'Esta cuenta la crea una persona adulta.',
+    mensaje: 'Tu mamá, papá o tutor crea tu cuenta desde la suya y te da tu usuario.',
+  },
   // E14-PCP 4.3, PN-60 (se llega a ella cuando el API niega el paso por falta de sesión)
   sesionCerrada: {
     tipo: 'informacion',
@@ -176,6 +182,12 @@ const erroresDeCampo = {
 export const textosDeRepeticion = {
   vacia: 'Falta repetir la contraseña.',
   distinta: 'Falta que las dos contraseñas sean iguales.',
+};
+
+// E14-PCP 4.8: los dos errores de la fecha de nacimiento de PN-65. La fecha nunca sale del teléfono: se revisa aquí.
+export const textosDeEdad = {
+  vacia: 'Falta la fecha de nacimiento.',
+  futura: 'Falta una fecha que ya haya pasado.',
 };
 
 export const textoDeErrorDeCampo = (
