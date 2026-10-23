@@ -84,7 +84,7 @@ func (s *SMTP) mensajeDeVerificacion(destino, token string) ([]byte, error) {
 		"Si no creaste una cuenta, ignora este mensaje: no pasa nada.\r\n\r\n" +
 		"--\r\n" +
 		"Este mensaje sale de una dirección que no recibe respuestas.\r\n" +
-		"Si tienes preguntas sobre tus datos, escribe a " + s.privacidad + ".\r\n"
+		s.pie()
 	return s.mensaje(destino, "Confirma tu correo en Alcanzamos", cuerpo)
 }
 
@@ -102,7 +102,12 @@ const (
 
 // mensajeDeAviso arma el aviso de correo ya registrado.
 func (s *SMTP) mensajeDeAviso(destino string) ([]byte, error) {
-	return s.mensaje(destino, asuntoDelAviso, cuerpoDelAviso+"Si tienes dudas sobre tus datos, escribe a "+s.privacidad+".\r\n")
+	return s.mensaje(destino, asuntoDelAviso, cuerpoDelAviso+s.pie())
+}
+
+// pie es el cierre de todos los correos de la cuenta (E14-PCP 4.2 bis, D-143): termina siempre con esta línea.
+func (s *SMTP) pie() string {
+	return "Si tienes dudas sobre tus datos, escribe a " + s.privacidad + ".\r\n"
 }
 
 // mensaje arma el mensaje completo: encabezados y cuerpo de texto plano en UTF-8.

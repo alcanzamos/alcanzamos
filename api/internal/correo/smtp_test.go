@@ -77,7 +77,6 @@ func TestMensajeDeVerificacion(t *testing.T) {
 	for _, fragmento := range []string{
 		"https://app.ejemplo.test/verificar?t=tok-en_123",
 		"24 horas",
-		"escribe a privacidad@ejemplo.test.",
 		"ignora este mensaje",
 	} {
 		if !strings.Contains(cuerpo, fragmento) {
@@ -115,6 +114,29 @@ func TestMensajeDeAvisoDeCorreoRegistrado(t *testing.T) {
 	for _, prohibido := range []string{"http://", "https://", "verificar", "contraseña:"} {
 		if strings.Contains(cuerpo, prohibido) {
 			t.Errorf("el aviso no debe llevar %q", prohibido)
+		}
+	}
+}
+
+// Los dos correos terminan con el pie de E14-PCP 4.2 bis, con el texto exacto (D-143).
+func TestLosDosCorreosTerminanConElPieExacto(t *testing.T) {
+	s := NuevoSMTP(configDePrueba("127.0.0.1:1025"), relojDePrueba())
+	const pie = "Si tienes dudas sobre tus datos, escribe a privacidad@ejemplo.test.\r\n"
+	verificacion, err := s.mensajeDeVerificacion("laura@ejemplo.test", "tok-en_123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	aviso, err := s.mensajeDeAviso("laura@ejemplo.test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for nombre, crudo := range map[string][]byte{"verificación": verificacion, "aviso": aviso} {
+		_, cuerpo := leerMensaje(t, crudo)
+		if !strings.HasSuffix(cuerpo, "\r\n"+pie) {
+			t.Errorf("el correo de %s no termina con el pie exacto:\n%q", nombre, cuerpo)
+		}
+		if strings.Contains(cuerpo, "Si tienes preguntas") {
+			t.Errorf("el correo de %s trae el pie anterior", nombre)
 		}
 	}
 }
