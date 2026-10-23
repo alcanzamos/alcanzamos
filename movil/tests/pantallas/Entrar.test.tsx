@@ -50,6 +50,13 @@ describe('PN-60 · Iniciar sesión, Android (E14-PCP 4.3)', () => {
     expect(screen.queryByText('Entro con mi nombre de usuario')).not.toBeOnTheScreen();
   });
 
+  it('«¿Olvidaste tu contraseña?» abre PN-61 y está antes de «Iniciar sesión»', async () => {
+    const navegacion = await mostrar();
+    expect(screen.getByRole('button', { name: '¿Olvidaste tu contraseña?' })).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: '¿Olvidaste tu contraseña?' }));
+    expect(navegacion.navigate).toHaveBeenCalledWith('RecuperarAcceso');
+  });
+
   it('«Crear una cuenta» abre PN-65, el único camino a esa pantalla', async () => {
     const navegacion = await mostrar();
     await fireEvent.press(screen.getByRole('button', { name: 'Crear una cuenta' }));

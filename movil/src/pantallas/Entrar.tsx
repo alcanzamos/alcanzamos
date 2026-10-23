@@ -3,7 +3,7 @@ import { useRef, useState } from 'react';
 import type { TextInput } from 'react-native';
 import { iniciarSesion } from '../api/acceso';
 import { Aviso } from '../componentes/Aviso';
-import { Boton } from '../componentes/Boton';
+import { Boton, BotonDeTexto } from '../componentes/Boton';
 import { CampoDeContrasena } from '../componentes/CampoDeContrasena';
 import { CampoDeTexto } from '../componentes/CampoDeTexto';
 import { Pantalla } from '../componentes/Pantalla';
@@ -16,7 +16,7 @@ type Campo = 'identificador' | 'contrasena';
 // PN-60 · Iniciar sesión, variante Android (E14-PCP 4.3): solo con correo, sin «Entro con mi nombre de usuario» (D-137: queda
 // para I11, con el botón «Ya tengo un usuario» de PN-65). Es la primera pantalla de la app. El API recibe un «identificador»
 // genérico; por ahora es el correo. Dicho de otra forma: aquí no se decide nada, el API responde y la pantalla muestra.
-// La fila «Política de tratamiento y consultas» (PN-68) y «¿Olvidaste tu contraseña?» (PN-61) llegan con sus pantallas.
+// La fila «Política de tratamiento y consultas» (PN-68) llega con su pantalla.
 export function Entrar({ navigation, route }: NativeStackScreenProps<Rutas, 'Entrar'>) {
   const [correo, setCorreo] = useState('');
   const [contrasena, setContrasena] = useState('');
@@ -83,6 +83,7 @@ export function Entrar({ navigation, route }: NativeStackScreenProps<Rutas, 'Ent
         alCambiar={setContrasena}
         error={errores.contrasena}
       />
+      <BotonDeTexto alTocar={() => navigation.navigate('RecuperarAcceso')}>¿Olvidaste tu contraseña?</BotonDeTexto>
       <Boton deshabilitado={enviando} alTocar={() => void enviar()}>
         Iniciar sesión
       </Boton>

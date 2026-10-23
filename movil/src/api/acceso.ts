@@ -10,3 +10,7 @@ export const ingresoAnterior = () => pedir<{ ingreso_anterior: string | null }>(
 
 export const cambiarContrasena = (datos: { contrasena_actual: string; contrasena_nueva: string }) =>
   pedir('POST', '/api/v1/cuenta/contrasena', datos);
+
+// PN-61: pedir el enlace. La respuesta es la misma con o sin cuenta (CU-44 2a). El enlace del correo abre la web (D-155):
+// elegir la contraseña nueva (PN-62) no se hace en la app hasta que haya App Links (I08), así que no hay `elegirContrasena`.
+export const pedirRecuperacion = (correo: string) => pedir('POST', '/api/v1/recuperacion', { correo });
