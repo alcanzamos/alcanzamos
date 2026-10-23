@@ -12,6 +12,7 @@ web/test-results
 web/playwright-report
 web/e2e
 api/bin
+api/test
 **/*.test
 **/.env
 **/.env.*

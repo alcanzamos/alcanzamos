@@ -66,7 +66,7 @@ steps:
     workingDirectory: api
     displayName: Pruebas con detector de carreras
 
-  - script: CGO_ENABLED=0 go build -trimpath -o "$(Agent.TempDirectory)/alcanzamos" ./cmd/api
+  - script: CGO_ENABLED=0 go build -trimpath -o "$(Agent.TempDirectory)/alcanzamos" ./src/cmd/api
     workingDirectory: api
     displayName: go build
 

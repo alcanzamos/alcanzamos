@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-// Debe ser idéntica a politicaCSP en api/internal/servidor/servidor.go y a la de vite.config.ts.
+// Debe ser idéntica a politicaCSP en api/src/servidor/servidor.go y a la de vite.config.ts.
 const politicaCSP =
   "default-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
 

@@ -4,7 +4,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 import { defineConfig as defineVitest, mergeConfig } from "vitest/config";
 
-// Content-Security-Policy. Debe ser idéntica a politicaCSP en api/internal/servidor/servidor.go
+// Content-Security-Policy. Debe ser idéntica a politicaCSP en api/src/servidor/servidor.go
 // (Go no puede embeber un archivo fuera de su módulo, así que son dos literales).
 // web/e2e/csp.spec.ts comprueba que `vite preview` la envía tal cual.
 const politicaCSP =
