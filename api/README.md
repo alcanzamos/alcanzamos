@@ -72,7 +72,7 @@ Ningún dominio ni dirección va fija en el código (D-129). `config.Cargar` lee
 
 ## Seguridad (`internal/seguridad`, US-49)
 
-Lo que no depende de ningún módulo de negocio (E12 §5.9). Los límites de intentos y la política de contraseñas llegan en el PR 2.
+Lo que no depende de ningún módulo de negocio (E12 §5.9).
 
 ### Eventos de seguridad (RNF-025, E17-VTE 2.1)
 
@@ -81,6 +81,40 @@ Una línea JSON de `slog` por evento (`seguridad.Registro`), nivel `WARN`, `msg`
 ### Tokens opacos (D-081)
 
 `NuevoTokenOpaco` da 32 bytes de `crypto/rand` en base64 de URL sin relleno y su SHA-256, que es lo único que llega a la base. `HuellaDeToken` rechaza, sin tocar la base, lo que no decodifica a 32 bytes.
+
+### Límites de intentos (`LimitadorDeIntentos`, RNF-014)
+
+Es una **espera, no un bloqueo**: cada intento cuenta durante su ventana (deslizante) y deja de contar al cumplirla. Los contadores viven **solo en la memoria del API** (D-123): se reinician con él y no se comparten entre réplicas. La hora sale del `Reloj` inyectado (`internal/reloj`), así que las pruebas la adelantan sin esperar. Lo vencido se borra al tocar la clave y en un barrido cada minuto, y cada clave guarda a lo sumo tantos instantes como su límite, así que la memoria está acotada. Las cuentas, los correos y los orígenes se guardan como SHA-256, no en claro.
+
+| Qué | Por cuenta o dirección | Por origen | Ventana | Decisión |
+|---|---|---|---|---|
+| Inicio de sesión (cuenta los **fallos**) | 5 | 20 | 15 minutos | D-136 |
+| Pedido del enlace de recuperación | 3 | 20 | 1 hora | D-136 (4) |
+| Reenvío del correo de verificación y cambio de correo (contador propio) | 3 | 20 | 1 hora | D-138 (2) |
+| Crear una cuenta (cuenta **todos** los intentos) | — | 20 | 1 hora | D-140 (1) |
+| Correos a una misma dirección (verificación, reenvíos y aviso de D-141), desde cualquier origen | 3 | — | 1 hora | D-140 (2) |
+
+- `PermitirIngreso` no cuenta: lo que cuenta es cada fallo (`RegistrarFalloDeIngreso`). Mientras dura la espera responde que no aunque la contraseña sea la correcta.
+- Un pedido frenado no cuenta: la espera termina a la hora del primero, por mucho que se insista.
+- El límite de la cuenta y el del origen se aplican juntos y solo cuenta si pasan los dos.
+- **Origen:** lo decide quien llama; hoy es la dirección de la conexión. Detrás de Azure Container Apps todos llegarían con la dirección de su entrada y el límite por origen sería de todos juntos: se confiará solo en la dirección que agregue esa entrada (fila 17 del primer despliegue, D-143 (4)). No se lee `X-Forwarded-For` mientras tanto.
+- Quien llama responde igual al cliente cuando no envía un correo por el límite de la dirección: el cliente no debe poder saberlo.
+
+### Política de contraseñas (`PoliticaDeContrasena`, RF-035, D-089, D-142)
+
+15 caracteres o más (se cuentan caracteres Unicode, no bytes), **sin reglas de composición** y sin recortar espacios. No consulta ningún servicio externo de contraseñas filtradas (E11-EIP). Todo se compara sin distinguir mayúsculas ni tildes («Contraseña» es «contrasena»). `Validar(contrasena, correo, usuario)` devuelve el primer error de esta lista:
+
+| Código para el cliente | Error | Cuándo | Texto de E14-PCP (lo pone el cliente) |
+|---|---|---|---|
+| `contrasena_vacia` | `ErrContrasenaVacia` | no hay nada | «Falta la contraseña.» |
+| `contrasena_corta` | `ErrContrasenaCorta` | menos de 15 caracteres | «Falta que la contraseña tenga al menos 15 caracteres.» |
+| `contrasena_personal` | `ErrContrasenaPersonal` | contiene la parte local del correo (si tiene 4 caracteres o más), el nombre de usuario (ídem) o «alcanzamos» | «Falta una contraseña que no incluya tu correo ni el nombre de la app.» (propuesto, lo revisa el dueño) |
+| `contrasena_comun` | `ErrContrasenaComun` | está en la lista de SecLists o en la propia; son todos los caracteres iguales o un bloque de hasta 4 repetido de punta a punta (`aaaaaaaaaaaaaaa`, `abababababababab`); es una secuencia de punta a punta, ascendente o descendente (`123456789012345`, `abcdefghijklmno`); o es un tramo seguido de las filas de un teclado en español, en cualquier sentido (`qwertyuiopasdfg`, `asdfghjklñzxcvb`) | «Falta una contraseña que no sea tan común. Prueba con una frase de tres o cuatro palabras.» |
+
+Una prueba por regla en `contrasena_test.go`. Las reglas miran la contraseña entera: una secuencia o una repetición dentro de una frase más larga no se rechaza.
+
+- **Lista de SecLists** (`datos/contrasenas_comunes.txt`): [SecLists](https://github.com/danielmiessler/SecLists) (MIT), `xato-net-10-million-passwords-1000000.txt` en el commit `4c0fd59432ab8508edc23b3c880127edb12e34d5` (2026-10-22), filtrada a las 10.908 entradas de 15 o más caracteres. URL exacta, hashes, filtro y licencia están en `internal/seguridad/datos/` (`README.md` y `LICENCIA-SecLists.txt`). Licencia MIT, compatible con la AGPLv3.
+- **Lista propia en español** (`datos/contrasenas_comunes_es.txt`, AGPL-3.0-only): 502 entradas de 15 o más caracteres con frases y patrones de Colombia («contraseña», «teamo», «tequiero», ciudades, equipos) pegados a números y años. Sin datos filtrados. La genera [`datos/generar_es.go`](internal/seguridad/datos/generar_es.go) (`go run generar_es.go > contrasenas_comunes_es.txt`); **el dueño la revisa antes de fusionar**. Detalle en `datos/README.md`.
 
 ### Correo (`internal/correo`)
 
@@ -129,7 +163,7 @@ Indirectas: `pgpassfile`, `pgservicefile`, `puddle/v2`, `mfridman/interpolate`, 
 
 ## Contraseñas (Argon2id)
 
-- Paquete `internal/argon2id`, sobre `golang.org/x/crypto/argon2`. Aún nadie lo usa: los endpoints de dominio son de I05.
+- Paquete `internal/argon2id`, sobre `golang.org/x/crypto/argon2`. Aún nadie lo usa: lo usa la creación de la cuenta (PR 5 de la US-49). La política de contraseñas está en [Seguridad](#política-de-contraseñas-politicadecontrasena-rf-035-d-089-d-142).
 - Parámetros OWASP: 19 MiB, 2 iteraciones, paralelismo 1. Sal de 16 bytes, clave de 32.
 - Formato PHC: `$argon2id$v=19$m=19456,t=2,p=1$<sal>$<clave>`, base64 sin relleno.
 - `Verificar` lee los parámetros del hash y compara en tiempo constante. Rechaza hashes con parámetros fuera de tope (memoria máxima 256 MiB).
