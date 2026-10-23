@@ -59,6 +59,16 @@ Rama `feat/us-49-movil-cuenta` (D-155). Flujo: PN-60 → «Crear una cuenta» �
 
 Dependencia nueva: `@react-native-async-storage/async-storage` 2.2.0 (MIT, 2025-06-05), la versión de `expo/bundledNativeModules.json` para el SDK 57; no suma ningún aviso a la auditoría.
 
+## Iniciar sesión, seguridad de la cuenta y cambiar la contraseña (US-49, A4)
+
+Rama `feat/us-49-movil-sesion` (D-155).
+
+- **PN-60 · Iniciar sesión** (`Entrar.tsx`): solo con correo; **no** hay «Entro con mi nombre de usuario» (D-137, queda para I11 junto con el botón de PN-65). El API recibe un `identificador` genérico. Con la cuenta activa va a PN-71; con la cuenta sin verificar (sesión limitada, D-138), a PN-59 con el correo escrito. Los errores: `422` por campo, `401` «No pudimos entrar con esos datos.» (sin decir cuál falló), `429` «Hiciste muchos intentos…», `5xx` T7 («No pudimos iniciar tu sesión.», que nunca dice que los datos están mal), sin conexión. Muestra arriba, como mensaje de estado, la llegada («Tu sesión se cerró…», «Listo, confirmamos tu correo.», «Listo, cambiaste tu contraseña.»). Faltan dos filas de E14 cuyas pantallas no existen todavía: «¿Olvidaste tu contraseña?» (PN-61, llega con A5) y «Política de tratamiento y consultas» (PN-68).
+- **Arranque** (`Navegacion.tsx`): con un token en el Keystore la primera pantalla es PN-71, que le pregunta al API si la sesión sigue valiendo; sin token, PN-60. Lo que decide es el API: `401` → PN-60 con «Tu sesión se cerró», `403 verificacion_pendiente` → PN-59, `403 autorizacion_pendiente` → pantalla provisional (`accesoNegado.ts`, que ya usaba PN-59 en A3).
+- **PN-71 · Seguridad de la cuenta** (`SeguridadDeLaCuenta.tsx`): la fecha del ingreso **anterior** en palabras y en la hora de Colombia, con los números en Figtree con cifras tabulares y sin `ss02` (D-123, D-085). `fechaEnPalabras` (`fechas.ts`) resta cinco horas a mano y lee los campos en UTC: Colombia no tiene horario de verano, y así no depende de `Intl.DateTimeFormat` con zona en Hermes ni de la zona del teléfono. Con «Cerrar sesión» (T2): `DELETE /api/v1/sesiones/actual` y borra el token del Keystore.
+- **PN-73 · Cambiar la contraseña** (`CambiarContrasena.tsx`): dos campos, sin la nota del menor (llega con I11). Al guardar vuelve a PN-71 con «Listo, cambiamos tu contraseña.»; el token no cambia (la sesión de ahora sigue abierta y las demás las cierra el API).
+- **Barra superior** (`barra.ts`): PN-71 y PN-73 usan la barra nativa de la pila con el título en `tipografia.titulo-2` (E14-SDD 5.10). El Atrás es el del sistema.
+
 ## Pruebas (US-58, D-145)
 
 Jest con el preset `jest-expo`, siguiendo la guía de Expo (<https://docs.expo.dev/develop/unit-testing/>). Las pruebas van en `tests/`, en espejo de `src/` (E17-ECO 4.1 bis): `src/fuentes.ts` se prueba en `tests/fuentes.test.ts`. Jest solo busca ahí (`roots` y `testMatch` apuntan a `tests/`) y mide `src/` (sin `src/tokens/`, que se genera) con un umbral de **50 % de líneas** (E17-ECO 5.5; hoy 100 %).

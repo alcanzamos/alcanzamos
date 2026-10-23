@@ -14,4 +14,8 @@ export type Rutas = {
   RevisaTuCorreo: { correo?: string } | undefined;
   /** Pantalla provisional hasta que la US-50 construya PN-63 y PN-64. */
   SinAutorizacion: { llegada?: Llegada } | undefined;
+  /** PN-71, la pantalla de inicio provisional de quien entra con autorización. */
+  SeguridadDeLaCuenta: { llegada?: Llegada } | undefined;
+  /** PN-73. */
+  CambiarContrasena: undefined;
 };
