@@ -4,7 +4,9 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestSubcomandoDesconocidoFalla(t *testing.T) {
@@ -38,5 +40,17 @@ func TestTareasSinURLFalla(t *testing.T) {
 	err := ejecutar(context.Background(), []string{"tareas"}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
 	if err == nil {
 		t.Fatal("se esperaba un error por falta de la URL")
+	}
+}
+
+func TestElRegistroEscribeLaHoraEnUTC(t *testing.T) {
+	var salida strings.Builder
+	local := time.Date(2026, 10, 22, 18, 0, 0, 0, time.FixedZone("Bogota", -5*3600))
+	r := slog.NewRecord(local, slog.LevelInfo, "hola", 0)
+	if err := nuevoRegistro(&salida).Handler().Handle(context.Background(), r); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(salida.String(), `"time":"2026-10-22T23:00:00Z"`) {
+		t.Fatalf("la hora debe salir en UTC: %s", salida.String())
 	}
 }

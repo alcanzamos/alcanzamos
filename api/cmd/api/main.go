@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -14,7 +15,7 @@ import (
 )
 
 func main() {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	log := nuevoRegistro(os.Stdout)
 	ctx, parar := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer parar()
 
@@ -22,6 +23,17 @@ func main() {
 		log.Error("falló", "error", err)
 		os.Exit(1)
 	}
+}
+
+// nuevoRegistro es el logger del API: JSON, una línea por evento, con la hora en UTC (E17-VTE 2.1), también fuera de
+// la imagen, donde la zona del equipo puede no ser UTC.
+func nuevoRegistro(w io.Writer) *slog.Logger {
+	return slog.New(slog.NewJSONHandler(w, &slog.HandlerOptions{ReplaceAttr: func(grupos []string, a slog.Attr) slog.Attr {
+		if len(grupos) == 0 && a.Key == slog.TimeKey {
+			a.Value = slog.TimeValue(a.Value.Time().UTC())
+		}
+		return a
+	}}))
 }
 
 // ejecutar despacha el subcomando; "api" es el predeterminado.
