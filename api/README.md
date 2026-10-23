@@ -4,6 +4,7 @@ API de Alcanzamos: monolito modular en Go con la biblioteca estándar (ADR-002).
 
 - Archivo de construcción: `go.mod` en esta carpeta.
 - Reglas: estándar de codificación (E17-ECO), pruebas con `go test -race`; las de integración usan `//go:build integration`.
+- Código en `src/` y pruebas en `test/`, en espejo (D-145, E17-ECO 3.1 bis): `src/<paquete>` se prueba en `test/<paquete>`, siempre de caja negra (`package <paquete>_test`), sin `export_test.go` y sin `internal/`. Los ayudantes de prueba (`test/pgtest`, `test/servidor/accesotest`, `test/correo/correotest`, `test/reloj/relojtest`) son paquetes normales bajo `test/`. `src/cmd/api` solo llama a `src/app`, que tiene el compositor y los subcomandos: un paquete `main` no se puede importar desde las pruebas.
 - Estructura del monorepo: ADR-001 en [`docs/adr/`](../docs/adr/ADR-001-estructura-de-repositorios.md).
 
 ## Uso
@@ -16,7 +17,7 @@ API de Alcanzamos: monolito modular en Go con la biblioteca estándar (ADR-002).
 ```sh
 cd api
 go test -race ./...
-go run ./cmd/api
+go run ./src/cmd/api
 cd ..    # la imagen se construye desde la raíz del monorepo
 docker build -f api/Dockerfile -t alcanzamos-api:dev .
 docker run --rm -p 127.0.0.1:8080:8080 alcanzamos-api:dev
@@ -34,9 +35,9 @@ Un solo origen: la web y el API comparten dominio, sin CORS. No hay dominio fijo
 | Cualquier otro `GET`/`HEAD` | `index.html` con 200 y `Cache-Control: no-cache` (aplicación de una página) |
 | Otro método fuera de `/salud` y `/api/` | 405 con `Allow: GET, HEAD` |
 
-- Paquete `internal/web`: `//go:embed` de `internal/web/estatico/`. En el repositorio esa carpeta solo tiene un `index.html` de relleno ("la web no está compilada"), para que `go build` y `go test` pasen sin compilar la web. El `Dockerfile` lo sobrescribe con el `web/dist` real. Un `npm run build` local no toca esa carpeta, así que no deja cambios en git (`web/dist` está ignorado).
+- Paquete `src/web`: `//go:embed` de `src/web/estatico/`. En el repositorio esa carpeta solo tiene un `index.html` de relleno ("la web no está compilada"), para que `go build` y `go test` pasen sin compilar la web. El `Dockerfile` lo sobrescribe con el `web/dist` real. Un `npm run build` local no toca esa carpeta, así que no deja cambios en git (`web/dist` está ignorado).
 - Las respuestas de la web llevan `X-Content-Type-Options: nosniff`.
-- **Content-Security-Policy** en todas las respuestas (web, `/api/`, `/salud`, errores 404 y 405), puesta por un envoltorio del manejador en `internal/servidor` con una sola constante (`politicaCSP`):
+- **Content-Security-Policy** en todas las respuestas (web, `/api/`, `/salud`, errores 404 y 405), puesta por un envoltorio del manejador en `src/servidor` con una sola constante (`politicaCSP`):
 
   ```
   default-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'
@@ -52,7 +53,7 @@ Un solo origen: la web y el API comparten dominio, sin CORS. No hay dominio fijo
 
   La prueba `TestContentSecurityPolicyEnTodasLasRespuestas` verifica el valor exacto. `vite preview` (que usa Playwright) repite el mismo texto en `web/vite.config.ts` y `web/e2e/csp.spec.ts` lo compara y falla ante cualquier violación; no hay un origen único posible porque Go no puede embeber archivos fuera de su módulo, así que son dos literales que hay que mantener iguales.
 - La cookie de sesión es `__Host-sesion`, con `SameSite=Strict` (D-083); ver [Sesiones](#sesiones-us-49).
-- Para ver la web real sin Docker: `cp -r web/dist/. api/internal/web/estatico/` y `go run ./cmd/api` (no confirmar ese cambio).
+- Para ver la web real sin Docker: `cp -r web/dist/. api/src/web/estatico/` y `go run ./src/cmd/api` (no confirmar ese cambio).
 
 ## Configuración
 
@@ -91,11 +92,11 @@ Toda ruta de `/api/` se registra con `Enrutador.Registrar(nivel, patron, manejad
 - **Un nivel más bajo no hereda las rutas de uno más alto.** Lo contrario sí: una cuenta ya verificada sigue pudiendo *revisar el estado* en PN-59 (si abrió el enlace en otro dispositivo, «Ya lo confirmé» debe poder contestar «verificado» con la misma sesión).
 - Sin sesión: `401 {"error":"sin_sesion"}` y evento `error_autorizacion`. Con sesión que no alcanza el nivel: `403` con `verificacion_pendiente` o `autorizacion_pendiente` y evento `acceso_denegado` con la cuenta (la sesión de mentira queda como `desconocida`). Si falla la resolución de la sesión, `500`: ante la duda no pasa.
 - **`seguridad.Sujeto`** (`Persona`, `Verificada`, `Autorizada`, `Senuelo`) lo arma quien implementa `servidor.Sesiones` (la interfaz `SujetoDe(r)` que resuelve la sesión; ver `sesion.Resolutor`) y el `Enrutador` lo deja en el contexto (`servidor.SujetoDe`). La sesión de mentira de D-141 se trata como la limitada real en todas las rutas, diga lo que diga el resto de sus campos.
-- **Prueba por ruta** (`internal/servidor/accesotest`): `ProbarRutas` recorre las rutas registradas y, para cada una y cada clase de Sujeto, comprueba el estado, el código de error y el evento de seguridad de la tabla de arriba. Una ruta nueva entra sola. `TestTodaRutaDeAPITieneSuNivelDeclarado` (`cmd/api`) es además el inventario de rutas: una ruta nueva obliga a añadirla con su nivel.
+- **Prueba por ruta** (`test/servidor/accesotest`): `ProbarRutas` recorre las rutas registradas y, para cada una y cada clase de Sujeto, comprueba el estado, el código de error y el evento de seguridad de la tabla de arriba. Una ruta nueva entra sola. `TestTodaRutaDeAPITieneSuNivelDeclarado` (`src/cmd/api`) es además el inventario de rutas: una ruta nueva obliga a añadirla con su nivel.
 
 ### Finalidades necesarias por etapa del titular (`cuenta.ReglaDeFinalidades`, D-139)
 
-`0002_catalogo.sql` tiene tres finalidades necesarias y activas, pero a cada persona solo le tocan algunas. La regla está en un solo lugar (`internal/cuenta/finalidades.go`) y según la etapa del **titular** (de quién son los datos; `autorizacion` separa `titular_id` de `otorgante_id`):
+`0002_catalogo.sql` tiene tres finalidades necesarias y activas, pero a cada persona solo le tocan algunas. La regla está en un solo lugar (`src/cuenta/finalidades.go`) y según la etapa del **titular** (de quién son los datos; `autorizacion` separa `titular_id` de `otorgante_id`):
 
 | Etapa del titular | Finalidades necesarias | Quién las otorga |
 |---|---|---|
@@ -105,13 +106,13 @@ Toda ruta de `/api/` se registra con `Enrutador.Registrar(nivel, patron, manejad
 
 Las accesorias (`avisos`, `horas_de_vida`, `correo_del_menor`) y `transferencia` (inactiva) no entran. `Cumple(etapa, titular, vigentes, tutores)` dice si se cumple; una etapa desconocida no cumple. **Prueba guardiana** (`TestElCatalogoNoTieneNecesariasSinClasificar`): lee las finalidades del INSERT de `0002_catalogo.sql` (la migración embebida, la misma que se aplica a la base) y falla si hay una necesaria y activa que la regla no clasifica; la prueba inversa falla si la regla exige un código que el catálogo no tiene como necesario y activo.
 
-## Seguridad (`internal/seguridad`, US-49)
+## Seguridad (`src/seguridad`, US-49)
 
 Lo que no depende de ningún módulo de negocio (E12 §5.9).
 
 ### Eventos de seguridad (RNF-025, E17-VTE 2.1)
 
-Una línea JSON de `slog` por evento (`seguridad.Registro`), nivel `WARN`, `msg` «evento de seguridad», con estos campos y ninguno más: `time` (siempre en UTC: `nuevoRegistro` de `cmd/api`), `level`, `msg`, `evento_seguridad` (`inicio_sesion_fallido`, `acceso_denegado` o `error_autorizacion`), `cuenta` (uuid o `desconocida`), `ruta` (el patrón de `Request.Pattern`, sin valores), `codigo` (HTTP) y `peticion`. **No hay origen ni IP** (D-123), ni contraseñas, tokens, correos o cuerpos. El `peticion` es de 16 bytes aleatorios en hexadecimal; nunca se acepta el que mande el cliente.
+Una línea JSON de `slog` por evento (`seguridad.Registro`), nivel `WARN`, `msg` «evento de seguridad», con estos campos y ninguno más: `time` (siempre en UTC: `nuevoRegistro` de `src/cmd/api`), `level`, `msg`, `evento_seguridad` (`inicio_sesion_fallido`, `acceso_denegado` o `error_autorizacion`), `cuenta` (uuid o `desconocida`), `ruta` (el patrón de `Request.Pattern`, sin valores), `codigo` (HTTP) y `peticion`. **No hay origen ni IP** (D-123), ni contraseñas, tokens, correos o cuerpos. El `peticion` es de 16 bytes aleatorios en hexadecimal; nunca se acepta el que mande el cliente.
 
 ### Tokens opacos (D-081)
 
@@ -119,7 +120,7 @@ Una línea JSON de `slog` por evento (`seguridad.Registro`), nivel `WARN`, `msg`
 
 ### Límites de intentos (`LimitadorDeIntentos`, RNF-014)
 
-Es una **espera, no un bloqueo**: cada intento cuenta durante su ventana (deslizante) y deja de contar al cumplirla. Los contadores viven **solo en la memoria del API** (D-123): se reinician con él y no se comparten entre réplicas. La hora sale del `Reloj` inyectado (`internal/reloj`), así que las pruebas la adelantan sin esperar. Lo vencido se borra al tocar la clave y en un barrido cada minuto, y cada clave guarda a lo sumo tantos instantes como su límite, así que la memoria está acotada. Las cuentas, los correos y los orígenes se guardan como SHA-256, no en claro.
+Es una **espera, no un bloqueo**: cada intento cuenta durante su ventana (deslizante) y deja de contar al cumplirla. Los contadores viven **solo en la memoria del API** (D-123): se reinician con él y no se comparten entre réplicas. La hora sale del `Reloj` inyectado (`src/reloj`), así que las pruebas la adelantan sin esperar. Lo vencido se borra al tocar la clave y en un barrido cada minuto, y cada clave guarda a lo sumo tantos instantes como su límite, así que la memoria está acotada. Las cuentas, los correos y los orígenes se guardan como SHA-256, no en claro.
 
 | Qué | Por cuenta o dirección | Por origen | Ventana | Decisión |
 |---|---|---|---|---|
@@ -146,12 +147,12 @@ Es una **espera, no un bloqueo**: cada intento cuenta durante su ventana (desliz
 | `contrasena_personal` | `ErrContrasenaPersonal` | contiene la parte local del correo (si tiene 4 caracteres o más), el nombre de usuario (ídem) o «alcanzamos» | «Falta una contraseña que no incluya tu correo ni el nombre de la app.» (propuesto, lo revisa el dueño) |
 | `contrasena_comun` | `ErrContrasenaComun` | está en la lista de SecLists o en la propia; son todos los caracteres iguales o un bloque de hasta 4 repetido de punta a punta (`aaaaaaaaaaaaaaa`, `abababababababab`); es una secuencia de punta a punta, ascendente o descendente (`123456789012345`, `abcdefghijklmno`); o es un tramo seguido de las filas de un teclado en español, en cualquier sentido (`qwertyuiopasdfg`, `asdfghjklñzxcvb`) | «Falta una contraseña que no sea tan común. Prueba con una frase de tres o cuatro palabras.» |
 
-Una prueba por regla en `contrasena_test.go`. Las reglas miran la contraseña entera: una secuencia o una repetición dentro de una frase más larga no se rechaza.
+Una prueba por regla en `test/seguridad/contrasena_test.go`. Las reglas miran la contraseña entera: una secuencia o una repetición dentro de una frase más larga no se rechaza.
 
-- **Lista de SecLists** (`datos/contrasenas_comunes.txt`): [SecLists](https://github.com/danielmiessler/SecLists) (MIT), `xato-net-10-million-passwords-1000000.txt` en el commit `4c0fd59432ab8508edc23b3c880127edb12e34d5` (2026-10-22), filtrada a las 10.908 entradas de 15 o más caracteres. URL exacta, hashes, filtro y licencia están en `internal/seguridad/datos/` (`README.md` y `LICENCIA-SecLists.txt`). Licencia MIT, compatible con la AGPLv3.
-- **Lista propia en español** (`datos/contrasenas_comunes_es.txt`, AGPL-3.0-only): 502 entradas de 15 o más caracteres con frases y patrones de Colombia («contraseña», «teamo», «tequiero», ciudades, equipos) pegados a números y años. Sin datos filtrados. La genera [`datos/generar_es.go`](internal/seguridad/datos/generar_es.go) (`go run generar_es.go > contrasenas_comunes_es.txt`); **el dueño la revisa antes de fusionar**. Detalle en `datos/README.md`.
+- **Lista de SecLists** (`datos/contrasenas_comunes.txt`): [SecLists](https://github.com/danielmiessler/SecLists) (MIT), `xato-net-10-million-passwords-1000000.txt` en el commit `4c0fd59432ab8508edc23b3c880127edb12e34d5` (2026-10-22), filtrada a las 10.908 entradas de 15 o más caracteres. URL exacta, hashes, filtro y licencia están en `src/seguridad/datos/` (`README.md` y `LICENCIA-SecLists.txt`). Licencia MIT, compatible con la AGPLv3.
+- **Lista propia en español** (`datos/contrasenas_comunes_es.txt`, AGPL-3.0-only): 502 entradas de 15 o más caracteres con frases y patrones de Colombia («contraseña», «teamo», «tequiero», ciudades, equipos) pegados a números y años. Sin datos filtrados. La genera [`datos/generar_es.go`](src/seguridad/datos/generar_es.go) (`go run generar_es.go > contrasenas_comunes_es.txt`); **el dueño la revisa antes de fusionar**. Detalle en `datos/README.md`.
 
-### Correo (`internal/correo`)
+### Correo (`src/correo`)
 
 SMTP de la biblioteca estándar; texto plano en español. Los dos correos (el de verificación y el aviso de D-141, E14-PCP 4.2 bis) terminan **exactamente** con «Si tienes dudas sobre tus datos, escribe a <CORREO_PRIVACIDAD>.» (D-143); una prueba compara el texto en los dos. El puerto `Correo` tiene un `Falso` para las pruebas. Nunca se registra el token, la dirección ni el cuerpo.
 
@@ -229,7 +230,7 @@ token = base64url sin relleno( aleatorio(16) ‖ HMAC-SHA-256(clave, aleatorio �
 
 - Son 32 bytes y **43 caracteres**, igual que un token real (`seguridad.NuevoTokenOpaco`): mismo formato y mismo largo; la cookie y el cuerpo son los mismos.
 - **Reconocimiento sin almacenar** (`Senuelos.Reconoce`): si el almacén real no tiene la sesión, se recalcula la firma para cada día de creación **de hoy menos 7 días hasta hoy, ambos incluidos** (8 días de calendario UTC; los 7 días de D-135). Un token creado el día D se reconoce hasta que termina el día D+7: entre 7 y 8 días después de crearse, según la hora. Se calculan siempre los 8 HMAC y se comparan en tiempo constante. Un token de un día futuro no se acepta.
-- **Qué prueba cada cosa** (`senuelos_test.go`): una instancia nueva con la misma clave (reinicio) y una segunda (réplica) lo reconocen; otra clave no; vence al terminar el día D+7 con el reloj inyectado; un token aleatorio de 32 bytes no es de mentira; mismo formato y largo; y `TestPuntaAPuntaConElEnrutadorYLaBase` lo recorre contra la base.
+- **Qué prueba cada cosa** (`test/sesion/senuelos_test.go`): una instancia nueva con la misma clave (reinicio) y una segunda (réplica) lo reconocen; otra clave no; vence al terminar el día D+7 con el reloj inyectado; un token aleatorio de 32 bytes no es de mentira; mismo formato y largo; y `TestPuntaAPuntaConElEnrutadorYLaBase` lo recorre contra la base.
 - Rotar la clave invalida todas las sesiones de mentira vivas (y solo esas): quien tenga una recibirá `401`, mientras que las reales siguen. Es un efecto aceptado, ver «Gaps».
 
 ### Token para Android (D-143 (3))
@@ -257,7 +258,7 @@ Los navegadores mandan `Origin` o `Sec-Fetch-Site` siempre y un script de una p�
 | `POST /api/v1/recuperacion/contrasena` | `publica` | Elige la contraseña nueva con el enlace (PN-62). Cuerpo: `{token, contrasena}` |
 | `POST /api/v1/cuenta/contrasena` | `requiere_autorizacion` | Cambia la contraseña con la sesión iniciada (PN-73, RF-065). Cuerpo: `{contrasena_actual, contrasena_nueva}` |
 
-Código en `internal/autenticacion` (`Servicio` y `Handler`; E12 `AutenticacionServicio`) y `pg.Autenticacion`.
+Código en `src/autenticacion` (`Servicio` y `Handler`; E12 `AutenticacionServicio`) y `pg.Autenticacion`.
 
 ### Iniciar sesión
 
@@ -290,7 +291,7 @@ Código en `internal/autenticacion` (`Servicio` y `Handler`; E12 `AutenticacionS
 - **Límites.** D-136 (4): **3 pedidos por hora por correo y 20 por origen**, exista o no la cuenta; el siguiente es `429 {"error":"demasiados_intentos"}`, idéntico para todos, y un pedido frenado no cuenta. D-140: como máximo **3 correos por hora a una misma dirección** (suma verificación, reenvíos, aviso y recuperación); si la dirección ya llegó al tope, la respuesta es la misma y el correo no sale. La recuperación tiene su propio contador: no mezcla con el del inicio de sesión.
 - **Elegir la contraseña** (`POST /api/v1/recuperacion/contrasena`, `{token, contrasena}`). Primero mira el enlace, sin calcular nada: inexistente, mal formado, usado, vencido o de otro propósito (el de verificación no sirve aquí ni al revés) da `400 {"error":"enlace_invalido"}` («Ese enlace ya no sirve.»). Después aplica la política de contraseñas con el correo de la cuenta (`contrasena_personal`, D-142): si no cumple, `422 validacion` con el código en `contrasena` y **el enlace no se gasta**, así la persona corrige y vuelve a intentar.
 - **Al guardar, en una sola transacción:** se marca el enlace usado (un `UPDATE` con las condiciones en el `WHERE`, atómico: de varios usos simultáneos pasa uno), se guarda el hash Argon2id nuevo y se **borran todas las sesiones de la persona**, la actual incluida (recuperar significa que la contraseña vieja pudo estar comprometida). Responde `200 {"estado":"contrasena_cambiada"}` **sin iniciar sesión** y sin cookie: el cliente va a PN-60 con «Listo, cambiaste tu contraseña.» E12 (s2, CU-44) y E14 (PN-62) dicen lo mismo: no hay inicio automático.
-- Pruebas: `TestRecuperarElAccesoCierraTodasLasSesiones`, `TestElEnlaceDeRecuperacionVenceALaHora`, `TestPedirOtroEnlaceDeRecuperacionInvalidaLosPendientes`, `TestRecuperacionSoloParaCuentasVerificadas`, `TestLosEnlacesNoSeIntercambian` y `TestDosUsosSimultaneosDelEnlaceSoloPasaUno` (contra la base); las del 429, de los 3 correos por hora y de la política, en `internal/autenticacion/contrasenas_test.go`.
+- Pruebas: `TestRecuperarElAccesoCierraTodasLasSesiones`, `TestElEnlaceDeRecuperacionVenceALaHora`, `TestPedirOtroEnlaceDeRecuperacionInvalidaLosPendientes`, `TestRecuperacionSoloParaCuentasVerificadas`, `TestLosEnlacesNoSeIntercambian` y `TestDosUsosSimultaneosDelEnlaceSoloPasaUno` (contra la base); las del 429, de los 3 correos por hora y de la política, en `test/autenticacion/contrasenas_test.go`.
 
 ### Cambiar la contraseña con la sesión iniciada (PN-73, RF-065, D-090)
 
@@ -341,7 +342,7 @@ Código en `internal/autenticacion` (`Servicio` y `Handler`; E12 `AutenticacionS
 
 ## Imagen
 
-- Tres etapas: `node:24.22.1-alpine3.24` (digest `sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53`, índice multiarquitectura, resuelto el 2026-10-22; mismo Node que `.azure-pipelines/web.yml`) hace `npm ci` y `npm run build` en `web/` (necesita `diseno/`); `golang:1.27.3-alpine3.24` (digest `sha256:b8c9b82affbbb82a020bbcf998dad2ba9516944ac7e883524642a481a9505e9c`, índice multiarquitectura, resuelto el 2026-10-22) copia ese `web/dist` a `internal/web/estatico/` y compila un binario estático con la web embebida; `gcr.io/distroless/static-debian13:nonroot` lo ejecuta, fijada por digest `sha256:d62067879de890a1def9da0e7766b7d20810a5e5555cef8506b752437d7a3e88` (índice multiarquitectura, resuelto el 2026-10-22).
+- Tres etapas: `node:24.22.1-alpine3.24` (digest `sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53`, índice multiarquitectura, resuelto el 2026-10-22; mismo Node que `.azure-pipelines/web.yml`) hace `npm ci` y `npm run build` en `web/` (necesita `diseno/`); `golang:1.27.3-alpine3.24` (digest `sha256:b8c9b82affbbb82a020bbcf998dad2ba9516944ac7e883524642a481a9505e9c`, índice multiarquitectura, resuelto el 2026-10-22) copia ese `web/dist` a `src/web/estatico/` y compila un binario estático con la web embebida; `gcr.io/distroless/static-debian13:nonroot` lo ejecuta, fijada por digest `sha256:d62067879de890a1def9da0e7766b7d20810a5e5555cef8506b752437d7a3e88` (índice multiarquitectura, resuelto el 2026-10-22).
 - El contexto es la raíz del monorepo; el `.dockerignore` de la raíz deja pasar solo `api/`, `web/` y `diseno/`.
 - Distroless no trae shell, así que no hay `HEALTHCHECK` ni comandos en forma de shell; la salud se consulta por `/salud` desde fuera.
 - Corre como usuario 65532 (nonroot), sin root. El `ENTRYPOINT` es el binario.
@@ -360,7 +361,7 @@ Código en `internal/autenticacion` (`Servicio` y `Handler`; E12 `AutenticacionS
 | `migraciones/0002_catalogo.sql` | `f95c1a03e3a956cec11b448d913ebb79df5c96c72f1e475b446a35566c36de3b` |
 | `migraciones/0003_ingreso_anterior.sql` | `005fb34328e7ab1a2bc2842ffa722b7b2f3fb3382e4adbdc216ed6a7c0ff87c5` |
 
-`migraciones_test.go` compara el SHA-256 de cada archivo embebido con el de esta tabla. `TestMigracion0003AgregaYQuitaIngresoAnterior` comprueba que la columna (`timestamptz`) existe tras subir y no existe tras bajar solo esa migración.
+`test/migraciones/migraciones_test.go` compara el SHA-256 de cada archivo embebido con el de esta tabla. `TestMigracion0003AgregaYQuitaIngresoAnterior` comprueba que la columna (`timestamptz`) existe tras subir y no existe tras bajar solo esa migración.
 
 Prueba de integración (PostgreSQL 18 del compose local; deja la base sin tablas):
 
@@ -385,14 +386,14 @@ Indirectas: `pgpassfile`, `pgservicefile`, `puddle/v2`, `mfridman/interpolate`, 
 
 ## Contraseñas (Argon2id)
 
-- Paquete `internal/argon2id`, sobre `golang.org/x/crypto/argon2`. Lo usa `cuenta.Servicio` al crear la cuenta. La política de contraseñas está en [Seguridad](#política-de-contraseñas-politicadecontrasena-rf-035-d-089-d-142).
+- Paquete `src/argon2id`, sobre `golang.org/x/crypto/argon2`. Lo usa `cuenta.Servicio` al crear la cuenta. La política de contraseñas está en [Seguridad](#política-de-contraseñas-politicadecontrasena-rf-035-d-089-d-142).
 - Parámetros OWASP: 19 MiB, 2 iteraciones, paralelismo 1. Sal de 16 bytes, clave de 32.
 - Formato PHC: `$argon2id$v=19$m=19456,t=2,p=1$<sal>$<clave>`, base64 sin relleno.
 - `Verificar` lee los parámetros del hash y compara en tiempo constante. Rechaza hashes con parámetros fuera de tope (memoria máxima 256 MiB).
 - `NecesitaMejora` dice si un hash guardado quedó por debajo de los parámetros del `Hasher` (cualquiera de memoria, iteraciones o paralelismo menor, o sal o clave más cortas); un hash mal formado da `ErrFormato`. Lo usa el inicio de sesión (D-144).
 - Un semáforo limita a 4 las operaciones simultáneas.
 - Pruebas con los vectores Argon2id de la implementación de referencia (D-083): `src/test.c` de `P-H-C/phc-winner-argon2`, commit `92cd2e19b50b9a58d177e61e1d8ce925315d3d91` (último cambio del archivo; HEAD de `master` `f57e61e19229e23c4445b85494dbf7c07de721cb`, 2021-06-25). Los 8 vectores del bloque Argon2id no usan secreto ni datos asociados, así que aplican todos.
-- Benchmark de una verificación: `go test -bench Verificar -run '^$' ./internal/argon2id`.
+- Benchmark de una verificación: `go test -bench Verificar -run '^$' ./test/argon2id`.
 
 ## Tareas programadas
 

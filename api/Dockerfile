@@ -12,15 +12,15 @@ COPY diseno /fuente/diseno
 COPY web ./
 RUN npm run build
 
-# Etapa 2: compila el API y embebe web/dist en internal/web/estatico (reemplaza el index.html de relleno).
+# Etapa 2: compila el API y embebe web/dist en src/web/estatico (reemplaza el index.html de relleno).
 # Etiqueta golang:1.27.3-alpine3.24, digest del índice multiarquitectura resuelto el 2026-10-22.
 FROM golang:1.27.3-alpine3.24@sha256:b8c9b82affbbb82a020bbcf998dad2ba9516944ac7e883524642a481a9505e9c AS construccion
 WORKDIR /fuente/api
 COPY api/go.mod api/go.sum* ./
 RUN go mod download
 COPY api ./
-COPY --from=web /fuente/web/dist/ ./internal/web/estatico/
-RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /alcanzamos ./cmd/api
+COPY --from=web /fuente/web/dist/ ./src/web/estatico/
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /alcanzamos ./src/cmd/api
 
 # Base de ejecución: distroless static (sin shell ni gestor de paquetes), variante nonroot (uid 65532).
 # Etiqueta static-debian13:nonroot, digest del índice multiarquitectura resuelto el 2026-10-22.
