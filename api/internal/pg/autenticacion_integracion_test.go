@@ -22,8 +22,14 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/internal/sesion"
 )
 
+var (
+	parametrosVigentes = argon2id.Parametros{MemoriaKiB: 16, Iteraciones: 2, Paralelismo: 1}
+	parametrosViejos   = argon2id.Parametros{MemoriaKiB: 8, Iteraciones: 1, Paralelismo: 1}
+)
+
 // entornoDeAcceso arma el API real (cuentas, autenticación, enrutador) sobre una base propia, con Argon2id de verdad
-// pero de costo mínimo.
+// pero de costo mínimo: m=16 KiB, t=2 (`parametrosVigentes`), para que `parametrosViejos` (el mínimo que acepta el
+// formato: m=8, t=1) queden por debajo.
 type entornoDeAcceso struct {
 	*entornoDeCuentas
 	aut *autenticacion.Servicio
@@ -33,7 +39,7 @@ type entornoDeAcceso struct {
 func nuevoEntornoDeAcceso(t *testing.T) *entornoDeAcceso {
 	t.Helper()
 	e := &entornoDeAcceso{entornoDeCuentas: nuevoEntornoDeCuentas(t)}
-	hasher := argon2id.Nuevo(argon2id.Parametros{MemoriaKiB: 8, Iteraciones: 1, Paralelismo: 1}, 4)
+	hasher := argon2id.Nuevo(parametrosVigentes, 4)
 	log := slog.New(slog.NewJSONHandler(io.Discard, nil))
 	cuentas := cuenta.NuevoServicio(cuenta.Dependencias{
 		Repo: e.repo, Correo: e.correo, Politica: seguridad.NuevaPoliticaDeContrasena(), Hasher: hasher,
@@ -145,11 +151,11 @@ func TestUnInicioFallidoNoMueveElIngreso(t *testing.T) {
 	persona := personaDe(t, e.entorno, "laura@ejemplo.test")
 	repo := NuevoAutenticacion(e.pool)
 	_, huella := seguridad.NuevoTokenOpaco()
-	if err := repo.IniciarSesion(context.Background(), persona, huella, ahora); err != nil {
+	if err := repo.IniciarSesion(context.Background(), persona, huella, ahora, nil); err != nil {
 		t.Fatal(err)
 	}
 	// La misma huella otra vez choca con la clave primaria de sesion: el UPDATE previo se revierte.
-	if err := repo.IniciarSesion(context.Background(), persona, huella, ahora.Add(time.Hour)); err == nil {
+	if err := repo.IniciarSesion(context.Background(), persona, huella, ahora.Add(time.Hour), nil); err == nil {
 		t.Fatal("se esperaba el choque de la clave primaria")
 	}
 	if a, u := ingresos(t, e, persona); a != nil || u == nil || !u.Equal(ahora) {
@@ -232,5 +238,83 @@ func TestCerrarSesionDeMentiraRespondeIgualQueLaLimitada(t *testing.T) {
 	}
 	if a, b := vista(otra), vista(senuelo); a != b || !strings.HasPrefix(a, "204") {
 		t.Errorf("limitada %q, de mentira %q", a, b)
+	}
+}
+
+func hashGuardado(t *testing.T, e *entornoDeAcceso, persona string) string {
+	t.Helper()
+	var hash string
+	if err := e.pool.QueryRow(context.Background(), `SELECT hash FROM credencial WHERE persona_id = $1::uuid`, persona).Scan(&hash); err != nil {
+		t.Fatal(err)
+	}
+	return hash
+}
+
+// D-144 (E12 `NecesitaMejora`): al iniciar sesión con un hash de parámetros menores que los vigentes, el hash se vuelve
+// a calcular y se guarda con la sesión; la misma contraseña sigue entrando.
+func TestIniciarSesionSubeElHashDeParametrosViejos(t *testing.T) {
+	e := nuevoEntornoDeAcceso(t)
+	e.crear(t, "laura@ejemplo.test")
+	persona := personaDe(t, e.entorno, "laura@ejemplo.test")
+	verificar(t, e.pool, persona)
+	viejo, err := argon2id.Nuevo(parametrosViejos, 1).Hashear(context.Background(), contrasenaDePrueba)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.pool.Exec(context.Background(), `UPDATE credencial SET hash = $2 WHERE persona_id = $1::uuid`, persona, viejo); err != nil {
+		t.Fatal(err)
+	}
+
+	e.entrar(t, "laura@ejemplo.test")
+	nuevo := hashGuardado(t, e, persona)
+	if nuevo == viejo || !strings.HasPrefix(nuevo, "$argon2id$v=19$m=16,t=2,p=1$") {
+		t.Fatalf("el hash no se actualizó: %s", nuevo)
+	}
+	hasher := argon2id.Nuevo(parametrosVigentes, 1)
+	if ok, err := hasher.Verificar(context.Background(), contrasenaDePrueba, nuevo); err != nil || !ok {
+		t.Fatalf("el hash nuevo no verifica la misma contraseña: %v, %v", ok, err)
+	}
+	if mejora, err := hasher.NecesitaMejora(nuevo); err != nil || mejora {
+		t.Errorf("el hash nuevo sigue necesitando mejora: %v, %v", mejora, err)
+	}
+	// Entra otra vez con la misma contraseña y ya no lo reescribe.
+	e.entrar(t, "laura@ejemplo.test")
+	if otro := hashGuardado(t, e, persona); otro != nuevo {
+		t.Error("con parámetros vigentes el hash no debe reescribirse")
+	}
+	if n := contar(t, e.pool, `SELECT count(*) FROM sesion WHERE persona_id = $1::uuid`, persona); n != 3 {
+		t.Errorf("sesiones: %d", n)
+	}
+}
+
+func TestIniciarSesionConParametrosVigentesNoReescribeElHash(t *testing.T) {
+	e := nuevoEntornoDeAcceso(t)
+	e.crear(t, "laura@ejemplo.test")
+	persona := personaDe(t, e.entorno, "laura@ejemplo.test")
+	verificar(t, e.pool, persona)
+	antes := hashGuardado(t, e, persona)
+	e.entrar(t, "laura@ejemplo.test")
+	if despues := hashGuardado(t, e, persona); despues != antes {
+		t.Errorf("el hash cambió: %s → %s", antes, despues)
+	}
+}
+
+// Si el hash guardado cambió entre la verificación y el guardado (por ejemplo, otra contraseña), el hash nuevo, calculado
+// con la contraseña anterior, no lo pisa; la sesión sí se guarda.
+func TestLaMejoraDelHashNoPisaUnHashQueCambio(t *testing.T) {
+	e := nuevoEntornoDeAcceso(t)
+	e.crear(t, "laura@ejemplo.test")
+	persona := personaDe(t, e.entorno, "laura@ejemplo.test")
+	actual := hashGuardado(t, e, persona)
+	_, huella := seguridad.NuevoTokenOpaco()
+	mejora := &autenticacion.MejoraDeHash{Viejo: "$argon2id$otro", Nuevo: "$argon2id$nuevo"}
+	if err := NuevoAutenticacion(e.pool).IniciarSesion(context.Background(), persona, huella, ahora, mejora); err != nil {
+		t.Fatal(err)
+	}
+	if h := hashGuardado(t, e, persona); h != actual {
+		t.Errorf("el hash cambió: %s", h)
+	}
+	if n := contar(t, e.pool, `SELECT count(*) FROM sesion WHERE hash_token = $1`, huella); n != 1 {
+		t.Errorf("la sesión no se guardó: %d", n)
 	}
 }

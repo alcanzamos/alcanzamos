@@ -3,6 +3,7 @@ package autenticacion
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
 	"testing"
 	"time"
@@ -131,5 +132,47 @@ func TestCerrarSesion(t *testing.T) {
 	// Un token mal formado no toca la base.
 	if err := e.svc.CerrarSesion(context.Background(), "basura"); err != nil || len(e.repo.cerradas) != 1 {
 		t.Fatalf("token inválido: %v %v", err, e.repo.cerradas)
+	}
+}
+
+// D-144: con parámetros viejos, el inicio de sesión lleva el hash nuevo (de la misma contraseña) al repositorio, que lo
+// guarda con la sesión. Con parámetros vigentes no se calcula ni se pasa nada.
+func TestIniciarSesionSubeElHashSoloSiTieneParametrosViejos(t *testing.T) {
+	e := nuevoEntorno(t)
+	if _, err := e.svc.IniciarSesion(context.Background(), correoDePrueba, claveDePrueba, "203.0.113.7"); err != nil {
+		t.Fatal(err)
+	}
+	if e.hasher.hashes != 0 || e.repo.mejoras[0] != nil {
+		t.Errorf("parámetros vigentes: %d hashes nuevos, mejora %+v", e.hasher.hashes, e.repo.mejoras[0])
+	}
+
+	if _, err := e.svc.IniciarSesion(context.Background(), "viejo@ej.test", claveDePrueba, "203.0.113.7"); err != nil {
+		t.Fatal(err)
+	}
+	m := e.repo.mejoras[1]
+	if e.hasher.hashes != 1 || m == nil || m.Viejo != prefijoViejo+claveDePrueba || m.Nuevo != prefijoActual+claveDePrueba {
+		t.Errorf("parámetros viejos: %d hashes nuevos, mejora %+v", e.hasher.hashes, m)
+	}
+}
+
+// Un fallo al calcular el hash nuevo no impide entrar: queda el hash viejo y el registro no lleva secretos.
+func TestFallarAlSubirElHashNoImpideEntrar(t *testing.T) {
+	e := nuevoEntorno(t)
+	svc, err := NuevoServicio(Dependencias{Repo: e.repo, Hasher: e.hasher, Limitador: e.limitador, Reloj: e.reloj,
+		Log: slog.New(slog.NewJSONHandler(e.registro, nil))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.hasher.falloHashear = errors.New("sin memoria") // después del hash de relleno
+	s, err := svc.IniciarSesion(context.Background(), "viejo@ej.test", claveDePrueba, "203.0.113.7")
+	if err != nil || s.Token == "" || !s.Verificada {
+		t.Fatalf("%+v, %v", s, err)
+	}
+	if len(e.repo.sesiones) != 1 || e.repo.mejoras[0] != nil {
+		t.Errorf("sesiones %d, mejora %+v", len(e.repo.sesiones), e.repo.mejoras[0])
+	}
+	reg := e.registro.String()
+	if !strings.Contains(reg, "no se pudo subir el hash") || strings.Contains(reg, claveDePrueba) || strings.Contains(reg, "viejo@ej.test") || strings.Contains(reg, "argon2id") {
+		t.Errorf("registro: %s", reg)
 	}
 }

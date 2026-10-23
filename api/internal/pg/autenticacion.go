@@ -39,14 +39,22 @@ func (r *Autenticacion) CredencialPorCorreo(ctx context.Context, correo string) 
 // `ingreso_anterior = ultimo_ingreso` y `ultimo_ingreso = ahora` (D-134). En el UPDATE, la parte derecha de cada
 // asignación ve la fila como estaba, así que en el primer ingreso `ingreso_anterior` queda nulo. La fila queda
 // bloqueada hasta el commit: dos inicios simultáneos de la misma cuenta se turnan y el segundo ve el ingreso del primero.
-func (r *Autenticacion) IniciarSesion(ctx context.Context, persona string, huella []byte, ahora time.Time) error {
+// Con `mejora`, el mismo UPDATE reemplaza `credencial.hash` (D-144) si sigue siendo el verificado: o se guarda todo,
+// o nada.
+func (r *Autenticacion) IniciarSesion(ctx context.Context, persona string, huella []byte, ahora time.Time, mejora *autenticacion.MejoraDeHash) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("abrir la transacción: %w", err)
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck // sin efecto tras el commit
+	defer tx.Rollback(ctx)  //nolint:errcheck // sin efecto tras el commit
+	var viejo, nuevo string // vacíos: el hash no cambia
+	if mejora != nil {
+		viejo, nuevo = mejora.Viejo, mejora.Nuevo
+	}
 	res, err := tx.Exec(ctx,
-		`UPDATE credencial SET ingreso_anterior = ultimo_ingreso, ultimo_ingreso = $2 WHERE persona_id = $1::uuid`, persona, ahora)
+		`UPDATE credencial SET ingreso_anterior = ultimo_ingreso, ultimo_ingreso = $2,
+		   hash = CASE WHEN $3 <> '' AND hash = $3 THEN $4 ELSE hash END
+		 WHERE persona_id = $1::uuid`, persona, ahora, viejo, nuevo)
 	if err != nil {
 		return fmt.Errorf("registrar el ingreso: %w", err)
 	}
