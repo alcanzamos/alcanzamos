@@ -154,7 +154,8 @@ export const tokens = {
   },
   "tamano": {
     "tactil-minimo": 48,
-    "icono": 24
+    "icono": 24,
+    "columna-contenido": 560
   },
   "color": {
     "fondo": {
