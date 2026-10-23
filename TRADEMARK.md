@@ -17,7 +17,7 @@ Quien distribuya una **versión modificada** (o un servicio basado en ella) debe
 
 Los archivos de `marca/` no se pueden copiar ni redistribuir como parte de otro producto.
 
-El logo que va empaquetado dentro de la web de Alcanzamos (y de la imagen del API que la sirve) sigue bajo esta política de marca y no bajo la AGPLv3, aunque viaje junto al código que sí la tiene.
+El logo que va empaquetado dentro de la web de Alcanzamos (y de la imagen del API que la sirve) o de la app de Android sigue bajo esta política de marca y no bajo la AGPLv3, aunque viaje junto al código que sí la tiene.
 
 ## Estado de esta política
 
