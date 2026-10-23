@@ -130,7 +130,7 @@ describe('PN-59 · Verificar el correo, Android (E14-PCP 4.2)', () => {
 
   describe('«Reenviar el correo»', () => {
     it('al reenviar dice «Te enviamos otro correo.», se deshabilita 30 segundos y explica la espera', async () => {
-      jest.useFakeTimers({ advanceTimers: true });
+      jest.useFakeTimers();
       const { pedidos } = instalarFetchFalso(respuestaJson(202, { estado: 'verificacion_pendiente' }));
       await mostrar();
       await fireEvent.press(boton('Reenviar el correo'));
@@ -178,7 +178,7 @@ describe('PN-59 · Verificar el correo, Android (E14-PCP 4.2)', () => {
     });
 
     it('al salir de la pantalla la espera ya no actualiza nada', async () => {
-      jest.useFakeTimers({ advanceTimers: true });
+      jest.useFakeTimers();
       const error = jest.spyOn(console, 'error').mockImplementation(() => undefined);
       instalarFetchFalso(respuestaJson(202, {}));
       await mostrar();
