@@ -1,5 +1,6 @@
 import {
   MARCAS_DE_NODE_FORGE,
+  MARCAS_POR_PAQUETE,
   buscarMarcas,
   revisarArchivos,
 } from "../scripts/bundle-logica.mjs";
@@ -21,6 +22,17 @@ describe("buscarMarcas", () => {
     ]);
   });
 
+  it("encuentra las marcas de zod con las marcas del paquete", () => {
+    const texto = "xZodError y invalid_type, too_small e invalid_enum_value";
+    expect(buscarMarcas(texto, MARCAS_POR_PAQUETE.zod)).toEqual([
+      "ZodError",
+      "invalid_type",
+      "too_small",
+      "invalid_enum_value",
+    ]);
+    expect(buscarMarcas("limpio", MARCAS_POR_PAQUETE.zod)).toEqual([]);
+  });
+
   it("acepta otras marcas", () => {
     expect(buscarMarcas("abc", ["b", "z"])).toEqual(["b"]);
     expect(MARCAS_DE_NODE_FORGE.length).toBeGreaterThan(1);
@@ -39,6 +51,24 @@ describe("revisarArchivos", () => {
       { nombre: "b.hbc", contenido: "require('node-forge')" },
     ]);
     expect(fallas).toEqual(["b.hbc contiene node-forge (marcas: node-forge)"]);
+  });
+
+  it("falla y nombra el paquete si aparece zod", () => {
+    const { fallas } = revisarArchivos([
+      { nombre: "a.hbc", contenido: "limpio" },
+      { nombre: "b.hbc", contenido: "new ZodError([{code:'invalid_type'}])" },
+    ]);
+    expect(fallas).toEqual(["b.hbc contiene zod (marcas: ZodError, invalid_type)"]);
+  });
+
+  it("detecta los dos paquetes en el mismo archivo", () => {
+    const { fallas } = revisarArchivos([
+      { nombre: "c.hbc", contenido: "node-forge ZodError" },
+    ]);
+    expect(fallas).toEqual([
+      "c.hbc contiene node-forge (marcas: node-forge)",
+      "c.hbc contiene zod (marcas: ZodError)",
+    ]);
   });
 
   it("falla si no hay ningún paquete", () => {
