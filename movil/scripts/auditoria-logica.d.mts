@@ -11,6 +11,7 @@ export interface Excepcion {
   rutas: string[];
   motivo: string;
   revisado: string;
+  revisar_antes_de: string;
 }
 export interface Vulnerabilidad {
   isDirect?: boolean;
@@ -20,6 +21,7 @@ export interface Vulnerabilidad {
 export interface Informe {
   vulnerabilities?: Record<string, Vulnerabilidad>;
 }
+export const hoyUtc: () => string;
 export function idDelAviso(url?: string): string | undefined;
 export function caminosHasta(
   paquete: string,
@@ -30,4 +32,8 @@ export function validarExcepciones(excepciones: unknown): string[];
 export function revisar(
   informe: Informe,
   excepciones: unknown,
-): { fallas: string[]; aceptados: Array<Aviso & { motivo: string; revisado: string }> };
+  hoy?: string,
+): {
+  fallas: string[];
+  aceptados: Array<Aviso & { motivo: string; revisado: string; revisarAntesDe: string }>;
+};

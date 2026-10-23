@@ -17,7 +17,8 @@
     "licencias": "node scripts/licencias.mjs",
     "export:android": "expo export --platform android",
     "test": "jest",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "comprobar-bundle": "node scripts/comprobar-bundle.mjs"
   },
   "dependencies": {
     "expo": "57.0.31",

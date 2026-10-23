@@ -33,7 +33,7 @@ if (informe.error) {
 const { fallas, aceptados } = revisar(informe, excepciones);
 
 for (const a of aceptados) {
-  console.log(`Aceptado: ${a.id} (${a.severidad}) en ${a.paquete}, revisado el ${a.revisado}`);
+  console.log(`Aceptado: ${a.id} (${a.severidad}) en ${a.paquete}, revisado el ${a.revisado}, vigente hasta el ${a.revisarAntesDe}`);
   console.log(`  ${a.motivo}`);
 }
 if (fallas.length > 0) {

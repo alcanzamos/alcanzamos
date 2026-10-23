@@ -1,6 +1,7 @@
 import {
   avisosGraves,
   caminosHasta,
+  hoyUtc,
   idDelAviso,
   revisar,
   validarExcepciones,
@@ -37,7 +38,9 @@ const excepcion: Excepcion = {
   ],
   motivo: "Solo lo usa la herramienta de línea de comandos de Expo.",
   revisado: "2026-10-23",
+  revisar_antes_de: "2026-11-05",
 };
+const hoy = "2026-10-23";
 
 describe("idDelAviso", () => {
   it("saca el GHSA de la URL", () => {
@@ -120,13 +123,22 @@ describe("validarExcepciones", () => {
       "la excepción 1 no tiene «motivo»",
     ]);
     expect(validarExcepciones([{ ...excepcion, rutas: [] }])).toHaveLength(1);
-    expect(validarExcepciones([{}])).toHaveLength(5);
+    expect(validarExcepciones([{}])).toHaveLength(6);
   });
 
   it("exige una fecha AAAA-MM-DD", () => {
     expect(
       validarExcepciones([{ ...excepcion, revisado: "23/10/2026" }])[0],
     ).toContain("fecha");
+  });
+
+  it("exige una fecha AAAA-MM-DD también en revisar_antes_de", () => {
+    expect(
+      validarExcepciones([{ ...excepcion, revisar_antes_de: "5/11/2026" }])[0],
+    ).toContain("revisar_antes_de");
+    expect(
+      validarExcepciones([{ ...excepcion, revisar_antes_de: undefined }]),
+    ).toEqual(["la excepción 1 no tiene «revisar_antes_de»"]);
   });
 
   it("exige una lista", () => {
@@ -136,13 +148,13 @@ describe("validarExcepciones", () => {
 
 describe("revisar", () => {
   it("pasa con la excepción vigente", () => {
-    const { fallas, aceptados } = revisar(informe, [excepcion]);
+    const { fallas, aceptados } = revisar(informe, [excepcion], hoy);
     expect(fallas).toEqual([]);
     expect(aceptados.map((a) => a.id)).toEqual(["GHSA-86w9-cpqp-85rv"]);
   });
 
   it("falla con un aviso sin excepción y dice el camino", () => {
-    const { fallas } = revisar(informe, []);
+    const { fallas } = revisar(informe, [], hoy);
     expect(fallas).toHaveLength(1);
     expect(fallas[0]).toContain("GHSA-86w9-cpqp-85rv");
     expect(fallas[0]).toContain("expo > @expo/cli > node-forge");
@@ -164,13 +176,13 @@ describe("revisar", () => {
         },
       },
     };
-    const { fallas } = revisar(otro, [excepcion]);
+    const { fallas } = revisar(otro, [excepcion], hoy);
     expect(fallas.some((f) => f.includes("GHSA-aaaa-bbbb-cccc"))).toBe(true);
     expect(fallas.some((f) => f.includes("ya no se reporta"))).toBe(true);
   });
 
   it("falla si la excepción quedó obsoleta (el aviso ya no se reporta)", () => {
-    const { fallas } = revisar({ vulnerabilities: {} }, [excepcion]);
+    const { fallas } = revisar({ vulnerabilities: {} }, [excepcion], hoy);
     expect(fallas).toEqual([
       "la excepción GHSA-86w9-cpqp-85rv (node-forge) ya no se reporta: quítala de auditoria-excepciones.json",
     ]);
@@ -186,25 +198,43 @@ describe("revisar", () => {
         },
       },
     };
-    const { fallas } = revisar(nuevo, [excepcion]);
+    const { fallas } = revisar(nuevo, [excepcion], hoy);
     expect(fallas).toHaveLength(1);
     expect(fallas[0]).toContain("el camino de dependencias cambió");
     expect(fallas[0]).toContain("Nuevos: node-forge");
   });
 
   it("falla si un camino listado ya no aparece", () => {
-    const { fallas } = revisar(informe, [
-      { ...excepcion, rutas: [...excepcion.rutas, "expo > x > node-forge"] },
-    ]);
+    const { fallas } = revisar(
+      informe,
+      [{ ...excepcion, rutas: [...excepcion.rutas, "expo > x > node-forge"] }],
+      hoy,
+    );
     expect(fallas[0]).toContain("Ya no aparecen: expo > x > node-forge");
   });
 
   it("una excepción mal formada falla antes de revisar nada", () => {
-    const { fallas } = revisar(informe, [{ ...excepcion, revisado: "" }]);
+    const { fallas } = revisar(informe, [{ ...excepcion, revisado: "" }], hoy);
     expect(fallas).toEqual(["la excepción 1 no tiene «revisado»"]);
   });
 
   it("sin avisos y sin excepciones pasa", () => {
-    expect(revisar({ vulnerabilities: {} }, []).fallas).toEqual([]);
+    expect(revisar({ vulnerabilities: {} }, [], hoy).fallas).toEqual([]);
+  });
+
+  it("pasa el mismo día de la fecha de revisión", () => {
+    expect(revisar(informe, [excepcion], "2026-11-05").fallas).toEqual([]);
+  });
+
+  it("falla si la fecha de revisión ya pasó y dice qué hacer", () => {
+    const { fallas } = revisar(informe, [excepcion], "2026-11-06");
+    expect(fallas).toHaveLength(1);
+    expect(fallas[0]).toContain("venció el 2026-11-05");
+    expect(fallas[0]).toContain("cierre de la iteración");
+    expect(fallas[0]).toContain("Expo");
+  });
+
+  it("hoyUtc devuelve una fecha AAAA-MM-DD", () => {
+    expect(hoyUtc()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });

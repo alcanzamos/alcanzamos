@@ -21,7 +21,7 @@ npm run test:coverage   # con el umbral de 50 % de líneas
 npm run typecheck       # incluye las pruebas
 ```
 
-Las pruebas de la lógica de `scripts/` (`auditoria-logica.mjs` y `licencias-logica.mjs`) también van en `tests/` y cuentan en Jest y en la cobertura. Los `.mjs` pasan por `babel-jest` (clave `transform` de la configuración de Jest) porque el preset de Expo solo transforma `.js`, `.ts` y `.tsx`.
+Las pruebas de la lógica de `scripts/` (`auditoria-logica.mjs`, `licencias-logica.mjs` y `bundle-logica.mjs`) también van en `tests/` y cuentan en Jest y en la cobertura. Los `.mjs` pasan por `babel-jest` (clave `transform` de la configuración de Jest) porque el preset de Expo solo transforma `.js`, `.ts` y `.tsx`.
 
 Versiones fijadas sin `~` ni `^`, verificadas en el registro de npm el 2026-10-23: `jest-expo` 57.0.6 (etiqueta `sdk-57`, publicada el 2026-10-12; `expo/bundledNativeModules.json` pide `~57.0.6`), `@react-native/jest-preset` 0.86.3 (peer de `jest-expo`, misma versión que `react-native`), `jest` 30.5.2 (2026-09-18, última), `@types/jest` 30.0.0 (última), `@testing-library/react-native` 14.1.0 (2026-10-08, última) y `test-renderer` 1.3.1 (2026-10-12; peer de la anterior).
 
@@ -78,7 +78,7 @@ Otras salidas, descartadas por D-085 (cambiarlas pide una decisión nueva):
 
 ## Pipeline (US-58, D-149)
 
-`.azure-pipelines/movil.yml` corre con cambios en `movil/`, `diseno/` o su YAML. Instala Node 24.22.1 desde el tarball oficial con SHA-256 verificado, como `web.yml`, y corre desde `movil/`, en este orden: `npm ci`; `npm run lint`; `npm run typecheck`; `npm run tokens` seguido de `git diff --exit-code -- ../diseno ../web ../movil` (los tokens regenerados no cambian nada); `npm run test:coverage` (mínimo 50 % de líneas); `npm run auditoria`. No compila el paquete de Android.
+`.azure-pipelines/movil.yml` corre con cambios en `movil/`, `diseno/` o su YAML. Instala Node 24.22.1 desde el tarball oficial con SHA-256 verificado, como `web.yml`, y corre desde `movil/`, en este orden: `npm ci`; `npm run lint`; `npm run typecheck`; `npm run tokens` seguido de `git diff --exit-code -- ../diseno ../web ../movil` (los tokens regenerados no cambian nada); `npm run test:coverage` (mínimo 50 % de líneas); `npm run auditoria`; `npm run licencias`; `npm run comprobar-bundle`. No compila el paquete de Android.
 
 **ESLint** (`eslint.config.mjs`, configuración plana, E17-ECO Q-2): `@eslint/js` y `typescript-eslint` recomendados, `eslint-plugin-react-hooks`, todas las reglas de `eslint-plugin-react-native-a11y` (E17-ECO 4.10, ADR-003 §3), sin `any` explícito y `@ts-ignore` solo con descripción. Más la regla de solo tokens de la web (E17-ECO 4.5), adaptada a React Native:
 
@@ -96,18 +96,29 @@ Versiones fijadas sin `~` ni `^`, verificadas en el registro de npm el 2026-10-2
 
 - todo aviso alto o crítico que no esté en `auditoria-excepciones.json`;
 - toda excepción que ya no se reporta (quedó obsoleta: se quita);
-- toda excepción cuyo camino de dependencias cambió, por ejemplo si el paquete pasa a ser una dependencia directa de la app.
+- toda excepción cuyo camino de dependencias cambió, por ejemplo si el paquete pasa a ser una dependencia directa de la app;
+- toda excepción cuya fecha `revisar_antes_de` pasó (hoy en UTC, después de esa fecha). El dueño la renueva en el cierre de cada iteración (D-150), y también se revisa al subir de versión de Expo. La fecha actual es **2026-11-05**, el fin de la iteración I05.
 
-Cada excepción trae el GHSA, el paquete, las rutas de dependencias (que muestran que el paquete llega solo por las herramientas de construcción), el motivo y la fecha de revisión. Se revisan cada vez que se sube de versión de Expo.
+Cada excepción trae el GHSA, el paquete, las rutas de dependencias (que muestran que el paquete llega solo por las herramientas de construcción), el motivo, la fecha de revisión y `revisar_antes_de`.
+
+### `node-forge` no entra en la app (`npm run comprobar-bundle`)
+
+La excepción de `node-forge` se apoya en que ningún archivo de la app lo importa. `scripts/comprobar-bundle.mjs` lo comprueba: corre `npx expo export --platform android` en una carpeta temporal fuera del repositorio y busca en el paquete de JavaScript el nombre y cadenas propias de `node-forge` (`RSASSA-PKCS1-V1_5` y el prefijo de OID `1.2.840.113549`, porque Metro no deja las rutas de los módulos). Falla si aparecen o si no se generó ningún paquete. Probado con un `import 'node-forge'` temporal: falla; sin él, pasa.
+
+Tarda de 3 a 6 segundos (medido el 2026-10-23, Expo 57.0.31, Node 24.22.1, caché caliente), así que es un paso del pipeline.
 
 ### Licencias (`npm run licencias`)
 
-`scripts/licencias.mjs` es la copia de la revisión de `web/` (`web/scripts/licencias.mjs`), sin importar nada de otra carpeta: solo dependencias de producción, contra la misma lista de licencias compatibles con AGPLv3 (condición 4 de ADR-003). **No es un paso del pipeline todavía:** dos paquetes de producción tienen licencias fuera de la lista (2026-10-23) y la decisión es del dueño:
+`scripts/licencias.mjs` es la copia de la revisión de `web/` (`web/scripts/licencias.mjs`), sin importar nada de otra carpeta: solo dependencias de producción, contra la misma lista de licencias compatibles con AGPLv3 (condición 4 de ADR-003). **La lista general no cambia.** Las excepciones (D-150) son por paquete, en `licencias-excepciones.json`, cada una con la licencia, el camino de dependencias, la razón y `revisar_antes_de` (**2026-11-05**):
 
-| Paquete | Licencia | Quién lo trae |
+| Paquete | Licencia | Camino |
 |---|---|---|
-| `argparse` 2.0.1 | Python-2.0 | `expo` → `@expo/cli` → `@expo/xcpretty` → `js-yaml` |
-| `caniuse-lite` 1.0.30001819 | CC-BY-4.0 | `expo` → `@expo/metro-config` → `browserslist` |
+| `argparse` 2.0.1 | Python-2.0 | `expo > @expo/cli > @expo/xcpretty > js-yaml > argparse` |
+| `caniuse-lite` 1.0.30001819 | CC-BY-4.0 | `expo > @expo/metro-config > browserslist > caniuse-lite` |
+
+Razón: son herramientas de compilación que no van en la app, y la FSF considera las dos licencias compatibles con la GPLv3. El camino de cada paquete es el más corto desde las dependencias directas, uno por cada paquete que depende de él.
+
+Falla si: otro paquete tiene una licencia no permitida; cambia la licencia de uno con excepción; cambia su camino; la excepción quedó obsoleta (el paquete ya no está o su licencia ahora es permitida); o pasó la fecha `revisar_antes_de`. En este último caso se revisa en el cierre de la iteración y se renueva la fecha, o se quita la excepción.
 
 ## Alertas de `npm audit` (2026-10-23)
 
@@ -117,7 +128,7 @@ Con `--omit=dev`, `npm audit` marca 4 alertas altas, todas por un solo aviso:
 |---|---|---|
 | `node-forge` 1.4.0 | GHSA-86w9-cpqp-85rv: la verificación de firmas RSA PKCS#1 v1.5 acepta elementos de más | `expo` → `@expo/cli` (y `@expo/code-signing-certificates`) |
 
-Las otras tres alertas son los paquetes que dependen de `node-forge` (`@expo/code-signing-certificates`, `@expo/cli` y `expo`). El aviso de `braces` (GHSA-vfj7-8cjw-p6xm, `micromatch` de las herramientas de Jest y Metro) que se documentó el 2026-10-22 ya no sale: GitHub retiró ese aviso (*withdrawn*), aunque la versión instalada sigue siendo la 3.0.3 (`npm ls braces`). `node-forge` no tiene versión corregida (la última publicada es la 1.4.0, la afectada) y `@expo/cli` es la herramienta de línea de comandos de Expo, no la app que se instala en el celular: ninguno de los archivos de `src/` lo importa. Por eso es la única excepción de `auditoria-excepciones.json`.
+Las otras tres alertas son los paquetes que dependen de `node-forge` (`@expo/code-signing-certificates`, `@expo/cli` y `expo`). El aviso de `braces` (GHSA-vfj7-8cjw-p6xm, `micromatch` de las herramientas de Jest y Metro) que se documentó el 2026-10-22 ya no sale: GitHub retiró ese aviso (*withdrawn*), aunque la versión instalada sigue siendo la 3.0.3 (`npm ls braces`). `node-forge` no tiene versión corregida (la última publicada es la 1.4.0, la afectada) y `@expo/cli` es la herramienta de línea de comandos de Expo, no la app que se instala en el celular: ninguno de los archivos de `src/` lo importa. Por eso es la única excepción de `auditoria-excepciones.json` (aprobada en D-150, con revisión antes del 2026-11-05).
 
 - **No se usa `npm audit fix --force`:** bajaría Expo al SDK 44.
 - **Se revisan cada vez que se sube de versión de Expo.**

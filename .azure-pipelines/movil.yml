@@ -1,6 +1,8 @@
-# Pipeline de movil/: ESLint, tipos, pruebas con cobertura, tokens sin diff y vulnerabilidades de producción.
+# Pipeline de movil/: ESLint, tipos, tokens sin diff, pruebas con cobertura, vulnerabilidades y licencias de
+# producción y comprobación de que node-forge no entra en el paquete de la app.
 # No usa conexión de servicio ni secretos. Corre cuando cambia movil/, diseno/ (tokens y fuentes) o este archivo
-# (ADR-001, filtros por carpeta). No compila el paquete de Android: eso lo hace EAS en la entrega (E17).
+# (ADR-001, filtros por carpeta). No compila el paquete de Android (eso lo hace EAS en la entrega, E17): solo exporta
+# el paquete de JavaScript para revisarlo.
 trigger:
   branches:
     include:
@@ -83,5 +85,14 @@ steps:
     workingDirectory: movil
     displayName: Vulnerabilidades (npm audit, producción, altas o críticas, con excepciones documentadas)
 
-  # ADR-003, condición 4, licencias: `npm run licencias` (producción contra la lista AGPLv3) está en movil/, pero no
-  # es un paso hasta que el dueño decida sobre las licencias fuera de la lista (ver movil/README.md).
+  # ADR-003, condición 4: licencias de producción compatibles con AGPLv3. La lista general no cambia; las únicas
+  # excepciones son por paquete, con su camino y su fecha de revisión, en movil/licencias-excepciones.json (D-150).
+  - script: npm run licencias
+    workingDirectory: movil
+    displayName: Licencias de producción compatibles con AGPLv3 (con excepciones por paquete)
+
+  # D-150: node-forge (excepción de la auditoría) no debe entrar en la app. Genera el paquete de JavaScript de Android
+  # en una carpeta temporal y falla si lo encuentra. Tarda unos segundos (medido: 3 a 6 s).
+  - script: npm run comprobar-bundle
+    workingDirectory: movil
+    displayName: node-forge no está en el paquete de la app (expo export)
