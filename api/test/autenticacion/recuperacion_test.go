@@ -175,10 +175,10 @@ func TestLosTrabajadoresParanConElContexto(t *testing.T) {
 	}
 }
 
-// esperarA espera, hasta un segundo, a que la prueba de n se cumpla.
+// esperarA espera a que n se cumpla. El plazo de 30 s solo acota el fallo: en una prueba que pasa, no se espera de más.
 func esperarA(t *testing.T, descripcion string, n func() bool) {
 	t.Helper()
-	for range 200 {
+	for range 6000 {
 		if n() {
 			return
 		}

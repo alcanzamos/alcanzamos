@@ -6,9 +6,11 @@ package bd_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/alcanzamos/alcanzamos/api/src/bd"
+	"github.com/alcanzamos/alcanzamos/api/test/pgtest"
 )
 
 func TestSubirYBajarMigraciones(t *testing.T) {
@@ -50,5 +52,38 @@ func TestSubirYBajarMigraciones(t *testing.T) {
 	}
 	if err := pool.QueryRow(ctx, "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name <> 'goose_db_version'").Scan(&tablas); err != nil || tablas != 0 {
 		t.Fatalf("quedan %d tablas tras Bajar (%v)", tablas, err)
+	}
+}
+
+// Sin PostgreSQL alcanzable, Conectar falla con un error que no repite la cadena de conexión (lleva la contraseña).
+func TestConectarFallaSinBaseYNoRepiteLaContrasena(t *testing.T) {
+	t.Setenv(bd.VariableURL, "postgres://alguien:clave-secreta-123@127.0.0.1:1/nada?connect_timeout=2")
+	pool, err := bd.Conectar(context.Background())
+	if err == nil {
+		pool.Close()
+		t.Fatal("se esperaba un error")
+	}
+	if strings.Contains(err.Error(), "clave-secreta-123") {
+		t.Errorf("el error repite la contraseña: %v", err)
+	}
+}
+
+func TestConectarFallaConUnaURLMalFormada(t *testing.T) {
+	t.Setenv(bd.VariableURL, "esto no es una url://%%")
+	if pool, err := bd.Conectar(context.Background()); err == nil {
+		pool.Close()
+		t.Fatal("se esperaba un error")
+	}
+}
+
+// Con la base caída, subir y bajar las migraciones fallan con error y no dicen que aplicaron algo.
+func TestSubirYBajarConLaBaseCaidaFallan(t *testing.T) {
+	pool := pgtest.Nueva(t)
+	pool.Close()
+	if n, err := bd.Subir(context.Background(), pool); err == nil || n != 0 {
+		t.Errorf("Subir: %d, %v", n, err)
+	}
+	if n, err := bd.Bajar(context.Background(), pool); err == nil || n != 0 {
+		t.Errorf("Bajar: %d, %v", n, err)
 	}
 }
