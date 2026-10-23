@@ -8,7 +8,7 @@ App móvil en React Native con Expo, primero Android y después iOS (ADR-003). L
 
 ## Estado (US-45, T3)
 
-Solo hay una pantalla de prueba con cifras inventadas (`src/PantallaCifras.tsx`): cifras tabulares de Figtree, cero de Atkinson Hyperlegible Next y qué fuente cargó. No hay lógica de negocio. ESLint y Prettier todavía no están configurados aquí (pendiente con `web/`).
+Solo hay una pantalla de prueba con cifras inventadas (`src/PantallaCifras.tsx`): cifras tabulares de Figtree, cero de Atkinson Hyperlegible Next y qué fuente cargó. No hay lógica de negocio. ESLint ya está configurado (ver «Pipeline»); Prettier todavía no (pendiente con `web/`).
 
 ## Pruebas (US-58, D-145)
 
@@ -21,7 +21,7 @@ npm run test:coverage   # con el umbral de 50 % de líneas
 npm run typecheck       # incluye las pruebas
 ```
 
-Todavía no hay pipeline de `movil/` (ver `.azure-pipelines/README.md`): las pruebas se corren en local hasta que exista. Cuando se cree, debe correr `npm ci`, `npm run typecheck` y `npm run test:coverage`.
+Las pruebas de la lógica de `scripts/` (`auditoria-logica.mjs` y `licencias-logica.mjs`) también van en `tests/` y cuentan en Jest y en la cobertura. Los `.mjs` pasan por `babel-jest` (clave `transform` de la configuración de Jest) porque el preset de Expo solo transforma `.js`, `.ts` y `.tsx`.
 
 Versiones fijadas sin `~` ni `^`, verificadas en el registro de npm el 2026-10-23: `jest-expo` 57.0.6 (etiqueta `sdk-57`, publicada el 2026-10-12; `expo/bundledNativeModules.json` pide `~57.0.6`), `@react-native/jest-preset` 0.86.3 (peer de `jest-expo`, misma versión que `react-native`), `jest` 30.5.2 (2026-09-18, última), `@types/jest` 30.0.0 (última), `@testing-library/react-native` 14.1.0 (2026-10-08, última) y `test-renderer` 1.3.1 (2026-10-12; peer de la anterior).
 
@@ -76,16 +76,48 @@ Otras salidas, descartadas por D-085 (cambiarlas pide una decisión nueva):
 2. Cargó la fuente: aparece primero «Cargando fuentes…» y luego la pantalla con las cuatro filas de ceros en Atkinson y el renglón de Figtree. Si el texto se ve en Roboto, la fuente no cargó.
 3. Ceros de Atkinson: las cuatro filas (sin variante, `tabular-nums`, `stylistic-one`, `stylistic-two`) deben verse con el mismo cero barrado. En el control de Figtree, `stylistic-two` sí cambia el cero (prueba de que `fontVariant` funciona en ese equipo).
 
-## Alertas de `npm audit` (2026-10-22)
+## Pipeline (US-58, D-149)
 
-`npm audit` marca 15 alertas altas. Todas salen de dos paquetes que usan las herramientas de desarrollo de Expo y Metro, no la app que se instala en el celular:
+`.azure-pipelines/movil.yml` corre con cambios en `movil/`, `diseno/` o su YAML. Instala Node 24.22.1 desde el tarball oficial con SHA-256 verificado, como `web.yml`, y corre desde `movil/`, en este orden: `npm ci`; `npm run lint`; `npm run typecheck`; `npm run tokens` seguido de `git diff --exit-code -- ../diseno ../web ../movil` (los tokens regenerados no cambian nada); `npm run test:coverage` (mínimo 50 % de líneas); `npm run auditoria`. No compila el paquete de Android.
+
+**ESLint** (`eslint.config.mjs`, configuración plana, E17-ECO Q-2): `@eslint/js` y `typescript-eslint` recomendados, `eslint-plugin-react-hooks`, todas las reglas de `eslint-plugin-react-native-a11y` (E17-ECO 4.10, ADR-003 §3), sin `any` explícito y `@ts-ignore` solo con descripción. Más la regla de solo tokens de la web (E17-ECO 4.5), adaptada a React Native:
+
+- Vale igual que en la web: los literales de texto con colores sueltos (`#…`, `rgb(`, `hsl(`), medidas con unidad, la paleta primitiva (`paleta`) y los dominios fijos (`alcanzamos.co`, `localhost`, `http(s)://`, D-129).
+- Distinto: en React Native los estilos son objetos, sin unidades. La regla marca además un número distinto de cero en las propiedades de medida de un objeto de estilo (`padding*`, `margin*`, `gap`, `top`…, `width`, `height`, `fontSize`, `lineHeight`, `letterSpacing`, `borderRadius`, `border*Width`, `min*`/`max*`). `flex`, `opacity` y `zIndex` no son medidas y no se revisan.
+- Límite: solo ve literales. Un valor que sale de una función o de una variable no se puede revisar con una regla de sintaxis: lo revisa el dueño con la lista de E17-ECO 6. `tests/`, `scripts/` y los `*.config.*` quedan fuera de la regla, y `src/tokens/tokens.generated.ts` (generado) no se revisa.
+- `eslint-plugin-react-native-a11y` 3.5.1 declara compatibilidad solo hasta ESLint 8 (`peerDependencies`), pero sus reglas corren en ESLint 9. Para no usar `--legacy-peer-deps` en todo el proyecto, `package.json` tiene `overrides` solo para ese plugin (`"eslint": "$eslint"`). Se revisa cuando el plugin publique una versión nueva.
+- `src/fuentes.ts` queda fuera de `no-require-imports`: Metro solo empaqueta las fuentes con `require()` estático.
+
+Versiones fijadas sin `~` ni `^`, verificadas en el registro de npm el 2026-10-23: `eslint` y `@eslint/js` 9.39.5 (las mismas de `web/`; la última de `eslint` es la 10.13.0, pero `web/` y este proyecto se mantienen juntos en la 9), `typescript-eslint` 8.72.0, `eslint-plugin-react-hooks` 7.1.1, `eslint-plugin-react-native-a11y` 3.5.1 (2026-07-20, última) y `globals` 17.13.0.
+
+### Vulnerabilidades (`npm run auditoria`)
+
+`npm audit --omit=dev --audit-level=high` falla con el aviso de `node-forge` (abajo). En vez de silenciarlo para todo el proyecto, `scripts/auditoria.mjs` corre `npm audit --omit=dev --json` y falla con:
+
+- todo aviso alto o crítico que no esté en `auditoria-excepciones.json`;
+- toda excepción que ya no se reporta (quedó obsoleta: se quita);
+- toda excepción cuyo camino de dependencias cambió, por ejemplo si el paquete pasa a ser una dependencia directa de la app.
+
+Cada excepción trae el GHSA, el paquete, las rutas de dependencias (que muestran que el paquete llega solo por las herramientas de construcción), el motivo y la fecha de revisión. Se revisan cada vez que se sube de versión de Expo.
+
+### Licencias (`npm run licencias`)
+
+`scripts/licencias.mjs` es la copia de la revisión de `web/` (`web/scripts/licencias.mjs`), sin importar nada de otra carpeta: solo dependencias de producción, contra la misma lista de licencias compatibles con AGPLv3 (condición 4 de ADR-003). **No es un paso del pipeline todavía:** dos paquetes de producción tienen licencias fuera de la lista (2026-10-23) y la decisión es del dueño:
+
+| Paquete | Licencia | Quién lo trae |
+|---|---|---|
+| `argparse` 2.0.1 | Python-2.0 | `expo` → `@expo/cli` → `@expo/xcpretty` → `js-yaml` |
+| `caniuse-lite` 1.0.30001819 | CC-BY-4.0 | `expo` → `@expo/metro-config` → `browserslist` |
+
+## Alertas de `npm audit` (2026-10-23)
+
+Con `--omit=dev`, `npm audit` marca 4 alertas altas, todas por un solo aviso:
 
 | Paquete | Aviso | Quién lo trae |
 |---|---|---|
-| `braces` 3.0.3 | GHSA-vfj7-8cjw-p6xm: denegación de servicio con patrones muy anidados | `@expo/metro` → `metro-file-map` → `micromatch` |
-| `node-forge` 1.4.0 | GHSA-86w9-cpqp-85rv: la verificación de firmas RSA PKCS#1 v1.5 acepta elementos de más | `@expo/cli` y `@expo/code-signing-certificates` |
+| `node-forge` 1.4.0 | GHSA-86w9-cpqp-85rv: la verificación de firmas RSA PKCS#1 v1.5 acepta elementos de más | `expo` → `@expo/cli` (y `@expo/code-signing-certificates`) |
 
-Las otras 13 alertas son los paquetes que dependen de estos dos (`expo`, `react-native` y sus herramientas).
+Las otras tres alertas son los paquetes que dependen de `node-forge` (`@expo/code-signing-certificates`, `@expo/cli` y `expo`). El aviso de `braces` (GHSA-vfj7-8cjw-p6xm, `micromatch` de las herramientas de Jest y Metro) que se documentó el 2026-10-22 ya no sale: GitHub retiró ese aviso (*withdrawn*), aunque la versión instalada sigue siendo la 3.0.3 (`npm ls braces`). `node-forge` no tiene versión corregida (la última publicada es la 1.4.0, la afectada) y `@expo/cli` es la herramienta de línea de comandos de Expo, no la app que se instala en el celular: ninguno de los archivos de `src/` lo importa. Por eso es la única excepción de `auditoria-excepciones.json`.
 
-- **No se usa `npm audit fix --force`:** bajaría o cambiaría versiones de Expo y React Native fuera del SDK 57.
+- **No se usa `npm audit fix --force`:** bajaría Expo al SDK 44.
 - **Se revisan cada vez que se sube de versión de Expo.**

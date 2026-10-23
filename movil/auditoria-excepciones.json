@@ -1,0 +1,12 @@
+[
+  {
+    "ghsa": "GHSA-86w9-cpqp-85rv",
+    "paquete": "node-forge",
+    "rutas": [
+      "expo > @expo/cli > @expo/code-signing-certificates > node-forge",
+      "expo > @expo/cli > node-forge"
+    ],
+    "motivo": "node-forge verifica firmas RSA PKCS#1 v1.5 y lo usa @expo/cli (la herramienta de línea de comandos de Expo: expo start, expo export) para firmar y comprobar certificados de actualizaciones. Corre en la máquina de desarrollo y en el pipeline, no se empaqueta en la app que se instala (Metro no lo incluye porque ningún archivo de src/ lo importa). No hay versión corregida: la última publicada de node-forge es la 1.4.0 y es la afectada (consultado el 2026-10-23); la «corrección» que ofrece npm es bajar a expo 44.",
+    "revisado": "2026-10-23"
+  }
+]

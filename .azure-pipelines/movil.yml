@@ -1,0 +1,87 @@
+# Pipeline de movil/: ESLint, tipos, pruebas con cobertura, tokens sin diff y vulnerabilidades de producción.
+# No usa conexión de servicio ni secretos. Corre cuando cambia movil/, diseno/ (tokens y fuentes) o este archivo
+# (ADR-001, filtros por carpeta). No compila el paquete de Android: eso lo hace EAS en la entrega (E17).
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - movil/*
+      - diseno/*
+      - .azure-pipelines/movil.yml
+
+pr:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - movil/*
+      - diseno/*
+      - .azure-pipelines/movil.yml
+
+pool:
+  vmImage: ubuntu-24.04
+
+variables:
+  NODE_VERSION: 24.22.1
+  # SHA-256 fijado a mano desde https://nodejs.org/dist/v24.22.1/SHASUMS256.txt (consultado el 2026-10-22).
+  # Cambiar la versión obliga a cambiar también esta suma, web.yml y el campo engines de movil/package.json.
+  NODE_SHA256: 6c172a9ab6718f7b801fb5a7bd486af2ee5e32758086a04b84fcce2aa77095e6
+
+steps:
+  - checkout: self
+    fetchDepth: 1
+
+  # Se descarga el tarball oficial y se verifica antes de descomprimirlo.
+  - script: |
+      set -eu
+      tar_node="node-v$(NODE_VERSION)-linux-x64.tar.xz"
+      destino="$(Agent.TempDirectory)/node"
+      mkdir -p "$destino"
+      curl -fsSL "https://nodejs.org/dist/v$(NODE_VERSION)/$tar_node" -o "$destino/$tar_node"
+      (cd "$destino" && echo "$(NODE_SHA256)  $tar_node" | sha256sum --check --strict -)
+      tar -C "$destino" -xJf "$destino/$tar_node"
+      echo "##vso[task.prependpath]$destino/node-v$(NODE_VERSION)-linux-x64/bin"
+    displayName: Instalar Node $(NODE_VERSION) (SHA-256 verificado)
+
+  - script: |
+      set -eu
+      node --version
+      npm --version
+    displayName: Versión de Node
+
+  - script: npm ci
+    workingDirectory: movil
+    displayName: Dependencias fijadas (npm ci)
+
+  - script: npm run lint
+    workingDirectory: movil
+    displayName: ESLint (typescript-eslint, react-hooks, accesibilidad de React Native, solo tokens)
+
+  - script: npm run typecheck
+    workingDirectory: movil
+    displayName: Tipos (tsc --noEmit)
+
+  # E17-ECO 4.4: regenerar los tokens no debe cambiar nada.
+  - script: |
+      set -eu
+      npm run tokens
+      # El paso corre en movil/: las rutas van relativas a esa carpeta y después de «--».
+      git diff --exit-code -- ../diseno ../web ../movil
+    workingDirectory: movil
+    displayName: Los tokens regenerados no cambian nada
+
+  - script: npm run test:coverage
+    workingDirectory: movil
+    displayName: Pruebas unitarias con cobertura (mínimo 50 % de líneas)
+
+  # ADR-003, condición 4: vulnerabilidades altas o críticas en producción. Las únicas aceptadas están en
+  # movil/auditoria-excepciones.json, una por una y con su motivo; la excepción que deja de reportarse hace fallar.
+  - script: npm run auditoria
+    workingDirectory: movil
+    displayName: Vulnerabilidades (npm audit, producción, altas o críticas, con excepciones documentadas)
+
+  # ADR-003, condición 4, licencias: `npm run licencias` (producción contra la lista AGPLv3) está en movil/, pero no
+  # es un paso hasta que el dueño decida sobre las licencias fuera de la lista (ver movil/README.md).
