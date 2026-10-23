@@ -41,6 +41,11 @@ const intervaloDeBarrido = time.Minute
 // clave guarda a lo sumo `límite` instantes y lo vencido se borra al tocar la clave y en un barrido cada minuto.
 // Las claves de cuentas y direcciones se guardan como SHA-256 para que la memoria no tenga correos (NM-03).
 // Es seguro desde varias goroutines.
+//
+// El origen es un texto que decide quien llama. Hoy es la dirección de la conexión (en local, la del cliente). Detrás
+// de Azure Container Apps todos los pedidos llegan con la dirección de su entrada, y el límite por origen sería uno
+// solo para todos: antes de desplegar hay que confiar únicamente en la dirección que agrega esa entrada (fila 17 del
+// primer despliegue, D-143 (4)). No se lee `X-Forwarded-For` mientras tanto: un cliente podría escribirla.
 type LimitadorDeIntentos struct {
 	reloj reloj.Reloj
 
