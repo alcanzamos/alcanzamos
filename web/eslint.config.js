@@ -5,7 +5,7 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 // E17-ECO 4.5: los componentes usan tokens semánticos (`var(--color-*)`), nunca colores ni medidas sueltas.
-// Esta regla cubre el código TypeScript; las hojas CSS las revisa src/estilos/estilos.test.ts.
+// Esta regla cubre el código TypeScript; las hojas CSS las revisa tests/estilos/estilos.test.ts.
 const colorOMedidaSuelta = [
   {
     selector:
@@ -58,13 +58,7 @@ export default tseslint.config(
     },
   },
   {
-    files: [
-      "**/*.config.{js,ts}",
-      "scripts/**",
-      "e2e/**",
-      "src/**/*.test.{ts,tsx}",
-      "src/pruebas/**",
-    ],
+    files: ["**/*.config.{js,ts}", "scripts/**", "e2e/**", "tests/**"],
     languageOptions: { globals: { ...globals.node } },
     rules: { "no-restricted-syntax": "off" },
   },

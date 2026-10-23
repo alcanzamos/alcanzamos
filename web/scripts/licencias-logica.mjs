@@ -1,4 +1,4 @@
-// Lógica pura de la revisión de licencias (sin dependencias). La usan scripts/licencias.mjs y src/licencias.test.ts.
+// Lógica pura de la revisión de licencias (sin dependencias). La usan scripts/licencias.mjs y tests/licencias.test.ts.
 
 // Licencias compatibles con AGPLv3 que se aceptan en el árbol de producción.
 export const PERMITIDAS = new Set([

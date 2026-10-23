@@ -1,6 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { PantallaPrueba } from "./PantallaPrueba";
+import { PantallaPrueba } from "../src/PantallaPrueba";
 
 describe("PantallaPrueba", () => {
   it("tiene un título principal y un texto de apoyo", () => {

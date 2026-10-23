@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatearPesos } from "./dinero";
+import { formatearPesos } from "../src/dinero";
 
 describe("formatearPesos", () => {
   it("muestra pesos enteros sin centavos", () => {
