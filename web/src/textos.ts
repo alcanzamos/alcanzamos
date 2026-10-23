@@ -64,6 +64,41 @@ export const avisos = {
     titulo: "Ese enlace ya no sirve.",
     mensaje: "Pide uno nuevo.",
   },
+  // E14-PCP 4.3, estado «Error» de PN-60 con credenciales que no coinciden (401)
+  datosNoCoinciden: {
+    tipo: "atencion",
+    titulo: "No pudimos entrar con esos datos.",
+    mensaje: "Revisa lo que escribiste e intenta de nuevo.",
+  },
+  // E14-PCP 4.16 T7 (D-153): error del servidor (5xx) en PN-60; nunca dice que los datos están mal (RNF-017)
+  errorAlIniciarSesion: {
+    tipo: "informacion",
+    titulo: "No pudimos iniciar tu sesión.",
+    mensaje: "El problema es de nuestro lado. Intenta de nuevo en un momento.",
+  },
+  // E14-PCP 4.15, estado «Error» de PN-73
+  errorAlCambiarContrasena: {
+    tipo: "informacion",
+    titulo: "No pudimos guardar tu contraseña.",
+    mensaje: "Tu contraseña de ahora sigue igual. Intenta de nuevo.",
+  },
+  // E14-PCP 4.15, estado «Guardada» de PN-73 (llega a PN-71)
+  contrasenaCambiada: {
+    tipo: "logro",
+    titulo: "Listo, cambiamos tu contraseña.",
+    mensaje: "Cerramos tus otras sesiones. Esta sigue abierta.",
+  },
+  // E14-PCP 4.14, estado «Error» de PN-71
+  errorAlCargarIngreso: {
+    tipo: "informacion",
+    titulo: "No pudimos cargar tu último ingreso.",
+  },
+  // E14-PCP 4.14, PN-71
+  noReconoceElIngreso: {
+    tipo: "informacion",
+    titulo: "¿No reconoces este ingreso?",
+    mensaje: "Cambia tu contraseña y cerramos tus otras sesiones.",
+  },
   // E14-PCP 4.3, PN-60 (se llega a ella cuando el API niega el paso por falta de sesión)
   sesionCerrada: {
     tipo: "informacion",
@@ -93,6 +128,19 @@ const contrasenaNueva = {
  */
 const erroresDeCampo = {
   correo,
+  entrar: {
+    identificador_vacio: "Falta el correo electrónico.",
+    contrasena_vacia: "Falta la contraseña.",
+  },
+  contrasenaNueva: {
+    contrasena_vacia: "Falta la contraseña nueva.",
+    ...contrasenaNueva,
+  },
+  contrasenaDeAhora: {
+    contrasena_vacia: "Falta tu contraseña de ahora.",
+    contrasena_actual_incorrecta:
+      "No pudimos confirmar tu contraseña de ahora. Escríbela de nuevo.",
+  },
   crearCuenta: {
     ...correo,
     contrasena_vacia: "Falta la contraseña.",

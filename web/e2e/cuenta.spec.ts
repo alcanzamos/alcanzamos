@@ -447,13 +447,13 @@ test.describe("pantalla provisional y rutas", () => {
     expect(pedidos).toHaveLength(1);
   });
 
-  test("/ y las rutas desconocidas llevan a /entrar (todavía pendiente), que no tiene violaciones", async ({
+  test("/ y las rutas desconocidas llevan a /entrar que no tiene violaciones", async ({
     page,
   }) => {
     await page.goto("/");
     await expect(page).toHaveURL(/\/entrar$/);
     await expect(
-      page.getByRole("heading", { level: 1, name: "Alcanzamos" }),
+      page.getByRole("heading", { level: 1, name: "Inicia sesión" }),
     ).toBeVisible();
     await sinViolaciones(page);
     await page.goto("/ruta-que-no-existe");
