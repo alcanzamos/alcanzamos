@@ -22,6 +22,7 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/internal/seguridad"
 	"github.com/alcanzamos/alcanzamos/api/internal/servidor"
 	"github.com/alcanzamos/alcanzamos/api/internal/sesion"
+	"github.com/alcanzamos/alcanzamos/api/internal/tareas"
 )
 
 func main() {
@@ -56,7 +57,7 @@ func ejecutar(ctx context.Context, args []string, log *slog.Logger) error {
 	case "api":
 		return servir(ctx, log)
 	case "tareas":
-		return tareas(ctx, log)
+		return correrTareas(ctx, log)
 	case "migrar":
 		return migrar(ctx, log)
 	default:
@@ -139,15 +140,20 @@ func migrar(ctx context.Context, log *slog.Logger) error {
 	return nil
 }
 
-// tareas es el punto de entrada del trabajo programado. Todavía no hay tareas reales (son de I05):
-// conecta con la base, deja constancia del inicio y del fin, y termina con código 0.
-func tareas(ctx context.Context, log *slog.Logger) error {
+// correrTareas es el punto de entrada del trabajo programado: conecta con la base, corre cada tarea (E12 EjecutorDeTareas)
+// y deja constancia del inicio y del fin. Termina con error, y código 1, si alguna tarea falla o no hay base.
+func correrTareas(ctx context.Context, log *slog.Logger) error {
 	log.Info("tareas: inicio")
 	pool, err := bd.Conectar(ctx)
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
-	log.Info("tareas: fin", "ejecutadas", 0)
-	return nil
+
+	hora := reloj.Sistema{}
+	// Las tareas no envían correo ni calculan hashes: el servicio solo usa el repositorio.
+	cuentas := cuenta.NuevoServicio(cuenta.Dependencias{Repo: pg.NuevoCuentas(pool), Reloj: hora, Log: log})
+	ejecutadas, err := tareas.NuevoEjecutor(cuentas, pg.NuevoLimpieza(pool), hora, log).Ejecutar(ctx)
+	log.Info("tareas: fin", "ejecutadas", ejecutadas)
+	return err
 }
