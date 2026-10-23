@@ -8,7 +8,7 @@ App web en Vite + React + TypeScript (ADR-004). Se compila a `web/dist` y se sir
 
 ## Qué hay
 
-Base de la US-57 (Vite, React, TypeScript, tokens, fuentes propias, CSP) y, desde la US-49, la base de las pantallas de cuenta y acceso (D-152, PR 1 de 4) y, en los PR 2 y 3, crear la cuenta, verificar el correo, iniciar sesión, la seguridad de la cuenta y el cambio de contraseña. Todo texto que ve la persona sale palabra por palabra de E14-PCP; los textos y la tabla de códigos del API a texto están en un solo módulo, `src/textos.ts`, cada uno con su referencia en E14-PCP. El cliente no tiene reglas de negocio (E17-ECO 4.7): el API valida y la web solo muestra el código de error de cada campo.
+Base de la US-57 (Vite, React, TypeScript, tokens, fuentes propias, CSP) y, desde la US-49, las pantallas de cuenta y acceso (D-152, cuatro PR): crear la cuenta, verificar el correo, iniciar sesión, recuperar el acceso, la seguridad de la cuenta y el cambio de contraseña. Todo texto que ve la persona sale palabra por palabra de E14-PCP; los textos y la tabla de códigos del API a texto están en un solo módulo, `src/textos.ts`, cada uno con su referencia en E14-PCP. El cliente no tiene reglas de negocio (E17-ECO 4.7): el API valida y la web solo muestra el código de error de cada campo.
 
 | Ruta                     | Pantalla                                                                                                                                                                                            |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -19,7 +19,8 @@ Base de la US-57 (Vite, React, TypeScript, tokens, fuentes propias, CSP) y, desd
 | `/entrar`                | PN-60 · Iniciar sesión, solo con correo (D-137), con el logo; errores de campo, 429 (T1), sin conexión (T10) y 5xx (T7: «No pudimos iniciar tu sesión.», nunca «No pudimos entrar con esos datos.») |
 | `/cuenta/seguridad`      | PN-71 · Seguridad de la cuenta: el ingreso anterior en palabras y «Cerrar sesión» (T2). Es el destino provisional de quien entra con autorización, hasta que haya un Inicio                         |
 | `/cuenta/contrasena`     | PN-73 · Cambiar la contraseña con la sesión iniciada; cierra las otras sesiones y vuelve a PN-71 con el logro                                                                                       |
-| otras de la US-49        | Pantalla pendiente (solo el logo): las trae el PR siguiente (`/recuperar-acceso` y `/recuperar`, PN-61 y PN-62)                                                                                     |
+| `/recuperar-acceso`      | PN-61 · Recuperar el acceso: pedir el enlace. Responde igual con o sin cuenta; 429 dice T1                                                                                                          |
+| `/recuperar?t=`          | PN-62 · Elegir la contraseña nueva (con repetición); enlace vencido: «Ese enlace ya no sirve.» y «Pedir otro enlace». Guardada: va a PN-60 con «Listo, cambiaste tu contraseña.»                    |
 | `/` y rutas desconocidas | Llevan a `/entrar` (E14 no tiene pantalla de «no encontrada»)                                                                                                                                       |
 
 - **Sin temporizadores para avanzar** (D-153, WCAG 2.2.1): `/verificar` no espera nada. El aviso de llegada viaja en el estado del historial (`src/llegada.ts`) y la pantalla de destino lo muestra arriba en un `MensajeDeEstado`, que el lector de pantalla anuncia solo.
@@ -37,6 +38,13 @@ Base de la US-57 (Vite, React, TypeScript, tokens, fuentes propias, CSP) y, desd
 - `tests/`: las pruebas de Vitest, en espejo de `src/` (D-145, E17-ECO 4.1 bis); `tests/preparar.ts` es su preparación. Las pruebas de Playwright siguen en `e2e/`.
 - `src/estilos/tokens.css`: variables CSS **generadas** desde `diseno/tokens/alcanzamos.tokens.json` (no se edita a mano). No incluye la paleta primitiva: las hojas solo pueden usar tokens semánticos (`--color-*`).
 - La sirve el API: `web/dist` se embebe en la imagen (`embed` y `http.FileServerFS`), la web en `/` y el API en `/api/`. Ver [`api/README.md`](../api/README.md).
+
+### Pendientes de E14
+
+- **«Política de tratamiento…»** (PN-58 y PN-60, fila 9): abre PN-68, que no está construida; todavía no hay enlace.
+- **Navegación lateral web** de PN-71 y PN-73 (E14-PCP 1): no hay otras pantallas de dentro a las que llevar; PN-71 solo lleva «Cerrar sesión» y PN-73 su Atrás. La barra llega con el Inicio.
+- **Estados de PN-60 de otras historias** («Cuenta borrada», «Sin autorización» de PN-64): no se construyen aquí.
+- **PN-63 y PN-64** (US-50): hasta entonces, la pantalla provisional `/sin-autorizacion`.
 
 ## Cómo se usa
 

@@ -35,18 +35,15 @@ describe("App · rutas", () => {
     expect(screen.getByText("Ese enlace ya no sirve.")).toBeInTheDocument();
   });
 
-  it.each(["/recuperar-acceso", "/recuperar?t=x"])(
-    "%s tiene su ruta y, por ahora, la pantalla pendiente con el logo",
-    (ruta) => {
-      irA(ruta);
-      expect(
-        screen.getByRole("heading", { level: 1, name: "Alcanzamos" }),
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole("img", { name: "Alcanzamos" }),
-      ).toBeInTheDocument();
-    },
-  );
+  it.each([
+    ["/recuperar-acceso", "Recuperar el acceso"],
+    ["/recuperar?t=x", "Elige tu contraseña nueva"],
+  ])("%s muestra su pantalla", (ruta, titulo) => {
+    irA(ruta);
+    expect(
+      screen.getByRole("heading", { level: 1, name: titulo }),
+    ).toBeInTheDocument();
+  });
 
   it.each(["/", "/no-existe"])(
     "%s lleva a /entrar sin dejar la ruta en el historial",

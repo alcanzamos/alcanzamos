@@ -1,9 +1,10 @@
 import { useEffect, type ReactElement } from "react";
-import { Pendiente } from "./componentes/Pendiente";
 import { navegar, useUbicacion } from "./enrutador";
 import { CambiarContrasena } from "./pantallas/CambiarContrasena";
 import { CrearCuenta } from "./pantallas/CrearCuenta";
 import { Entrar } from "./pantallas/Entrar";
+import { Recuperar } from "./pantallas/Recuperar";
+import { RecuperarAcceso } from "./pantallas/RecuperarAcceso";
 import { RevisaTuCorreo } from "./pantallas/RevisaTuCorreo";
 import { SeguridadDeLaCuenta } from "./pantallas/SeguridadDeLaCuenta";
 import { SinAutorizacion } from "./pantallas/SinAutorizacion";
@@ -14,15 +15,14 @@ function Redirigir({ a }: { a: string }) {
   return null;
 }
 
-// Las pantallas de la US-49 entran de a una en los PR siguientes; mientras, cada ruta muestra `Pendiente`.
 const pantallas: Record<string, () => ReactElement> = {
   "/entrar": Entrar,
   "/crear-cuenta": CrearCuenta,
   "/revisa-tu-correo": RevisaTuCorreo,
   "/verificar": Verificar,
   "/sin-autorizacion": SinAutorizacion,
-  "/recuperar-acceso": Pendiente,
-  "/recuperar": Pendiente,
+  "/recuperar-acceso": RecuperarAcceso,
+  "/recuperar": Recuperar,
   "/cuenta/seguridad": SeguridadDeLaCuenta,
   "/cuenta/contrasena": CambiarContrasena,
 };
