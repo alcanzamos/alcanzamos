@@ -362,6 +362,10 @@
       "icono": {
         "$value": "24",
         "$type": "sizing"
+      },
+      "columna-contenido": {
+        "$value": "560",
+        "$type": "sizing"
       }
     }
   },

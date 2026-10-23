@@ -10,74 +10,9 @@ body {
   line-height: var(--tipografia-cuerpo-line-height);
 }
 
-.pantalla {
-  display: grid;
-  gap: var(--espacio-4);
-  padding: var(--espacio-6) var(--espacio-4);
-}
-
-h1 {
-  margin: 0;
-  color: var(--color-texto-marca);
-  font-family: var(--tipografia-titulo-1-font-family), sans-serif;
-  font-weight: var(--tipografia-titulo-1-font-weight);
-  font-size: var(--tipografia-titulo-1-font-size);
-  line-height: var(--tipografia-titulo-1-line-height);
-}
-
-h2 {
-  margin: 0;
-  font-family: var(--tipografia-titulo-2-font-family), sans-serif;
-  font-weight: var(--tipografia-titulo-2-font-weight);
-  font-size: var(--tipografia-titulo-2-font-size);
-  line-height: var(--tipografia-titulo-2-line-height);
-}
-
-p {
-  margin: 0;
-}
-
-.cifras {
-  display: grid;
-  gap: var(--espacio-3);
-  margin: var(--espacio-4) 0 0;
-}
-
-.cifra {
-  padding: var(--espacio-4);
-  border-radius: var(--radio-medio);
-  background: var(--color-fondo-superficie);
-}
-
-.cifra dt {
-  color: var(--color-texto-secundario);
-  font-size: var(--tipografia-pequeno-font-size);
-  line-height: var(--tipografia-pequeno-line-height);
-}
-
-.cifra dd {
-  margin: 0;
-  font-family: var(--tipografia-cifra-grande-font-family), sans-serif;
-  font-weight: var(--tipografia-cifra-grande-font-weight);
-  font-size: var(--tipografia-cifra-grande-font-size);
-  line-height: var(--tipografia-cifra-grande-line-height);
-  font-variant-numeric: tabular-nums;
-}
-
-.enlace {
-  display: inline-flex;
-  align-items: center;
-  justify-self: start;
-  min-height: var(--tamano-tactil-minimo);
-  padding: 0 var(--espacio-4);
-  border-radius: var(--radio-pequeno);
-  background: var(--color-accion-primaria-fondo);
-  color: var(--color-accion-primaria-texto);
-  font-weight: var(--peso-seminegrita);
-  text-decoration: none;
-}
-
-a:focus-visible {
+a:focus-visible,
+button:focus-visible,
+[tabindex="-1"]:focus-visible {
   outline: var(--ancho-borde-grueso) solid var(--color-borde-foco);
   outline-offset: var(--espacio-1);
 }

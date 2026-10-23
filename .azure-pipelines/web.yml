@@ -1,6 +1,6 @@
 # Pipeline de web/: tipos, ESLint, Prettier, tokens sin diff, pruebas con cobertura, build y Playwright con axe-core.
 # No usa conexión de servicio ni secretos. Corre cuando cambia web/, diseno/ (tokens y fuentes) o este archivo
-# (ADR-001, filtros por carpeta).
+# (ADR-001, filtros por carpeta). También corre cuando cambia el logo que la web importa (marca/logo-horizontal-color.svg, D-152).
 trigger:
   branches:
     include:
@@ -9,6 +9,7 @@ trigger:
     include:
       - web/*
       - diseno/*
+      - marca/logo-horizontal-color.svg
       - .azure-pipelines/web.yml
 
 pr:
@@ -19,6 +20,7 @@ pr:
     include:
       - web/*
       - diseno/*
+      - marca/logo-horizontal-color.svg
       - .azure-pipelines/web.yml
 
 pool:

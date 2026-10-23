@@ -1,7 +1,8 @@
 # Imagen del API con la web embebida (ADR-002, ADR-004): binario estático en una base mínima, sin root.
 # Contexto de construcción: la raíz del monorepo (docker build -f api/Dockerfile .). Versiones fijadas a mano.
 
-# Etapa 1: compila web/ (necesita diseno/: los tokens y las fuentes se importan desde ../diseno).
+# Etapa 1: compila web/ (necesita diseno/: los tokens y las fuentes se importan desde ../diseno, y el logo desde
+# ../marca; de marca/ entra solo ese SVG, D-152).
 # Etiqueta node:24.22.1-alpine3.24 (la misma versión de Node que .azure-pipelines/web.yml),
 # digest del índice multiarquitectura resuelto el 2026-10-22.
 FROM node:24.22.1-alpine3.24@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS web
@@ -9,6 +10,7 @@ WORKDIR /fuente/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci
 COPY diseno /fuente/diseno
+COPY marca/logo-horizontal-color.svg /fuente/marca/logo-horizontal-color.svg
 COPY web ./
 RUN npm run build
 

@@ -15,6 +15,7 @@ CARPETA = RAIZ / ".azure-pipelines"
 
 # Archivo de ejemplo -> pipelines que deben correr. Cuando llegue un pipeline nuevo, se agregan aquí sus casos.
 # `diseno/` dispara también el de web (construye con sus tokens y fuentes), el de api (la imagen embebe la web) y el de movil (mismos tokens y fuentes).
+# De `marca/` solo el logo horizontal en color que importa la web (D-152) dispara web y api; el resto de la carpeta, solo `comun`.
 ESPERADO = {
     "reglas/conjuntos/conjunto-de-prueba.jsonl": {"comun", "reglas"},
     "reglas/README.md": {"comun", "reglas"},
@@ -42,6 +43,9 @@ ESPERADO = {
     "diseno/README.md": {"comun", "web", "api", "movil"},
     "diseno/tokens/alcanzamos.tokens.json": {"comun", "web", "api", "movil"},
     "diseno/fuentes/figtree/Figtree-Bold.ttf": {"comun", "web", "api", "movil"},
+    "marca/logo-horizontal-color.svg": {"comun", "web", "api"},
+    "marca/logo-vertical-color.svg": {"comun"},
+    "marca/README.md": {"comun"},
     "api/src/web/web.go": {"comun", "api"},
     "apix/README.md": {"comun"},
     "infra/README.md": {"comun", "infra"},

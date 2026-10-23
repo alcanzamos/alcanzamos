@@ -1,9 +1,11 @@
 # Contexto de construcción de la imagen del API (docker build -f api/Dockerfile .).
-# Solo entran las carpetas que las etapas necesitan: api/, web/ y diseno/ (tokens y fuentes de la web).
+# Solo entran las carpetas que las etapas necesitan: api/, web/ y diseno/ (tokens y fuentes de la web)
+# y, de marca/, únicamente el logo que importa la web (D-152): no la carpeta entera.
 *
 !api/
 !web/
 !diseno/
+!marca/logo-horizontal-color.svg
 
 # Lo que se regenera dentro de la imagen o no hace falta
 **/node_modules

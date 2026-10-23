@@ -6,14 +6,19 @@ App web en Vite + React + TypeScript (ADR-004). Se compila a `web/dist` y se sir
 - Reglas: estándar de codificación (E17-ECO), ESLint con `typescript-eslint` y complementos de accesibilidad, Prettier por defecto.
 - Los tokens de diseño vienen de [`diseno/`](../diseno/); las fuentes (Figtree y Atkinson Hyperlegible Next, OFL) también, y las sirve la propia app: no hay pedidos a terceros.
 
-## Qué hay (US-57, PR 1)
+## Qué hay
 
-Solo la base: una pantalla de prueba con tipografía, tokens y tres cifras inventadas (`$80.000`, `$1.200.000`, `$123.456,78`) en Figtree con cifras tabulares y sin `ss02`. No hay pantallas de dominio, lógica de negocio ni llamadas al API.
+Base de la US-57 (Vite, React, TypeScript, tokens, fuentes propias, CSP) y, desde la US-49, la base de las pantallas de cuenta y acceso (D-152, PR 1 de 5). Todo texto que ve la persona sale palabra por palabra de E14-PCP; los textos y la tabla de códigos del API a texto están en un solo módulo, `src/textos.ts`, cada uno con su referencia en E14-PCP. El cliente no tiene reglas de negocio (E17-ECO 4.7): el API valida y la web solo muestra el código de error de cada campo.
 
-- `src/dinero.ts`: la única función que muestra dinero. Recibe centavos enteros (nunca `parseFloat`) y da el formato colombiano; los centavos solo salen si no son cero. Un monto negativo lleva el signo antes del peso (`-$80.000`). Rechaza lo que no sea un entero seguro.
-- `tests/`: las pruebas de Vitest, en espejo de `src/` (D-145, E17-ECO 4.1 bis): `src/dinero.ts` se prueba en `tests/dinero.test.ts`. Vitest solo busca ahí (`include: tests/**`); `tests/preparar.ts` es su preparación. Las pruebas de Playwright siguen en `e2e/`.
+- **Rutas** (`src/App.tsx`): las de la US-49 existen y muestran, por ahora, una pantalla pendiente (solo el logo y el nombre de la app); cada PR siguiente reemplaza las suyas. `/` y las rutas desconocidas llevan a `/entrar` (E14 no tiene pantalla de «no encontrada»).
+- **Enrutador propio** (`src/enrutador.ts`, History API): son pocas rutas planas servidas por el API en el mismo origen (cuyo `index.html` de respaldo atiende cualquier ruta). No suma ninguna dependencia, así que no hay versión que fijar ni licencia o auditoría nuevas. Si llegan rutas anidadas o cargas por ruta, se evalúa una biblioteca entonces.
+- **Cliente del API** (`src/api/cliente.ts`): rutas relativas `/api/v1/...` y `credentials: 'same-origin'` (D-129). La sesión viaja solo en la cookie `HttpOnly`: la web no guarda ningún token ni manda `X-Alcanzamos-Cliente`. Un pedido que no llega se devuelve como `sin_conexion`, no como excepción.
+- **Columna de antes de entrar** (`Pagina`): 560 px por el token `--tamano-columna-contenido` (`dimension.tamano.columna-contenido`, D-152), el título como `h1` y, en PN-58 y PN-60, el Logo horizontal en color de 40 px con el texto alternativo «Alcanzamos».
+- **Logo** (D-152): se importa de `marca/logo-horizontal-color.svg` (`../marca/...`). En la imagen del API entra solo ese archivo, no la carpeta `marca/`. Sigue bajo la política de marca (`TRADEMARK.md`), no bajo la AGPLv3, también dentro de la web.
+- **Números en Figtree** (D-123, `src/componentes/Cifras.tsx`): cada número de un texto va en un `span.cifra` (Figtree, `tabular-nums`, sin `ss02`).
+- **Pantalla de prueba de la US-57 (`PantallaPrueba`):** se quitó. Servía para comprobar tipografía, tokens y foco, y esas comprobaciones ahora las hacen las pantallas reales (axe, foco visible, CSP). `src/dinero.ts` se queda: la usarán las pantallas con montos.
+- `tests/`: las pruebas de Vitest, en espejo de `src/` (D-145, E17-ECO 4.1 bis); `tests/preparar.ts` es su preparación. Las pruebas de Playwright siguen en `e2e/`.
 - `src/estilos/tokens.css`: variables CSS **generadas** desde `diseno/tokens/alcanzamos.tokens.json` (no se edita a mano). No incluye la paleta primitiva: las hojas solo pueden usar tokens semánticos (`--color-*`).
-- Sin dominio fijo en el código (D-129): el API es del mismo origen, así que cualquier llamada futura usa rutas relativas como `/api/...`.
 - La sirve el API: `web/dist` se embebe en la imagen (`embed` y `http.FileServerFS`), la web en `/` y el API en `/api/`. Ver [`api/README.md`](../api/README.md).
 
 ## Cómo se usa
@@ -45,7 +50,7 @@ Los navegadores no vienen con `npm ci`. Una sola vez por máquina:
 npx playwright install chromium            # en Linux, si faltan librerías: npx playwright install --with-deps chromium
 ```
 
-`npm run e2e` compila la app y levanta `vite preview` en `127.0.0.1:4173` (si ya hay uno, lo reutiliza). Comprueba cero violaciones de axe-core, Figtree con `tabular-nums` y sin `ss02` en las cifras (estilo calculado), foco visible y que no haya pedidos a otros orígenes.
+`npm run e2e` compila la app y levanta `vite preview` en `127.0.0.1:4173` (si ya hay uno, lo reutiliza). Con el API simulado en `page.route` (`e2e/ayudas.ts`: un pedido sin manejador hace fallar la prueba), comprueba cero violaciones de axe-core, la CSP exacta, el logo propio, la columna de 560 px y que no haya pedidos a otros orígenes.
 
 ## Reglas que se hacen cumplir
 
