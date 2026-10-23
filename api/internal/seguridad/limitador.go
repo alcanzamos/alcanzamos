@@ -25,8 +25,7 @@ const (
 	CreacionesPorOrigen = 20
 
 	// EsperaCortaDeReenvio es la espera corta de PN-59 entre un reenvío y el siguiente de la misma cuenta («Puedes pedir
-	// otro en un momento.»). E14-PCP no da la cifra: son 30 segundos, la más conservadora que no estorba a quien de
-	// verdad espera su correo.
+	// otro en un momento.»). Son 30 segundos: D-143 (5) los documenta en E14-PCP 4.2 (v1.12, nota del 2026-10-22).
 	EsperaCortaDeReenvio = 30 * time.Second
 
 	// Correos a una misma dirección de destino (D-140), sumando verificación, reenvíos y el aviso de D-141.
