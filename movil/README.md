@@ -46,6 +46,19 @@ Rama `feat/us-49-movil-componentes` (D-155). Los componentes de E14-SDD 5 en Rea
 
 `npm run auditoria` **falla desde esta rama**, sin ningún aviso nuevo: `@react-native-community/datetimepicker` declara `expo` como dependencia par opcional y `npm audit` lista ahora al selector como «vulnerable» por esa vía. Los dos avisos con excepción (`node-forge` y `zod`) ganan un camino más, `@react-native-community/datetimepicker > expo > @expo/cli > …`, y el script exige que el dueño revise las `rutas` de `auditoria-excepciones.json`. No se agregó ni se cambió ninguna excepción (D-155): queda para decisión del dueño.
 
+## Crear la cuenta, verificar el correo y la pantalla provisional (US-49, A3)
+
+Rama `feat/us-49-movil-cuenta` (D-155). Flujo: PN-60 → «Crear una cuenta» → **PN-65** → **PN-58** → **PN-59** → pantalla provisional.
+
+- **PN-65 · Edad** (`src/pantallas/Edad.tsx`, `src/edad/`): solo se abre desde «Crear una cuenta» de PN-60. La edad se calcula en el teléfono (`calculo.ts`, corte en 18 años, por día del calendario local: quien cumple 18 hoy es mayor; quien los cumple mañana, no). **La fecha no se envía ni se guarda** (D-089; el dueño citó D-134): vive solo en el estado de la pantalla. El teléfono recuerda únicamente `{"resultado":"menor","hasta":<hora>}` durante 24 horas, en AsyncStorage (no es un secreto; `recuerdo.ts`). Un resultado de persona adulta no se recuerda: E14-PCP 4.8 solo define el estado «Resultado recordado» para menores. Con menos de 18 años muestra el aviso de E14 **sin** el botón «Ya tengo un usuario: iniciar sesión» (D-137); el Atrás del sistema vuelve a PN-60. Es la única regla de negocio del cliente (excepción a ADR-005 escrita en E14).
+- **PN-58 · Crear la cuenta** (`CrearCuenta.tsx`): los tres datos, sin casilla de edad. Manda `mayor_de_edad: true` solo si viene de PN-65 (el tipo de la ruta solo admite `mayorDeEdad: true`; sin eso la pantalla vuelve a PN-60 y no hace ningún pedido). Los errores `422` salen de `textos.ts`; un código sin texto muestra el aviso general y no se inventa uno. La fila «Política de tratamiento de datos» (PN-68) no está: esa pantalla no existe todavía.
+- **PN-59 · Verificar el correo** (`RevisaTuCorreo.tsx`): T3 (cambiar el correo en la misma pantalla), T4, T8, espera de 30 s entre reenvíos y la línea de los 7 días. Los enlaces del correo abren la web en el navegador del teléfono (D-155): la pantalla no dice nada nuevo y la persona vuelve y toca «Ya lo confirmé». Los App Links llegan con I08.
+- **Pantalla provisional** (`SinAutorizacion.tsx`): el texto de E14-PCP 4.7 y solo «Cerrar sesión» (T2): cierra la sesión en el API y borra el token del Keystore; solo la falta de conexión la deja abierta.
+- **Atrás de Android:** PN-65 se apila sobre PN-60; PN-58 reemplaza a PN-65; de PN-58 a PN-59 y a la provisional se usa `reemplazarPila`, así que desde ahí el Atrás sale de la app y no vuelve al formulario ni a una pantalla sin sesión (`tests/navegacion/flujoDeCuenta.test.tsx` toca el Atrás de verdad).
+- **Lo que no se guarda:** `tests/sesion/almacenamiento.test.ts` comprueba que `AsyncStorage` solo aparece en `src/edad/` y que `expo-secure-store` solo aparece en `src/sesion/token.ts`.
+
+Dependencia nueva: `@react-native-async-storage/async-storage` 2.2.0 (MIT, 2025-06-05), la versión de `expo/bundledNativeModules.json` para el SDK 57; no suma ningún aviso a la auditoría.
+
 ## Pruebas (US-58, D-145)
 
 Jest con el preset `jest-expo`, siguiendo la guía de Expo (<https://docs.expo.dev/develop/unit-testing/>). Las pruebas van en `tests/`, en espejo de `src/` (E17-ECO 4.1 bis): `src/fuentes.ts` se prueba en `tests/fuentes.test.ts`. Jest solo busca ahí (`roots` y `testMatch` apuntan a `tests/`) y mide `src/` (sin `src/tokens/`, que se genera) con un umbral de **50 % de líneas** (E17-ECO 5.5; hoy 100 %).
