@@ -99,6 +99,29 @@ export const avisos = {
     titulo: "¿No reconoces este ingreso?",
     mensaje: "Cambia tu contraseña y cerramos tus otras sesiones.",
   },
+  // E14-PCP 4.4, estado «Enlace enviado» de PN-61: es el mismo con o sin cuenta
+  enlaceDeRecuperacionEnviado: {
+    tipo: "informacion",
+    titulo: "Si ese correo tiene una cuenta, te enviamos un enlace.",
+    mensaje: "Revisa también el correo no deseado.",
+  },
+  // E14-PCP 4.4, estado «Error» de PN-61
+  errorAlEnviarEnlace: {
+    tipo: "informacion",
+    titulo: "No pudimos enviar el enlace.",
+    mensaje: "Intenta de nuevo.",
+  },
+  // E14-PCP 4.5, estado «Error» de PN-62
+  errorAlGuardarContrasena: {
+    tipo: "informacion",
+    titulo: "No pudimos guardar tu contraseña.",
+    mensaje: "Intenta de nuevo.",
+  },
+  // E14-PCP 4.5, estado «Guardada» de PN-62 (llega a PN-60)
+  contrasenaRecuperada: {
+    tipo: "logro",
+    titulo: "Listo, cambiaste tu contraseña.",
+  },
   // E14-PCP 4.3, PN-60 (se llega a ella cuando el API niega el paso por falta de sesión)
   sesionCerrada: {
     tipo: "informacion",
@@ -151,6 +174,12 @@ const erroresDeCampo = {
     mayor_de_edad_requerido: "Falta marcar que eres mayor de edad.",
   },
 } satisfies Record<string, Record<string, string>>;
+
+// E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62
+export const textosDeRepeticion = {
+  vacia: "Falta repetir la contraseña.",
+  distinta: "Falta que las dos contraseñas sean iguales.",
+};
 
 export const textoDeErrorDeCampo = (
   codigo: string,

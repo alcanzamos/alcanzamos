@@ -123,6 +123,8 @@ test.describe("PN-58 · Crear la cuenta", () => {
     });
     await page.goto("/crear-cuenta");
     const escribir = async (texto: string) => page.keyboard.type(texto);
+    // Sin esta espera, en un agente lento el Tab llega antes de que el formulario exista.
+    await expect(page.getByLabel("Correo electrónico")).toBeVisible();
 
     await page.keyboard.press("Tab");
     await expect(page.getByLabel("Correo electrónico")).toBeFocused();
@@ -163,35 +165,29 @@ test.describe("PN-58 · Crear la cuenta", () => {
     page,
   }) => {
     await page.goto("/crear-cuenta");
-    const contorno = (selector: string) =>
-      page
-        .locator(selector)
-        .first()
-        .evaluate((el) => {
-          const c = getComputedStyle(el);
-          return { estilo: c.outlineStyle, ancho: c.outlineWidth };
-        });
+    // Contorno de 2 px sólido; toHaveCSS reintenta hasta que el estilo de foco se aplica.
+    const contornoVisible = async (selector: string) => {
+      const el = page.locator(selector).first();
+      await expect(el).toHaveCSS("outline-style", "solid");
+      await expect(el).toHaveCSS("outline-width", "2px");
+    };
+    // Sin esta espera, en un agente lento el Tab llega antes de que el formulario exista (build 143).
+    await expect(page.getByLabel("Correo electrónico")).toBeVisible();
     await page.keyboard.press("Tab");
-    expect(await contorno(".campo__caja:focus-within")).toEqual({
-      estilo: "solid",
-      ancho: "2px",
-    });
+    await expect(page.getByLabel("Correo electrónico")).toBeFocused();
+    await contornoVisible(".campo__caja:focus-within");
     await page.getByLabel("Soy mayor de edad").focus();
     await page.keyboard.press("Shift+Tab");
     await page.keyboard.press("Tab");
-    expect(
-      await contorno(".casilla input:focus-visible + .casilla__caja"),
-    ).toEqual({
-      estilo: "solid",
-      ancho: "2px",
-    });
+    await expect(page.getByLabel("Soy mayor de edad")).toBeFocused();
+    await contornoVisible(".casilla input:focus-visible + .casilla__caja");
     await page.getByRole("button", { name: "Crear cuenta" }).focus();
     await page.keyboard.press("Shift+Tab");
     await page.keyboard.press("Tab");
-    expect(await contorno(".boton:focus-visible")).toEqual({
-      estilo: "solid",
-      ancho: "2px",
-    });
+    await expect(
+      page.getByRole("button", { name: "Crear cuenta" }),
+    ).toBeFocused();
+    await contornoVisible(".boton:focus-visible");
   });
 });
 

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { avisoDeFallo, avisos, textoDeErrorDeCampo } from "../src/textos";
+import {
+  avisoDeFallo,
+  avisos,
+  textoDeErrorDeCampo,
+  textosDeRepeticion,
+} from "../src/textos";
 
 const fallo = (estado: number, codigo: string) =>
   ({ ok: false, estado, codigo, campos: {} }) as const;
@@ -51,6 +56,13 @@ describe("textos de E14", () => {
     ],
   ] as const)("en %s el código %s da su texto", (pantalla, codigo, texto) => {
     expect(textoDeErrorDeCampo(codigo, pantalla)).toBe(texto);
+  });
+
+  it("PN-62 tiene los textos de la repetición", () => {
+    expect(textosDeRepeticion).toEqual({
+      vacia: "Falta repetir la contraseña.",
+      distinta: "Falta que las dos contraseñas sean iguales.",
+    });
   });
 
   it("el campo del correo de PN-59 solo tiene los errores del correo", () => {
@@ -116,6 +128,22 @@ describe("textos de E14", () => {
       "Listo, cambiamos tu contraseña.",
       "Cerramos tus otras sesiones. Esta sigue abierta.",
     ],
+    [
+      avisos.enlaceDeRecuperacionEnviado,
+      "Si ese correo tiene una cuenta, te enviamos un enlace.",
+      "Revisa también el correo no deseado.",
+    ],
+    [
+      avisos.errorAlEnviarEnlace,
+      "No pudimos enviar el enlace.",
+      "Intenta de nuevo.",
+    ],
+    [
+      avisos.errorAlGuardarContrasena,
+      "No pudimos guardar tu contraseña.",
+      "Intenta de nuevo.",
+    ],
+    [avisos.contrasenaRecuperada, "Listo, cambiaste tu contraseña.", undefined],
     [
       avisos.errorAlCargarIngreso,
       "No pudimos cargar tu último ingreso.",

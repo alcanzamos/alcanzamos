@@ -223,6 +223,137 @@ test.describe("PN-60 · Iniciar sesión", () => {
   });
 });
 
+test.describe("PN-61 · Recuperar el acceso", () => {
+  test("vacía, con error de campo y con el enlace enviado, sin violaciones", async ({
+    page,
+  }) => {
+    let respuesta = responder(422, {
+      error: "validacion",
+      campos: { correo: "correo_vacio" },
+    });
+    await simularApi(page, {
+      "POST /api/v1/recuperacion": (ruta, cuerpo) => respuesta(ruta, cuerpo),
+    });
+    await page.goto("/recuperar-acceso");
+    await sinViolaciones(page);
+    await page.getByRole("button", { name: "Enviar el enlace" }).click();
+    await expect(page.getByText("Falta el correo electrónico.")).toBeVisible();
+    await sinViolaciones(page);
+    respuesta = responder(202, { estado: "enlace_enviado" });
+    await page.getByLabel("Correo electrónico").fill("laura@ejemplo.com");
+    await page.getByRole("button", { name: "Enviar el enlace" }).click();
+    await expect(
+      page.getByRole("status").filter({
+        hasText: "Si ese correo tiene una cuenta, te enviamos un enlace.",
+      }),
+    ).toBeFocused();
+    await sinViolaciones(page);
+    await page.getByRole("link", { name: "Volver a iniciar sesión" }).click();
+    await expect(page).toHaveURL(/\/entrar$/);
+  });
+
+  test("Atrás vuelve a PN-60 y 429 dice el texto de espera", async ({
+    page,
+  }) => {
+    await simularApi(page, {
+      "POST /api/v1/recuperacion": responder(429, {
+        error: "demasiados_intentos",
+      }),
+    });
+    await page.goto("/recuperar-acceso");
+    await page.getByRole("button", { name: "Enviar el enlace" }).click();
+    await expect(page.getByText(espera)).toBeVisible();
+    await sinViolaciones(page);
+    await page.getByRole("link", { name: "Atrás" }).click();
+    await expect(page).toHaveURL(/\/entrar$/);
+  });
+});
+
+test.describe("PN-62 · Elegir la contraseña nueva", () => {
+  test("errores presentacionales y del API visibles, sin violaciones", async ({
+    page,
+  }) => {
+    await simularApi(page, {
+      "POST /api/v1/recuperacion/contrasena": responder(422, {
+        error: "validacion",
+        campos: { contrasena: "contrasena_corta" },
+      }),
+    });
+    await page.goto("/recuperar?t=abc");
+    await sinViolaciones(page);
+    await page
+      .getByLabel("Contraseña nueva", { exact: true })
+      .fill("una frase larga");
+    await page.getByLabel("Repite la contraseña nueva").fill("otra distinta");
+    await page.getByRole("button", { name: "Guardar la contraseña" }).click();
+    await expect(
+      page.getByText("Falta que las dos contraseñas sean iguales."),
+    ).toBeVisible();
+    await sinViolaciones(page);
+    await page.getByLabel("Repite la contraseña nueva").fill("una frase larga");
+    await page.getByRole("button", { name: "Guardar la contraseña" }).click();
+    await expect(
+      page.getByText("Falta que la contraseña tenga al menos 15 caracteres."),
+    ).toBeVisible();
+    await expect(
+      page.getByLabel("Contraseña nueva", { exact: true }),
+    ).toBeFocused();
+    await sinViolaciones(page);
+  });
+
+  test("guardada va a PN-60 con «Listo, cambiaste tu contraseña.»", async ({
+    page,
+  }) => {
+    const pedidos = await simularApi(page, {
+      "POST /api/v1/recuperacion/contrasena": responder(200, {
+        estado: "contrasena_cambiada",
+      }),
+    });
+    await page.goto("/recuperar?t=abc");
+    await page
+      .getByLabel("Contraseña nueva", { exact: true })
+      .fill("lluvia café tren azul");
+    await page
+      .getByLabel("Repite la contraseña nueva")
+      .fill("lluvia café tren azul");
+    await page.getByRole("button", { name: "Guardar la contraseña" }).click();
+    await expect(page).toHaveURL(/\/entrar$/);
+    await expect(
+      page.getByText("Listo, cambiaste tu contraseña."),
+    ).toBeVisible();
+    await sinViolaciones(page);
+    expect(pedidos[0]?.cuerpo).toEqual({
+      token: "abc",
+      contrasena: "lluvia café tren azul",
+    });
+  });
+
+  test("enlace vencido: aviso, sin campos y «Pedir otro enlace», sin violaciones", async ({
+    page,
+  }) => {
+    await simularApi(page, {
+      "POST /api/v1/recuperacion/contrasena": responder(400, {
+        error: "enlace_invalido",
+      }),
+    });
+    await page.goto("/recuperar?t=viejo");
+    await page
+      .getByLabel("Contraseña nueva", { exact: true })
+      .fill("lluvia café tren azul");
+    await page
+      .getByLabel("Repite la contraseña nueva")
+      .fill("lluvia café tren azul");
+    await page.getByRole("button", { name: "Guardar la contraseña" }).click();
+    await expect(page.getByText("Ese enlace ya no sirve.")).toBeVisible();
+    await expect(
+      page.getByLabel("Contraseña nueva", { exact: true }),
+    ).toHaveCount(0);
+    await sinViolaciones(page);
+    await page.getByRole("link", { name: "Pedir otro enlace" }).click();
+    await expect(page).toHaveURL(/\/recuperar-acceso$/);
+  });
+});
+
 test.describe("PN-71 · Seguridad de la cuenta", () => {
   test("con ingreso anterior: fecha en palabras en Bogotá, cifras en Figtree sin ss02, sin violaciones", async ({
     page,

@@ -10,6 +10,7 @@ describe("aviso de llegada", () => {
   it.each([
     ["sesion_cerrada", avisos.sesionCerrada],
     ["correo_confirmado", avisos.correoConfirmado],
+    ["contrasena_recuperada", avisos.contrasenaRecuperada],
     ["contrasena_cambiada", avisos.contrasenaCambiada],
   ] as const)(
     "%s llega a su destino sin dejar la pantalla anterior",
