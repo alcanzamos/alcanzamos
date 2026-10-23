@@ -130,7 +130,11 @@ func TestLosDosCorreosTerminanConElPieExacto(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for nombre, crudo := range map[string][]byte{"verificación": verificacion, "aviso": aviso} {
+	recuperacion, err := s.mensajeDeRecuperacion("laura@ejemplo.test", "tok-en_123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for nombre, crudo := range map[string][]byte{"verificación": verificacion, "aviso": aviso, "recuperación": recuperacion} {
 		_, cuerpo := leerMensaje(t, crudo)
 		if !strings.HasSuffix(cuerpo, "\r\n"+pie) {
 			t.Errorf("el correo de %s no termina con el pie exacto:\n%q", nombre, cuerpo)
@@ -138,6 +142,45 @@ func TestLosDosCorreosTerminanConElPieExacto(t *testing.T) {
 		if strings.Contains(cuerpo, "Si tienes preguntas") {
 			t.Errorf("el correo de %s trae el pie anterior", nombre)
 		}
+	}
+}
+
+// El correo de recuperación lleva el enlace de PN-62 con el token y dice que sirve 1 hora (E13 §5.4).
+func TestMensajeDeRecuperacion(t *testing.T) {
+	s := NuevoSMTP(configDePrueba("127.0.0.1:1025"), relojDePrueba())
+	crudo, err := s.mensajeDeRecuperacion("laura@ejemplo.test", "tok-en_123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	enc, cuerpo := leerMensaje(t, crudo)
+	if asunto, err := new(mime.WordDecoder).DecodeHeader(enc.Get("Subject")); err != nil || asunto != "Recupera el acceso a tu cuenta de Alcanzamos" {
+		t.Fatalf("asunto %q (%v)", asunto, err)
+	}
+	if enc.Get("From") != "no-responder@avisos.ejemplo.test" || enc.Get("To") != "laura@ejemplo.test" {
+		t.Fatalf("encabezados: %v", enc)
+	}
+	for _, fragmento := range []string{"https://app.ejemplo.test/recuperar?t=tok-en_123", "1 hora", "ignora este mensaje"} {
+		if !strings.Contains(cuerpo, fragmento) {
+			t.Errorf("el cuerpo no contiene %q:\n%s", fragmento, cuerpo)
+		}
+	}
+}
+
+func TestEnviarRecuperacionPorSMTP(t *testing.T) {
+	dir, salida := servidorSMTP(t, false)
+	s := NuevoSMTP(configDePrueba(dir), relojDePrueba())
+	if err := s.EnviarRecuperacion(context.Background(), "laura@ejemplo.test", "abc"); err != nil {
+		t.Fatal(err)
+	}
+	rec := <-salida
+	if rec.destinatario != "laura@ejemplo.test" {
+		t.Fatalf("sobre inesperado: %+v", rec)
+	}
+	if _, cuerpo := leerMensaje(t, []byte(rec.datos)); !strings.Contains(cuerpo, "/recuperar?t=abc") {
+		t.Fatalf("el mensaje no trae el enlace:\n%s", cuerpo)
+	}
+	if err := s.EnviarRecuperacion(context.Background(), "no es un correo", "abc"); err == nil {
+		t.Error("un destino inválido debe fallar")
 	}
 }
 
@@ -277,11 +320,20 @@ func TestFalsoGuardaYFalla(t *testing.T) {
 	if e := f.Enviados(); len(e) != 2 || e[1] != (Envio{Destino: "e@f.test", Aviso: true}) {
 		t.Fatalf("enviados: %+v", e)
 	}
+	if err := f.EnviarRecuperacion(context.Background(), "g@h.test", "r"); err != nil {
+		t.Fatal(err)
+	}
+	if e := f.Enviados(); len(e) != 3 || e[2] != (Envio{Destino: "g@h.test", Token: "r", Recuperacion: true}) {
+		t.Fatalf("enviados: %+v", e)
+	}
 	f.Error = errors.New("caído")
-	if err := f.EnviarVerificacion(context.Background(), "c@d.test", "u"); err == nil || len(f.Enviados()) != 2 {
+	if err := f.EnviarVerificacion(context.Background(), "c@d.test", "u"); err == nil || len(f.Enviados()) != 3 {
 		t.Fatal("con Error no debe guardar y debe devolverlo")
 	}
-	if err := f.EnviarAvisoDeCorreoRegistrado(context.Background(), "c@d.test"); err == nil || len(f.Enviados()) != 2 {
+	if err := f.EnviarAvisoDeCorreoRegistrado(context.Background(), "c@d.test"); err == nil || len(f.Enviados()) != 3 {
 		t.Fatal("el aviso con Error tampoco guarda")
+	}
+	if err := f.EnviarRecuperacion(context.Background(), "c@d.test", "u"); err == nil || len(f.Enviados()) != 3 {
+		t.Fatal("la recuperación con Error tampoco guarda")
 	}
 }

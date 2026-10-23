@@ -315,15 +315,8 @@ func (s *Servicio) validar(sol SolicitudDeCuenta) (correoNormalizado, nombre str
 		campos[campoCorreo] = codigoDelCorreo
 	}
 
-	switch errContrasena := s.d.Politica.Validar(sol.Contrasena, correoNormalizado, ""); {
-	case errors.Is(errContrasena, seguridad.ErrContrasenaVacia):
-		campos[campoContrasena] = ContrasenaVacia
-	case errors.Is(errContrasena, seguridad.ErrContrasenaCorta):
-		campos[campoContrasena] = ContrasenaCorta
-	case errors.Is(errContrasena, seguridad.ErrContrasenaPersonal):
-		campos[campoContrasena] = ContrasenaPersonal
-	case errors.Is(errContrasena, seguridad.ErrContrasenaComun):
-		campos[campoContrasena] = ContrasenaComun
+	if codigo := CodigoDeContrasena(s.d.Politica.Validar(sol.Contrasena, correoNormalizado, "")); codigo != "" {
+		campos[campoContrasena] = codigo
 	}
 
 	nombre = strings.TrimSpace(sol.Nombre)
@@ -340,6 +333,22 @@ func (s *Servicio) validar(sol SolicitudDeCuenta) (correoNormalizado, nombre str
 		return "", "", &ErrValidacion{Campos: campos}
 	}
 	return correoNormalizado, nombre, nil
+}
+
+// CodigoDeContrasena es el código de campo (PN-58, PN-62, PN-73) del error de la política de contraseñas, o "" si no
+// hay error. Los clientes lo mapean a los textos de E14.
+func CodigoDeContrasena(err error) string {
+	switch {
+	case errors.Is(err, seguridad.ErrContrasenaVacia):
+		return ContrasenaVacia
+	case errors.Is(err, seguridad.ErrContrasenaCorta):
+		return ContrasenaCorta
+	case errors.Is(err, seguridad.ErrContrasenaPersonal):
+		return ContrasenaPersonal
+	case errors.Is(err, seguridad.ErrContrasenaComun):
+		return ContrasenaComun
+	}
+	return ""
 }
 
 // normalizarCorreo recorta y pasa a minúsculas el correo, y devuelve el código de error de PN-58 si no sirve ("" si sirve).
@@ -360,6 +369,9 @@ func NormalizarCorreo(correo string) (normalizado string, valido bool) {
 	normalizado, codigo := normalizarCorreo(correo)
 	return normalizado, codigo == ""
 }
+
+// ValidarCorreo devuelve el código de error de PN-58 del correo (`correo_vacio` o `correo_invalido`), o "" si sirve.
+func ValidarCorreo(correo string) (normalizado, codigo string) { return normalizarCorreo(correo) }
 
 // validarCorreo valida un correo suelto (el nuevo de «Cambiar el correo») con las reglas de PN-58.
 func validarCorreo(correo string) (string, error) {
