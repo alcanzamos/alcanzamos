@@ -1,0 +1,26 @@
+/* Columna de antes de entrar (E14-PCP 1) y su título. Los componentes de E14-SDD van en el PR siguiente.
+   Solo tokens semánticos: nada de colores ni medidas sueltas (E17-ECO 4.5). */
+.columna {
+  box-sizing: border-box;
+  display: grid;
+  gap: var(--espacio-4);
+  width: 100%;
+  max-width: var(--tamano-columna-contenido);
+  margin: 0 auto;
+  padding: var(--espacio-6) var(--espacio-4);
+}
+
+.logo {
+  display: block;
+  justify-self: center;
+  height: var(--espacio-10);
+}
+
+.titulo {
+  margin: 0;
+  font-family: var(--tipografia-titulo-2-font-family), sans-serif;
+  font-weight: var(--tipografia-titulo-2-font-weight);
+  font-size: var(--tipografia-titulo-2-font-size);
+  line-height: var(--tipografia-titulo-2-line-height);
+  color: var(--color-texto-principal);
+}
