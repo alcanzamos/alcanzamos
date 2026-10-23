@@ -79,7 +79,7 @@ func servir(ctx context.Context, log *slog.Logger) error {
 	}
 	defer pool.Close()
 
-	enrutador, esperarEnvios, err := armarEnrutador(cfg, pool, log)
+	enrutador, esperarEnvios, err := armarEnrutador(ctx, cfg, pool, log)
 	if err != nil {
 		return err
 	}
@@ -87,15 +87,17 @@ func servir(ctx context.Context, log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	// Al apagar, los correos que ya salieron en segundo plano terminan antes de cerrar la base.
+	// Al apagar, los correos que ya salieron en segundo plano y el trabajo de recuperación en curso terminan antes de
+	// cerrar la base.
 	defer esperarEnvios()
 	return servidor.Servir(ctx, ":"+puerto(), log, api)
 }
 
 // armarEnrutador registra todas las rutas de /api/, cada una con su nivel de acceso. Una ruta sin nivel hace fallar
-// Construir y el servidor no arranca. Devuelve también la función que espera los envíos de correo en curso.
+// Construir y el servidor no arranca. Arranca los trabajadores de la recuperación, que paran con `ctx`. Devuelve también la función que espera los envíos
+// de correo y los trabajos de recuperación pendientes: se llama al apagar, después de cancelar `ctx`.
 // Falla si la clave de las sesiones de mentira no sirve (la configuración ya exige 32 bytes).
-func armarEnrutador(cfg config.Config, pool *pgxpool.Pool, log *slog.Logger) (*servidor.Enrutador, func(), error) {
+func armarEnrutador(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, log *slog.Logger) (*servidor.Enrutador, func(), error) {
 	hora := reloj.Sistema{}
 	limitador := seguridad.NuevoLimitadorDeIntentos(hora)
 	senuelos, err := sesion.NuevosSenuelos(cfg.SesionSenuelo.Bytes(), hora)
@@ -122,6 +124,7 @@ func armarEnrutador(cfg config.Config, pool *pgxpool.Pool, log *slog.Logger) (*s
 	if err != nil {
 		return nil, nil, err
 	}
+	autenticaciones.Iniciar(ctx) // trabajadores de la recuperación (D-144): paran con ctx
 	sesiones := sesion.NuevoResolutor(pg.NuevoSesiones(pool), senuelos, hora)
 
 	eventos := seguridad.NuevoRegistro(log)

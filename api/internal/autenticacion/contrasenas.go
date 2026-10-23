@@ -19,22 +19,15 @@ const (
 	plazoDelEnvio         = 30 * time.Second
 )
 
-// Esperar bloquea hasta que terminen los envíos de correo en curso. Lo usan las pruebas y el apagado ordenado.
-func (s *Servicio) Esperar() { s.envios.Wait() }
-
-// PedirRecuperacion atiende PN-61: manda el enlace para elegir una contraseña nueva. **Responde siempre igual** (nil),
-// tenga cuenta el correo o no, para no revelarlo (CU-44 2a):
+// PedirRecuperacion atiende PN-61: pide el enlace para elegir una contraseña nueva. **Hace siempre lo mismo y responde
+// siempre igual** (nil), tenga cuenta el correo o no, esté verificada o no, para no revelarlo (CU-44 2a, D-144):
+// valida el correo, cuenta el pedido contra los límites de D-136 (4) por correo normalizado y por origen, encola el
+// trabajo y vuelve. No consulta la base ni manda nada: eso lo hace un trabajador fuera del pedido
+// (`procesarRecuperacion`), así que el tiempo de respuesta no delata si la cuenta existe. Si la cola está llena, el
+// trabajo se descarta (se registra sin el correo) y la respuesta es la misma: quien no recibe el correo lo pide otra vez.
 //
-//   - Cuenta con el correo **verificado**: invalida los enlaces pendientes y manda uno de 1 hora, si la dirección no
-//     pasó los 3 correos por hora de D-140 (el cliente no lo nota).
-//   - Sin cuenta: no hace nada.
-//   - Cuenta **sin verificar**: tampoco manda nada. Quien no confirmó el correo no tiene qué recuperar: crea la cuenta de
-//     nuevo y D-141 reemplaza la pendiente. Mandar un enlace a una dirección que nadie confirmó daría a quien la
-//     escribió una puerta a una cuenta que no es suya.
-//
-// Antes cuenta el pedido contra los límites de D-136 (4): 3 por hora por correo y 20 por origen, exista o no la cuenta.
-// Pasados, ErrDemasiadosIntentos, igual para todos. Un correo mal escrito da *cuenta.ErrValidacion, que no depende de
-// la cuenta.
+// Pasados 3 pedidos por hora por correo o 20 por origen, ErrDemasiadosIntentos, igual para todos. Un correo mal escrito
+// da *cuenta.ErrValidacion, que no depende de la cuenta.
 func (s *Servicio) PedirRecuperacion(ctx context.Context, correoCrudo, origen string) error {
 	destino, codigo := cuenta.ValidarCorreo(correoCrudo)
 	if codigo != "" {
@@ -43,25 +36,9 @@ func (s *Servicio) PedirRecuperacion(ctx context.Context, correoCrudo, origen st
 	if !s.d.Limitador.PermitirRecuperacion(destino, origen) {
 		return ErrDemasiadosIntentos
 	}
-	token, huella := seguridad.NuevoTokenOpaco()
-	ahora := s.d.Reloj.Ahora()
-	hay, err := s.d.Repo.NuevoEnlaceDeRecuperacion(ctx, destino, huella, ahora, ahora.Add(VigenciaDelEnlaceDeRecuperacion))
-	if err != nil || !hay {
-		return err
+	if !s.recuperaciones.encolar(trabajoDeRecuperacion{destino: destino}) {
+		s.d.Log.WarnContext(ctx, "recuperación descartada: cola llena o servidor apagándose")
 	}
-	if !s.d.Limitador.PermitirCorreo(destino) {
-		s.d.Log.InfoContext(ctx, "correo no enviado: límite por dirección", "correo", "recuperación")
-		return nil
-	}
-	s.envios.Add(1)
-	go func() {
-		defer s.envios.Done()
-		ctx, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoDelEnvio)
-		defer cancelar()
-		if err := s.d.Correo.EnviarRecuperacion(ctx, destino, token); err != nil {
-			s.d.Log.ErrorContext(ctx, "no se pudo enviar el correo", "correo", "recuperación", "error", err)
-		}
-	}()
 	return nil
 }
 

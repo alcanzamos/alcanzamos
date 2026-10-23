@@ -130,7 +130,8 @@ func escribirValidacion(w http.ResponseWriter, invalida *cuenta.ErrValidacion) {
 }
 
 // pedirRecuperacion atiende POST /api/v1/recuperacion (PN-61): `{correo}`. Pública. Responde **siempre**
-// `202 {"estado":"enlace_enviado"}` si el correo está bien escrito, tenga cuenta o no (CU-44 2a). `429 demasiados_intentos`
+// `202 {"estado":"enlace_enviado"}` si el correo está bien escrito, tenga cuenta o no (CU-44 2a), y enseguida: la cuenta,
+// el enlace y el correo se atienden fuera del pedido (D-144), así que el tiempo tampoco lo delata. `429 demasiados_intentos`
 // pasados 3 pedidos por hora por correo o 20 por origen (D-136 (4)), igual para todos. Un correo vacío o sin dominio:
 // `422 validacion` con `correo_vacio` o `correo_invalido`.
 func (h *Handler) pedirRecuperacion(w http.ResponseWriter, r *http.Request) {

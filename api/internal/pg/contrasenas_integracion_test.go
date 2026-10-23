@@ -6,6 +6,7 @@ package pg
 
 import (
 	"context"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -159,6 +160,46 @@ func TestRecuperacionSoloParaCuentasVerificadas(t *testing.T) {
 		t.Errorf("solo la cuenta verificada recibe el enlace: %+v", env)
 	}
 	if n := contar(t, e.pool, `SELECT count(*) FROM enlace_un_uso WHERE proposito = 'recuperacion'`); n != 1 {
+		t.Errorf("enlaces de recuperación guardados: %d", n)
+	}
+}
+
+// D-144: con el router y la base de verdad, el pedido de recuperación es idéntico (estado, cabeceras y cuerpo) para la
+// cuenta verificada, la sin verificar y el correo sin cuenta, y por sí solo no toca la base ni el correo: el enlace y
+// el correo salen después, de un trabajador, y solo para la cuenta verificada. Sin medir tiempos de reloj.
+func TestLaRecuperacionRespondeIgualYSaleDelPedido(t *testing.T) {
+	e := nuevoEntornoDeAccesoSinTrabajadores(t)
+	e.crear(t, "pedro@ejemplo.test") // sin verificar
+	e.cuentaLista(t, "laura@ejemplo.test")
+	antes := len(e.correo.Enviados())
+	enlaces := func() int {
+		return contar(t, e.pool, `SELECT count(*) FROM enlace_un_uso WHERE proposito = 'recuperacion'`)
+	}
+
+	var vistas []string
+	for _, correo := range []string{"laura@ejemplo.test", "pedro@ejemplo.test", "nadie@ejemplo.test"} {
+		rr := e.llamar("POST", "/api/v1/recuperacion", `{"correo":"`+correo+`"}`, "")
+		cab := rr.Header().Clone()
+		var nombres []string
+		for k, v := range cab {
+			nombres = append(nombres, k+"="+strings.Join(v, ","))
+		}
+		sort.Strings(nombres)
+		vistas = append(vistas, rr.Result().Status+"|"+strings.Join(nombres, ";")+"|"+rr.Body.String())
+	}
+	if vistas[0] != vistas[1] || vistas[1] != vistas[2] || !strings.HasPrefix(vistas[0], "202 Accepted|") {
+		t.Errorf("respuestas distintas: %q", vistas)
+	}
+	if n := enlaces(); n != 0 || len(e.correo.Enviados()) != antes {
+		t.Fatalf("el pedido tocó la base o el correo: %d enlaces, %d correos nuevos", n, len(e.correo.Enviados())-antes)
+	}
+
+	e.iniciar(t)
+	e.aut.Esperar()
+	if env := e.correo.Enviados()[antes:]; len(env) != 1 || env[0].Destino != "laura@ejemplo.test" || !env[0].Recuperacion {
+		t.Errorf("solo la cuenta verificada recibe el enlace: %+v", env)
+	}
+	if n := enlaces(); n != 1 {
 		t.Errorf("enlaces de recuperación guardados: %d", n)
 	}
 }

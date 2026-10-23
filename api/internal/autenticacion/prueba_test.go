@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -89,6 +90,9 @@ type repoFalso struct {
 	enlaces map[string]*enlaceFalso // huella → enlace de recuperación
 	fijadas []string                // hashes guardados con un enlace; cada uno borra todas las sesiones
 	cambios []cambioFalso           // cambios con la sesión iniciada
+
+	consultasDeRecuperacion atomic.Int32  // veces que se buscó la cuenta para recuperar
+	compuerta               chan struct{} // si no es nil, esa búsqueda espera a que se cierre
 }
 
 func (r *repoFalso) CredencialDe(_ context.Context, persona string) (Credencial, error) {
@@ -102,6 +106,10 @@ func (r *repoFalso) CredencialDe(_ context.Context, persona string) (Credencial,
 }
 
 func (r *repoFalso) NuevoEnlaceDeRecuperacion(_ context.Context, correo string, huella []byte, ahora, vence time.Time) (bool, error) {
+	r.consultasDeRecuperacion.Add(1)
+	if r.compuerta != nil {
+		<-r.compuerta
+	}
 	c, ok := r.cuentas[correo]
 	if !ok || !c.Verificada {
 		return false, nil
@@ -177,7 +185,23 @@ type entorno struct {
 	correo    *correo.Falso
 }
 
+// nuevoEntorno arma el servicio con los trabajadores de la recuperación ya andando (paran al terminar la prueba).
 func nuevoEntorno(t *testing.T) *entorno {
+	t.Helper()
+	e := nuevoEntornoSinTrabajadores(t)
+	e.iniciar(t)
+	return e
+}
+
+func (e *entorno) iniciar(t *testing.T) {
+	t.Helper()
+	ctx, cancelar := context.WithCancel(context.Background())
+	t.Cleanup(func() { cancelar(); e.svc.Esperar() })
+	e.svc.Iniciar(ctx)
+}
+
+// nuevoEntornoSinTrabajadores deja los pedidos de recuperación en la cola: sirve para ver qué hace el pedido solo.
+func nuevoEntornoSinTrabajadores(t *testing.T) *entorno {
 	t.Helper()
 	e := &entorno{
 		repo: &repoFalso{cuentas: map[string]Credencial{

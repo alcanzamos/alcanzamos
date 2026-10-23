@@ -46,7 +46,7 @@ func enrutadorDePrueba(t *testing.T) *servidor.Enrutador {
 	if err != nil {
 		t.Fatal(err)
 	}
-	e, _, err := armarEnrutador(cfg, pool, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+	e, _, err := armarEnrutador(context.Background(), cfg, pool, slog.New(slog.NewJSONHandler(io.Discard, nil)))
 	if err != nil {
 		t.Fatal(err)
 	}

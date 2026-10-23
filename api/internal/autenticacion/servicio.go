@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/alcanzamos/alcanzamos/api/internal/correo"
@@ -98,12 +97,17 @@ type Dependencias struct {
 	Correo    correo.Correo
 	Politica  *seguridad.PoliticaDeContrasena
 	Log       *slog.Logger
+	// TrabajadoresDeRecuperacion y ColaDeRecuperacion acotan el trabajo de la recuperación fuera del pedido (D-144);
+	// sin valor, TrabajadoresDeRecuperacion y LargoDeLaColaDeRecuperacion.
+	TrabajadoresDeRecuperacion int
+	ColaDeRecuperacion         int
 }
 
 // Servicio son los casos de uso de entrar y salir.
 type Servicio struct {
-	d      Dependencias
-	envios sync.WaitGroup
+	d              Dependencias
+	recuperaciones *colaDeRecuperacion
+	trabajadores   int
 	// hashDeRelleno es un hash válido de una contraseña que nadie conoce: contra él se verifica cuando la cuenta no
 	// existe, para hacer el mismo trabajo y no delatarlo por el tiempo.
 	hashDeRelleno string
@@ -114,13 +118,20 @@ func NuevoServicio(d Dependencias) (*Servicio, error) {
 	if d.Log == nil {
 		d.Log = slog.New(slog.DiscardHandler)
 	}
+	trabajadores, largo := d.TrabajadoresDeRecuperacion, d.ColaDeRecuperacion
+	if trabajadores <= 0 {
+		trabajadores = TrabajadoresDeRecuperacion
+	}
+	if largo <= 0 {
+		largo = LargoDeLaColaDeRecuperacion
+	}
 	azar := make([]byte, 16)
 	_, _ = rand.Read(azar)
 	hash, err := d.Hasher.Hashear(context.Background(), hex.EncodeToString(azar))
 	if err != nil {
 		return nil, fmt.Errorf("calcular el hash de relleno: %w", err)
 	}
-	return &Servicio{d: d, hashDeRelleno: hash}, nil
+	return &Servicio{d: d, hashDeRelleno: hash, recuperaciones: nuevaColaDeRecuperacion(largo), trabajadores: trabajadores}, nil
 }
 
 // SesionIniciada es la sesión nueva: el token, que el cliente guarda (cookie en la web, Bearer en Android), y si la
