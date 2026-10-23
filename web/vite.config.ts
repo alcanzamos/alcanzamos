@@ -39,17 +39,12 @@ export default mergeConfig(
   defineVitest({
     test: {
       environment: "jsdom",
-      setupFiles: ["src/pruebas/preparar.ts"],
-      include: ["src/**/*.test.{ts,tsx}"],
+      setupFiles: ["tests/preparar.ts"],
+      include: ["tests/**/*.test.{ts,tsx}"],
       coverage: {
         provider: "v8",
         include: ["src/**/*.{ts,tsx}"],
-        exclude: [
-          "src/**/*.test.{ts,tsx}",
-          "src/pruebas/**",
-          "src/main.tsx",
-          "src/vite-env.d.ts",
-        ],
+        exclude: ["src/main.tsx", "src/vite-env.d.ts"],
         reporter: ["text", "text-summary"],
         thresholds: { lines: 60 },
       },

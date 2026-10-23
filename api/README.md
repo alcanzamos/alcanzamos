@@ -376,8 +376,8 @@ docker compose -f ../infra/local/compose.yaml --env-file ../infra/local/.env.exa
 
 Las pruebas viven en `test/` y miden `src/` con `-coverpkg=./src/...`. Las dos listas de paquetes son explícitas (E17-ECO 5.5) y se comparan por ruta completa relativa a `src/` (`cmd/api` es ese paquete; `cmd` solo no lo es). El pipeline `api` (`.azure-pipelines/api.yml`) falla si:
 
-- el grupo **núcleo y seguridad** (`nucleo` cuando exista, `seguridad`, `argon2id`, `sesion`, `servidor` y `autenticacion`) queda bajo **90 %**;
-- el grupo **resto del API** (`app`, `bd`, `cmd/api`, `config`, `correo`, `cuenta`, `pg`, `reloj`, `tareas` y `web`) queda bajo **75 %**;
+- el grupo **núcleo y seguridad** (`nucleo` cuando exista, `seguridad`, `argon2id`, `sesion`, `servidor`, `autenticacion` y `cuenta`, D-151) queda bajo **90 %**;
+- el grupo **resto del API** (`app`, `bd`, `cmd/api`, `config`, `correo`, `pg`, `reloj`, `tareas` y `web`) queda bajo **75 %**;
 - algún grupo queda bajo la base de `test/cobertura-base.json` (sin bajar respecto de `main`). Un PR que sube la cobertura puede subir la base (valores con un decimal, redondeados hacia abajo); **nunca bajarla**;
 - aparece un paquete de `src/` que **no está en ninguna de las dos listas**. Se busca en el perfil de cobertura y también en un recorrido de las carpetas de `src/` con archivos `.go` (tercer argumento de `medir`), así que un paquete sin pruebas tampoco pasa. Hay que clasificarlo en E17-ECO 5.5 y en `cobertura.py`. Un paquete nuevo de seguridad no cae al 75 % sin que nadie lo note. `nucleo` puede no existir todavía: su ausencia no falla.
 

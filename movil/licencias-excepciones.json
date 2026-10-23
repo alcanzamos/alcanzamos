@@ -1,0 +1,20 @@
+[
+  {
+    "paquete": "argparse",
+    "licencia": "Python-2.0",
+    "rutas": [
+      "expo > @expo/cli > @expo/xcpretty > js-yaml > argparse"
+    ],
+    "motivo": "Herramientas de compilación, no van en la app; la FSF considera la licencia compatible con la GPLv3 (D-150).",
+    "revisar_antes_de": "2026-11-05"
+  },
+  {
+    "paquete": "caniuse-lite",
+    "licencia": "CC-BY-4.0",
+    "rutas": [
+      "expo > @expo/metro-config > browserslist > caniuse-lite"
+    ],
+    "motivo": "Herramientas de compilación (Metro), no van en la app; la FSF considera la licencia compatible con la GPLv3 (D-150).",
+    "revisar_antes_de": "2026-11-05"
+  }
+]

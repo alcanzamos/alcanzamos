@@ -105,5 +105,5 @@ const estilos = StyleSheet.create({
   columna: { flex: 1, alignItems: 'flex-end', gap: tokens.espacio['2'] },
   monto: { ...cifra, color: tokens.color.texto.principal },
   filaCeros: { gap: tokens.espacio['1'] },
-  ceros: { color: tokens.color.texto.principal, fontSize: tokens['tamano-letra']['24'], lineHeight: 32 },
+  ceros: { color: tokens.color.texto.principal, fontSize: tokens['tamano-letra']['24'], lineHeight: tokens.tipografia['titulo-2'].lineHeight },
 });

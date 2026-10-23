@@ -11,6 +11,7 @@ App web en Vite + React + TypeScript (ADR-004). Se compila a `web/dist` y se sir
 Solo la base: una pantalla de prueba con tipografía, tokens y tres cifras inventadas (`$80.000`, `$1.200.000`, `$123.456,78`) en Figtree con cifras tabulares y sin `ss02`. No hay pantallas de dominio, lógica de negocio ni llamadas al API.
 
 - `src/dinero.ts`: la única función que muestra dinero. Recibe centavos enteros (nunca `parseFloat`) y da el formato colombiano; los centavos solo salen si no son cero. Un monto negativo lleva el signo antes del peso (`-$80.000`). Rechaza lo que no sea un entero seguro.
+- `tests/`: las pruebas de Vitest, en espejo de `src/` (D-145, E17-ECO 4.1 bis): `src/dinero.ts` se prueba en `tests/dinero.test.ts`. Vitest solo busca ahí (`include: tests/**`); `tests/preparar.ts` es su preparación. Las pruebas de Playwright siguen en `e2e/`.
 - `src/estilos/tokens.css`: variables CSS **generadas** desde `diseno/tokens/alcanzamos.tokens.json` (no se edita a mano). No incluye la paleta primitiva: las hojas solo pueden usar tokens semánticos (`--color-*`).
 - Sin dominio fijo en el código (D-129): el API es del mismo origen, así que cualquier llamada futura usa rutas relativas como `/api/...`.
 - La sirve el API: `web/dist` se embebe en la imagen (`embed` y `http.FileServerFS`), la web en `/` y el API en `/api/`. Ver [`api/README.md`](../api/README.md).
@@ -27,7 +28,7 @@ npm run typecheck     # tsc --noEmit
 npm run lint          # ESLint
 npm run format:check  # Prettier (npm run format para aplicarlo)
 npm run tokens        # regenera src/estilos/tokens.css
-npm test              # Vitest + Testing Library
+npm test              # Vitest + Testing Library (las pruebas están en tests/, en espejo de src/)
 npm run test:coverage # con umbral de 60 % de líneas
 npm run auditoria     # npm audit de producción; falla con altas o críticas
 npm run licencias     # licencias de producción contra la lista compatible con AGPLv3
@@ -49,7 +50,7 @@ npx playwright install chromium            # en Linux, si faltan librerías: npx
 ## Reglas que se hacen cumplir
 
 - `strict` en TypeScript; ESLint prohíbe `any` explícito y `@ts-ignore` sin descripción.
-- ESLint con las configuraciones recomendadas de `typescript-eslint`, `eslint-plugin-react-hooks` y `eslint-plugin-jsx-a11y`, más una regla que prohíbe en TypeScript colores sueltos (`#hex`, `rgb(`), medidas en `px`/`rem`, la paleta primitiva y dominios fijos. Las hojas CSS las revisa `src/estilos/estilos.test.ts`, que además verifica que no haya `ss02` ni `font-feature-settings`.
+- ESLint con las configuraciones recomendadas de `typescript-eslint`, `eslint-plugin-react-hooks` y `eslint-plugin-jsx-a11y`, más una regla que prohíbe en TypeScript colores sueltos (`#hex`, `rgb(`), medidas en `px`/`rem`, la paleta primitiva y dominios fijos. Las hojas CSS las revisa `tests/estilos/estilos.test.ts`, que además verifica que no haya `ss02` ni `font-feature-settings`.
 - Prettier con la configuración por defecto (`.prettierrc.json` vacío).
 
 ## Alertas de `npm audit` (2026-10-22)
@@ -64,7 +65,7 @@ npx playwright install chromium            # en Linux, si faltan librerías: npx
 
 El proyecto es `AGPL-3.0-only`. `npm run licencias` (`scripts/licencias.mjs`, sin dependencias) lee `package-lock.json`, toma todos los paquetes que no están marcados `"dev": true` (producción, incluidos los transitivos) y falla, listando los infractores, si alguna licencia no está en esta lista. Si el lockfile no trae el campo `license`, lo lee de `node_modules/<paquete>/package.json`; sin licencia o con una desconocida, falla. Al final imprime cuántos paquetes hay por licencia.
 
-Una expresión SPDX con `OR` pasa si alguna opción está permitida; con `AND`, solo si todas lo están (`AND` pesa más que `OR`; `WITH` no se acepta). La lógica tiene pruebas en `src/licencias.test.ts`.
+Una expresión SPDX con `OR` pasa si alguna opción está permitida; con `AND`, solo si todas lo están (`AND` pesa más que `OR`; `WITH` no se acepta). La lógica tiene pruebas en `tests/licencias.test.ts`.
 
 | Licencia        | Por qué es compatible con AGPLv3                                                    |
 | --------------- | ----------------------------------------------------------------------------------- |

@@ -34,8 +34,8 @@ from pathlib import Path
 NUCLEO_Y_SEGURIDAD = "nucleo_y_seguridad"
 RESTO = "resto"
 # Listas explícitas de E17-ECO 5.5 (D-149). Un paquete que no esté en ninguna hace fallar la barrera.
-PAQUETES_DEL_GRUPO_DE_90 = ("nucleo", "seguridad", "argon2id", "sesion", "servidor", "autenticacion")
-PAQUETES_DEL_RESTO = ("app", "bd", "cmd/api", "config", "correo", "cuenta", "pg", "reloj", "tareas", "web")
+PAQUETES_DEL_GRUPO_DE_90 = ("nucleo", "seguridad", "argon2id", "sesion", "servidor", "autenticacion", "cuenta")
+PAQUETES_DEL_RESTO = ("app", "bd", "cmd/api", "config", "correo", "pg", "reloj", "tareas", "web")
 MINIMOS = {NUCLEO_Y_SEGURIDAD: 90.0, RESTO: 75.0}
 NOMBRES = {NUCLEO_Y_SEGURIDAD: "núcleo y seguridad", RESTO: "resto del API"}
 
