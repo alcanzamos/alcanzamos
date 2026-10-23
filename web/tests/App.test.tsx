@@ -9,11 +9,23 @@ function irA(ruta: string) {
 
 describe("App · rutas", () => {
   it.each([
+    ["/crear-cuenta", "Crea tu cuenta"],
+    ["/revisa-tu-correo", "Revisa tu correo"],
+    ["/sin-autorizacion", "Sin esta autorización no podemos darte la cuenta."],
+  ])("%s muestra su pantalla", (ruta, titulo) => {
+    irA(ruta);
+    expect(
+      screen.getByRole("heading", { level: 1, name: titulo }),
+    ).toBeInTheDocument();
+  });
+
+  it("/verificar muestra el estado de PN-59 sin token", () => {
+    irA("/verificar");
+    expect(screen.getByText("Ese enlace ya no sirve.")).toBeInTheDocument();
+  });
+
+  it.each([
     "/entrar",
-    "/crear-cuenta",
-    "/revisa-tu-correo",
-    "/verificar",
-    "/sin-autorizacion",
     "/recuperar-acceso",
     "/recuperar?t=x",
     "/cuenta/contrasena",
