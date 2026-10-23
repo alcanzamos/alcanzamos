@@ -23,6 +23,29 @@ Rama `feat/us-49-movil-base` (D-155). Es la base de las pantallas de cuenta y ac
 
 Dependencias nuevas (todas MIT, versiones fijadas sin `~` ni `^`, las que `npx expo install` eligió para el SDK 57, verificadas en el registro de npm el 2026-10-23): `@react-navigation/native` 7.5.1 (2026-10-13), `@react-navigation/native-stack` 7.21.0 (2026-10-13), `react-native-screens` 4.26.2 (2026-07-16), `react-native-safe-area-context` 5.7.0 (2026-02-24), `expo-secure-store` 57.0.4 (2026-09-11), `react-native-svg` 15.15.4 (2026-03-18) y, solo para las pruebas, `@types/node` 24.19.2 (2026-10-09; la misma versión que `web/`).
 
+## Componentes de E14-SDD (US-49, A2)
+
+Rama `feat/us-49-movil-componentes` (D-155). Los componentes de E14-SDD 5 en React Native, solo con tokens (E17-ECO 4.5; ESLint lo revisa) y con el nombre accesible que pide RNF-019. Cada uno vive en `src/componentes/` y su prueba en `tests/componentes/`:
+
+| Componente | E14-SDD | Notas |
+|---|---|---|
+| `Boton`, `BotonDeTexto` | 5.2 | Primario, secundario y de texto. Alto y ancho mínimos de 48 dp (`tamano.tactil-minimo`), estado presionado, deshabilitado (`accessibilityState.disabled`) y foco con el anillo de `color.borde.foco` |
+| `CampoDeTexto` (`MarcoDeCampo`) | 5.3 | Etiqueta siempre visible (el lector de pantalla la lee del `accessibilityLabel` del campo, no dos veces), ayuda como `accessibilityHint`, error con el ícono de Atención en una región viva cortés, autocompletado de Android |
+| `CampoDeContrasena` | 5.18 | Puntos, botón Ver y Ocultar de 48 × 48 dp con nombre «Mostrar la contraseña» u «Ocultar la contraseña». Permite pegar: no se oculta el menú del campo ni se intercepta el pegado |
+| `Aviso` | 5.4 | Información, atención y logro; ícono, título y mensaje como un solo elemento para TalkBack; `accessibilityLiveRegion="polite"` y `accessibilityRole="alert"` |
+| `MensajeDeEstado` | E14-PCP 4.16 T11 | Región viva cortés que se pinta primero y recibe el aviso un instante después, para que TalkBack lo anuncie sin mover el foco |
+| `CampoDeFecha` | E14-PCP 4.8 | Campo con el ícono Calendario que abre el **selector de fecha nativo** de Android (ADR-003, condición 1) |
+| `Iconos`, `Cifras`, `Pantalla` | 5.1, D-123 | Íconos con `react-native-svg`; números en Figtree con cifras tabulares y sin `ss02`; base de pantalla con fondo de página, desplazamiento y márgenes de la barra de estado |
+
+- **Selector de fecha:** `@react-native-community/datetimepicker` 9.1.0 (MIT, 2026-03-17, la que `expo/bundledNativeModules.json` pide para el SDK 57 y la que documenta Expo: <https://docs.expo.dev/versions/v57.0.0/sdk/date-time-picker/>, que lista Expo Go). `DateTimePickerAndroid.open` abre el diálogo del sistema. El diálogo siempre se abre en una fecha (hoy o la última elegida): no se puede abrir «sin elegir nada» como pide E14-PCP 4.8. El campo sí queda vacío hasta que la persona confirma, y no se fija fecha máxima ni mínima.
+- **`accessibilityRole="alert"`:** React Native no tiene un rol de estado (`role="status"` no llega a Android), así que el aviso usa `alert` con la región viva cortés. La región cortés evita que interrumpa lo que TalkBack está diciendo.
+- **`accessibilityHint`:** E14 no define pistas; se usa el texto de ayuda del campo donde existe. El plugin de ESLint (`has-accessibility-hint`) exige la pista junto a todo `accessibilityLabel`; dos casos la omiten con la razón escrita (el logo y el botón Ver y Ocultar, de los que E14 fija solo el nombre).
+- **Pruebas:** `tests/ayudas/preparar.ts` mockea los márgenes del sistema (`react-native-safe-area-context`) para todas las pruebas.
+
+### Aviso de la auditoría al sumar el selector de fecha
+
+`npm run auditoria` **falla desde esta rama**, sin ningún aviso nuevo: `@react-native-community/datetimepicker` declara `expo` como dependencia par opcional y `npm audit` lista ahora al selector como «vulnerable» por esa vía. Los dos avisos con excepción (`node-forge` y `zod`) ganan un camino más, `@react-native-community/datetimepicker > expo > @expo/cli > …`, y el script exige que el dueño revise las `rutas` de `auditoria-excepciones.json`. No se agregó ni se cambió ninguna excepción (D-155): queda para decisión del dueño.
+
 ## Pruebas (US-58, D-145)
 
 Jest con el preset `jest-expo`, siguiendo la guía de Expo (<https://docs.expo.dev/develop/unit-testing/>). Las pruebas van en `tests/`, en espejo de `src/` (E17-ECO 4.1 bis): `src/fuentes.ts` se prueba en `tests/fuentes.test.ts`. Jest solo busca ahí (`roots` y `testMatch` apuntan a `tests/`) y mide `src/` (sin `src/tokens/`, que se genera) con un umbral de **50 % de líneas** (E17-ECO 5.5; hoy 100 %).
