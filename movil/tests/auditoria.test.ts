@@ -1,3 +1,4 @@
+import excepcionesReales from "../auditoria-excepciones.json";
 import {
   avisosGraves,
   caminosHasta,
@@ -236,5 +237,24 @@ describe("revisar", () => {
 
   it("hoyUtc devuelve una fecha AAAA-MM-DD", () => {
     expect(hoyUtc()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+describe("auditoria-excepciones.json", () => {
+  const real = excepcionesReales as Excepcion[];
+
+  it("tiene la forma válida y las excepciones de node-forge y zod", () => {
+    expect(validarExcepciones(real)).toEqual([]);
+    expect(real.map((e) => [e.ghsa, e.paquete, e.rutas])).toEqual([
+      [
+        "GHSA-86w9-cpqp-85rv",
+        "node-forge",
+        [
+          "expo > @expo/cli > @expo/code-signing-certificates > node-forge",
+          "expo > @expo/cli > node-forge",
+        ],
+      ],
+      ["GHSA-mrhx-c7xc-m3w5", "zod", ["expo > @expo/cli > zod"]],
+    ]);
   });
 });
