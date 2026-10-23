@@ -176,3 +176,19 @@ func TestLosTrabajadoresParanConElContexto(t *testing.T) {
 		t.Errorf("el pedido posterior al apagado llegó a la base: %d consultas", n)
 	}
 }
+
+// D-144: la cola de recuperación admite como máximo 100 pendientes; el siguiente se descarta sin esperar.
+func TestLaColaDeRecuperacionTieneUnTopeDeCien(t *testing.T) {
+	if LargoDeLaColaDeRecuperacion != 100 {
+		t.Fatalf("tope de la cola: %d, se esperaba 100", LargoDeLaColaDeRecuperacion)
+	}
+	c := nuevaColaDeRecuperacion(LargoDeLaColaDeRecuperacion)
+	for i := range 100 {
+		if !c.encolar(trabajoDeRecuperacion{destino: "a@ejemplo.test"}) {
+			t.Fatalf("el pendiente %d no entró y la cola no estaba llena", i+1)
+		}
+	}
+	if c.encolar(trabajoDeRecuperacion{destino: "a@ejemplo.test"}) {
+		t.Fatal("el pendiente 101 entró: la cola no tiene tope")
+	}
+}

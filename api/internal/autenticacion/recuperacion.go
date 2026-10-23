@@ -11,7 +11,7 @@ import (
 // corta y un correo, y una cola acotada, porque los pedidos ya pasaron los límites de D-136 (4).
 const (
 	TrabajadoresDeRecuperacion  = 2
-	LargoDeLaColaDeRecuperacion = 64
+	LargoDeLaColaDeRecuperacion = 100
 )
 
 // trabajoDeRecuperacion es lo único que el pedido le deja al trabajador: el correo ya normalizado.
