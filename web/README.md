@@ -8,7 +8,7 @@ App web en Vite + React + TypeScript (ADR-004). Se compila a `web/dist` y se sir
 
 ## Qué hay
 
-Base de la US-57 (Vite, React, TypeScript, tokens, fuentes propias, CSP) y, desde la US-49, las pantallas de cuenta y acceso (D-152, cuatro PR): crear la cuenta, verificar el correo, iniciar sesión, recuperar el acceso, la seguridad de la cuenta y el cambio de contraseña. Todo texto que ve la persona sale palabra por palabra de E14-PCP; los textos y la tabla de códigos del API a texto están en un solo módulo, `src/textos.ts`, cada uno con su referencia en E14-PCP. El cliente no tiene reglas de negocio (E17-ECO 4.7): el API valida y la web solo muestra el código de error de cada campo.
+Base de la US-57 (Vite, React, TypeScript, tokens, fuentes propias, CSP) y, desde la US-49, las pantallas de cuenta y acceso (D-152, cinco PR): crear la cuenta, verificar el correo, iniciar sesión, recuperar el acceso, la seguridad de la cuenta y el cambio de contraseña. Todo texto que ve la persona sale palabra por palabra de E14-PCP; los textos y la tabla de códigos del API a texto están en un solo módulo, `src/textos.ts`, cada uno con su referencia en E14-PCP. El cliente no tiene reglas de negocio (E17-ECO 4.7): el API valida y la web solo muestra el código de error de cada campo.
 
 | Ruta                     | Pantalla                                                                                                                                                                                            |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
