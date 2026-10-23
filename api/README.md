@@ -76,10 +76,10 @@ Toda ruta de `/api/` se registra con `Enrutador.Registrar(nivel, patron, manejad
 
 | Nivel | Qué exige | Rutas |
 |---|---|---|
-| `publica` | nada | crear la cuenta y verificar el correo con el enlace; en la US-49 parte 2, iniciar sesión y recuperar el acceso |
+| `publica` | nada | crear la cuenta, verificar el correo con el enlace e iniciar sesión; en la rama siguiente, recuperar el acceso |
 | `sin_verificar` | una sesión, aunque sea la **limitada** de una cuenta con el correo sin verificar (o la sesión de mentira de D-141) | PN-59: revisar el estado, reenviar, cambiar el correo; cerrar sesión |
 | `sin_autorizacion` | cuenta con el correo **verificado**, aunque no haya autorizado lo necesario | cerrar sesión y las acciones de PN-63 y PN-64 (US-50) |
-| `requiere_autorizacion` | cuenta verificada y con las finalidades necesarias de su etapa **autorizadas** (`ReglaDeFinalidades`) | todo lo demás |
+| `requiere_autorizacion` | cuenta verificada y con las finalidades necesarias de su etapa **autorizadas** (`ReglaDeFinalidades`) | el ingreso anterior de PN-71 y todo lo demás |
 
 | Sujeto → | sin sesión | limitada o de mentira | verificada sin autorizar | autorizada |
 |---|---|---|---|---|
@@ -212,7 +212,7 @@ La respuesta nunca revela si el correo estaba registrado, ni da la sesión de es
 
 ## Sesiones (US-49)
 
-Es la capa de sesiones: el `Enrutador` resuelve la sesión de cada pedido con `sesion.Resolutor`, y la crea `POST /api/v1/cuentas` (arriba).
+Es la capa de sesiones: el `Enrutador` resuelve la sesión de cada pedido con `sesion.Resolutor`, y la crean `POST /api/v1/cuentas` (arriba) y `POST /api/v1/sesiones` (abajo).
 
 - **Almacén en PostgreSQL** (`pg.Sesiones`, E13 §5.3, D-081): `sesion` guarda solo el SHA-256 del token. Vencimiento **deslizante de 30 días** con **tope de 90 días** desde la creación (`vence_en = menor(ahora + 30 días, creada_en + 90 días)`). `ultimo_uso_en` solo se escribe si pasaron **más de 5 minutos** desde el anterior. **Máximo 5 sesiones por persona:** al crear una más se borran las menos recientes en la misma transacción. Cada sesión lleva un token nuevo. En cada petición se lee si la cuenta confirmó el correo y si tiene autorizadas las finalidades necesarias de su etapa (`ReglaDeFinalidades`), sin guardarlo: retirar una autorización surte efecto al instante.
 - **Web: cookie `__Host-sesion`** con `HttpOnly; Secure; SameSite=Strict; Path=/` y `Max-Age=7776000` (90 días, el tope; el vencimiento real lo decide el servidor). El prefijo `__Host-` hace que el navegador exija `Secure` y `Path=/` y no deje fijarla a un subdominio.
@@ -246,11 +246,53 @@ Android no tiene cookies. Al crear la cuenta manda `X-Alcanzamos-Cliente: androi
 
 Los navegadores mandan `Origin` o `Sec-Fetch-Site` siempre y un script de una página no puede quitarlos (son cabeceras prohibidas para `fetch`): así un script de la web no puede pedir el token en el cuerpo para saltarse la cookie `HttpOnly`. La app de Android no las manda. Una prueba de tabla cubre cada combinación.
 
+## Entrar y salir (US-49 parte 2)
+
+| Ruta | Nivel | Qué hace |
+|---|---|---|
+| `POST /api/v1/sesiones` | `publica` | Inicia sesión (CU-52, PN-60). Cuerpo: `{identificador, contrasena}` |
+| `DELETE /api/v1/sesiones/actual` | `sin_verificar` | Cierra la sesión de la petición, cualquiera: real, limitada o de mentira |
+| `GET /api/v1/cuenta/seguridad` | `requiere_autorizacion` | El ingreso anterior (PN-71, RF-062) |
+
+Código en `internal/autenticacion` (`Servicio` y `Handler`; E12 `AutenticacionServicio`) y `pg.Autenticacion`.
+
+### Iniciar sesión
+
+- **«Identificador» genérico** (D-137 (3)). Hoy solo se acepta un correo; el nombre de usuario de los menores llega en I11 sin cambiar el contrato. Un identificador que no sea un correo se trata como una cuenta que no existe: el mismo `401`, con Argon2id contra el hash de relleno. Sin identificador o sin contraseña: `422 {"error":"validacion","campos":{...}}` con `identificador_vacio` y `contrasena_vacia`, sin contar ni calcular nada.
+- **Respuesta.** `200` con `Cache-Control: no-store` y `{"estado":"activa"}` si el correo ya se confirmó, o `{"estado":"verificacion_pendiente"}` si no: es la **sesión limitada** de D-138 y el cliente sigue a PN-59 (D-138). Lo que esa cuenta puede hacer después lo decide el `Enrutador` ruta por ruta. La entrega del token es la de crear la cuenta (`sesion.EntregaDe`): cookie `__Host-sesion` en la web; con `X-Alcanzamos-Cliente: android`, el token en el cuerpo (`{"estado":…,"token":"…"}`), y `400 solicitud_invalida` si el pedido trae `Origin` o `Sec-Fetch-Site` (D-143 (3)).
+- **Token nuevo en cada inicio** (contra la fijación de sesión) y el máximo de 5 sesiones por persona de E13 §5.3: al iniciar la sexta se borra la menos reciente.
+- **Límites (D-136).** 5 fallos por identificador y 20 por origen en 15 minutos (el identificador se compara en minúsculas y sin espacios). Es una espera: pasados los 15 minutos se puede intentar de nuevo. Con el límite alcanzado responde `429 {"error":"demasiados_intentos"}` **aunque la contraseña sea la correcta**, igual exista o no la cuenta, y sin calcular Argon2id. Solo cuentan los fallos, no los éxitos.
+- **No revela si la cuenta existe** (CU-52 2a, RNF-014). Contraseña incorrecta, cuenta inexistente e identificador que no es un correo dan el mismo `401 {"error":"credenciales_invalidas"}` con las mismas cabeceras, y Argon2id corre **una vez** en cada caso (contra un hash de relleno que se calcula al arrancar). `TestElFalloEsIgualYArgon2idCorreUnaVezEnCadaCaso` lo prueba contando las llamadas al hasheador, sin medir tiempos de reloj.
+- **Eventos (D-136 (3), RNF-025).** Cada fallo (`401`) **y cada intento frenado** (`429`) deja `inicio_sesion_fallido`, con `cuenta` `desconocida` (no se atribuye ni cuando la cuenta existe, para que el registro tampoco la delate) y sin identificador ni origen.
+- **Último ingreso (D-134).** Con la contraseña correcta, **en la misma transacción que inserta la sesión**: `credencial.ingreso_anterior = ultimo_ingreso` y `ultimo_ingreso = ahora` (la hora del `Reloj`, en UTC). En el primer ingreso `ingreso_anterior` queda `NULL`. Si la sesión no se puede guardar, el ingreso no se mueve. Solo fecha y hora, sin IP ni dispositivo (NM-03, D-123). Pruebas: `TestElIngresoAnteriorSeMueveEnLaMismaTransaccionQueLaSesion` (incluye el primer ingreso) y `TestUnInicioFallidoNoMueveElIngreso`.
+
+### Cerrar sesión
+
+`DELETE /api/v1/sesiones/actual` borra la fila de la sesión de la petición (revocar es borrar) y responde `204`. Siempre manda `Set-Cookie: __Host-sesion=; Max-Age=0` con los mismos atributos que la cookie de sesión (también en Android, donde no hace nada). La sesión de mentira de D-141 no tiene fila: responde **exactamente igual** (`TestCerrarSesionDeMentiraRespondeIgual` y, contra la base, `TestCerrarSesionDeMentiraRespondeIgualQueLaLimitada`). Una segunda llamada con el mismo token ya no tiene sesión: `401 sin_sesion`.
+
+### Seguridad de la cuenta (PN-71)
+
+`GET /api/v1/cuenta/seguridad` responde `{"ingreso_anterior":"2026-11-02T02:40:00Z"}` (RFC 3339 en UTC) o `{"ingreso_anterior":null}`. El cliente pone en `null` «Este es tu primer ingreso.» y convierte la fecha a su zona. Es el ingreso **anterior**, nunca el de la sesión de ahora. Con la cuenta sin autorizar o con la sesión limitada o de mentira lo niega el `Enrutador` (`403`).
+
+### Códigos de error para los clientes (rama 7)
+
+| Ruta | Estado | `error` | Para el cliente |
+|---|---|---|---|
+| `POST /api/v1/sesiones` | 401 | `credenciales_invalidas` | PN-60 «Datos que no coinciden» |
+| `POST /api/v1/sesiones` | 429 | `demasiados_intentos` | PN-60 «Demasiados intentos» |
+| `POST /api/v1/sesiones` | 422 | `validacion` (`identificador_vacio`, `contrasena_vacia`) | errores de campo de PN-60 |
+| `POST /api/v1/sesiones` | 400 | `solicitud_invalida` | cuerpo roto, campo desconocido, o modo Android con cabeceras de navegador |
+| rutas con sesión | 401 | `sin_sesion` | PN-60 «Sesión cerrada» |
+| `GET /api/v1/cuenta/seguridad` | 403 | `verificacion_pendiente`, `autorizacion_pendiente` | el cliente sigue a PN-59 o a PN-63 |
+
 ## Gaps de la US-49
 
 - **Origen detrás de un proxy:** el límite por origen usa la dirección de la conexión. Detrás de Azure Container Apps todos los pedidos llegarían con la dirección de su entrada y el límite se volvería de todos juntos. Es la fila 17 del primer despliegue (D-143 (4)): se confiará solo en la dirección que agregue esa entrada. No se lee `X-Forwarded-For` mientras tanto.
 - **Rotar `SESION_SENUELO_CLAVE`** deja sin sesión (401) a quien tenga una de mentira viva, a lo sumo 8 días de cuentas con un correo ajeno ya verificado. No hay clave anterior ni lista de claves: se evitó la complejidad. Si hace falta rotarla sin ese efecto, habría que aceptar dos claves.
 - **Holgura de un día:** una sesión de mentira vive hasta el final del día D+7 (UTC), hasta un día más que la cuenta sin verificar que imita (D-135); en la práctica la tarea diaria que borra la cuenta real tiene la misma holgura.
+- **Hash de relleno y parámetros viejos:** E12 pide subir los parámetros del hash al iniciar sesión cuando son más viejos que los vigentes. Hoy hay un solo juego de parámetros (OWASP), así que no se implementó; el hash de relleno usa los del `Hasheador` al arrancar.
+- **Inicio de sesión de menores y de cuentas con credencial temporal:** solo entra quien tiene correo (I11 suma el nombre de usuario; la exigencia de fijar contraseña propia, NM-14, tampoco está).
+- **Respuesta `200` al iniciar sesión** (no `201`) y `204` al cerrar: E12 no fija el código; la web y Android solo dependen del cuerpo.
 - **Menores:** una persona menor no tiene correo que verificar y su `Verificada` queda en falso: no llega más allá de las rutas `sin_verificar` hasta que I11 defina su ingreso.
 - **La espera corta y el límite de la hora dan el mismo código** (`demasiados_intentos`): E14 dice que comparten texto.
 - **Una cuenta verificada en una ruta `sin_verificar`:** se dejó pasar (para que «Ya lo confirmé» conteste «verificada» con la misma sesión), aunque E12 dice que cada nivel incluye solo lo que dice. Reenviar y cambiar el correo responden `409 ya_verificada`.
@@ -270,12 +312,15 @@ Los navegadores mandan `Origin` o `Sec-Fetch-Site` siempre y un script de una p�
 - `pgx` v5 (`pgxpool`) conecta con PostgreSQL. La URL sale de `BASE_DE_DATOS_URL`.
 - `goose` v3 se usa como biblioteca. Las migraciones van embebidas en el binario (`embed`).
 - `api migrar` aplica las migraciones pendientes y termina.
-- `0001_esquema_inicial.sql` y `0002_catalogo.sql` son copia idéntica de las de E13 (D-122). No se editan aquí. Si hay que cambiar algo, el cambio vuelve primero a E13, con nota fechada y versión nueva.
+- `0001_esquema_inicial.sql`, `0002_catalogo.sql` y `0003_ingreso_anterior.sql` (la columna `credencial.ingreso_anterior`, D-134) son copia idéntica de las de E13 (D-122). No se editan aquí. Si hay que cambiar algo, el cambio vuelve primero a E13, con nota fechada y versión nueva.
 
 | Archivo | SHA-256 (igual en E13 y aquí) |
 |---|---|
 | `migraciones/0001_esquema_inicial.sql` | `1244bc98f8218c202851a2a7cc18ae212b0c5a316d9238220e55ff48f351ab30` |
 | `migraciones/0002_catalogo.sql` | `f95c1a03e3a956cec11b448d913ebb79df5c96c72f1e475b446a35566c36de3b` |
+| `migraciones/0003_ingreso_anterior.sql` | `005fb34328e7ab1a2bc2842ffa722b7b2f3fb3382e4adbdc216ed6a7c0ff87c5` |
+
+`migraciones_test.go` compara el SHA-256 de cada archivo embebido con el de esta tabla. `TestMigracion0003AgregaYQuitaIngresoAnterior` comprueba que la columna (`timestamptz`) existe tras subir y no existe tras bajar solo esa migración.
 
 Prueba de integración (PostgreSQL 18 del compose local; deja la base sin tablas):
 
