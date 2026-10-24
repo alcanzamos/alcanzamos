@@ -59,6 +59,8 @@ npm run typecheck       # incluye las pruebas
 
 Las pruebas de la lógica de `scripts/` (`auditoria-logica.mjs`, `licencias-logica.mjs` y `bundle-logica.mjs`) también van en `tests/` y cuentan en Jest y en la cobertura. Los `.mjs` pasan por `babel-jest` (clave `transform` de la configuración de Jest) porque el preset de Expo solo transforma `.js`, `.ts` y `.tsx`.
 
+`tests/paridad-textos.test.ts` falla si un texto presente en `web/src/textos.ts` y en `src/textos.ts` difiere (misma ruta de claves, otra cadena) y lista, sin fallar, los textos de un solo lado (los de Android se permiten). Es un parche hasta el archivo único de textos de `diseno/` (D-156 (3b)); cumple la regla 4.13 de E17-ECO (paso 51).
+
 Versiones fijadas sin `~` ni `^`, verificadas en el registro de npm el 2026-10-23: `jest-expo` 57.0.6 (etiqueta `sdk-57`, publicada el 2026-10-12; `expo/bundledNativeModules.json` pide `~57.0.6`), `@react-native/jest-preset` 0.86.3 (peer de `jest-expo`, misma versión que `react-native`), `jest` 30.5.2 (2026-09-18, última), `@types/jest` 30.0.0 (última), `@testing-library/react-native` 14.1.0 (2026-10-08, última) y `test-renderer` 1.3.1 (2026-10-12; peer de la anterior).
 
 ## Versión de Expo
