@@ -74,6 +74,13 @@ steps:
     workingDirectory: api
     displayName: go vet
 
+  # govulncheck está fijado como `tool` en api/go.mod (v1.9.0, con sus sumas en go.sum): no se instala nada aparte y no
+  # entra en el binario. Con la salida por defecto solo falla (código 3) si el código llama a un símbolo vulnerable;
+  # una vulnerabilidad solo de módulo (GO-2026-5932, x/crypto/openpgp, sin corrección, api no importa openpgp) se informa y no falla.
+  - script: go tool govulncheck ./...
+    workingDirectory: api
+    displayName: Sin vulnerabilidades en símbolos llamados (govulncheck)
+
   - script: go test -race ./...
     workingDirectory: api
     displayName: Pruebas con detector de carreras
