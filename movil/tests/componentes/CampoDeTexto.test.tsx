@@ -1,6 +1,6 @@
 import { createRef } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { Pressable, Text, type TextInput } from 'react-native';
+import { Pressable, Text, type TextInputInstance } from 'react-native';
 import { CampoDeTexto } from '../../src/componentes/CampoDeTexto';
 import { tokens } from '../../src/tokens/tokens.generated';
 
@@ -68,7 +68,7 @@ describe('CampoDeTexto (E14-SDD 5.3)', () => {
   });
 
   it('deja la referencia al campo para llevarle el foco', async () => {
-    const ref = createRef<TextInput>();
+    const ref = createRef<TextInputInstance>();
     await render(<CampoDeTexto {...propiedades} ref={ref} />);
     expect(ref.current).not.toBeNull();
   });

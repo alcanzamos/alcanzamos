@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useRef, useState } from 'react';
-import type { TextInput } from 'react-native';
+import type { TextInputInstance } from 'react-native';
 import type { Respuesta } from '../api/cliente';
 import { cambiarCorreo, estadoDeLaCuenta, reenviarCorreo } from '../api/cuentas';
 import { Aviso } from '../componentes/Aviso';
@@ -31,7 +31,7 @@ export function RevisaTuCorreo({ navigation, route }: Pantalla59) {
   const [enEspera, setEnEspera] = useState(false);
   const [ocupado, setOcupado] = useState(false);
   const temporizador = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const campoDeCorreo = useRef<TextInput>(null);
+  const campoDeCorreo = useRef<TextInputInstance>(null);
 
   useEffect(() => () => clearTimeout(temporizador.current), []);
 

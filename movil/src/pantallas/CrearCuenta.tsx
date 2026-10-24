@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useRef, useState } from 'react';
-import type { TextInput } from 'react-native';
+import type { TextInputInstance } from 'react-native';
 import { crearCuenta } from '../api/cuentas';
 import { Aviso } from '../componentes/Aviso';
 import { Boton } from '../componentes/Boton';
@@ -27,9 +27,9 @@ export function CrearCuenta({ navigation, route }: NativeStackScreenProps<Rutas,
   const [errores, setErrores] = useState<Partial<Record<Campo, string>>>({});
   const [aviso, setAviso] = useState<DatosDeAviso | null>(null);
   const [enviando, setEnviando] = useState(false);
-  const campoDeCorreo = useRef<TextInput>(null);
-  const campoDeContrasena = useRef<TextInput>(null);
-  const campoDeNombre = useRef<TextInput>(null);
+  const campoDeCorreo = useRef<TextInputInstance>(null);
+  const campoDeContrasena = useRef<TextInputInstance>(null);
+  const campoDeNombre = useRef<TextInputInstance>(null);
   const pasoPN65 = route.params?.mayorDeEdad === true;
 
   // Sin la edad comprobada no se crea nada: se vuelve al inicio.
