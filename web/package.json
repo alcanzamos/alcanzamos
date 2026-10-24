@@ -21,6 +21,7 @@
     "test:coverage": "vitest run --coverage",
     "auditoria": "npm audit --omit=dev --audit-level=high",
     "licencias": "node scripts/licencias.mjs",
+    "antiguedad": "node scripts/antiguedad.mjs",
     "e2e": "playwright test"
   },
   "dependencies": {
