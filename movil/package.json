@@ -5,7 +5,8 @@
   "license": "AGPL-3.0-only",
   "main": "index.ts",
   "engines": {
-    "node": ">=24.22.1"
+    "node": ">=24.22.1",
+    "npm": "12.2.1"
   },
   "scripts": {
     "start": "expo start --lan",
@@ -101,5 +102,9 @@
     "eslint-plugin-react-native-a11y": {
       "eslint": "$eslint"
     }
+  },
+  "allowScripts": {
+    "@parcel/watcher": false,
+    "unrs-resolver": false
   }
 }
