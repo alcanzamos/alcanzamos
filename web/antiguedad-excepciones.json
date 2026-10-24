@@ -2,235 +2,235 @@
   {
     "paquete": "@oxc-project/types",
     "version": "0.155.0",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "@rolldown/binding-android-arm-eabi",
     "version": "1.2.15",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "@rolldown/binding-android-arm64",
     "version": "1.2.15",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "@rolldown/binding-darwin-arm64",
     "version": "1.2.15",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "@rolldown/binding-darwin-x64",
     "version": "1.2.15",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "@rolldown/binding-freebsd-x64",
     "version": "1.2.15",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "@rolldown/binding-linux-arm-gnueabihf",
     "version": "1.2.15",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "@rolldown/binding-linux-arm64-gnu",
     "version": "1.2.15",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "@rolldown/binding-linux-arm64-musl",
     "version": "1.2.15",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "@rolldown/binding-linux-ppc64-gnu",
     "version": "1.2.15",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "@rolldown/binding-linux-s390x-gnu",
     "version": "1.2.15",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "@rolldown/binding-linux-x64-gnu",
     "version": "1.2.15",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "@rolldown/binding-linux-x64-musl",
     "version": "1.2.15",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "@rolldown/binding-openharmony-arm64",
     "version": "1.2.15",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "@rolldown/binding-win32-arm64-msvc",
     "version": "1.2.15",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "@rolldown/binding-win32-x64-msvc",
     "version": "1.2.15",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "@typescript-eslint/eslint-plugin",
     "version": "8.72.0",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "@typescript-eslint/parser",
     "version": "8.72.0",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "@typescript-eslint/project-service",
     "version": "8.72.0",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "@typescript-eslint/scope-manager",
     "version": "8.72.0",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "@typescript-eslint/tsconfig-utils",
     "version": "8.72.0",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "@typescript-eslint/type-utils",
     "version": "8.72.0",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "@typescript-eslint/types",
     "version": "8.72.0",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "@typescript-eslint/typescript-estree",
     "version": "8.72.0",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "@typescript-eslint/utils",
     "version": "8.72.0",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "@typescript-eslint/visitor-keys",
     "version": "8.72.0",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "baseline-browser-mapping",
     "version": "2.11.31",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-22; cumple 7 días el 2026-10-29. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-22; cumple 7 días el 2026-10-29. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "browserslist",
     "version": "4.29.4",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "caniuse-lite",
     "version": "1.0.30001819",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-22; cumple 7 días el 2026-10-29. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-22; cumple 7 días el 2026-10-29. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "electron-to-chromium",
     "version": "1.5.463",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "ignore",
     "version": "7.0.13",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "node-releases",
     "version": "2.0.60",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-22; cumple 7 días el 2026-10-29. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-22; cumple 7 días el 2026-10-29. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "postcss",
     "version": "8.5.31",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-18; cumple 7 días el 2026-10-25. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-18; cumple 7 días el 2026-10-25. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "rolldown",
     "version": "1.2.15",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "tldts",
     "version": "7.4.19",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-20; cumple 7 días el 2026-10-27. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-20; cumple 7 días el 2026-10-27. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "tldts-core",
     "version": "7.4.19",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-20; cumple 7 días el 2026-10-27. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-20; cumple 7 días el 2026-10-27. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "typescript-eslint",
     "version": "8.72.0",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "undici",
     "version": "8.12.3",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   },
   {
     "paquete": "vite",
     "version": "8.3.5",
-    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el cierre de I05.",
-    "revisar_antes_de": "2026-11-05"
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
   }
 ]

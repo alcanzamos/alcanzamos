@@ -290,7 +290,7 @@ npm 12.2.1 pide Node `^22.22.2 || ^24.15.0 || >=26`. Con un gestor de versiones 
 
 Las excepciones van en `antiguedad-excepciones.json`, una por versión, con `paquete`, `version`, `motivo` y `revisar_antes_de` (la fecha de vencimiento), como las de auditoría. Una excepción de una versión que ya cumple la edad se informa como sobrante, pero no falla hasta vencer. Para instalar una versión joven por una corrección de seguridad urgente hacen falta dos cosas: `min-release-age-exclude[]` en `.npmrc` (para que npm la resuelva) y su excepción aquí (para que pase esta revisión).
 
-**Transición (D-158):** el archivo arranca con 63 excepciones, las versiones que ya estaban en el lockfile de `main` el 2026-10-24 con menos de 7 días (la mayoría entró con el SDK 58). Todas vencen el 2026-11-05 (cierre de I05); para entonces todas cumplen la edad y el archivo se vacía.
+**Transición (D-158):** el archivo arranca con 63 excepciones, las versiones que ya estaban en el lockfile de `main` el 2026-10-24 con menos de 7 días (la mayoría entró con el SDK 58). Todas vencen el 2026-11-01 (D-159): el motivo de cada una dice el día en que esa versión cumple 7 días (entre el 2026-10-25 y el 2026-10-30), y el PR del 2026-11-01 vacía el archivo. Si no se vacía, el pipeline falla desde el 2026-11-02.
 
 **Riesgo aceptado (D-158):** npm no detecta que un paquete perdió nivel de confianza (por ejemplo, que pasó de publicarse desde un pipeline con procedencia a publicarse sin ella). Se mitiga con la revisión de los cambios del lockfile en cada PR y con `npm audit signatures`.
 
