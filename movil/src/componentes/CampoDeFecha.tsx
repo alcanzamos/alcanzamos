@@ -32,9 +32,9 @@ export function CampoDeFecha({
     DateTimePickerAndroid.open({
       value: valor ?? new Date(),
       mode: 'date',
-      onChange: (evento, fecha) => {
-        if (evento.type === 'set' && fecha) alCambiar(fecha);
-      },
+      onValueChange: (_evento, fecha) => alCambiar(fecha),
+      // Cerrar el selector sin confirmar no cambia nada: el campo sigue como estaba.
+      onDismiss: () => {},
     });
   return (
     <MarcoDeCampo etiqueta={etiqueta} ayuda={ayuda} error={error} enFoco={enFoco}>

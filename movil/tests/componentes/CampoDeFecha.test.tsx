@@ -27,6 +27,7 @@ describe('CampoDeFecha (PN-65, E14-PCP 4.8)', () => {
     expect(opciones.value).toBeInstanceOf(Date);
     expect(opciones).not.toHaveProperty('maximumDate');
     expect(opciones).not.toHaveProperty('minimumDate');
+    expect(opciones).not.toHaveProperty('onChange');
   });
 
   it('cuando la persona confirma, avisa la fecha elegida', async () => {
@@ -34,7 +35,8 @@ describe('CampoDeFecha (PN-65, E14-PCP 4.8)', () => {
     await render(<CampoDeFecha {...propiedades} alCambiar={alCambiar} />);
     await fireEvent.press(screen.getByRole('button'));
     const fecha = new Date(1990, 4, 14);
-    abrir.mock.calls[0][0].onChange({ type: 'set' }, fecha);
+    abrir.mock.calls[0][0].onValueChange({ nativeEvent: { timestamp: fecha.getTime(), utcOffset: 0 } }, fecha);
+    expect(alCambiar).toHaveBeenCalledTimes(1);
     expect(alCambiar).toHaveBeenCalledWith(fecha);
   });
 
@@ -42,8 +44,7 @@ describe('CampoDeFecha (PN-65, E14-PCP 4.8)', () => {
     const alCambiar = jest.fn();
     await render(<CampoDeFecha {...propiedades} alCambiar={alCambiar} />);
     await fireEvent.press(screen.getByRole('button'));
-    abrir.mock.calls[0][0].onChange({ type: 'dismissed' }, undefined);
-    abrir.mock.calls[0][0].onChange({ type: 'set' }, undefined);
+    expect(() => abrir.mock.calls[0][0].onDismiss()).not.toThrow();
     expect(alCambiar).not.toHaveBeenCalled();
   });
 
