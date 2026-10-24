@@ -1,5 +1,7 @@
 # Pipeline común: corre en todo PR hacia main y en cada push a main.
 # Busca secretos, valida el título del PR (E17-ECO 2.4, Q-3) y prueba los filtros por carpeta (Q-11).
+# commitlint se instala con la misma receta endurecida de web/ y movil/ (D-158): Node y npm por tarball con suma, antigüedad
+# del lockfile antes de `npm ci`, firmas después, y las reglas de .azure-pipelines/commitlint/.npmrc.
 trigger:
   branches:
     include:
@@ -14,9 +16,18 @@ pool:
   vmImage: ubuntu-24.04
 
 variables:
-  GITLEAKS_VERSION: v8.30.1
-  COMMITLINT_VERSION: 21.2.4
+  # Etiqueta v8.30.1 (imagen del 2026-03-21), digest del índice multiarquitectura resuelto el 2026-10-24 en ghcr.io.
+  # Cambiar la etiqueta obliga a cambiar también el digest.
+  GITLEAKS_IMAGEN: ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
   NODE_VERSION: 24.22.1
+  # SHA-256 fijado a mano desde https://nodejs.org/dist/v24.22.1/SHASUMS256.txt (consultado el 2026-10-22).
+  # Cambiar la versión obliga a cambiar también esta suma, web.yml, movil.yml y el campo engines de commitlint/package.json.
+  NODE_SHA256: 6c172a9ab6718f7b801fb5a7bd486af2ee5e32758086a04b84fcce2aa77095e6
+  NPM_VERSION: 12.2.1
+  # SHA-512 del tarball de npm 12.2.1, igual al dist.integrity de https://registry.npmjs.org/npm/12.2.1 (base64 pasado
+  # a hexadecimal; consultado el 2026-10-24). Cambiar la versión obliga a cambiar también esta suma, web.yml, movil.yml,
+  # api/Dockerfile y el campo engines de commitlint/package.json.
+  NPM_SHA512: 6ca0a6151553fc107e60f1186d9c10d57508dcde6de31292a54d4cc4e8e8ef3de25b3281274657442d7115d10df930bb3794ddcb0681cdfd9d317189abf7b63d
 
 steps:
   - checkout: self
@@ -24,25 +35,61 @@ steps:
 
   - script: >
       docker run --rm -v "$(Build.SourcesDirectory)":/repo:ro
-      ghcr.io/gitleaks/gitleaks:$(GITLEAKS_VERSION)
+      $(GITLEAKS_IMAGEN)
       git /repo --no-banner --redact
     displayName: Sin secretos en el historial (gitleaks)
 
-  - task: UseNode@1
-    inputs:
-      version: $(NODE_VERSION)
+  # Se descarga el tarball oficial y se verifica antes de descomprimirlo.
+  - script: |
+      set -eu
+      tar_node="node-v$(NODE_VERSION)-linux-x64.tar.xz"
+      destino="$(Agent.TempDirectory)/node"
+      mkdir -p "$destino"
+      curl -fsSL "https://nodejs.org/dist/v$(NODE_VERSION)/$tar_node" -o "$destino/$tar_node"
+      (cd "$destino" && echo "$(NODE_SHA256)  $tar_node" | sha256sum --check --strict -)
+      tar -C "$destino" -xJf "$destino/$tar_node"
+      echo "##vso[task.prependpath]$destino/node-v$(NODE_VERSION)-linux-x64/bin"
     condition: eq(variables['Build.Reason'], 'PullRequest')
-    displayName: Node para commitlint
+    displayName: Instalar Node $(NODE_VERSION) (SHA-256 verificado)
+
+  # npm 12 no viene con Node 24: se descarga el tarball del registro, se verifica y se instala desde el archivo local.
+  # Corre fuera de .azure-pipelines/commitlint/, así que no lee su .npmrc.
+  - script: |
+      set -eu
+      tar_npm="$(Agent.TempDirectory)/npm-$(NPM_VERSION).tgz"
+      curl -fsSL "https://registry.npmjs.org/npm/-/npm-$(NPM_VERSION).tgz" -o "$tar_npm"
+      echo "$(NPM_SHA512)  $tar_npm" | sha512sum --check --strict -
+      npm install --global "$tar_npm"
+      node --version
+      npm --version
+      test "$(npm --version)" = "$(NPM_VERSION)"
+    condition: eq(variables['Build.Reason'], 'PullRequest')
+    displayName: Instalar npm $(NPM_VERSION) (SHA-512 verificado)
+
+  # D-158: npm ci no aplica min-release-age a lo que ya está en el lockfile. Se reutiliza el script de web/ (paso hacia
+  # la unificación pendiente, D-160) con la carpeta de commitlint como argumento: lee su .npmrc, su package-lock.json y su
+  # antiguedad-excepciones.json (vacío).
+  - script: node web/scripts/antiguedad.mjs .azure-pipelines/commitlint
+    condition: eq(variables['Build.Reason'], 'PullRequest')
+    displayName: Antigüedad mínima de las versiones del lockfile de commitlint (antes de npm ci)
+
+  - script: npm ci
+    workingDirectory: .azure-pipelines/commitlint
+    condition: eq(variables['Build.Reason'], 'PullRequest')
+    displayName: Dependencias de commitlint fijadas (npm ci, con su .npmrc)
+
+  - script: npm audit signatures
+    workingDirectory: .azure-pipelines/commitlint
+    condition: eq(variables['Build.Reason'], 'PullRequest')
+    displayName: Firmas del registro (npm audit signatures)
 
   - script: |
       set -eu
       titulo=$(curl -fsSL "https://api.github.com/repos/alcanzamos/alcanzamos/pulls/$(System.PullRequest.PullRequestNumber)" \
         | python3 -c 'import json,sys; print(json.load(sys.stdin)["title"])')
       echo "Título del PR: $titulo"
-      printf '%s\n' "$titulo" | npx --yes \
-        -p @commitlint/cli@$(COMMITLINT_VERSION) \
-        -p @commitlint/config-conventional@$(COMMITLINT_VERSION) \
-        commitlint --config .azure-pipelines/commitlint.config.mjs
+      printf '%s\n' "$titulo" | .azure-pipelines/commitlint/node_modules/.bin/commitlint \
+        --config .azure-pipelines/commitlint/commitlint.config.mjs
     condition: eq(variables['Build.Reason'], 'PullRequest')
     displayName: El título del PR sigue Conventional Commits (commitlint)
 
