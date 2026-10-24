@@ -1,0 +1,11 @@
+# Configuración de gitleaks (pipeline comun). Mantiene todas las reglas por defecto.
+[extend]
+useDefault = true
+
+# Única excepción: la dirección del API falso que usan las pruebas de movil/ (`http://api.prueba:18090/api/v1/...`).
+# No es un secreto: el dominio no existe y el puerto es el del API local. gitleaks la confundía con una clave de API
+# genérica por la variedad de caracteres. Se exceptúa solo ese patrón, no la carpeta de pruebas.
+[[allowlists]]
+description = "URL del API falso de las pruebas de movil (no es un secreto)"
+regexTarget = "match"
+regexes = ['''api\.prueba:18090/api/v1/[a-z0-9/_-]+''']
