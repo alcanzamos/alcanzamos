@@ -5,3 +5,8 @@ jest.mock('react-native-safe-area-context', () => {
   const mock = jest.requireActual('react-native-safe-area-context/jest/mock').default;
   return { ...mock, useSafeAreaInsets: jest.fn(mock.useSafeAreaInsets) };
 });
+
+// AsyncStorage no tiene módulo nativo en las pruebas: se usa el mock oficial, en memoria.
+jest.mock('@react-native-async-storage/async-storage', () =>
+  jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+);
