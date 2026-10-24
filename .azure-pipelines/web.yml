@@ -31,6 +31,11 @@ variables:
   # SHA-256 fijado a mano desde https://nodejs.org/dist/v24.22.1/SHASUMS256.txt (consultado el 2026-10-22).
   # Cambiar la versión obliga a cambiar también esta suma y el campo engines de web/package.json.
   NODE_SHA256: 6c172a9ab6718f7b801fb5a7bd486af2ee5e32758086a04b84fcce2aa77095e6
+  NPM_VERSION: 12.2.1
+  # SHA-512 del tarball de npm 12.2.1, igual al dist.integrity de https://registry.npmjs.org/npm/12.2.1 (base64 pasado
+  # a hexadecimal; consultado el 2026-10-24). Cambiar la versión obliga a cambiar también esta suma, movil.yml, api/Dockerfile
+  # y el campo engines de web/package.json.
+  NPM_SHA512: 6ca0a6151553fc107e60f1186d9c10d57508dcde6de31292a54d4cc4e8e8ef3de25b3281274657442d7115d10df930bb3794ddcb0681cdfd9d317189abf7b63d
 
 steps:
   - checkout: self
@@ -48,15 +53,27 @@ steps:
       echo "##vso[task.prependpath]$destino/node-v$(NODE_VERSION)-linux-x64/bin"
     displayName: Instalar Node $(NODE_VERSION) (SHA-256 verificado)
 
+  # npm 12 no viene con Node 24: se descarga el tarball del registro, se verifica y se instala desde el archivo local.
+  # Corre fuera de web/ y movil/, así que no lee su .npmrc.
   - script: |
       set -eu
+      tar_npm="$(Agent.TempDirectory)/npm-$(NPM_VERSION).tgz"
+      curl -fsSL "https://registry.npmjs.org/npm/-/npm-$(NPM_VERSION).tgz" -o "$tar_npm"
+      echo "$(NPM_SHA512)  $tar_npm" | sha512sum --check --strict -
+      npm install --global "$tar_npm"
       node --version
       npm --version
-    displayName: Versión de Node
+      test "$(npm --version)" = "$(NPM_VERSION)"
+    displayName: Instalar npm $(NPM_VERSION) (SHA-512 verificado)
 
   - script: npm ci
     workingDirectory: web
-    displayName: Dependencias fijadas (npm ci)
+    displayName: Dependencias fijadas (npm ci, con web/.npmrc)
+
+  # Comprueba la firma del registro y las atestaciones de procedencia de cada paquete instalado.
+  - script: npm audit signatures
+    workingDirectory: web
+    displayName: Firmas del registro (npm audit signatures)
 
   # ADR-003, condición 4: vulnerabilidades altas o críticas en producción y licencias compatibles con AGPLv3.
   - script: npm run auditoria
