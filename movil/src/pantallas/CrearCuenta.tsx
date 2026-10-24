@@ -11,6 +11,7 @@ import { Pantalla } from '../componentes/Pantalla';
 import { reemplazarPila } from '../navegacion/llegada';
 import type { Rutas } from '../navegacion/rutas';
 import { avisoDeFallo, avisos, textoDeErrorDeCampo, type DatosDeAviso } from '../textos';
+import { textos } from '../textos/es.generated';
 
 type Campo = 'correo' | 'contrasena' | 'nombre';
 // El orden de la pantalla: el foco va al primer campo con error.
@@ -65,13 +66,13 @@ export function CrearCuenta({ navigation, route }: NativeStackScreenProps<Rutas,
   }
 
   return (
-    <Pantalla conLogo titulo="Crea tu cuenta">
-      <Texto>Solo necesitamos tres datos.</Texto>
+    <Pantalla conLogo titulo={textos.crearCuenta.titulo}>
+      <Texto>{textos.crearCuenta.intro}</Texto>
       {aviso && <Aviso {...aviso} />}
       <CampoDeTexto
         ref={campoDeCorreo}
-        etiqueta="Correo electrónico"
-        ayuda="Te enviaremos un enlace para confirmarlo."
+        etiqueta={textos.campos.correo.etiqueta}
+        ayuda={textos.campos.correo.ayuda}
         autocompletar="email"
         teclado="email-address"
         valor={correo}
@@ -80,8 +81,8 @@ export function CrearCuenta({ navigation, route }: NativeStackScreenProps<Rutas,
       />
       <CampoDeContrasena
         ref={campoDeContrasena}
-        etiqueta="Contraseña"
-        ayuda="Usa una frase de tres o cuatro palabras."
+        etiqueta={textos.campos.contrasena.etiqueta}
+        ayuda={textos.campos.contrasena.ayuda}
         autocompletar="new-password"
         valor={contrasena}
         alCambiar={setContrasena}
@@ -89,25 +90,25 @@ export function CrearCuenta({ navigation, route }: NativeStackScreenProps<Rutas,
       />
       <CampoDeTexto
         ref={campoDeNombre}
-        etiqueta="Nombre para mostrar"
-        ayuda="Es el nombre que verás en la app. Puede ser un apodo."
+        etiqueta={textos.campos.nombre.etiqueta}
+        ayuda={textos.campos.nombre.ayuda}
         autocompletar="name"
         valor={nombre}
         alCambiar={setNombre}
         error={errores.nombre}
       />
       <Boton deshabilitado={enviando} alTocar={() => void enviar()}>
-        Crear cuenta
+        {textos.crearCuenta.crear}
       </Boton>
       {aviso === avisos.errorAlCrearCuenta && (
         <Boton variante="secundario" alTocar={() => void enviar()}>
-          Intentar de nuevo
+          {textos.acciones.intentarDeNuevo}
         </Boton>
       )}
       <Boton variante="secundario" alTocar={() => navigation.navigate('Entrar')}>
-        Ya tengo una cuenta
+        {textos.crearCuenta.yaTengoCuenta}
       </Boton>
-      <Nota>Después de confirmar tu correo verás cómo cuidamos tus datos y decidirás si los autorizas.</Nota>
+      <Nota>{textos.crearCuenta.nota}</Nota>
     </Pantalla>
   );
 }

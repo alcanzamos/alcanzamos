@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
+import { textos } from '../textos/es.generated';
 import { tokens } from '../tokens/tokens.generated';
 import { CampoDeTexto, type PropiedadesDeCampo } from './CampoDeTexto';
 import { IconoOcultar, IconoVer } from './Iconos';
@@ -19,7 +20,7 @@ export function CampoDeContrasena(propiedades: PropiedadesDeCampo) {
         // eslint-disable-next-line react-native-a11y/has-accessibility-hint
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={visible ? 'Ocultar la contraseña' : 'Mostrar la contraseña'}
+          accessibilityLabel={visible ? textos.campos.contrasena.ocultar : textos.campos.contrasena.mostrar}
           onPress={() => setVisible(!visible)}
           style={({ pressed }) => [
             estilos.ver,

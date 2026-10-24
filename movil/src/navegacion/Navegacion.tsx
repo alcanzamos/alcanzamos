@@ -10,6 +10,7 @@ import { RevisaTuCorreo } from '../pantallas/RevisaTuCorreo';
 import { SeguridadDeLaCuenta } from '../pantallas/SeguridadDeLaCuenta';
 import { SinAutorizacion } from '../pantallas/SinAutorizacion';
 import { leerToken } from '../sesion/token';
+import { textos } from '../textos/es.generated';
 import { tokens } from '../tokens/tokens.generated';
 import { conBarra } from './barra';
 import type { Rutas } from './rutas';
@@ -58,14 +59,14 @@ export function Navegacion() {
         <Pila.Screen
           name="SeguridadDeLaCuenta"
           component={SeguridadDeLaCuenta}
-          options={conBarra('Seguridad de la cuenta')}
+          options={conBarra(textos.seguridadDeLaCuenta.titulo)}
         />
         <Pila.Screen
           name="CambiarContrasena"
           component={CambiarContrasena}
-          options={conBarra('Cambiar mi contraseña')}
+          options={conBarra(textos.cambiarContrasena.titulo)}
         />
-        <Pila.Screen name="RecuperarAcceso" component={RecuperarAcceso} options={conBarra('Recuperar el acceso')} />
+        <Pila.Screen name="RecuperarAcceso" component={RecuperarAcceso} options={conBarra(textos.recuperarAcceso.titulo)} />
       </Pila.Navigator>
     </NavigationContainer>
   );

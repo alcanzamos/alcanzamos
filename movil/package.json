@@ -12,6 +12,7 @@
     "start": "expo start --lan",
     "android": "expo start --android --lan",
     "tokens": "style-dictionary build --config ../diseno/style-dictionary.config.mjs",
+    "textos": "node ../diseno/generar-textos.mjs android src/textos/es.generated.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "auditoria": "node scripts/auditoria.mjs",
@@ -61,8 +62,19 @@
     "roots": [
       "<rootDir>/tests"
     ],
+    "modulePaths": [
+      "<rootDir>/node_modules"
+    ],
     "setupFilesAfterEnv": [
       "<rootDir>/tests/ayudas/preparar.ts"
+    ],
+    "reporters": [
+      [
+        "default",
+        {
+          "summaryThreshold": 0
+        }
+      ]
     ],
     "testMatch": [
       "<rootDir>/tests/**/*.test.{ts,tsx}"

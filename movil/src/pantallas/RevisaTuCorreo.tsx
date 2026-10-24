@@ -12,6 +12,7 @@ import { seguirPorAccesoNegado } from '../navegacion/accesoNegado';
 import { reemplazarPila } from '../navegacion/llegada';
 import type { Rutas } from '../navegacion/rutas';
 import { avisoDeFallo, avisos, textoDeErrorDeCampo, type DatosDeAviso } from '../textos';
+import { formatear, textos } from '../textos/es.generated';
 
 // Espera corta entre un reenvío y el siguiente (E14-PCP 4.2, D-143). El API la impone; esto solo la muestra.
 export const ESPERA_MS = 30_000;
@@ -103,28 +104,26 @@ export function RevisaTuCorreo({ navigation, route }: Pantalla59) {
   }
 
   return (
-    <Pantalla titulo="Revisa tu correo">
+    <Pantalla titulo={textos.revisaTuCorreo.titulo}>
       <Texto>
-        {correo
-          ? `Te enviamos un enlace a ${correo}. Ábrelo para confirmar tu cuenta.`
-          : 'Te enviamos un enlace a tu correo. Ábrelo para confirmar tu cuenta.'}
+        {correo ? formatear(textos.revisaTuCorreo.enviadoA, { correo }) : textos.revisaTuCorreo.enviado}
       </Texto>
-      <Nota>¿No llegó? Mira también en el correo no deseado.</Nota>
-      <Texto variante="ayuda">Si no lo confirmas en 7 días, borramos esta cuenta.</Texto>
+      <Nota>{textos.revisaTuCorreo.noLlego}</Nota>
+      <Texto variante="ayuda">{textos.revisaTuCorreo.plazo}</Texto>
       {aviso && <Aviso {...aviso} />}
       <Boton deshabilitado={ocupado} alTocar={() => void yaLoConfirme()}>
-        Ya lo confirmé
+        {textos.revisaTuCorreo.yaLoConfirme}
       </Boton>
       <Boton variante="secundario" deshabilitado={enEspera || ocupado} alTocar={() => void reenviar()}>
-        Reenviar el correo
+        {textos.acciones.reenviarElCorreo}
       </Boton>
-      {enEspera && <Texto variante="ayuda">Puedes pedir otro en un momento.</Texto>}
+      {enEspera && <Texto variante="ayuda">{textos.revisaTuCorreo.espera}</Texto>}
       {cambiando ? (
         <>
           <CampoDeTexto
             ref={campoDeCorreo}
-            etiqueta="Correo electrónico"
-            ayuda="Te enviaremos un enlace para confirmarlo."
+            etiqueta={textos.campos.correo.etiqueta}
+            ayuda={textos.campos.correo.ayuda}
             autocompletar="email"
             teclado="email-address"
             valor={nuevoCorreo}
@@ -132,11 +131,11 @@ export function RevisaTuCorreo({ navigation, route }: Pantalla59) {
             error={errorDeCorreo}
           />
           <Boton deshabilitado={ocupado} alTocar={() => void guardarNuevoCorreo()}>
-            Cambiar el correo
+            {textos.acciones.cambiarElCorreo}
           </Boton>
         </>
       ) : (
-        <BotonDeTexto alTocar={() => setCambiando(true)}>Cambiar el correo</BotonDeTexto>
+        <BotonDeTexto alTocar={() => setCambiando(true)}>{textos.acciones.cambiarElCorreo}</BotonDeTexto>
       )}
     </Pantalla>
   );
