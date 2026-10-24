@@ -1,4 +1,4 @@
-# Pipeline de movil/: ESLint, tipos, tokens sin diff, pruebas con cobertura, vulnerabilidades y licencias de
+# Pipeline de movil/: ESLint, tipos, tokens y textos sin diff, pruebas con cobertura, vulnerabilidades y licencias de
 # producción y comprobación de que node-forge no entra en el paquete de la app.
 # No usa conexión de servicio ni secretos. Corre cuando cambia movil/, diseno/ (tokens, textos y fuentes) o este archivo
 # (ADR-001, filtros por carpeta). No compila el paquete de Android (eso lo hace EAS en la entrega, E17): solo exporta
@@ -87,7 +87,7 @@ steps:
 
   - script: npm run lint
     workingDirectory: movil
-    displayName: ESLint (typescript-eslint, react-hooks, accesibilidad de React Native, solo tokens)
+    displayName: ESLint (typescript-eslint, react-hooks, accesibilidad de React Native, solo tokens, sin textos sueltos en JSX)
 
   - script: npm run typecheck
     workingDirectory: movil
@@ -102,9 +102,18 @@ steps:
     workingDirectory: movil
     displayName: Los tokens regenerados no cambian nada
 
+  # E17-ECO 4.13 (D-160): los textos salen de diseno/textos/es.json (comun + solo_android); regenerar el módulo no debe
+  # cambiar nada.
+  - script: |
+      set -eu
+      npm run textos
+      git diff --exit-code -- ../diseno ../web ../movil
+    workingDirectory: movil
+    displayName: Los textos regenerados no cambian nada
+
   - script: npm run test:coverage
     workingDirectory: movil
-    displayName: Pruebas unitarias con cobertura (mínimo 50 % de líneas)
+    displayName: Pruebas unitarias con cobertura (mínimo 50 % de líneas; el resumen final lista las que fallan)
 
   # ADR-003, condición 4: vulnerabilidades altas o críticas en producción. Las únicas aceptadas están en
   # movil/auditoria-excepciones.json, una por una y con su motivo; la excepción que deja de reportarse hace fallar.
