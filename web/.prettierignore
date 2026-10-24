@@ -4,3 +4,4 @@ playwright-report
 test-results
 package-lock.json
 src/estilos/tokens.css
+src/textos/es.generated.ts

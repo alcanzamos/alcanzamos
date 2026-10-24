@@ -1,0 +1,564 @@
+{
+  "comun": {
+    "avisos": {
+      "sinConexion": {
+        "titulo": {
+          "texto": "Sin conexión. Intenta de nuevo cuando vuelvas a tener internet.",
+          "e14": "E14-PCP 4.16 T10 (PN-58, PN-60, PN-64, PN-69 y PN-73)"
+        }
+      },
+      "demasiadosIntentos": {
+        "titulo": {
+          "texto": "Hiciste muchos intentos. Espera unos minutos e intenta de nuevo.",
+          "e14": "E14-PCP 4.16 T1 (D-136; PN-58, «Cambiar el correo» de PN-59, PN-60 y PN-61)"
+        }
+      },
+      "errorAlCrearCuenta": {
+        "titulo": {
+          "texto": "No pudimos crear la cuenta.",
+          "e14": "E14-PCP 4.1, estado «Error de envío» de PN-58 y 4.16 T6"
+        },
+        "mensaje": {
+          "texto": "Tus datos no se perdieron. Intenta de nuevo.",
+          "e14": "E14-PCP 4.1, estado «Error de envío» de PN-58 y 4.16 T6"
+        }
+      },
+      "errorAlEnviarCorreo": {
+        "titulo": {
+          "texto": "No pudimos enviar el correo.",
+          "e14": "E14-PCP 4.2, estado «Error» de PN-59 (reenviar y cambiar el correo)"
+        },
+        "mensaje": {
+          "texto": "Intenta de nuevo.",
+          "e14": "E14-PCP 4.2, estado «Error» de PN-59 (reenviar y cambiar el correo)"
+        }
+      },
+      "errorAlRevisarElCorreo": {
+        "titulo": {
+          "texto": "No pudimos revisar si confirmaste tu correo.",
+          "e14": "E14-PCP 4.16 T8: «Ya lo confirmé» no pudo revisar el estado (5xx)"
+        },
+        "mensaje": {
+          "texto": "Intenta de nuevo.",
+          "e14": "E14-PCP 4.16 T8: «Ya lo confirmé» no pudo revisar el estado (5xx)"
+        }
+      },
+      "errorAlConfirmarElCorreo": {
+        "titulo": {
+          "texto": "No pudimos confirmar tu correo.",
+          "e14": "E14-PCP 4.16 T9: el enlace de verificación falló del lado del servidor (5xx), distinto del enlace vencido"
+        },
+        "mensaje": {
+          "texto": "Intenta de nuevo.",
+          "e14": "E14-PCP 4.16 T9: el enlace de verificación falló del lado del servidor (5xx), distinto del enlace vencido"
+        }
+      },
+      "sinConfirmarTodavia": {
+        "titulo": {
+          "texto": "Todavía no confirmaste tu correo.",
+          "e14": "E14-PCP 4.2, «Ya lo confirmé» sin confirmar"
+        },
+        "mensaje": {
+          "texto": "Abre el enlace que te enviamos.",
+          "e14": "E14-PCP 4.2, «Ya lo confirmé» sin confirmar"
+        }
+      },
+      "correoReenviado": {
+        "titulo": {
+          "texto": "Te enviamos otro correo.",
+          "e14": "E14-PCP 4.2, estado «Reenviado»"
+        }
+      },
+      "correoConfirmado": {
+        "titulo": {
+          "texto": "Listo, confirmamos tu correo.",
+          "e14": "E14-PCP 4.2, estado «Confirmado», y 4.16 T11: se muestra arriba de la pantalla a la que se llega"
+        }
+      },
+      "enlaceVencido": {
+        "titulo": {
+          "texto": "Ese enlace ya no sirve.",
+          "e14": "E14-PCP 4.2, estado «Enlace vencido»"
+        },
+        "mensaje": {
+          "texto": "Pide uno nuevo.",
+          "e14": "E14-PCP 4.2, estado «Enlace vencido»"
+        }
+      },
+      "datosNoCoinciden": {
+        "titulo": {
+          "texto": "No pudimos entrar con esos datos.",
+          "e14": "E14-PCP 4.3, estado «Error» de PN-60 con credenciales que no coinciden (401)"
+        },
+        "mensaje": {
+          "texto": "Revisa lo que escribiste e intenta de nuevo.",
+          "e14": "E14-PCP 4.3, estado «Error» de PN-60 con credenciales que no coinciden (401)"
+        }
+      },
+      "errorAlIniciarSesion": {
+        "titulo": {
+          "texto": "No pudimos iniciar tu sesión.",
+          "e14": "E14-PCP 4.16 T7 (D-153): error del servidor (5xx) en PN-60; nunca dice que los datos están mal (RNF-017)"
+        },
+        "mensaje": {
+          "texto": "El problema es de nuestro lado. Intenta de nuevo en un momento.",
+          "e14": "E14-PCP 4.16 T7 (D-153): error del servidor (5xx) en PN-60; nunca dice que los datos están mal (RNF-017)"
+        }
+      },
+      "errorAlCambiarContrasena": {
+        "titulo": {
+          "texto": "No pudimos guardar tu contraseña.",
+          "e14": "E14-PCP 4.15, estado «Error» de PN-73"
+        },
+        "mensaje": {
+          "texto": "Tu contraseña de ahora sigue igual. Intenta de nuevo.",
+          "e14": "E14-PCP 4.15, estado «Error» de PN-73"
+        }
+      },
+      "contrasenaCambiada": {
+        "titulo": {
+          "texto": "Listo, cambiamos tu contraseña.",
+          "e14": "E14-PCP 4.15, estado «Guardada» de PN-73 (llega a PN-71)"
+        },
+        "mensaje": {
+          "texto": "Cerramos tus otras sesiones. Esta sigue abierta.",
+          "e14": "E14-PCP 4.15, estado «Guardada» de PN-73 (llega a PN-71)"
+        }
+      },
+      "errorAlCargarIngreso": {
+        "titulo": {
+          "texto": "No pudimos cargar tu último ingreso.",
+          "e14": "E14-PCP 4.14, estado «Error» de PN-71"
+        }
+      },
+      "noReconoceElIngreso": {
+        "titulo": {
+          "texto": "¿No reconoces este ingreso?",
+          "e14": "E14-PCP 4.14, PN-71"
+        },
+        "mensaje": {
+          "texto": "Cambia tu contraseña y cerramos tus otras sesiones.",
+          "e14": "E14-PCP 4.14, PN-71"
+        }
+      },
+      "enlaceDeRecuperacionEnviado": {
+        "titulo": {
+          "texto": "Si ese correo tiene una cuenta, te enviamos un enlace.",
+          "e14": "E14-PCP 4.4, estado «Enlace enviado» de PN-61: es el mismo con o sin cuenta"
+        },
+        "mensaje": {
+          "texto": "Revisa también el correo no deseado.",
+          "e14": "E14-PCP 4.4, estado «Enlace enviado» de PN-61: es el mismo con o sin cuenta"
+        }
+      },
+      "errorAlEnviarEnlace": {
+        "titulo": {
+          "texto": "No pudimos enviar el enlace.",
+          "e14": "E14-PCP 4.4, estado «Error» de PN-61"
+        },
+        "mensaje": {
+          "texto": "Intenta de nuevo.",
+          "e14": "E14-PCP 4.4, estado «Error» de PN-61"
+        }
+      },
+      "errorAlGuardarContrasena": {
+        "titulo": {
+          "texto": "No pudimos guardar tu contraseña.",
+          "e14": "E14-PCP 4.5, estado «Error» de PN-62"
+        },
+        "mensaje": {
+          "texto": "Intenta de nuevo.",
+          "e14": "E14-PCP 4.5, estado «Error» de PN-62"
+        }
+      },
+      "contrasenaRecuperada": {
+        "titulo": {
+          "texto": "Listo, cambiaste tu contraseña.",
+          "e14": "E14-PCP 4.5, estado «Guardada» de PN-62 (llega a PN-60)"
+        }
+      },
+      "sesionCerrada": {
+        "titulo": {
+          "texto": "Tu sesión se cerró. Entra de nuevo.",
+          "e14": "E14-PCP 4.3, PN-60 (se llega a ella cuando el API niega el paso por falta de sesión)"
+        }
+      }
+    },
+    "correo": {
+      "correo_vacio": {
+        "texto": "Falta el correo electrónico.",
+        "e14": "E14-PCP 4.1 (errores de campo de PN-58): el campo del correo es el mismo en PN-58, en «Cambiar el correo» de PN-59 (4.16 T3) y en PN-61."
+      },
+      "correo_invalido": {
+        "texto": "Falta completar el correo. Por ejemplo, nombre@correo.com.",
+        "e14": "E14-PCP 4.1 (errores de campo de PN-58): el campo del correo es el mismo en PN-58, en «Cambiar el correo» de PN-59 (4.16 T3) y en PN-61."
+      }
+    },
+    "contrasenaNueva": {
+      "contrasena_corta": {
+        "texto": "Falta que la contraseña tenga al menos 15 caracteres.",
+        "e14": "E14-PCP 4.1 (PN-58). La contraseña nueva tiene los mismos errores en PN-62 y PN-73."
+      },
+      "contrasena_comun": {
+        "texto": "Falta una contraseña que no sea tan común. Prueba con una frase de tres o cuatro palabras.",
+        "e14": "E14-PCP 4.1 (PN-58). La contraseña nueva tiene los mismos errores en PN-62 y PN-73."
+      },
+      "contrasena_personal": {
+        "texto": "Falta una contraseña que no incluya tu correo ni el nombre de la app.",
+        "e14": "E14-PCP 4.1 (PN-58). La contraseña nueva tiene los mismos errores en PN-62 y PN-73."
+      }
+    },
+    "erroresDeCampo": {
+      "entrar": {
+        "identificador_vacio": {
+          "texto": "Falta el correo electrónico.",
+          "e14": "E14-PCP 4.3 (PN-60)"
+        },
+        "contrasena_vacia": {
+          "texto": "Falta la contraseña.",
+          "e14": "E14-PCP 4.3 (PN-60)"
+        }
+      },
+      "contrasenaNueva": {
+        "contrasena_vacia": {
+          "texto": "Falta la contraseña nueva.",
+          "e14": "E14-PCP 4.5 (PN-62) y 4.15 (PN-73)"
+        }
+      },
+      "contrasenaDeAhora": {
+        "contrasena_vacia": {
+          "texto": "Falta tu contraseña de ahora.",
+          "e14": "E14-PCP 4.15 (PN-73)"
+        },
+        "contrasena_actual_incorrecta": {
+          "texto": "No pudimos confirmar tu contraseña de ahora. Escríbela de nuevo.",
+          "e14": "E14-PCP 4.15 (PN-73)"
+        }
+      },
+      "crearCuenta": {
+        "contrasena_vacia": {
+          "texto": "Falta la contraseña.",
+          "e14": "E14-PCP 4.1 (PN-58)"
+        },
+        "nombre_vacio": {
+          "texto": "Falta el nombre para mostrar.",
+          "e14": "E14-PCP 4.1 (PN-58)"
+        },
+        "nombre_largo": {
+          "texto": "Escribe un nombre de hasta 60 caracteres.",
+          "e14": "E14-PCP 4.16 T5 (D-153)"
+        }
+      }
+    },
+    "textosDeRepeticion": {
+      "vacia": {
+        "texto": "Falta repetir la contraseña.",
+        "e14": "E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62"
+      },
+      "distinta": {
+        "texto": "Falta que las dos contraseñas sean iguales.",
+        "e14": "E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62"
+      }
+    },
+    "porConfirmar": {
+      "resumen": {
+        "texto": "{total} por confirmar: {ingresos} y {gastos}",
+        "e14": "E14-PRR 4.7 (PN-72, D-093): «13 por confirmar: 2 ingresos y 11 gastos»"
+      },
+      "ingresos": {
+        "texto": {
+          "one": "{n} ingreso",
+          "other": "{n} ingresos"
+        },
+        "e14": "E14-PRR 4.7 (PN-72, D-093): «2 ingresos»; «1 ingreso» es el ejemplo del dueño (US-59, S4)"
+      },
+      "gastos": {
+        "texto": {
+          "one": "{n} gasto",
+          "other": "{n} gastos"
+        },
+        "e14": "E14-PRR 4.7 (PN-72, D-093): «11 gastos»; «1 gasto» es propuesto (derivado de «1 ingreso»), falta llevarlo a E14"
+      }
+    }
+  },
+  "solo_web": {
+    "erroresDeCampo": {
+      "crearCuenta": {
+        "mayor_de_edad_requerido": {
+          "texto": "Falta marcar que eres mayor de edad.",
+          "e14": "E14-PCP 4.1 (PN-58)"
+        }
+      }
+    },
+    "pagina": {
+      "logo": {
+        "texto": "Alcanzamos",
+        "e14": "E14-PCP 4.2 bis; E14-PCP 4.3 (PN-60); E14-PCP 4.4 bis; E14-PCP 4.6 (PN-63); E14-PCP 4.10 (PN-67); E14-PCP 4.11 (PN-68); E14-PCP 4.13 (PN-70); E14-PCP 4.16"
+      },
+      "atras": {
+        "texto": "Atrás",
+        "e14": "E14-PCP 4.4 (PN-61); E14-PCP 4.6 (PN-63); E14-PCP 4.7 (PN-64); E14-PCP 4.9 (PN-66); E14-PCP 4.10 (PN-67); E14-PCP 4.11 (PN-68); E14-PCP 4.12 (PN-69); E14-PCP 4.13 (PN-70); E14-PCP 4.14 (PN-71); E14-PCP 4.15 (PN-73); E14-PCP 4.16"
+      },
+      "titulo_del_documento": {
+        "texto": "{titulo} · Alcanzamos",
+        "e14": "No está en E14-PCP: ya existía en la web (Pagina.tsx, US-57); sin texto de E14 todavía"
+      }
+    },
+    "acciones": {
+      "cerrarSesion": {
+        "texto": "Cerrar sesión",
+        "e14": "E14-PCP 4.9 (PN-66); E14-PCP 4.16"
+      },
+      "intentarDeNuevo": {
+        "texto": "Intentar de nuevo",
+        "e14": "E14-PCP 4.1 (PN-58); E14-PCP 4.6 (PN-63); E14-PCP 4.9 (PN-66); E14-PCP 4.10 (PN-67); E14-PCP 4.11 (PN-68); E14-PCP 4.13 (PN-70); E14-PCP 4.14 (PN-71)"
+      },
+      "reenviarElCorreo": {
+        "texto": "Reenviar el correo",
+        "e14": "E14-PCP 4.2 (PN-59); E14-PCP 4.3 (PN-60)"
+      },
+      "cambiarElCorreo": {
+        "texto": "Cambiar el correo",
+        "e14": "E14-PCP 4.2 (PN-59); E14-PCP 4.16"
+      },
+      "guardarLaContrasena": {
+        "texto": "Guardar la contraseña",
+        "e14": "E14-PCP 4.5 (PN-62); E14-PCP 4.15 (PN-73)"
+      }
+    },
+    "campos": {
+      "correo": {
+        "etiqueta": {
+          "texto": "Correo electrónico",
+          "e14": "E14-PCP 4.1 (PN-58); E14-PCP 4.3 (PN-60); E14-PCP 4.4 (PN-61); E14-PCP 4.16"
+        },
+        "ayuda": {
+          "texto": "Te enviaremos un enlace para confirmarlo.",
+          "e14": "E14-PCP 4.1 (PN-58)"
+        }
+      },
+      "contrasena": {
+        "etiqueta": {
+          "texto": "Contraseña",
+          "e14": "E14-PCP 4.1 (PN-58); E14-PCP 4.3 (PN-60); E14-PCP 4.5 (PN-62); E14-PCP 4.12 (PN-69); E14-PCP 4.14 (PN-71); E14-PCP 4.15 (PN-73); E14-PCP 4.16"
+        },
+        "ayuda": {
+          "texto": "Usa una frase de tres o cuatro palabras.",
+          "e14": "E14-PCP 4.1 (PN-58); E14-PCP 4.5 (PN-62); E14-PCP 4.15 (PN-73); E14-PCP 4.16"
+        },
+        "mostrar": {
+          "texto": "Mostrar la contraseña",
+          "e14": "E14-SDD 5.18 (nombre accesible del botón Ver y Ocultar)"
+        },
+        "ocultar": {
+          "texto": "Ocultar la contraseña",
+          "e14": "E14-SDD 5.18 (nombre accesible del botón Ver y Ocultar)"
+        }
+      },
+      "contrasenaNueva": {
+        "etiqueta": {
+          "texto": "Contraseña nueva",
+          "e14": "E14-PCP 4.5 (PN-62); E14-PCP 4.15 (PN-73)"
+        },
+        "etiquetaPropia": {
+          "texto": "Tu contraseña nueva",
+          "e14": "E14-PCP 4.15 (PN-73)"
+        },
+        "repeticion": {
+          "texto": "Repite la contraseña nueva",
+          "e14": "E14-PCP 4.5 (PN-62)"
+        }
+      },
+      "contrasenaDeAhora": {
+        "etiqueta": {
+          "texto": "Tu contraseña de ahora",
+          "e14": "E14-PCP 4.15 (PN-73)"
+        }
+      },
+      "nombre": {
+        "etiqueta": {
+          "texto": "Nombre para mostrar",
+          "e14": "E14-PCP 4.1 (PN-58)"
+        },
+        "ayuda": {
+          "texto": "Es el nombre que verás en la app. Puede ser un apodo.",
+          "e14": "E14-PCP 4.1 (PN-58)"
+        }
+      },
+      "mayorDeEdad": {
+        "etiqueta": {
+          "texto": "Soy mayor de edad",
+          "e14": "E14-PCP 4.1 (PN-58); E14-PCP 4.8 (PN-65); E14-PCP 4.16"
+        }
+      }
+    },
+    "crearCuenta": {
+      "titulo": {
+        "texto": "Crea tu cuenta",
+        "e14": "E14-PCP 4.1 (PN-58)"
+      },
+      "intro": {
+        "texto": "Solo necesitamos tres datos.",
+        "e14": "E14-PCP 4.1 (PN-58)"
+      },
+      "crear": {
+        "texto": "Crear cuenta",
+        "e14": "E14-PCP 4.1 (PN-58)"
+      },
+      "yaTengoCuenta": {
+        "texto": "Ya tengo una cuenta",
+        "e14": "E14-PCP 4.1 (PN-58)"
+      },
+      "nota": {
+        "texto": "Después de confirmar tu correo verás cómo cuidamos tus datos y decidirás si los autorizas.",
+        "e14": "E14-PCP 4.1 (PN-58)"
+      }
+    },
+    "entrar": {
+      "titulo": {
+        "texto": "Inicia sesión",
+        "e14": "E14-PCP 4.3 (PN-60)"
+      },
+      "olvidaste": {
+        "texto": "¿Olvidaste tu contraseña?",
+        "e14": "E14-PCP 4.3 (PN-60)"
+      },
+      "entrar": {
+        "texto": "Iniciar sesión",
+        "e14": "E14-PCP 4.3 (PN-60)"
+      },
+      "crearCuenta": {
+        "texto": "Crear una cuenta",
+        "e14": "E14-PCP 4.3 (PN-60)"
+      }
+    },
+    "recuperarAcceso": {
+      "titulo": {
+        "texto": "Recuperar el acceso",
+        "e14": "E14-PCP 4.4 (PN-61)"
+      },
+      "intro": {
+        "texto": "Escribe el correo de tu cuenta. Te enviamos un enlace para elegir una contraseña nueva.",
+        "e14": "E14-PCP 4.4 (PN-61)"
+      },
+      "enviar": {
+        "texto": "Enviar el enlace",
+        "e14": "E14-PCP 4.4 (PN-61)"
+      },
+      "volver": {
+        "texto": "Volver a iniciar sesión",
+        "e14": "E14-PCP 4.4 (PN-61)"
+      }
+    },
+    "recuperar": {
+      "titulo": {
+        "texto": "Elige tu contraseña nueva",
+        "e14": "E14-PCP 4.5 (PN-62)"
+      },
+      "pedirOtro": {
+        "texto": "Pedir otro enlace",
+        "e14": "E14-PCP 4.5 (PN-62)"
+      }
+    },
+    "cambiarContrasena": {
+      "titulo": {
+        "texto": "Cambiar mi contraseña",
+        "e14": "E14-PCP 4.15 (PN-73)"
+      },
+      "intro": {
+        "texto": "Escribe tu contraseña de ahora y la nueva.",
+        "e14": "E14-PCP 4.15 (PN-73)"
+      },
+      "ahoraNo": {
+        "texto": "Ahora no",
+        "e14": "E14-PCP 4.15 (PN-73)"
+      }
+    },
+    "revisaTuCorreo": {
+      "titulo": {
+        "texto": "Revisa tu correo",
+        "e14": "E14-PCP 4.2 (PN-59)"
+      },
+      "enviadoA": {
+        "texto": "Te enviamos un enlace a {correo}. Ábrelo para confirmar tu cuenta.",
+        "e14": "E14-PCP 4.2 (PN-59)"
+      },
+      "enviado": {
+        "texto": "Te enviamos un enlace a tu correo. Ábrelo para confirmar tu cuenta.",
+        "e14": "E14-PCP 4.2 (PN-59)"
+      },
+      "noLlego": {
+        "texto": "¿No llegó? Mira también en el correo no deseado.",
+        "e14": "E14-PCP 4.2 (PN-59)"
+      },
+      "plazo": {
+        "texto": "Si no lo confirmas en 7 días, borramos esta cuenta.",
+        "e14": "E14-PCP 4.2 (PN-59)"
+      },
+      "yaLoConfirme": {
+        "texto": "Ya lo confirmé",
+        "e14": "E14-PCP 4.2 (PN-59)"
+      },
+      "espera": {
+        "texto": "Puedes pedir otro en un momento.",
+        "e14": "E14-PCP 4.2 (PN-59)"
+      }
+    },
+    "seguridadDeLaCuenta": {
+      "titulo": {
+        "texto": "Seguridad de la cuenta",
+        "e14": "E14-PCP 4.14 (PN-71)"
+      },
+      "tarjeta": {
+        "texto": "Tu último ingreso",
+        "e14": "E14-PCP 4.14 (PN-71)"
+      },
+      "ingresoAnterior": {
+        "texto": "Tu ingreso anterior fue {fecha}",
+        "e14": "E14-PCP 4.14 (PN-71)"
+      },
+      "ingresoAclaracion": {
+        "texto": "Es la fecha de tu ingreso anterior, no la de ahora.",
+        "e14": "E14-PCP 4.14 (PN-71)"
+      },
+      "primerIngreso": {
+        "texto": "Este es tu primer ingreso.",
+        "e14": "E14-PCP 4.14 (PN-71)"
+      },
+      "cambiarContrasena": {
+        "texto": "Cambiar mi contraseña",
+        "e14": "E14-PCP 4.14 (PN-71)"
+      }
+    },
+    "sinAutorizacion": {
+      "titulo": {
+        "texto": "Sin esta autorización no podemos darte la cuenta.",
+        "e14": "E14-PCP 4.7 (PN-64)"
+      }
+    }
+  },
+  "solo_android": {
+    "avisos": {
+      "menorDeEdad": {
+        "titulo": {
+          "texto": "Esta cuenta la crea una persona adulta.",
+          "e14": "E14-PCP 4.8, PN-65: «Menos de 18 años» (D-090). Sin el botón «Ya tengo un usuario: iniciar sesión» hasta I11 (D-137)."
+        },
+        "mensaje": {
+          "texto": "Tu mamá, papá o tutor crea tu cuenta desde la suya y te da tu usuario.",
+          "e14": "E14-PCP 4.8, PN-65: «Menos de 18 años» (D-090). Sin el botón «Ya tengo un usuario: iniciar sesión» hasta I11 (D-137)."
+        }
+      }
+    },
+    "textosDeEdad": {
+      "vacia": {
+        "texto": "Falta la fecha de nacimiento.",
+        "e14": "E14-PCP 4.8: los dos errores de la fecha de nacimiento de PN-65. La fecha nunca sale del teléfono: se revisa aquí."
+      },
+      "futura": {
+        "texto": "Falta una fecha que ya haya pasado.",
+        "e14": "E14-PCP 4.8: los dos errores de la fecha de nacimiento de PN-65. La fecha nunca sale del teléfono: se revisa aquí."
+      }
+    }
+  }
+}
