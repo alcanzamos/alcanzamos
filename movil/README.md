@@ -247,7 +247,18 @@ Otras salidas, descartadas por D-085 (cambiarlas pide una decisión nueva):
 
 ## Instalación de dependencias (npm 12.2.1)
 
-Requiere **npm 12.2.1 exacto** (`engines` de `package.json`; `engine-strict=true` hace fallar la instalación con otra versión). Con Node 24.22.1: `npm install --global npm@12.2.1`. Los pipelines y la imagen de Docker descargan el tarball del registro y verifican su SHA-512 antes de instalarlo.
+Requiere **npm 12.2.1 exacto** (`engines` de `package.json`; `engine-strict=true` hace fallar la instalación con otra versión). Para instalarlo en un equipo con npm 11, fuera de `web/` y `movil/` (su `.npmrc` exige npm 12), con la misma verificación que los pipelines:
+
+```
+cd "$(mktemp -d)"
+curl -fsSLO https://registry.npmjs.org/npm/-/npm-12.2.1.tgz
+echo "6ca0a6151553fc107e60f1186d9c10d57508dcde6de31292a54d4cc4e8e8ef3de25b3281274657442d7115d10df930bb3794ddcb0681cdfd9d317189abf7b63d  npm-12.2.1.tgz" | sha512sum --check --strict -
+npm install --global ./npm-12.2.1.tgz
+hash -r
+npm --version   # 12.2.1
+```
+
+npm 12.2.1 pide Node `^22.22.2 || ^24.15.0 || >=26`. Con un gestor de versiones de Node (mise, nvm), npm se instala dentro de esa versión de Node: al cambiar o reinstalar Node hay que repetir los pasos. Los pipelines y la imagen de Docker descargan el tarball del registro y verifican su SHA-512 antes de instalarlo.
 
 `movil/.npmrc` fija las reglas y se aplica igual en local, en `.azure-pipelines/movil.yml` y en `api/Dockerfile` (que lo copia antes de `npm ci`); no se repiten en la línea de comandos:
 
@@ -268,6 +279,21 @@ Requiere **npm 12.2.1 exacto** (`engines` de `package.json`; `engine-strict=true
 - **Consecuencia:** subir una dependencia exacta publicada hace menos de 7 días no se puede instalar hasta que cumpla la edad, o hasta agregarla a `min-release-age-exclude[]` con motivo y fecha. Un lockfile que ya la trae sigue instalándose. Este proyecto fija versiones exactas; una subida de SDK con paquetes de menos de una semana espera 7 días o se excluye paquete por paquete.
 - Con un paquete joven explícito en un árbol con dependencias de pares (`npm install vite@8.3.5 --save-exact` en `web/`) npm no terminó en 300 s (repite avisos `ERESOLVE overriding peer dependency`); con `timeout` se corta sin cambios.
 
+### Revisión de antigüedad del lockfile (D-158)
+
+`npm run antiguedad` (`scripts/antiguedad.mjs`, lógica en `scripts/antiguedad-logica.mjs`, pruebas en `tests/antiguedad.test.ts`) tapa el hueco de `npm ci`. Corre en el pipeline **antes** de `npm ci` y no usa dependencias, así que funciona sin `node_modules`. Compara cada versión de `package-lock.json` con su fecha de publicación en el registro (el campo `time` del documento del paquete) y falla:
+
+- con una versión publicada hace menos de `min-release-age` días (se lee de `.npmrc`) que no tenga una excepción vigente;
+- si no puede obtener la fecha de un paquete o el registro no la tiene para esa versión (tres intentos por paquete; no la da por buena);
+- con una excepción vencida (`revisar_antes_de` anterior a hoy, en UTC) o que no corresponde a ninguna versión del lockfile;
+- con una entrada del lockfile que no viene del registro.
+
+Las excepciones van en `antiguedad-excepciones.json`, una por versión, con `paquete`, `version`, `motivo` y `revisar_antes_de` (la fecha de vencimiento), como las de auditoría. Una excepción de una versión que ya cumple la edad se informa como sobrante, pero no falla hasta vencer. Para instalar una versión joven por una corrección de seguridad urgente hacen falta dos cosas: `min-release-age-exclude[]` en `.npmrc` (para que npm la resuelva) y su excepción aquí (para que pase esta revisión).
+
+**Transición (D-158):** el archivo arranca con 63 excepciones, las versiones que ya estaban en el lockfile de `main` el 2026-10-24 con menos de 7 días (la mayoría entró con el SDK 58). Todas vencen el 2026-11-05 (cierre de I05); para entonces todas cumplen la edad y el archivo se vacía.
+
+**Riesgo aceptado (D-158):** npm no detecta que un paquete perdió nivel de confianza (por ejemplo, que pasó de publicarse desde un pipeline con procedencia a publicarse sin ella). Se mitiga con la revisión de los cambios del lockfile en cada PR y con `npm audit signatures`.
+
 ### Scripts de instalación (`allowScripts`)
 
 Inventario con `npm install-scripts ls` y `hasInstallScript` del lockfile. **Ninguna dependencia necesita ejecutar scripts**: se verificó instalando con todas denegadas y corriendo todas las comprobaciones.
@@ -282,7 +308,7 @@ Las denegaciones van por nombre (sin versión): valen para cualquier versión y 
 
 ## Pipeline (US-58, D-149)
 
-`.azure-pipelines/movil.yml` corre con cambios en `movil/`, `diseno/` o su YAML. Instala Node 24.22.1 desde el tarball oficial con SHA-256 verificado, como `web.yml`, y npm 12.2.1 desde el tarball del registro con SHA-512 verificado, y corre desde `movil/`, en este orden: `npm ci` (con `movil/.npmrc`); `npm audit signatures`; `npm run lint`; `npm run typecheck`; `npm run tokens` seguido de `git diff --exit-code -- ../diseno ../web ../movil` (los tokens regenerados no cambian nada); `npm run test:coverage` (mínimo 50 % de líneas); `npm run auditoria`; `npm run licencias`; `npm run comprobar-bundle`. No compila el paquete de Android.
+`.azure-pipelines/movil.yml` corre con cambios en `movil/`, `diseno/` o su YAML. Instala Node 24.22.1 desde el tarball oficial con SHA-256 verificado, como `web.yml`, y npm 12.2.1 desde el tarball del registro con SHA-512 verificado, y corre desde `movil/`, en este orden: `npm run antiguedad` (D-158, antes de instalar); `npm ci` (con `movil/.npmrc`); `npm audit signatures`; `npm run lint`; `npm run typecheck`; `npm run tokens` seguido de `git diff --exit-code -- ../diseno ../web ../movil` (los tokens regenerados no cambian nada); `npm run test:coverage` (mínimo 50 % de líneas); `npm run auditoria`; `npm run licencias`; `npm run comprobar-bundle`. No compila el paquete de Android.
 
 **ESLint** (`eslint.config.mjs`, configuración plana, E17-ECO Q-2): `@eslint/js` y `typescript-eslint` recomendados, `eslint-plugin-react-hooks`, todas las reglas de `eslint-plugin-react-native-a11y` (E17-ECO 4.10, ADR-003 §3), sin `any` explícito y `@ts-ignore` solo con descripción. Más la regla de solo tokens de la web (E17-ECO 4.5), adaptada a React Native:
 

@@ -16,6 +16,7 @@
     "lint": "eslint .",
     "auditoria": "node scripts/auditoria.mjs",
     "licencias": "node scripts/licencias.mjs",
+    "antiguedad": "node scripts/antiguedad.mjs",
     "export:android": "expo export --platform android",
     "test": "jest",
     "test:coverage": "jest --coverage",
