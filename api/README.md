@@ -397,6 +397,12 @@ python3 -I -B .azure-pipelines/pruebas/cobertura.py probar   # prueba del propio
 
 La salida es una tabla por grupo y por paquete; el código de salida es 1 si algo falla. `c.out` no se confirma. Sin PostgreSQL las pruebas de integración se saltan y la cobertura sale más baja de lo que el pipeline mide.
 
+## Vulnerabilidades (govulncheck)
+
+El pipeline `api` corre `go tool govulncheck ./...` (v1.9.0, 2026-10-11) después de `go vet`. La herramienta está como directiva `tool` en `go.mod`, con sus sumas en `go.sum`, así que la versión queda fijada con el resto de las dependencias; no entra en el binario del API (`go version -m` lista los mismos módulos) y no está en `src/`, de modo que la barrera de cobertura no la ve. Con la salida por defecto falla (código 3) solo si el código llama a un símbolo vulnerable. En local: `cd api && go tool govulncheck ./...`.
+
+Hallazgo conocido y documentado: `GO-2026-5932` (el paquete `golang.org/x/crypto/openpgp` está sin mantenimiento y es inseguro por diseño; sin versión corregida). Afecta al módulo `golang.org/x/crypto` que el API requiere, pero solo importa `x/crypto/argon2` y no llama a `openpgp`: govulncheck lo informa como «vulnerabilidad en módulos que requiere» y no hace fallar el paso. Si algún día el código llama a `openpgp`, el paso falla.
+
 ## Dependencias
 
 Últimas versiones estables, verificadas en `proxy.golang.org` el 2026-10-22.
@@ -406,6 +412,8 @@ La salida es una tabla por grupo y por paquete; el código de salida es 1 si alg
 | `github.com/jackc/pgx/v5` | v5.11.0 (2026-09-07) | MIT |
 | `github.com/pressly/goose/v3` | v3.29.0 (2026-10-11) | MIT |
 | `golang.org/x/crypto` | v0.58.0 (2026-10-09) | BSD de 3 cláusulas |
+
+Herramienta (directiva `tool`): `golang.org/x/vuln` v1.9.0 (2026-10-11, BSD de 3 cláusulas), que sube `golang.org/x/mod` a v0.42.0 (2026-10-09) y `golang.org/x/tools` a v0.52.0 (2026-10-10) y suma `golang.org/x/telemetry` (2026-10-10), todos con más de 7 días.
 
 Indirectas: `pgpassfile`, `pgservicefile`, `puddle/v2`, `mfridman/interpolate`, `multierr` (MIT), `go-retry` (Apache-2.0), `x/sync` y `x/text` (BSD de 3 cláusulas). Todas son compatibles con la AGPLv3.
 
