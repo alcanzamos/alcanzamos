@@ -42,9 +42,9 @@ Rama `feat/us-49-movil-componentes` (D-155). Los componentes de E14-SDD 5 en Rea
 - **`accessibilityHint`:** E14 no define pistas; se usa el texto de ayuda del campo donde existe. El plugin de ESLint (`has-accessibility-hint`) exige la pista junto a todo `accessibilityLabel`; dos casos la omiten con la razón escrita (el logo y el botón Ver y Ocultar, de los que E14 fija solo el nombre).
 - **Pruebas:** `tests/ayudas/preparar.ts` mockea los márgenes del sistema (`react-native-safe-area-context`) para todas las pruebas.
 
-### Aviso de la auditoría al sumar el selector de fecha
+### Por qué el selector de fecha aparece en la auditoría
 
-`npm run auditoria` **falla desde esta rama**, sin ningún aviso nuevo: `@react-native-community/datetimepicker` declara `expo` como dependencia par opcional y `npm audit` lista ahora al selector como «vulnerable» por esa vía. Los dos avisos con excepción (`node-forge` y `zod`) ganan un camino más, `@react-native-community/datetimepicker > expo > @expo/cli > …`, y el script exige que el dueño revise las `rutas` de `auditoria-excepciones.json`. No se agregó ni se cambió ninguna excepción (D-155): queda para decisión del dueño.
+`@react-native-community/datetimepicker` declara `expo` como dependencia par opcional y `npm audit` lo lista como «vulnerable» solo por esa vía (sin aviso propio), así que las dos excepciones de `auditoria-excepciones.json` (`node-forge` y `zod`) suman los caminos que entran por el selector, con los mismos avisos, motivo y fecha de revisión; la comprobación del paquete sigue cubriendo que no entren en la app (D-156).
 
 ## Pruebas (US-58, D-145)
 
