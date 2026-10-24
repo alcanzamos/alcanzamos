@@ -252,9 +252,19 @@ describe("auditoria-excepciones.json", () => {
         [
           "expo > @expo/cli > @expo/code-signing-certificates > node-forge",
           "expo > @expo/cli > node-forge",
+          // D-156: `datetimepicker` declara `expo` como dependencia par opcional y `npm audit` lo lista por esa vía
+          "@react-native-community/datetimepicker > expo > @expo/cli > @expo/code-signing-certificates > node-forge",
+          "@react-native-community/datetimepicker > expo > @expo/cli > node-forge",
         ],
       ],
-      ["GHSA-mrhx-c7xc-m3w5", "zod", ["expo > @expo/cli > zod"]],
+      [
+        "GHSA-mrhx-c7xc-m3w5",
+        "zod",
+        [
+          "expo > @expo/cli > zod",
+          "@react-native-community/datetimepicker > expo > @expo/cli > zod",
+        ],
+      ],
     ]);
   });
 });
