@@ -66,6 +66,14 @@ steps:
       test "$(npm --version)" = "$(NPM_VERSION)"
     displayName: Instalar npm $(NPM_VERSION) (SHA-512 verificado)
 
+  # D-158: npm ci no aplica min-release-age a lo que ya está en el lockfile. Antes de instalar, cada versión de
+  # web/package-lock.json se compara con su fecha de publicación en el registro; falla con una versión más joven que
+  # min-release-age sin excepción vigente en web/antiguedad-excepciones.json, con una fecha que no se pueda obtener
+  # y con una excepción vencida. No usa dependencias: corre sin node_modules.
+  - script: npm run antiguedad
+    workingDirectory: web
+    displayName: Antigüedad mínima de las versiones del lockfile (antes de npm ci)
+
   - script: npm ci
     workingDirectory: web
     displayName: Dependencias fijadas (npm ci, con web/.npmrc)
