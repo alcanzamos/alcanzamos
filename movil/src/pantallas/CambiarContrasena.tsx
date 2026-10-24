@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useRef, useState } from 'react';
-import type { TextInput } from 'react-native';
+import type { TextInputInstance } from 'react-native';
 import { cambiarContrasena } from '../api/acceso';
 import { Aviso } from '../componentes/Aviso';
 import { Boton } from '../componentes/Boton';
@@ -20,8 +20,8 @@ export function CambiarContrasena({ navigation }: NativeStackScreenProps<Rutas, 
   const [errores, setErrores] = useState<{ actual?: string; nueva?: string }>({});
   const [aviso, setAviso] = useState<DatosDeAviso | null>(null);
   const [enviando, setEnviando] = useState(false);
-  const campoActual = useRef<TextInput>(null);
-  const campoNueva = useRef<TextInput>(null);
+  const campoActual = useRef<TextInputInstance>(null);
+  const campoNueva = useRef<TextInputInstance>(null);
 
   async function enviar() {
     if (enviando) return;

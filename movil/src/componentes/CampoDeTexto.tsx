@@ -1,5 +1,5 @@
 import { useState, type ReactNode, type Ref } from 'react';
-import { StyleSheet, Text, TextInput, View, type KeyboardTypeOptions, type TextInputProps } from 'react-native';
+import { StyleSheet, Text, TextInput, View, type KeyboardTypeOptions, type TextInputInstance, type TextInputProps } from 'react-native';
 import { estiloDeTipografia } from '../fuentes';
 import { tokens } from '../tokens/tokens.generated';
 import { cifras } from './Cifras';
@@ -53,7 +53,7 @@ export type PropiedadesDeCampo = {
   /** El propósito para el autocompletado de Android (`email`, `name`, `new-password`, `current-password`). */
   autocompletar?: TextInputProps['autoComplete'];
   teclado?: KeyboardTypeOptions;
-  ref?: Ref<TextInput>;
+  ref?: Ref<TextInputInstance>;
 };
 
 // Campo de texto de E14-SDD 5.3. `accion` es el botón al final de la caja (Ver u Ocultar en la contraseña).

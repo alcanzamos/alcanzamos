@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useRef, useState } from 'react';
-import type { TextInput } from 'react-native';
+import type { TextInputInstance } from 'react-native';
 import { iniciarSesion } from '../api/acceso';
 import { Aviso } from '../componentes/Aviso';
 import { Boton, BotonDeTexto } from '../componentes/Boton';
@@ -23,8 +23,8 @@ export function Entrar({ navigation, route }: NativeStackScreenProps<Rutas, 'Ent
   const [errores, setErrores] = useState<Partial<Record<Campo, string>>>({});
   const [aviso, setAviso] = useState<DatosDeAviso | null>(null);
   const [enviando, setEnviando] = useState(false);
-  const campoDeCorreo = useRef<TextInput>(null);
-  const campoDeContrasena = useRef<TextInput>(null);
+  const campoDeCorreo = useRef<TextInputInstance>(null);
+  const campoDeContrasena = useRef<TextInputInstance>(null);
   // «Tu sesión se cerró…» y las demás llegadas (E14-PCP 4.3) son un mensaje de estado, arriba de todo.
   const llegada = avisoDeLlegada(route.params?.llegada);
 

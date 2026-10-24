@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useRef, useState } from 'react';
-import type { TextInput } from 'react-native';
+import type { TextInputInstance } from 'react-native';
 import { pedirRecuperacion } from '../api/acceso';
 import { Aviso } from '../componentes/Aviso';
 import { Boton } from '../componentes/Boton';
@@ -19,7 +19,7 @@ export function RecuperarAcceso({ navigation }: NativeStackScreenProps<Rutas, 'R
   const [aviso, setAviso] = useState<DatosDeAviso | null>(null);
   const [enviado, setEnviado] = useState(false);
   const [enviando, setEnviando] = useState(false);
-  const campoDeCorreo = useRef<TextInput>(null);
+  const campoDeCorreo = useRef<TextInputInstance>(null);
 
   async function enviar() {
     if (enviando) return;

@@ -37,7 +37,7 @@ Rama `feat/us-49-movil-componentes` (D-155). Los componentes de E14-SDD 5 en Rea
 | `CampoDeFecha` | E14-PCP 4.8 | Campo con el ícono Calendario que abre el **selector de fecha nativo** de Android (ADR-003, condición 1) |
 | `Iconos`, `Cifras`, `Pantalla` | 5.1, D-123 | Íconos con `react-native-svg`; números en Figtree con cifras tabulares y sin `ss02`; base de pantalla con fondo de página, desplazamiento y márgenes de la barra de estado |
 
-- **Selector de fecha:** `@react-native-community/datetimepicker` 9.1.0 (MIT, 2026-03-17, la que `expo/bundledNativeModules.json` pide para el SDK 57 y la que documenta Expo: <https://docs.expo.dev/versions/v57.0.0/sdk/date-time-picker/>, que lista Expo Go). `DateTimePickerAndroid.open` abre el diálogo del sistema. El diálogo siempre se abre en una fecha (hoy o la última elegida): no se puede abrir «sin elegir nada» como pide E14-PCP 4.8. El campo sí queda vacío hasta que la persona confirma, y no se fija fecha máxima ni mínima.
+- **Selector de fecha:** `@react-native-community/datetimepicker` 9.1.0 en el SDK 57 y **9.2.1** en el 58 (MIT, 2026-09-07; la que `expo/bundledNativeModules.json` pide para el SDK 57 y la que documenta Expo: <https://docs.expo.dev/versions/v57.0.0/sdk/date-time-picker/>, que lista Expo Go). `DateTimePickerAndroid.open` abre el diálogo del sistema. El diálogo siempre se abre en una fecha (hoy o la última elegida): no se puede abrir «sin elegir nada» como pide E14-PCP 4.8. El campo sí queda vacío hasta que la persona confirma, y no se fija fecha máxima ni mínima.
 - **`accessibilityRole="alert"`:** React Native no tiene un rol de estado (`role="status"` no llega a Android), así que el aviso usa `alert` con la región viva cortés. La región cortés evita que interrumpa lo que TalkBack está diciendo.
 - **`accessibilityHint`:** E14 no define pistas; se usa el texto de ayuda del campo donde existe. El plugin de ESLint (`has-accessibility-hint`) exige la pista junto a todo `accessibilityLabel`; dos casos la omiten con la razón escrita (el logo y el botón Ver y Ocultar, de los que E14 fija solo el nombre).
 - **Pruebas:** `tests/ayudas/preparar.ts` mockea los márgenes del sistema (`react-native-safe-area-context`) para todas las pruebas.
@@ -82,7 +82,7 @@ Rama `feat/us-49-movil-recuperacion` (D-155).
 
 ## Probar la cuenta y el acceso en el celular (US-49)
 
-Con el API, PostgreSQL y Mailpit en el portátil y la app en Expo Go (SDK 57), por la red local (sin túnel). El celular y el portátil van en el mismo Wi-Fi. Todo desde la raíz del repositorio, salvo el paso 7. Datos sintéticos.
+Con el API, PostgreSQL y Mailpit en el portátil y la app en Expo Go **58.0.5** de la Play Store (solo abre proyectos del SDK 58), por la red local (sin túnel). El celular y el portátil van en el mismo Wi-Fi. Todo desde la raíz del repositorio, salvo el paso 7. Datos sintéticos.
 
 1. **Dirección del portátil** en la red local (se usa en los pasos 3 y 6):
 
@@ -128,7 +128,7 @@ Con el API, PostgreSQL y Mailpit en el portátil y la app en Expo Go (SDK 57), p
    EXPO_PUBLIC_URL_API=http://$IP:18090 npx expo start --lan
    ```
 
-   Se abre Expo Go y se escanea el QR. Si cambias la dirección, reinicia con `--clear` (`npx expo start --lan --clear`): Expo copia la variable al paquete.
+   Se abre Expo Go 58 y se escanea el QR. Si cambias la dirección, reinicia con `--clear` (`npx expo start --lan --clear`): Expo copia la variable al paquete.
 
 7. **Recorrido en el celular:**
    1. «Crear una cuenta» → PN-65: elige una fecha de nacimiento. Con una fecha de menos de 18 años sale el aviso «Esta cuenta la crea una persona adulta.» (y lo recuerda 24 horas); con una de 18 años cumplidos, sigue PN-58.
@@ -170,20 +170,42 @@ Las pruebas de la lógica de `scripts/` (`auditoria-logica.mjs`, `licencias-logi
 
 `tests/paridad-textos.test.ts` falla si un texto presente en `web/src/textos.ts` y en `src/textos.ts` difiere (misma ruta de claves, otra cadena) y lista, sin fallar, los textos de un solo lado (los de Android se permiten). Es un parche hasta el archivo único de textos de `diseno/` (D-156 (3b)); cumple la regla 4.13 de E17-ECO (paso 51).
 
-Versiones fijadas sin `~` ni `^`, verificadas en el registro de npm el 2026-10-23: `jest-expo` 57.0.6 (etiqueta `sdk-57`, publicada el 2026-10-12; `expo/bundledNativeModules.json` pide `~57.0.6`), `@react-native/jest-preset` 0.86.3 (peer de `jest-expo`, misma versión que `react-native`), `jest` 30.5.2 (2026-09-18, última), `@types/jest` 30.0.0 (última), `@testing-library/react-native` 14.1.0 (2026-10-08, última) y `test-renderer` 1.3.1 (2026-10-12; peer de la anterior).
+Versiones fijadas sin `~` ni `^`, verificadas en el registro de npm el 2026-10-23: `jest-expo` 57.0.6 (hasta el SDK 57; en el SDK 58 es la 58.0.12, ver «Versión de Expo»; etiqueta `sdk-57`, publicada el 2026-10-12; `expo/bundledNativeModules.json` pide `~57.0.6`), `@react-native/jest-preset` 0.86.3 (peer de `jest-expo`, misma versión que `react-native`), `jest` 30.5.2 (2026-09-18, última), `@types/jest` 30.0.0 (última), `@testing-library/react-native` 14.1.0 (2026-10-08, última) y `test-renderer` 1.3.1 (2026-10-12; peer de la anterior).
 
 ## Versión de Expo
 
-**Expo SDK 57** (`expo` 57.0.31, React Native 0.86.3, React 19.2.3), plantilla `blank-typescript@sdk-57` con `create-expo-app` 5.0.0. Las versiones están fijadas sin `~` ni `^`.
+**Expo SDK 58** (`expo` 58.0.19, React Native 0.88.0, React 19.3.0), subido desde el SDK 57 con `npx expo install expo@58.0.19` y `npx expo install --fix`; `npx expo-doctor` no reporta avisos (20 de 20 comprobaciones). Las versiones están fijadas sin `~` ni `^` (Expo las pide con `~`, pero el proyecto las fija exactas); la tabla de abajo es la de `expo/bundledNativeModules.json` del SDK 58.
 
-Por qué el SDK 57 y no el 58 (el más reciente en npm, 58.0.17), consultado el 2026-10-22:
+Por qué el SDK 58: el Expo Go de Google Play ya es la **58.0.5** y solo abre proyectos del SDK 58 (el dueño no instala una versión anterior). Referencias: <https://expo.dev/changelog/sdk-58> (15 de octubre de 2026) y `https://api.expo.dev/v2/versions/latest`, que el 2026-10-24 todavía informaba `expoGoSdkVersion: 57.0.0` (la tienda va antes que ese dato).
 
-- El listado de Expo Go en Google Play (`host.exp.exponent`) muestra la versión **57.0.9**, actualizada el 17 de agosto de 2026 según la ficha.
-- `https://api.expo.dev/v2/versions/latest` informa `expoGoSdkVersion: 57.0.0`.
-- El anuncio del SDK 58 (<https://expo.dev/changelog/sdk-58>, 15 de octubre de 2026) dice: «Expo Go for SDK 58 on the Apple App Store and Google Play Store will be released within a few weeks» y que ese Expo Go **solo** soportará el SDK 58. Aún no estaba publicado en la tienda al consultar.
-- Contexto: <https://expo.dev/changelog/expo-go-and-app-store-may-2026> (4 de mayo de 2026) y <https://expo.dev/changelog/sdk-57> (30 de junio de 2026).
+Versiones del SDK 58, verificadas en el registro de npm el 2026-10-24 (fecha de publicación entre paréntesis):
 
-Riesgo: cuando la tienda publique el Expo Go del SDK 58, el celular lo actualizará y dejará de abrir esta app. Entonces hay que subir a SDK 58 (`npx expo install expo@^58.0.0 --fix`) o instalar el APK 57.0.9 de <https://github.com/expo/expo-go-releases>.
+| Paquete | SDK 57 | SDK 58 |
+|---|---|---|
+| `expo` | 57.0.31 | 58.0.19 (2026-10-23) |
+| `react-native` | 0.86.3 | 0.88.0 (2026-10-15) |
+| `react` | 19.2.3 | 19.3.0 (2026-09-09; existe la 19.3.1, pero Expo pide la 19.3.0) |
+| `@types/react` | 19.2.4 | 19.3.0 (la única 19.3) |
+| `@react-native-community/datetimepicker` | 9.1.0 | 9.2.1 (2026-09-07) |
+| `expo-secure-store` | 57.0.4 | 58.0.2 (2026-10-01) |
+| `expo-font` | 57.0.4 | 58.0.10 (2026-10-23) |
+| `expo-status-bar` | 57.0.1 | 58.0.4 (2026-10-21) |
+| `react-native-screens` | 4.26.2 | 4.30.0 (2026-10-13) |
+| `react-native-safe-area-context` | 5.7.0 | 5.10.1 (2026-09-29) |
+| `react-native-svg` | 15.15.4 | 15.16.0 (2026-10-15) |
+| `@react-native-async-storage/async-storage` | 2.2.0 | 2.2.0 (sin cambio) |
+| `jest-expo` | 57.0.6 | 58.0.12 (2026-10-21) |
+| `@react-native/jest-preset` | 0.86.3 | 0.88.0 (2026-10-15; peer de `jest-expo`) |
+
+Sin cambio: `@react-navigation/native` 7.5.1 y `native-stack` 7.21.0 (Expo no los fija), `typescript` 6.0.3 (Expo no lo fija), `@testing-library/react-native` 14.1.0 y `test-renderer` 1.3.1 (aceptan React `>=19` y React Native `>=0.78`), `jest` 30.5.2 (el peer de `jest-expo` admite 29 y 30).
+
+Cambios que pidió el SDK 58:
+
+- `npx expo install --fix` sumó `"expo-status-bar"` a `plugins` de `app.json`.
+- React Native 0.88 cambió el tipo del campo de texto: `TextInput` pasó a ser el componente, y la instancia (`focus()`) es `TextInputInstance`. Los `ref` de `src/` y de `tests/` usan ese tipo.
+- Metro 0.88 resuelve `react-native/asset-registry` desde la carpeta de cada recurso, y las fuentes están en `../diseno/`, donde no hay `node_modules`: `metro.config.js` suma `movil/node_modules` a `resolver.nodeModulesPaths`. Sin eso, `expo export` falla.
+
+Riesgo: cuando haya un SDK 59 y el Expo Go de la tienda lo exija, hay que repetir esta subida (`npx expo install expo@<59> --fix`) y revisar las excepciones de auditoría y de licencias.
 
 ## Probar en el celular (modo LAN)
 
@@ -194,7 +216,7 @@ npm ci
 npm start        # equivale a expo start --lan
 ```
 
-Se abre Expo Go y se escanea el QR. Con USB: `npm run android` (solo requiere `platform-tools`, D-122).
+Se abre Expo Go 58 y se escanea el QR. Con USB: `npm run android` (solo requiere `platform-tools`, D-122).
 
 Verificación sin dispositivo: `npm run typecheck`, `npx expo-doctor` y `npm run export:android`.
 
@@ -257,7 +279,7 @@ Las excepciones de `node-forge` y `zod` se apoyan en que ningún archivo de la a
 
 Falla, nombrando el paquete, si aparecen en algún archivo o si no se generó ningún paquete. Probado con un `import` temporal de cada paquete: falla; sin él, pasa (D-150, D-154).
 
-Tarda de 3 a 6 segundos (medido el 2026-10-23, Expo 57.0.31, Node 24.22.1, caché caliente), así que es un paso del pipeline.
+Tarda de 3 a 6 segundos (medido el 2026-10-24, Expo 58.0.19, Node 24.22.1 en el pipeline y 26.12.0 en el portátil, caché caliente), así que es un paso del pipeline.
 
 ### Licencias (`npm run licencias`)
 
@@ -283,7 +305,7 @@ Con `--omit=dev`, `npm audit` marca 5 alertas altas, por dos avisos:
 
 Las otras tres alertas son los paquetes que dependen de `node-forge` o `zod` (`@expo/code-signing-certificates`, `@expo/cli` y `expo`). El aviso de `braces` (GHSA-vfj7-8cjw-p6xm, `micromatch` de las herramientas de Jest y Metro) que se documentó el 2026-10-22 ya no sale: GitHub retiró ese aviso (*withdrawn*), aunque la versión instalada sigue siendo la 3.0.3 (`npm ls braces`). `node-forge` no tiene versión corregida (la última publicada es la 1.4.0, la afectada) y `@expo/cli` es la herramienta de línea de comandos de Expo, no la app que se instala en el celular: ninguno de los archivos de `src/` lo importa. Por eso es una de las dos excepciones de `auditoria-excepciones.json` (aprobada en D-150, con revisión antes del 2026-11-05).
 
-`zod` tampoco tiene corrección compatible: la solución es `zod` 4 (4.6.6 o posterior), un salto mayor que Expo 57 no usa, y la «corrección» de npm es bajar a expo 44 (consultado el 2026-10-23). `@expo/cli` lo usa para validar la configuración y las opciones de la CLI, en la máquina de desarrollo y en el pipeline, y ningún archivo de `src/` lo importa. Es la segunda excepción de `auditoria-excepciones.json` (aprobada en D-154, con revisión antes del 2026-11-05). No se fuerza `zod` 4 con `overrides`: puede romper `expo start` y `expo export`.
+`zod` tampoco tiene corrección compatible: la solución es `zod` 4 (4.6.6 o posterior), un salto mayor que Expo 58 no usa (`@expo/cli` 58.1.15 sigue trayendo la 3.25.76), y la «corrección» de npm es bajar a expo 44 (consultado el 2026-10-23). `@expo/cli` lo usa para validar la configuración y las opciones de la CLI, en la máquina de desarrollo y en el pipeline, y ningún archivo de `src/` lo importa. Es la segunda excepción de `auditoria-excepciones.json` (aprobada en D-154, con revisión antes del 2026-11-05). No se fuerza `zod` 4 con `overrides`: puede romper `expo start` y `expo export`.
 
 - **No se usa `npm audit fix --force`:** bajaría Expo al SDK 44.
 - **Se revisan cada vez que se sube de versión de Expo.**
