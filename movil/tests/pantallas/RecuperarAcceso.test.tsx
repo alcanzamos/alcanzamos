@@ -29,11 +29,14 @@ describe('PN-61 · Recuperar el acceso: pedir el enlace (E14-PCP 4.4)', () => {
     expect(screen.getByRole('button', { name: 'Enviar el enlace' })).toBeOnTheScreen();
   });
 
-  it('lleva la nota del menor de la fila 5, solo Android', async () => {
+  // D-137 y D-156 (2): la fila 5 de E14-PCP 4.4 (solo Android) entra en I11 con la fila 8 de PN-60 y el botón de PN-65.
+  it('no muestra la nota del menor de la fila 5 hasta I11', async () => {
     await mostrar();
     expect(
-      screen.getByText('¿Entras con nombre de usuario? Pide a tu tutor que restablezca tu acceso.'),
-    ).toBeOnTheScreen();
+      screen.queryByText('¿Entras con nombre de usuario? Pide a tu tutor que restablezca tu acceso.'),
+    ).not.toBeOnTheScreen();
+    expect(screen.queryByText(/nombre de usuario/i)).not.toBeOnTheScreen();
+    expect(screen.queryByText(/tutor/i)).not.toBeOnTheScreen();
   });
 
   it('pide el enlace con el correo y sin sesión, con las cabeceras de la app', async () => {
