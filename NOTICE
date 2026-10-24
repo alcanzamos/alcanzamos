@@ -6,10 +6,12 @@ está en el archivo LICENSE, cubre el código de este repositorio y los tokens d
 
 NO cubre el nombre «Alcanzamos», el logo, el símbolo ni el ícono de la app
 (carpeta marca/): esos elementos no se licencian bajo la AGPLv3. Ver
-TRADEMARK.md. Esto vale también cuando el logo va empaquetado dentro de la web
-o de la imagen del API: sigue bajo la política de marca, no bajo la AGPLv3.
+TRADEMARK.md. Esto vale también cuando el logo va empaquetado dentro de la web,
+de la imagen del API o de la app de Android: sigue bajo la política de marca,
+no bajo la AGPLv3.
 
 Notice (English): the AGPLv3 (file LICENSE) covers the source code and the design
 tokens. It does NOT cover the name "Alcanzamos", the logo, the symbol or the
 app icon (folder marca/), which are not licensed under it. See TRADEMARK.md. This
-also holds when the logo is bundled inside the web app or the API image.
+also holds when the logo is bundled inside the web app, the API image or the
+Android app.

@@ -74,6 +74,11 @@ export default tseslint.config(
     rules: { "no-restricted-syntax": "off" },
   },
   {
+    // Copia del SVG de la marca (marca/): sus colores son los del logo, no estilos de la app.
+    files: ["assets/**"],
+    rules: { "no-restricted-syntax": "off" },
+  },
+  {
     // Metro y Babel cargan estos archivos con require().
     files: ["*.config.js"],
     languageOptions: { sourceType: "commonjs" },

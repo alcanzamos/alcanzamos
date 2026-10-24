@@ -2,7 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { archivosDeFuentes } from './src/fuentes';
-import { PantallaCifras } from './src/PantallaCifras';
+import { Navegacion } from './src/navegacion/Navegacion';
 import { tokens } from './src/tokens/tokens.generated';
 
 export default function App() {
@@ -25,7 +25,7 @@ export default function App() {
   }
   return (
     <>
-      <PantallaCifras />
+      <Navegacion />
       <StatusBar style="dark" />
     </>
   );

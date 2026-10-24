@@ -43,7 +43,7 @@ ESPERADO = {
     "diseno/README.md": {"comun", "web", "api", "movil"},
     "diseno/tokens/alcanzamos.tokens.json": {"comun", "web", "api", "movil"},
     "diseno/fuentes/figtree/Figtree-Bold.ttf": {"comun", "web", "api", "movil"},
-    "marca/logo-horizontal-color.svg": {"comun", "web", "api"},
+    "marca/logo-horizontal-color.svg": {"comun", "web", "api", "movil"},
     "marca/logo-vertical-color.svg": {"comun"},
     "marca/README.md": {"comun"},
     "api/src/web/web.go": {"comun", "api"},
