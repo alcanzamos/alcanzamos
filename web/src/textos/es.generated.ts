@@ -159,12 +159,6 @@ export const textos = {
       mayor_de_edad_requerido: "Falta marcar que eres mayor de edad.",
     },
   },
-  textosDeRepeticion: {
-    // E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62
-    vacia: "Falta repetir la contraseña.",
-    // E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62
-    distinta: "Falta que las dos contraseñas sean iguales.",
-  },
   porConfirmar: {
     // E14-PRR 4.7 (PN-72, D-093): «13 por confirmar: 2 ingresos y 11 gastos»
     resumen: "{total} por confirmar: {ingresos} y {gastos}",
@@ -211,10 +205,10 @@ export const textos = {
       ocultar: "Ocultar la contraseña",
     },
     contrasenaNueva: {
-      // E14-PCP 4.5 (PN-62); E14-PCP 4.15 (PN-73)
-      etiqueta: "Contraseña nueva",
       // E14-PCP 4.15 (PN-73)
       etiquetaPropia: "Tu contraseña nueva",
+      // E14-PCP 4.5 (PN-62); E14-PCP 4.15 (PN-73)
+      etiqueta: "Contraseña nueva",
       // E14-PCP 4.5 (PN-62)
       repeticion: "Repite la contraseña nueva",
     },
@@ -265,12 +259,6 @@ export const textos = {
     // E14-PCP 4.4 (PN-61)
     volver: "Volver a iniciar sesión",
   },
-  recuperar: {
-    // E14-PCP 4.5 (PN-62)
-    titulo: "Elige tu contraseña nueva",
-    // E14-PCP 4.5 (PN-62)
-    pedirOtro: "Pedir otro enlace",
-  },
   cambiarContrasena: {
     // E14-PCP 4.15 (PN-73)
     titulo: "Cambiar mi contraseña",
@@ -312,6 +300,18 @@ export const textos = {
   sinAutorizacion: {
     // E14-PCP 4.7 (PN-64)
     titulo: "Sin esta autorización no podemos darte la cuenta.",
+  },
+  recuperar: {
+    // E14-PCP 4.5 (PN-62)
+    titulo: "Elige tu contraseña nueva",
+    // E14-PCP 4.5 (PN-62)
+    pedirOtro: "Pedir otro enlace",
+  },
+  textosDeRepeticion: {
+    // E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62
+    vacia: "Falta repetir la contraseña.",
+    // E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62
+    distinta: "Falta que las dos contraseñas sean iguales.",
   },
 } as const;
 
@@ -366,19 +366,24 @@ export function formatear<T extends string>(texto: T, ...argumentos: Argumentos<
   return texto.replace(MARCADOR, (_, nombre: string) => datos[nombre] ?? '');
 }
 
-const reglasDePlural = new Intl.PluralRules('es');
+// Hermes (Android) no implementa `Intl.PluralRules` (facebook/hermes#1462, abierto): crearla sin revisar tumbaría la app
+// al arrancar. Sin ella se usa la regla del español para enteros: `one` solo para 1; lo demás es `other`. Es el mismo
+// resultado que la convención de abajo con `Intl.PluralRules`, que solo agrega `many` para millones exactos.
+const reglasDePlural =
+  typeof Intl !== 'undefined' && typeof Intl.PluralRules === 'function' ? new Intl.PluralRules('es') : undefined;
 
 /**
  * Elige la forma del plural y pone el número en `{n}`. La convención usa solo `one` y `other`: en español
  * `Intl.PluralRules` da `one` para 1, `other` para el resto y `many` para los millones exactos (1000000), que aquí
- * cae en `other`. El número va tal cual (sin separador de miles): son recuentos pequeños.
+ * cae en `other`; sin `Intl.PluralRules` (Hermes) solo el 1 es `one`. El número va tal cual (sin separador de miles):
+ * son recuentos pequeños.
  */
 export function plural<F extends FormasDePlural>(
   formas: F,
   n: number,
   ...argumentos: ArgumentosDePlural<F>
 ): string {
-  const forma = reglasDePlural.select(n) === 'one' ? formas.one : formas.other;
+  const forma = (reglasDePlural ? reglasDePlural.select(n) === 'one' : n === 1) ? formas.one : formas.other;
   const datos: Record<string, string> = { ...(argumentos[0] ?? {}) };
   if (nombresDe(forma).includes('n')) datos.n = String(n);
   return (formatear as (texto: string, datos: Record<string, string>) => string)(forma, datos);

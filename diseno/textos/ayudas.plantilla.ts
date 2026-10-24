@@ -49,19 +49,24 @@ export function formatear<T extends string>(texto: T, ...argumentos: Argumentos<
   return texto.replace(MARCADOR, (_, nombre: string) => datos[nombre] ?? '');
 }
 
-const reglasDePlural = new Intl.PluralRules('es');
+// Hermes (Android) no implementa `Intl.PluralRules` (facebook/hermes#1462, abierto): crearla sin revisar tumbaría la app
+// al arrancar. Sin ella se usa la regla del español para enteros: `one` solo para 1; lo demás es `other`. Es el mismo
+// resultado que la convención de abajo con `Intl.PluralRules`, que solo agrega `many` para millones exactos.
+const reglasDePlural =
+  typeof Intl !== 'undefined' && typeof Intl.PluralRules === 'function' ? new Intl.PluralRules('es') : undefined;
 
 /**
  * Elige la forma del plural y pone el número en `{n}`. La convención usa solo `one` y `other`: en español
  * `Intl.PluralRules` da `one` para 1, `other` para el resto y `many` para los millones exactos (1000000), que aquí
- * cae en `other`. El número va tal cual (sin separador de miles): son recuentos pequeños.
+ * cae en `other`; sin `Intl.PluralRules` (Hermes) solo el 1 es `one`. El número va tal cual (sin separador de miles):
+ * son recuentos pequeños.
  */
 export function plural<F extends FormasDePlural>(
   formas: F,
   n: number,
   ...argumentos: ArgumentosDePlural<F>
 ): string {
-  const forma = reglasDePlural.select(n) === 'one' ? formas.one : formas.other;
+  const forma = (reglasDePlural ? reglasDePlural.select(n) === 'one' : n === 1) ? formas.one : formas.other;
   const datos: Record<string, string> = { ...(argumentos[0] ?? {}) };
   if (nombresDe(forma).includes('n')) datos.n = String(n);
   return (formatear as (texto: string, datos: Record<string, string>) => string)(forma, datos);
