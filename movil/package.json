@@ -18,7 +18,8 @@
     "export:android": "expo export --platform android",
     "test": "jest",
     "test:coverage": "jest --coverage",
-    "comprobar-bundle": "node scripts/comprobar-bundle.mjs"
+    "comprobar-bundle": "node scripts/comprobar-bundle.mjs",
+    "integracion:api": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/integracion-api.mjs"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",

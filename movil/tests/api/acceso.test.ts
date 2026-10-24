@@ -1,6 +1,6 @@
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
 import { instalarFetchFalso, respuestaJson } from '../ayudas/fetchFalso';
-import { cambiarContrasena, ingresoAnterior, iniciarSesion } from '../../src/api/acceso';
+import { cambiarContrasena, ingresoAnterior, iniciarSesion, pedirRecuperacion } from '../../src/api/acceso';
 
 jest.mock('expo-secure-store', () => jest.requireActual('../ayudas/secureStoreFalso').crearSecureStoreFalso());
 const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crearSecureStoreFalso>;
@@ -38,5 +38,13 @@ describe('API de acceso', () => {
     await cambiarContrasena({ contrasena_actual: 'a', contrasena_nueva: 'b' });
     expect(pedidos[0]?.url).toBe('http://api.prueba:18090/api/v1/cuenta/contrasena');
     expect(JSON.parse(pedidos[0]?.init.body as string)).toEqual({ contrasena_actual: 'a', contrasena_nueva: 'b' });
+  });
+
+  it('pedirRecuperacion manda solo el correo y no manda sesión si no hay', async () => {
+    const { pedidos } = instalarFetchFalso(respuestaJson(202, { estado: 'enlace_enviado' }));
+    await pedirRecuperacion('laura@ejemplo.com');
+    expect(pedidos[0]?.url).toBe('http://api.prueba:18090/api/v1/recuperacion');
+    expect(JSON.parse(pedidos[0]?.init.body as string)).toEqual({ correo: 'laura@ejemplo.com' });
+    expect(pedidos[0]?.init.headers).not.toHaveProperty('Authorization');
   });
 });

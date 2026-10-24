@@ -116,4 +116,21 @@ describe('flujo de entrar, ver la seguridad, cambiar la contraseña y salir', ()
     expect(screen.getByRole('header', { name: 'Inicia sesión' })).toBeOnTheScreen();
     expect(almacen.guardado.has('sesion')).toBe(false);
   });
+
+  it('«¿Olvidaste tu contraseña?» abre PN-61, que pide el enlace; Atrás vuelve a PN-60', async () => {
+    const { pedidos } = instalarFetchFalso(respuestaJson(202, { estado: 'enlace_enviado' }));
+    await render(<Navegacion />);
+    await fireEvent.press(await screen.findByRole('button', { name: '¿Olvidaste tu contraseña?' }));
+    await fireEvent.changeText(await screen.findByLabelText('Correo electrónico'), 'laura@ejemplo.com');
+    await fireEvent.press(screen.getByRole('button', { name: 'Enviar el enlace' }));
+    expect(await screen.findByText('Si ese correo tiene una cuenta, te enviamos un enlace.')).toBeOnTheScreen();
+    expect(pedidos[0]?.url).toBe('http://api.prueba:18090/api/v1/recuperacion');
+    await act(async () => {
+      expect(atras()).toBe(true);
+    });
+    await waitFor(() =>
+      expect(screen.queryByText('Si ese correo tiene una cuenta, te enviamos un enlace.')).not.toBeOnTheScreen(),
+    );
+    expect(screen.getByRole('header', { name: 'Inicia sesión' })).toBeOnTheScreen();
+  });
 });

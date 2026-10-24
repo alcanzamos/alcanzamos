@@ -5,6 +5,7 @@ import { CambiarContrasena } from '../pantallas/CambiarContrasena';
 import { CrearCuenta } from '../pantallas/CrearCuenta';
 import { Edad } from '../pantallas/Edad';
 import { Entrar } from '../pantallas/Entrar';
+import { RecuperarAcceso } from '../pantallas/RecuperarAcceso';
 import { RevisaTuCorreo } from '../pantallas/RevisaTuCorreo';
 import { SeguridadDeLaCuenta } from '../pantallas/SeguridadDeLaCuenta';
 import { SinAutorizacion } from '../pantallas/SinAutorizacion';
@@ -32,7 +33,8 @@ async function pantallaInicial(): Promise<keyof Rutas> {
 // sale de la app). La marca de E14 va encima: fondo de página y sin barra, salvo en las pantallas que la piden
 // (`conBarra`). PN-65 se apila sobre PN-60 (el Atrás del sistema vuelve a PN-60, E14-PCP 4.8); PN-58 la reemplaza; de
 // PN-58 a PN-59, de entrar a PN-71 o a PN-59 y de cerrar sesión a PN-60 se cambia con `reemplazarPila`, para que Atrás
-// no vuelva al formulario, a una sesión limitada ni a una sesión cerrada.
+// no vuelva al formulario, a una sesión limitada ni a una sesión cerrada. PN-61 se apila sobre PN-60. PN-62 no está: el
+// enlace del correo abre la web (D-155) y la app no recibe enlaces hasta los App Links de I08.
 export function Navegacion() {
   const [inicial, setInicial] = useState<keyof Rutas | null>(null);
   useEffect(() => {
@@ -63,6 +65,7 @@ export function Navegacion() {
           component={CambiarContrasena}
           options={conBarra('Cambiar mi contraseña')}
         />
+        <Pila.Screen name="RecuperarAcceso" component={RecuperarAcceso} options={conBarra('Recuperar el acceso')} />
       </Pila.Navigator>
     </NavigationContainer>
   );
