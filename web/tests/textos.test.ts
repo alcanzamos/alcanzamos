@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   avisoDeFallo,
   avisos,
+  resumenPorConfirmar,
   textoDeErrorDeCampo,
   textosDeRepeticion,
 } from "../src/textos";
@@ -180,5 +181,23 @@ describe("textos de E14", () => {
       avisos.demasiadosIntentos,
     );
     expect(avisoDeFallo(fallo(500, "x"), generico)).toBe(generico);
+  });
+});
+
+describe("recuento de PN-72 (US-59, S4, D-093)", () => {
+  it("da exactamente el resumen de E14-PRR: 13 por confirmar, 2 ingresos y 11 gastos", () => {
+    expect(resumenPorConfirmar(2, 11)).toBe(
+      "13 por confirmar: 2 ingresos y 11 gastos",
+    );
+  });
+
+  // «1 ingreso» es el ejemplo del dueño; «1 gasto» y los ceros no están en E14: son propuestos (ver el PR).
+  it.each([
+    [1, 2, "3 por confirmar: 1 ingreso y 2 gastos"],
+    [2, 1, "3 por confirmar: 2 ingresos y 1 gasto"],
+    [1, 1, "2 por confirmar: 1 ingreso y 1 gasto"],
+    [0, 13, "13 por confirmar: 0 ingresos y 13 gastos"],
+  ])("con %d ingresos y %d gastos: %s", (ingresos, gastos, esperado) => {
+    expect(resumenPorConfirmar(ingresos, gastos)).toBe(esperado);
   });
 });

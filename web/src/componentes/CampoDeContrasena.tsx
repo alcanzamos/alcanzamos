@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { CampoDeTexto, type PropiedadesDeCampo } from "./CampoDeTexto";
 import { IconoOcultar, IconoVer } from "./Iconos";
+import { textos } from "../textos/es.generated";
 
 // Campo de contraseña de E14-SDD 5.18: con Ver y Ocultar. Permite pegar (no hay onPaste que lo bloquee).
 // `autocompletar` es `current-password` para la que ya existe y `new-password` para la nueva.
@@ -17,7 +18,9 @@ export function CampoDeContrasena(
           type="button"
           className="campo__ver"
           aria-label={
-            visible ? "Ocultar la contraseña" : "Mostrar la contraseña"
+            visible
+              ? textos.campos.contrasena.ocultar
+              : textos.campos.contrasena.mostrar
           }
           onClick={() => setVisible(!visible)}
         >

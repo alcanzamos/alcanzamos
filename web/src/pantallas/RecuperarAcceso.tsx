@@ -11,6 +11,7 @@ import {
   textoDeErrorDeCampo,
   type DatosDeAviso,
 } from "../textos";
+import { textos } from "../textos/es.generated";
 
 // PN-61 · Recuperar el acceso: pedir el enlace (E14-PCP 4.4). El resultado es el mismo con o sin cuenta.
 export function RecuperarAcceso() {
@@ -45,23 +46,22 @@ export function RecuperarAcceso() {
   }
 
   return (
-    <Pagina titulo="Recuperar el acceso" atras="/entrar">
+    <Pagina titulo={textos.recuperarAcceso.titulo} atras="/entrar">
       {enviado ? (
         <>
           {aviso && <Aviso {...aviso} />}
-          <BotonEnlace href="/entrar">Volver a iniciar sesión</BotonEnlace>
+          <BotonEnlace href="/entrar">
+            {textos.recuperarAcceso.volver}
+          </BotonEnlace>
         </>
       ) : (
         <>
-          <p>
-            Escribe el correo de tu cuenta. Te enviamos un enlace para elegir
-            una contraseña nueva.
-          </p>
+          <p>{textos.recuperarAcceso.intro}</p>
           <form className="formulario" noValidate onSubmit={enviar}>
             {aviso && <Aviso {...aviso} />}
             <CampoDeTexto
               id="correo"
-              etiqueta="Correo electrónico"
+              etiqueta={textos.campos.correo.etiqueta}
               tipo="email"
               autocompletar="email"
               valor={correo}
@@ -69,7 +69,7 @@ export function RecuperarAcceso() {
               error={error}
             />
             <Boton tipo="submit" deshabilitado={enviando}>
-              Enviar el enlace
+              {textos.recuperarAcceso.enviar}
             </Boton>
           </form>
         </>

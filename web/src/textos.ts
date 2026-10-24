@@ -1,8 +1,9 @@
 import { SIN_CONEXION, type Respuesta } from "./api/cliente";
+import { formatear, plural, textos } from "./textos/es.generated";
 
-// Todos los textos que ve la persona y la tabla de códigos del API a texto, en un solo módulo.
-// Salen palabra por palabra de E14-PCP (pantallas de cuenta y privacidad, §4.16 para los de la web de la US-49).
-// El API no manda textos. Cada texto lleva al lado su referencia en E14-PCP.
+// Los textos que ve la persona salen de diseno/textos/es.json (D-160), palabra por palabra de E14, y llegan aquí por
+// el módulo generado `textos/es.generated.ts` (`npm run textos`). Este módulo solo guarda lo que no es texto: el tipo
+// de cada aviso y la tabla de códigos del API a texto. El API no manda textos.
 export type TipoAviso = "informacion" | "atencion" | "logro";
 export type DatosDeAviso = {
   tipo: TipoAviso;
@@ -10,176 +11,119 @@ export type DatosDeAviso = {
   mensaje?: string;
 };
 
+const a = textos.avisos;
+
 export const avisos = {
-  // E14-PCP 4.16 T10 (PN-58, PN-60, PN-64, PN-69 y PN-73)
-  sinConexion: {
-    tipo: "informacion",
-    titulo: "Sin conexión. Intenta de nuevo cuando vuelvas a tener internet.",
-  },
-  // E14-PCP 4.16 T1 (D-136; PN-58, «Cambiar el correo» de PN-59, PN-60 y PN-61)
+  sinConexion: { tipo: "informacion", titulo: a.sinConexion.titulo },
   demasiadosIntentos: {
     tipo: "informacion",
-    titulo: "Hiciste muchos intentos. Espera unos minutos e intenta de nuevo.",
+    titulo: a.demasiadosIntentos.titulo,
   },
-  // E14-PCP 4.1, estado «Error de envío» de PN-58 y 4.16 T6
   errorAlCrearCuenta: {
     tipo: "informacion",
-    titulo: "No pudimos crear la cuenta.",
-    mensaje: "Tus datos no se perdieron. Intenta de nuevo.",
+    titulo: a.errorAlCrearCuenta.titulo,
+    mensaje: a.errorAlCrearCuenta.mensaje,
   },
-  // E14-PCP 4.2, estado «Error» de PN-59 (reenviar y cambiar el correo)
   errorAlEnviarCorreo: {
     tipo: "informacion",
-    titulo: "No pudimos enviar el correo.",
-    mensaje: "Intenta de nuevo.",
+    titulo: a.errorAlEnviarCorreo.titulo,
+    mensaje: a.errorAlEnviarCorreo.mensaje,
   },
-  // E14-PCP 4.16 T8: «Ya lo confirmé» no pudo revisar el estado (5xx)
   errorAlRevisarElCorreo: {
     tipo: "informacion",
-    titulo: "No pudimos revisar si confirmaste tu correo.",
-    mensaje: "Intenta de nuevo.",
+    titulo: a.errorAlRevisarElCorreo.titulo,
+    mensaje: a.errorAlRevisarElCorreo.mensaje,
   },
-  // E14-PCP 4.16 T9: el enlace de verificación falló del lado del servidor (5xx), distinto del enlace vencido
   errorAlConfirmarElCorreo: {
     tipo: "informacion",
-    titulo: "No pudimos confirmar tu correo.",
-    mensaje: "Intenta de nuevo.",
+    titulo: a.errorAlConfirmarElCorreo.titulo,
+    mensaje: a.errorAlConfirmarElCorreo.mensaje,
   },
-  // E14-PCP 4.2, «Ya lo confirmé» sin confirmar
   sinConfirmarTodavia: {
     tipo: "informacion",
-    titulo: "Todavía no confirmaste tu correo.",
-    mensaje: "Abre el enlace que te enviamos.",
+    titulo: a.sinConfirmarTodavia.titulo,
+    mensaje: a.sinConfirmarTodavia.mensaje,
   },
-  // E14-PCP 4.2, estado «Reenviado»
-  correoReenviado: { tipo: "informacion", titulo: "Te enviamos otro correo." },
-  // E14-PCP 4.2, estado «Confirmado», y 4.16 T11: se muestra arriba de la pantalla a la que se llega
-  correoConfirmado: {
-    tipo: "logro",
-    titulo: "Listo, confirmamos tu correo.",
-  },
-  // E14-PCP 4.2, estado «Enlace vencido»
+  correoReenviado: { tipo: "informacion", titulo: a.correoReenviado.titulo },
+  correoConfirmado: { tipo: "logro", titulo: a.correoConfirmado.titulo },
   enlaceVencido: {
     tipo: "atencion",
-    titulo: "Ese enlace ya no sirve.",
-    mensaje: "Pide uno nuevo.",
+    titulo: a.enlaceVencido.titulo,
+    mensaje: a.enlaceVencido.mensaje,
   },
-  // E14-PCP 4.3, estado «Error» de PN-60 con credenciales que no coinciden (401)
   datosNoCoinciden: {
     tipo: "atencion",
-    titulo: "No pudimos entrar con esos datos.",
-    mensaje: "Revisa lo que escribiste e intenta de nuevo.",
+    titulo: a.datosNoCoinciden.titulo,
+    mensaje: a.datosNoCoinciden.mensaje,
   },
-  // E14-PCP 4.16 T7 (D-153): error del servidor (5xx) en PN-60; nunca dice que los datos están mal (RNF-017)
   errorAlIniciarSesion: {
     tipo: "informacion",
-    titulo: "No pudimos iniciar tu sesión.",
-    mensaje: "El problema es de nuestro lado. Intenta de nuevo en un momento.",
+    titulo: a.errorAlIniciarSesion.titulo,
+    mensaje: a.errorAlIniciarSesion.mensaje,
   },
-  // E14-PCP 4.15, estado «Error» de PN-73
   errorAlCambiarContrasena: {
     tipo: "informacion",
-    titulo: "No pudimos guardar tu contraseña.",
-    mensaje: "Tu contraseña de ahora sigue igual. Intenta de nuevo.",
+    titulo: a.errorAlCambiarContrasena.titulo,
+    mensaje: a.errorAlCambiarContrasena.mensaje,
   },
-  // E14-PCP 4.15, estado «Guardada» de PN-73 (llega a PN-71)
   contrasenaCambiada: {
     tipo: "logro",
-    titulo: "Listo, cambiamos tu contraseña.",
-    mensaje: "Cerramos tus otras sesiones. Esta sigue abierta.",
+    titulo: a.contrasenaCambiada.titulo,
+    mensaje: a.contrasenaCambiada.mensaje,
   },
-  // E14-PCP 4.14, estado «Error» de PN-71
   errorAlCargarIngreso: {
     tipo: "informacion",
-    titulo: "No pudimos cargar tu último ingreso.",
+    titulo: a.errorAlCargarIngreso.titulo,
   },
-  // E14-PCP 4.14, PN-71
   noReconoceElIngreso: {
     tipo: "informacion",
-    titulo: "¿No reconoces este ingreso?",
-    mensaje: "Cambia tu contraseña y cerramos tus otras sesiones.",
+    titulo: a.noReconoceElIngreso.titulo,
+    mensaje: a.noReconoceElIngreso.mensaje,
   },
-  // E14-PCP 4.4, estado «Enlace enviado» de PN-61: es el mismo con o sin cuenta
   enlaceDeRecuperacionEnviado: {
     tipo: "informacion",
-    titulo: "Si ese correo tiene una cuenta, te enviamos un enlace.",
-    mensaje: "Revisa también el correo no deseado.",
+    titulo: a.enlaceDeRecuperacionEnviado.titulo,
+    mensaje: a.enlaceDeRecuperacionEnviado.mensaje,
   },
-  // E14-PCP 4.4, estado «Error» de PN-61
   errorAlEnviarEnlace: {
     tipo: "informacion",
-    titulo: "No pudimos enviar el enlace.",
-    mensaje: "Intenta de nuevo.",
+    titulo: a.errorAlEnviarEnlace.titulo,
+    mensaje: a.errorAlEnviarEnlace.mensaje,
   },
-  // E14-PCP 4.5, estado «Error» de PN-62
   errorAlGuardarContrasena: {
     tipo: "informacion",
-    titulo: "No pudimos guardar tu contraseña.",
-    mensaje: "Intenta de nuevo.",
+    titulo: a.errorAlGuardarContrasena.titulo,
+    mensaje: a.errorAlGuardarContrasena.mensaje,
   },
-  // E14-PCP 4.5, estado «Guardada» de PN-62 (llega a PN-60)
   contrasenaRecuperada: {
     tipo: "logro",
-    titulo: "Listo, cambiaste tu contraseña.",
+    titulo: a.contrasenaRecuperada.titulo,
   },
-  // E14-PCP 4.3, PN-60 (se llega a ella cuando el API niega el paso por falta de sesión)
-  sesionCerrada: {
-    tipo: "informacion",
-    titulo: "Tu sesión se cerró. Entra de nuevo.",
-  },
+  sesionCerrada: { tipo: "informacion", titulo: a.sesionCerrada.titulo },
 } satisfies Record<string, DatosDeAviso>;
-
-// E14-PCP 4.1 (errores de campo de PN-58): el campo del correo es el mismo en PN-58, en «Cambiar el correo» de PN-59
-// (4.16 T3) y en PN-61.
-const correo = {
-  correo_vacio: "Falta el correo electrónico.",
-  correo_invalido: "Falta completar el correo. Por ejemplo, nombre@correo.com.",
-};
-
-// E14-PCP 4.1 (PN-58). La contraseña nueva tiene los mismos errores en PN-62 y PN-73.
-const contrasenaNueva = {
-  contrasena_corta: "Falta que la contraseña tenga al menos 15 caracteres.",
-  contrasena_comun:
-    "Falta una contraseña que no sea tan común. Prueba con una frase de tres o cuatro palabras.",
-  contrasena_personal:
-    "Falta una contraseña que no incluya tu correo ni el nombre de la app.",
-};
 
 /**
  * Errores de campo por pantalla, según el código de `422 validacion` (el API no manda textos).
- * Cada pantalla suma el suyo.
+ * El campo del correo (PN-58, «Cambiar el correo» de PN-59 y PN-61) y la contraseña nueva (PN-58, PN-62 y PN-73)
+ * son los mismos en varias pantallas; cada pantalla suma el suyo.
  */
 const erroresDeCampo = {
-  correo,
-  entrar: {
-    identificador_vacio: "Falta el correo electrónico.",
-    contrasena_vacia: "Falta la contraseña.",
-  },
+  correo: textos.correo,
+  entrar: textos.erroresDeCampo.entrar,
   contrasenaNueva: {
-    contrasena_vacia: "Falta la contraseña nueva.",
-    ...contrasenaNueva,
+    ...textos.erroresDeCampo.contrasenaNueva,
+    ...textos.contrasenaNueva,
   },
-  contrasenaDeAhora: {
-    contrasena_vacia: "Falta tu contraseña de ahora.",
-    contrasena_actual_incorrecta:
-      "No pudimos confirmar tu contraseña de ahora. Escríbela de nuevo.",
-  },
+  contrasenaDeAhora: textos.erroresDeCampo.contrasenaDeAhora,
   crearCuenta: {
-    ...correo,
-    contrasena_vacia: "Falta la contraseña.",
-    ...contrasenaNueva,
-    nombre_vacio: "Falta el nombre para mostrar.",
-    // E14-PCP 4.16 T5 (D-153)
-    nombre_largo: "Escribe un nombre de hasta 60 caracteres.",
-    mayor_de_edad_requerido: "Falta marcar que eres mayor de edad.",
+    ...textos.correo,
+    ...textos.erroresDeCampo.crearCuenta,
+    ...textos.contrasenaNueva,
   },
 } satisfies Record<string, Record<string, string>>;
 
 // E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62
-export const textosDeRepeticion = {
-  vacia: "Falta repetir la contraseña.",
-  distinta: "Falta que las dos contraseñas sean iguales.",
-};
+export const textosDeRepeticion = textos.textosDeRepeticion;
 
 export const textoDeErrorDeCampo = (
   codigo: string,
@@ -195,4 +139,16 @@ export function avisoDeFallo(
   if (respuesta.codigo === SIN_CONEXION) return avisos.sinConexion;
   if (respuesta.estado === 429) return avisos.demasiadosIntentos;
   return generico;
+}
+
+/**
+ * El resumen de PN-72 (D-093, E14-PRR 4.7): «13 por confirmar: 2 ingresos y 11 gastos». El total es la suma; los
+ * recuentos usan la convención de plurales de US-59 (`one` y `other`). PN-72 todavía no se construye: la llamará.
+ */
+export function resumenPorConfirmar(ingresos: number, gastos: number): string {
+  return formatear(textos.porConfirmar.resumen, {
+    total: String(ingresos + gastos),
+    ingresos: plural(textos.porConfirmar.ingresos, ingresos),
+    gastos: plural(textos.porConfirmar.gastos, gastos),
+  });
 }

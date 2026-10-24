@@ -16,6 +16,7 @@ import {
   textoDeErrorDeCampo,
   type DatosDeAviso,
 } from "../textos";
+import { textos } from "../textos/es.generated";
 
 // Del cuerpo del pedido al id del control, en el orden de la pantalla (el foco va al primero con error).
 const orden = [
@@ -73,14 +74,14 @@ export function CrearCuenta() {
   }
 
   return (
-    <Pagina titulo="Crea tu cuenta" conLogo>
-      <p>Solo necesitamos tres datos.</p>
+    <Pagina titulo={textos.crearCuenta.titulo} conLogo>
+      <p>{textos.crearCuenta.intro}</p>
       <form className="formulario" noValidate onSubmit={enviar}>
         {aviso && <Aviso {...aviso} />}
         <CampoDeTexto
           id="correo"
-          etiqueta="Correo electrónico"
-          ayuda="Te enviaremos un enlace para confirmarlo."
+          etiqueta={textos.campos.correo.etiqueta}
+          ayuda={textos.campos.correo.ayuda}
           tipo="email"
           autocompletar="email"
           valor={correo}
@@ -89,8 +90,8 @@ export function CrearCuenta() {
         />
         <CampoDeContrasena
           id="contrasena"
-          etiqueta="Contraseña"
-          ayuda="Usa una frase de tres o cuatro palabras."
+          etiqueta={textos.campos.contrasena.etiqueta}
+          ayuda={textos.campos.contrasena.ayuda}
           autocompletar="new-password"
           valor={contrasena}
           alCambiar={setContrasena}
@@ -98,8 +99,8 @@ export function CrearCuenta() {
         />
         <CampoDeTexto
           id="nombre"
-          etiqueta="Nombre para mostrar"
-          ayuda="Es el nombre que verás en la app. Puede ser un apodo."
+          etiqueta={textos.campos.nombre.etiqueta}
+          ayuda={textos.campos.nombre.ayuda}
           autocompletar="name"
           valor={nombre}
           alCambiar={setNombre}
@@ -107,27 +108,26 @@ export function CrearCuenta() {
         />
         <Casilla
           id="mayor-de-edad"
-          texto="Soy mayor de edad"
+          texto={textos.campos.mayorDeEdad.etiqueta}
           marcada={mayorDeEdad}
           alCambiar={setMayorDeEdad}
           error={errores.mayor_de_edad}
         />
         <Boton tipo="submit" deshabilitado={enviando}>
-          Crear cuenta
+          {textos.crearCuenta.crear}
         </Boton>
         {aviso === avisos.errorAlCrearCuenta && (
           <Boton variante="secundario" alTocar={() => void enviar()}>
-            Intentar de nuevo
+            {textos.acciones.intentarDeNuevo}
           </Boton>
         )}
       </form>
-      <BotonEnlace href="/entrar">Ya tengo una cuenta</BotonEnlace>
+      <BotonEnlace href="/entrar">
+        {textos.crearCuenta.yaTengoCuenta}
+      </BotonEnlace>
       <p className="nota">
         <IconoInformacion />
-        <span>
-          Después de confirmar tu correo verás cómo cuidamos tus datos y
-          decidirás si los autorizas.
-        </span>
+        <span>{textos.crearCuenta.nota}</span>
       </p>
     </Pagina>
   );

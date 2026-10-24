@@ -8,7 +8,7 @@ App web en Vite + React + TypeScript (ADR-004). Se compila a `web/dist` y se sir
 
 ## Qué hay
 
-Base de la US-57 (Vite, React, TypeScript, tokens, fuentes propias, CSP) y, desde la US-49, las pantallas de cuenta y acceso (D-152, cinco PR): crear la cuenta, verificar el correo, iniciar sesión, recuperar el acceso, la seguridad de la cuenta y el cambio de contraseña. Todo texto que ve la persona sale palabra por palabra de E14-PCP; los textos y la tabla de códigos del API a texto están en un solo módulo, `src/textos.ts`, cada uno con su referencia en E14-PCP. El cliente no tiene reglas de negocio (E17-ECO 4.7): el API valida y la web solo muestra el código de error de cada campo.
+Base de la US-57 (Vite, React, TypeScript, tokens, fuentes propias, CSP) y, desde la US-49, las pantallas de cuenta y acceso (D-152, cinco PR): crear la cuenta, verificar el correo, iniciar sesión, recuperar el acceso, la seguridad de la cuenta y el cambio de contraseña. Todo texto que ve la persona sale palabra por palabra de E14-PCP; los textos salen de [`diseno/textos/es.json`](../diseno/textos/es.json) (fuente única de web y Android, D-160), cada uno con su referencia de E14, y llegan por el módulo generado `src/textos/es.generated.ts`; `src/textos.ts` solo guarda el tipo de cada aviso y la tabla de códigos del API a texto. El cliente no tiene reglas de negocio (E17-ECO 4.7): el API valida y la web solo muestra el código de error de cada campo.
 
 | Ruta                     | Pantalla                                                                                                                                                                                            |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -44,6 +44,8 @@ Base de la US-57 (Vite, React, TypeScript, tokens, fuentes propias, CSP) y, desd
 - **«Política de tratamiento…»** (PN-58 y PN-60, fila 9): abre PN-68, que no está construida; todavía no hay enlace.
 - **Navegación lateral web** de PN-71 y PN-73 (E14-PCP 1): no hay otras pantallas de dentro a las que llevar; PN-71 solo lleva «Cerrar sesión» y PN-73 su Atrás. La barra llega con el Inicio.
 - **Estados de PN-60 de otras historias** («Cuenta borrada», «Sin autorización» de PN-64): no se construyen aquí.
+- **Título de la pestaña** («{titulo} · Alcanzamos», `pagina.titulo_del_documento`): ya existía en `Pagina.tsx` y no está en E14-PCP; se movió a `es.json` sin cambiarlo y su referencia lo dice. Falta llevarlo a E14.
+- **Plurales de PN-72** (`porConfirmar` en `es.json`): E14 solo tiene «13 por confirmar: 2 ingresos y 11 gastos». «1 ingreso» es el ejemplo del dueño (US-59, S4); «1 gasto» y qué decir con 0 («0 ingresos») son propuestos y faltan en E14.
 - **PN-63 y PN-64** (US-50): hasta entonces, la pantalla provisional `/sin-autorizacion`.
 
 ## Cómo se usa
@@ -58,6 +60,7 @@ npm run typecheck     # tsc --noEmit
 npm run lint          # ESLint
 npm run format:check  # Prettier (npm run format para aplicarlo)
 npm run tokens        # regenera src/estilos/tokens.css
+npm run textos        # regenera src/textos/es.generated.ts desde diseno/textos/es.json
 npm test              # Vitest + Testing Library (las pruebas están en tests/, en espejo de src/)
 npm run test:coverage # con umbral de 60 % de líneas
 npm run auditoria     # npm audit de producción; falla con altas o críticas
@@ -65,7 +68,7 @@ npm run licencias     # licencias de producción contra la lista compatible con 
 npm run e2e           # Playwright + axe-core sobre la app compilada
 ```
 
-Tokens regenerables sin diferencias: tras `npm run tokens`, `git diff --exit-code diseno/ web/ movil/` no debe mostrar nada.
+Tokens y textos regenerables sin diferencias: tras `npm run tokens` y tras `npm run textos`, `git diff --exit-code diseno/ web/ movil/` no debe mostrar nada. `src/textos/es.generated.ts` no se edita a mano y Prettier lo ignora; el pipeline lo regenera.
 
 ### Playwright
 
@@ -81,6 +84,8 @@ npx playwright install chromium            # en Linux, si faltan librerías: npx
 
 - `strict` en TypeScript; ESLint prohíbe `any` explícito y `@ts-ignore` sin descripción.
 - ESLint con las configuraciones recomendadas de `typescript-eslint`, `eslint-plugin-react-hooks` y `eslint-plugin-jsx-a11y`, más una regla que prohíbe en TypeScript colores sueltos (`#hex`, `rgb(`), medidas en `px`/`rem`, la paleta primitiva y dominios fijos. Las hojas CSS las revisa `tests/estilos/estilos.test.ts`, que además verifica que no haya `ss02` ni `font-feature-settings`.
+- **Sin textos sueltos en JSX (D-162, US-59).** Una regla `no-restricted-syntax` en `eslint.config.js`, equivalente a `react/jsx-no-literals` con `noStrings: true` (eslint-plugin-react no se instala), reporta texto como hijo (`<p>Hola</p>`), cadenas y plantillas entre llaves (también en un ternario o un `&&` directo) y cadenas en las propiedades de texto (`aria-label`, `title`, `alt`, `placeholder` y las de los componentes: `titulo`, `etiqueta`, `ayuda`, `texto`, `error`, `mensaje`). Se permiten el espacio en blanco, los números, `alt=""` y las propiedades que no son texto (`className`, `type`, `id`, `href`…). `tests/eslint/texto-suelto.test.ts` corre ESLint con fixtures que deben y que no deben reportar, y comprueba que `src/` pasa. Límite: no sigue cadenas que entran por una variable o una función; para eso está la prueba de claves.
+- **Claves de textos (S2).** `tests/textos/claves.test.ts` falla si el código usa una clave que no existe y si una clave de `comun` o `solo_web` no la usa nadie (lee `src/` con el compilador de TypeScript y sigue los accesos `textos.a.b.c`, los grupos y los alias; no admite `textos[x]` ni desestructurar). Los textos de PN-72 (`porConfirmar`) los usa `resumenPorConfirmar` de `src/textos.ts`, que PN-72 llamará.
 - Prettier con la configuración por defecto (`.prettierrc.json` vacío).
 
 ## Alertas de `npm audit` (2026-10-22)

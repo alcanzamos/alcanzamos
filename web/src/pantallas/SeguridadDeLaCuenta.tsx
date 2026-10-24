@@ -12,6 +12,7 @@ import { navegar } from "../enrutador";
 import { fechaEnPalabras } from "../fechas";
 import { avisoDeLlegada } from "../llegada";
 import { avisoDeFallo, avisos, type DatosDeAviso } from "../textos";
+import { formatear, textos } from "../textos/es.generated";
 
 type Estado =
   | { fase: "cargando" }
@@ -65,7 +66,7 @@ export function SeguridadDeLaCuenta() {
       : null;
 
   return (
-    <Pagina titulo="Seguridad de la cuenta" estado={llegada}>
+    <Pagina titulo={textos.seguridadDeLaCuenta.titulo} estado={llegada}>
       {sinConexion && <Aviso {...avisos.sinConexion} />}
       {estado.fase === "error" && (
         <>
@@ -77,7 +78,7 @@ export function SeguridadDeLaCuenta() {
               setIntento(intento + 1);
             }}
           >
-            Intentar de nuevo
+            {textos.acciones.intentarDeNuevo}
           </Boton>
         </>
       )}
@@ -85,31 +86,37 @@ export function SeguridadDeLaCuenta() {
         <>
           <section className="tarjeta" aria-labelledby="titulo-ingreso">
             <h2 id="titulo-ingreso" className="titulo-3">
-              Tu último ingreso
+              {textos.seguridadDeLaCuenta.tarjeta}
             </h2>
             {fecha ? (
               <>
-                <p>{cifras(`Tu ingreso anterior fue ${fecha}`)}</p>
+                <p>
+                  {cifras(
+                    formatear(textos.seguridadDeLaCuenta.ingresoAnterior, {
+                      fecha,
+                    }),
+                  )}
+                </p>
                 <p className="ayuda">
-                  Es la fecha de tu ingreso anterior, no la de ahora.
+                  {textos.seguridadDeLaCuenta.ingresoAclaracion}
                 </p>
               </>
             ) : (
-              <p>Este es tu primer ingreso.</p>
+              <p>{textos.seguridadDeLaCuenta.primerIngreso}</p>
             )}
           </section>
           {fecha && (
             <>
               <Aviso id="aviso-ingreso" {...avisos.noReconoceElIngreso} />
               <BotonEnlace href="/cuenta/contrasena">
-                Cambiar mi contraseña
+                {textos.seguridadDeLaCuenta.cambiarContrasena}
               </BotonEnlace>
             </>
           )}
         </>
       )}
       <Boton variante="texto" alTocar={() => void salir()}>
-        Cerrar sesión
+        {textos.acciones.cerrarSesion}
       </Boton>
     </Pagina>
   );

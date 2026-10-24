@@ -6,6 +6,7 @@ import { Pagina } from "../componentes/Pagina";
 import { navegar, useUbicacion } from "../enrutador";
 import { irConAviso } from "../llegada";
 import { avisoDeFallo, avisos, type DatosDeAviso } from "../textos";
+import { textos } from "../textos/es.generated";
 
 // Entrada del enlace del correo (/verificar?t=). Confirmado: se va enseguida, sin espera, y «Listo, confirmamos tu
 // correo.» se muestra arriba del destino como mensaje de estado (E14-PCP 4.16 T11, D-153). Sin token o vencido: el
@@ -50,10 +51,12 @@ export function Verificar() {
   }
 
   return (
-    <Pagina titulo="Revisa tu correo">
+    <Pagina titulo={textos.revisaTuCorreo.titulo}>
       {aviso && <Aviso {...aviso} />}
       {vencido && (
-        <Boton alTocar={() => void pedirOtro()}>Reenviar el correo</Boton>
+        <Boton alTocar={() => void pedirOtro()}>
+          {textos.acciones.reenviarElCorreo}
+        </Boton>
       )}
     </Pagina>
   );

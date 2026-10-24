@@ -15,6 +15,7 @@ import {
   textoDeErrorDeCampo,
   type DatosDeAviso,
 } from "../textos";
+import { textos } from "../textos/es.generated";
 
 // Del cuerpo del pedido al id del control, en el orden de la pantalla.
 const orden = [
@@ -79,12 +80,12 @@ export function Entrar() {
   }
 
   return (
-    <Pagina titulo="Inicia sesión" conLogo estado={llegada}>
+    <Pagina titulo={textos.entrar.titulo} conLogo estado={llegada}>
       <form className="formulario" noValidate onSubmit={enviar}>
         {aviso && <Aviso {...aviso} />}
         <CampoDeTexto
           id="correo"
-          etiqueta="Correo electrónico"
+          etiqueta={textos.campos.correo.etiqueta}
           tipo="email"
           autocompletar="email"
           valor={correo}
@@ -93,20 +94,22 @@ export function Entrar() {
         />
         <CampoDeContrasena
           id="contrasena"
-          etiqueta="Contraseña"
+          etiqueta={textos.campos.contrasena.etiqueta}
           autocompletar="current-password"
           valor={contrasena}
           alCambiar={setContrasena}
           error={errores.contrasena}
         />
         <BotonEnlace href="/recuperar-acceso" variante="texto">
-          ¿Olvidaste tu contraseña?
+          {textos.entrar.olvidaste}
         </BotonEnlace>
         <Boton tipo="submit" deshabilitado={enviando}>
-          Iniciar sesión
+          {textos.entrar.entrar}
         </Boton>
       </form>
-      <BotonEnlace href="/crear-cuenta">Crear una cuenta</BotonEnlace>
+      <BotonEnlace href="/crear-cuenta">
+        {textos.entrar.crearCuenta}
+      </BotonEnlace>
     </Pagina>
   );
 }
