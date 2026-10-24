@@ -18,4 +18,6 @@ export type Rutas = {
   SeguridadDeLaCuenta: { llegada?: Llegada } | undefined;
   /** PN-73. */
   CambiarContrasena: undefined;
+  /** PN-61. Su Atrás vuelve a PN-60. */
+  RecuperarAcceso: undefined;
 };

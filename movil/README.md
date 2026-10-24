@@ -69,6 +69,92 @@ Rama `feat/us-49-movil-sesion` (D-155).
 - **PN-73 · Cambiar la contraseña** (`CambiarContrasena.tsx`): dos campos, sin la nota del menor (llega con I11). Al guardar vuelve a PN-71 con «Listo, cambiamos tu contraseña.»; el token no cambia (la sesión de ahora sigue abierta y las demás las cierra el API).
 - **Barra superior** (`barra.ts`): PN-71 y PN-73 usan la barra nativa de la pila con el título en `tipografia.titulo-2` (E14-SDD 5.10). El Atrás es el del sistema.
 
+## Recuperar el acceso (US-49, A5)
+
+Rama `feat/us-49-movil-recuperacion` (D-155).
+
+- **PN-61 · Recuperar el acceso: pedir el enlace** (`RecuperarAcceso.tsx`): se abre desde «¿Olvidaste tu contraseña?» de PN-60 (Atrás vuelve a PN-60). La respuesta es la misma con o sin cuenta («Si ese correo tiene una cuenta, te enviamos un enlace.»); errores de campo, `429`, `5xx` y sin conexión con los textos de E14-PCP 4.4. **No** muestra la «Nota del menor» de la fila 5 («¿Entras con nombre de usuario? Pide a tu tutor que restablezca tu acceso.», solo Android): apunta a un ingreso con nombre de usuario que no existe todavía y entra en I11 con la fila 8 de PN-60 y el botón de PN-65 (D-137, D-156). `tests/pantallas/RecuperarAcceso.test.tsx` comprueba que no se muestra.
+- **PN-62 · Elegir la contraseña nueva: no se construye en la app.** E14-PCP 4.5 sí tiene su tabla de Android, pero no se puede llegar a ella: el enlace del correo es `URL_PUBLICA/recuperar?t=<token>` y abre la web en el navegador del teléfono (D-155). Un esquema propio (`alcanzamos://`) se descartó (otra app puede registrarlo y recibir el token) y los App Links dependen de la huella del certificado de firma de la app publicada, que llega en I08. Hasta entonces PN-62 vive en la web; la persona vuelve a la app y entra con la contraseña nueva. Con App Links (I08) se suma PN-62 en la app, con los textos de E14-PCP 4.5 que ya están en `textos.ts` (`textosDeRepeticion`, `avisos.enlaceVencido`, `avisos.errorAlGuardarContrasena` y `avisos.contrasenaRecuperada`).
+
+## Prueba de integración contra el API (US-49, A5)
+
+`npm run integracion:api` (`scripts/integracion-api.mjs`) corre, con Node y fuera de Jest, el **mismo código** de `src/api/` contra un API de verdad: crear la cuenta en modo Android (el token llega en el cuerpo y queda en el almacén seguro), estado, verificar el correo con el enlace de Mailpit (como lo hace el navegador), iniciar sesión (token nuevo), `seguridad` con `403`, sembrar las autorizaciones por SQL (hasta que la US-50 construya PN-64), `seguridad` con `200`, cambiar la contraseña, cerrar sesión (`204`) y `401 sin_sesion` con el token cerrado; además la recuperación, el rechazo del modo Android con `Sec-Fetch-Site` y el estado sin conexión. En lugar de `expo-secure-store` usa un almacén en memoria (Node no tiene Keystore). Variables: `EXPO_PUBLIC_URL_API`, `URL_MAILPIT` y `CONTENEDOR_POSTGRES` (el contenedor de PostgreSQL de `infra/local`). Los datos son sintéticos y cada corrida crea una cuenta nueva.
+
+## Probar la cuenta y el acceso en el celular (US-49)
+
+Con el API, PostgreSQL y Mailpit en el portátil y la app en Expo Go (SDK 57), por la red local (sin túnel). El celular y el portátil van en el mismo Wi-Fi. Todo desde la raíz del repositorio, salvo el paso 7. Datos sintéticos.
+
+1. **Dirección del portátil** en la red local (se usa en los pasos 3 y 6):
+
+   ```
+   IP=$(ip -4 route get 1.1.1.1 | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}'); echo $IP
+   ```
+
+2. **PostgreSQL y Mailpit** (`infra/local`, puertos solo en `127.0.0.1`):
+
+   ```
+   export POSTGRES_DB=alcanzamos POSTGRES_USER=alcanzamos POSTGRES_PASSWORD=solo-local POSTGRES_PORT=55432 MAILPIT_SMTP_PORT=51025 MAILPIT_WEB_PORT=58025
+   docker compose -f infra/local/compose.yaml up -d --wait
+   ```
+
+   Un segundo Mailpit, con su pantalla abierta a la red local, para leer los correos **desde el celular** (el del compose solo escucha en el portátil):
+
+   ```
+   docker run -d --name alcanzamos-mailpit-lan --network alcanzamos-local_default -p $IP:58026:8025 axllent/mailpit:v1.31.6
+   ```
+
+3. **API** (imagen con la web embebida; tarda unos minutos la primera vez). La dirección pública es la del portátil: así el enlace del correo abre la web en el celular (D-155).
+
+   ```
+   docker build -f api/Dockerfile -t alcanzamos-api:dev .
+   ENTORNO="-e BASE_DE_DATOS_URL=postgres://alcanzamos:solo-local@postgres:5432/alcanzamos?sslmode=disable -e CORREO_SMTP=alcanzamos-mailpit-lan:1025 -e CORREO_REMITENTE=no-responder@avisos.ejemplo.test -e CORREO_PRIVACIDAD=privacidad@ejemplo.test -e URL_PUBLICA=http://$IP:18090 -e SESION_SENUELO_CLAVE=Zm9vLWJhci1iYXotcXV4LXF1dXgtY29ycmUtbG9jYWw="
+   docker run --rm --network alcanzamos-local_default $ENTORNO alcanzamos-api:dev migrar
+   docker run -d --name alcanzamos-api --network alcanzamos-local_default -p 0.0.0.0:18090:8080 $ENTORNO alcanzamos-api:dev
+   ```
+
+4. **Revisa que el celular llega:** si el portátil tiene cortafuegos, abre el puerto `18090/tcp` (API) y `58026/tcp` (correos) y `8081/tcp` (Expo). Desde el navegador del celular, `http://IP:18090/salud` debe responder `{"estado":"ok"}` y `http://IP:58026` debe abrir Mailpit.
+5. **Opcional, la prueba automática contra este API** (la de arriba):
+
+   ```
+   cd movil
+   EXPO_PUBLIC_URL_API=http://$IP:18090 URL_MAILPIT=http://$IP:58026 CONTENEDOR_POSTGRES=alcanzamos-local-postgres-1 npm run integracion:api
+   ```
+
+6. **La app** (en `movil/`; `npm start` es `expo start --lan`). La dirección del API se define al arrancar, con la IP del paso 1:
+
+   ```
+   cd movil
+   npm ci
+   EXPO_PUBLIC_URL_API=http://$IP:18090 npx expo start --lan
+   ```
+
+   Se abre Expo Go y se escanea el QR. Si cambias la dirección, reinicia con `--clear` (`npx expo start --lan --clear`): Expo copia la variable al paquete.
+
+7. **Recorrido en el celular:**
+   1. «Crear una cuenta» → PN-65: elige una fecha de nacimiento. Con una fecha de menos de 18 años sale el aviso «Esta cuenta la crea una persona adulta.» (y lo recuerda 24 horas); con una de 18 años cumplidos, sigue PN-58.
+   2. PN-58: correo (por ejemplo `laura@ejemplo.com`), contraseña de 15 caracteres o más (por ejemplo `lluvia café tren azul`) y nombre → PN-59.
+   3. En el navegador del celular, `http://IP:58026`: abre el correo «Confirma tu correo en Alcanzamos» y toca el enlace (abre la web: «Listo, confirmamos tu correo.»). Vuelve a la app y toca **«Ya lo confirmé»**: llega a la pantalla provisional («Sin esta autorización no podemos darte la cuenta.»), con «Cerrar sesión».
+   4. Para ver PN-71 y PN-73 hay que sembrar la autorización (PN-64 llega con la US-50). En el portátil:
+
+      ```
+      docker exec -i alcanzamos-local-postgres-1 psql -U alcanzamos -d alcanzamos -c "INSERT INTO autorizacion (titular_id, otorgante_id, finalidad, version_del_texto, otorgada_en) SELECT persona_id, persona_id, f, '1.0 del 2026-10-30', now() - interval '1 hour' FROM perfil_adulto, unnest(ARRAY['cuenta_y_acceso','funciones_financieras']) AS f WHERE correo = 'laura@ejemplo.com'"
+      ```
+
+      En la app: «Cerrar sesión» → PN-60 → entra con el correo y la contraseña → PN-71 («Este es tu primer ingreso.»). Cierra sesión, entra otra vez: ahora muestra «Tu ingreso anterior fue el … a las … p. m.» (hora de Colombia).
+   5. PN-71 → «Cambiar mi contraseña» (PN-73) → guarda otra frase de 15 caracteres o más → vuelve a PN-71 con «Listo, cambiamos tu contraseña.».
+   6. «Cerrar sesión» → PN-60 → «¿Olvidaste tu contraseña?» (PN-61) → escribe el correo → «Enviar el enlace». En `http://IP:58026` abre «Recupera el acceso a tu cuenta de Alcanzamos» y toca el enlace: la web (PN-62) te deja elegir la contraseña nueva. Vuelve a la app y entra con ella.
+   7. Atrás de Android: desde PN-65 vuelve a PN-60; desde PN-59, PN-71 y la pantalla provisional sale de la app (no vuelve al formulario ni a la sesión cerrada).
+   8. Sin conexión: apaga el Wi-Fi del celular y toca «Iniciar sesión»: «Sin conexión. Intenta de nuevo cuando vuelvas a tener internet.».
+
+8. **Para terminar** (borra también los datos):
+
+   ```
+   docker rm -f alcanzamos-api alcanzamos-mailpit-lan
+   docker compose -f infra/local/compose.yaml down -v
+   ```
+
+El tráfico va en HTTP por la red local: Expo Go lo permite en desarrollo; una compilación de producción exige HTTPS (RNF-013, ADR-006).
+
 ## Pruebas (US-58, D-145)
 
 Jest con el preset `jest-expo`, siguiendo la guía de Expo (<https://docs.expo.dev/develop/unit-testing/>). Las pruebas van en `tests/`, en espejo de `src/` (E17-ECO 4.1 bis): `src/fuentes.ts` se prueba en `tests/fuentes.test.ts`. Jest solo busca ahí (`roots` y `testMatch` apuntan a `tests/`) y mide `src/` (sin `src/tokens/`, que se genera) con un umbral de **50 % de líneas** (E17-ECO 5.5; hoy 100 %).
