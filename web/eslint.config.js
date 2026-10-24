@@ -1,4 +1,5 @@
 import js from "@eslint/js";
+import { defineConfig } from "eslint/config";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import reactHooks from "eslint-plugin-react-hooks";
 import globals from "globals";
@@ -32,7 +33,7 @@ const colorOMedidaSuelta = [
   },
 ];
 
-export default tseslint.config(
+export default defineConfig(
   {
     ignores: [
       "dist/",
