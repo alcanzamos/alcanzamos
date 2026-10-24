@@ -1,4 +1,5 @@
 import js from "@eslint/js";
+import { defineConfig } from "eslint/config";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactNativeA11y from "eslint-plugin-react-native-a11y";
 import globals from "globals";
@@ -45,7 +46,7 @@ const colorOMedidaSuelta = [
   },
 ];
 
-export default tseslint.config(
+export default defineConfig(
   {
     ignores: ["coverage/", ".expo/", "dist/", "src/tokens/tokens.generated.ts"],
   },

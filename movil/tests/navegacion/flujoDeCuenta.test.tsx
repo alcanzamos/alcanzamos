@@ -16,7 +16,7 @@ const titulo = (nombre: string) => screen.queryByRole('header', { name: nombre }
 async function elegirFecha(fecha: Date) {
   await fireEvent.press(screen.getByRole('button', { name: /Fecha de nacimiento/ }));
   await act(async () => {
-    abrir.mock.calls.at(-1)[0].onChange({ type: 'set' }, fecha);
+    abrir.mock.calls.at(-1)[0].onValueChange({ nativeEvent: { timestamp: fecha.getTime(), utcOffset: 0 } }, fecha);
   });
 }
 
