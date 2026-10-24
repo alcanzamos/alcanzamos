@@ -1,0 +1,380 @@
+[
+  {
+    "paquete": "@babel/plugin-transform-block-scoping",
+    "version": "7.29.11",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-23; cumple 7 días el 2026-10-30. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@babel/plugin-transform-classes",
+    "version": "7.29.11",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-23; cumple 7 días el 2026-10-30. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@expo/cli",
+    "version": "58.1.15",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-23; cumple 7 días el 2026-10-30. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@expo/config",
+    "version": "58.0.8",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-23; cumple 7 días el 2026-10-30. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@expo/config-plugins",
+    "version": "58.0.10",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@expo/env",
+    "version": "2.5.3",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@expo/fingerprint",
+    "version": "0.21.6",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@expo/inline-modules",
+    "version": "0.2.7",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@expo/local-build-cache-provider",
+    "version": "58.0.8",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-23; cumple 7 días el 2026-10-30. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@expo/log-box",
+    "version": "58.0.13",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@expo/metro-config",
+    "version": "58.0.17",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-23; cumple 7 días el 2026-10-30. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@expo/modules-macros-linux-arm64",
+    "version": "0.22.0",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-20; cumple 7 días el 2026-10-27. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@expo/modules-macros-linux-x64",
+    "version": "0.22.0",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-20; cumple 7 días el 2026-10-27. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@expo/modules-macros-win32-arm64",
+    "version": "0.22.0",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-20; cumple 7 días el 2026-10-27. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@expo/modules-macros-win32-x64",
+    "version": "0.22.0",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-20; cumple 7 días el 2026-10-27. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@expo/prebuild-config",
+    "version": "58.0.16",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-23; cumple 7 días el 2026-10-30. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@expo/router-server",
+    "version": "58.0.17",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-23; cumple 7 días el 2026-10-30. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@noxcturnal/noxcturnal-darwin-arm64",
+    "version": "0.1.9",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-23; cumple 7 días el 2026-10-30. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@noxcturnal/noxcturnal-darwin-x64",
+    "version": "0.1.9",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-23; cumple 7 días el 2026-10-30. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@noxcturnal/noxcturnal-linux-arm64-gnu",
+    "version": "0.1.9",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-23; cumple 7 días el 2026-10-30. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@noxcturnal/noxcturnal-linux-arm64-musl",
+    "version": "0.1.9",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-23; cumple 7 días el 2026-10-30. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@noxcturnal/noxcturnal-linux-x64-gnu",
+    "version": "0.1.9",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-23; cumple 7 días el 2026-10-30. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@noxcturnal/noxcturnal-linux-x64-musl",
+    "version": "0.1.9",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-23; cumple 7 días el 2026-10-30. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@noxcturnal/noxcturnal-win32-arm64-msvc",
+    "version": "0.1.9",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-23; cumple 7 días el 2026-10-30. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@noxcturnal/noxcturnal-win32-x64-msvc",
+    "version": "0.1.9",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-23; cumple 7 días el 2026-10-30. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@types/react-reconciler",
+    "version": "0.34.1",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@typescript-eslint/eslint-plugin",
+    "version": "8.72.0",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@typescript-eslint/parser",
+    "version": "8.72.0",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@typescript-eslint/project-service",
+    "version": "8.72.0",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@typescript-eslint/scope-manager",
+    "version": "8.72.0",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@typescript-eslint/tsconfig-utils",
+    "version": "8.72.0",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@typescript-eslint/type-utils",
+    "version": "8.72.0",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@typescript-eslint/types",
+    "version": "8.72.0",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@typescript-eslint/typescript-estree",
+    "version": "8.72.0",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@typescript-eslint/utils",
+    "version": "8.72.0",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "@typescript-eslint/visitor-keys",
+    "version": "8.72.0",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "babel-preset-expo",
+    "version": "58.0.20",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-23; cumple 7 días el 2026-10-30. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "baseline-browser-mapping",
+    "version": "2.11.30",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "browserslist",
+    "version": "4.29.4",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "caniuse-lite",
+    "version": "1.0.30001819",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-22; cumple 7 días el 2026-10-29. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "core-js-compat",
+    "version": "3.51.0",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "electron-to-chromium",
+    "version": "1.5.463",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "expo",
+    "version": "58.0.19",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-23; cumple 7 días el 2026-10-30. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "expo-asset",
+    "version": "58.0.18",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "expo-constants",
+    "version": "58.0.13",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "expo-file-system",
+    "version": "58.0.11",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-23; cumple 7 días el 2026-10-30. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "expo-font",
+    "version": "58.0.10",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-23; cumple 7 días el 2026-10-30. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "expo-modules-autolinking",
+    "version": "58.0.15",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-23; cumple 7 días el 2026-10-30. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "expo-modules-cli",
+    "version": "0.3.2",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-23; cumple 7 días el 2026-10-30. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "expo-modules-core",
+    "version": "58.0.26",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-23; cumple 7 días el 2026-10-30. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "expo-modules-jsi",
+    "version": "58.0.19",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-23; cumple 7 días el 2026-10-30. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "expo-modules-macros",
+    "version": "0.22.0",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-20; cumple 7 días el 2026-10-27. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "expo-server",
+    "version": "58.0.6",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-23; cumple 7 días el 2026-10-30. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "expo-status-bar",
+    "version": "58.0.4",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "ignore",
+    "version": "7.0.13",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "jest-expo",
+    "version": "58.0.12",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-21; cumple 7 días el 2026-10-28. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "napi-postinstall",
+    "version": "0.3.7",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-22; cumple 7 días el 2026-10-29. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "node-releases",
+    "version": "2.0.60",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-22; cumple 7 días el 2026-10-29. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "noxcturnal",
+    "version": "0.1.9",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-23; cumple 7 días el 2026-10-30. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "on-finished",
+    "version": "2.4.2",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-22; cumple 7 días el 2026-10-29. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "postcss",
+    "version": "8.5.31",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-18; cumple 7 días el 2026-10-25. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "typescript-eslint",
+    "version": "8.72.0",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-19; cumple 7 días el 2026-10-26. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  },
+  {
+    "paquete": "xcode",
+    "version": "4.0.0",
+    "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-20; cumple 7 días el 2026-10-27. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",
+    "revisar_antes_de": "2026-11-01"
+  }
+]

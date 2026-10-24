@@ -48,7 +48,7 @@ Base de la US-57 (Vite, React, TypeScript, tokens, fuentes propias, CSP) y, desd
 
 ## Cómo se usa
 
-Requiere Node 24.22.1 o superior. Desde `web/`:
+Requiere Node 24.22.1 o superior y npm 12.2.1 (ver [Instalación de dependencias](#instalación-de-dependencias-npm-1221)). Desde `web/`:
 
 ```
 npm ci                # instala las versiones fijadas
@@ -113,31 +113,91 @@ Una expresión SPDX con `OR` pasa si alguna opción está permitida; con `AND`, 
 
 Las fuentes (Figtree y Atkinson Hyperlegible Next) son `OFL-1.1` y no son paquetes de npm: vienen de `diseno/fuentes/` y su licencia viaja en `dist/fuentes/`. Por eso esta revisión no las cubre.
 
+## Instalación de dependencias (npm 12.2.1)
+
+Requiere **npm 12.2.1 exacto** (`engines` de `package.json`; `engine-strict=true` hace fallar la instalación con otra versión). Para instalarlo en un equipo con npm 11, fuera de `web/` y `movil/` (su `.npmrc` exige npm 12), con la misma verificación que los pipelines:
+
+```
+cd "$(mktemp -d)"
+curl -fsSLO https://registry.npmjs.org/npm/-/npm-12.2.1.tgz
+echo "6ca0a6151553fc107e60f1186d9c10d57508dcde6de31292a54d4cc4e8e8ef3de25b3281274657442d7115d10df930bb3794ddcb0681cdfd9d317189abf7b63d  npm-12.2.1.tgz" | sha512sum --check --strict -
+npm install --global ./npm-12.2.1.tgz
+hash -r
+npm --version   # 12.2.1
+```
+
+npm 12.2.1 pide Node `^22.22.2 || ^24.15.0 || >=26`. Con un gestor de versiones de Node (mise, nvm), npm se instala dentro de esa versión de Node: al cambiar o reinstalar Node hay que repetir los pasos. Los pipelines y la imagen de Docker descargan el tarball del registro y verifican su SHA-512 antes de instalarlo.
+
+`web/.npmrc` fija las reglas y se aplica igual en local, en `.azure-pipelines/web.yml` y en `api/Dockerfile` (que lo copia antes de `npm ci`); no se repiten en la línea de comandos:
+
+| Opción                                | Efecto                                                                                                                                |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `strict-allow-scripts=true`           | Una dependencia con scripts de instalación que no esté en `allowScripts` hace fallar `npm ci` e `npm install` (`ESTRICTALLOWSCRIPTS`) |
+| `min-release-age=7`                   | La resolución no elige versiones publicadas hace menos de 7 días                                                                      |
+| `allow-git=none`, `allow-remote=none` | Sin dependencias desde git ni desde URL                                                                                               |
+| `engine-strict=true`                  | Node y npm de `engines` son obligatorios                                                                                              |
+
+`min-release-age-exclude[]` queda vacío. Solo se agregaría un paquete para una corrección de seguridad urgente, con su motivo y su fecha en esta sección.
+
+### `min-release-age` frente al lockfile (medido con npm 12.2.1, 2026-10-24)
+
+- **`npm ci` respeta el lockfile y no aplica la edad:** instala versiones fijadas con menos de 7 días (aquí, p. ej. `vite` 8.3.5, publicado el 2026-10-21), también con la caché vacía. No falla ni avisa.
+- **`npm install` sin cambios en `package.json`:** igual, deja el lockfile como está.
+- **Cualquier resolución nueva sí la aplica:** `npm install paquete` elige la última versión con 7 días o más; `npm install paquete@x.y.z` con una versión más joven falla con `ETARGET` («No matching version found … with a date before …»); si `package.json` pide una versión joven que el lockfile no tiene, `npm install` falla igual; `npm update` **baja** una versión joven del lockfile a una anterior que cumpla el rango.
+- **Consecuencia:** subir una dependencia exacta publicada hace menos de 7 días no se puede instalar hasta que cumpla la edad, o hasta agregarla a `min-release-age-exclude[]` con motivo y fecha. Un lockfile que ya la trae sigue instalándose. Este proyecto fija versiones exactas; una subida de SDK con paquetes de menos de una semana espera 7 días o se excluye paquete por paquete.
+- Con un paquete joven explícito en un árbol con dependencias de pares (`npm install vite@8.3.5 --save-exact` en `web/`) npm no terminó en 300 s (repite avisos `ERESOLVE overriding peer dependency`); con `timeout` se corta sin cambios.
+
+### Revisión de antigüedad del lockfile (D-158)
+
+`npm run antiguedad` (`scripts/antiguedad.mjs`, lógica en `scripts/antiguedad-logica.mjs`, pruebas en `tests/antiguedad.test.ts`) tapa el hueco de `npm ci`. Corre en el pipeline **antes** de `npm ci` y no usa dependencias, así que funciona sin `node_modules`. Compara cada versión de `package-lock.json` con su fecha de publicación en el registro (el campo `time` del documento del paquete) y falla:
+
+- con una versión publicada hace menos de `min-release-age` días (se lee de `.npmrc`) que no tenga una excepción vigente;
+- si no puede obtener la fecha de un paquete o el registro no la tiene para esa versión (tres intentos por paquete; no la da por buena);
+- con una excepción vencida (`revisar_antes_de` anterior a hoy, en UTC) o que no corresponde a ninguna versión del lockfile;
+- con una entrada del lockfile que no viene del registro.
+
+Las excepciones van en `antiguedad-excepciones.json`, una por versión, con `paquete`, `version`, `motivo` y `revisar_antes_de` (la fecha de vencimiento), como las de auditoría. Una excepción de una versión que ya cumple la edad se informa como sobrante, pero no falla hasta vencer. Para instalar una versión joven por una corrección de seguridad urgente hacen falta dos cosas: `min-release-age-exclude[]` en `.npmrc` (para que npm la resuelva) y su excepción aquí (para que pase esta revisión).
+
+**Transición (D-158):** el archivo arranca con 39 excepciones, las versiones que ya estaban en el lockfile de `main` el 2026-10-24 con menos de 7 días (la mayoría entró con el SDK 58). Todas vencen el 2026-11-01 (D-159): el motivo de cada una dice el día en que esa versión cumple 7 días (entre el 2026-10-25 y el 2026-10-30), y el PR del 2026-11-01 vacía el archivo. Si no se vacía, el pipeline falla desde el 2026-11-02.
+
+**Riesgo aceptado (D-158):** npm no detecta que un paquete perdió nivel de confianza (por ejemplo, que pasó de publicarse desde un pipeline con procedencia a publicarse sin ella). Se mitiga con la revisión de los cambios del lockfile en cada PR y con `npm audit signatures`.
+
+### Scripts de instalación (`allowScripts`)
+
+Inventario con `npm install-scripts ls` y `hasInstallScript` del lockfile. **Ninguna dependencia necesita ejecutar scripts**: se verificó instalando con todas denegadas y corriendo todas las comprobaciones.
+
+| Paquete          | Script                         | Decisión | Por qué / qué falla si se deniega                                                                                                                                                                                                            |
+| ---------------- | ------------------------------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fsevents` 2.3.3 | `install` (`node-gyp rebuild`) | Denegado | Dependencia opcional solo de macOS para vigilar archivos (Vite la usa si está). No se instala en Linux. Sin ella, Vite vigila con `fs.watch`. **No se pudo probar en macOS**; se deja denegada para que `strict-allow-scripts` no falle allí |
+
+Las denegaciones van por nombre (sin versión): valen para cualquier versión y sobreviven a `npm install-scripts approve --all`. Si algún día hace falta aprobar un paquete, se aprueba **fijado** (`paquete@x.y.z`, el valor por defecto de `npm install-scripts approve`) para que una versión nueva con otro script vuelva a pedir revisión; como las dependencias de este proyecto ya están fijadas, subir la versión ya exige tocar `package.json` y de paso revisar la aprobación. Una dependencia nueva con scripts hace fallar la instalación hasta decidir con `npm install-scripts approve|deny <paquete>`.
+
 ## Versiones
 
 Todas fijadas exactamente (sin `^` ni `~`) y verificadas en el registro de npm (`https://registry.npmjs.org/<paquete>`) y en nodejs.org el **2026-10-22**.
 
-| Paquete                         | Versión     | Nota                                                                                                                                                                               |
-| ------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `react`, `react-dom`            | 19.2.3      | Igual que `movil/`. La última en npm es 19.3.1; no se adopta para no separarse de `movil/`                                                                                         |
-| `typescript`                    | 6.0.3       | Igual que `movil/`; `typescript-eslint` 8.72.0 acepta `>=4.8.4 <6.1.0`. La última en npm es 7.0.2, fuera de ese rango                                                              |
-| `vite`                          | 8.3.5       | Última                                                                                                                                                                             |
-| `@vitejs/plugin-react`          | 6.1.2       | Última; pide `vite ^8`                                                                                                                                                             |
-| `vitest`, `@vitest/coverage-v8` | 5.0.5       | Última                                                                                                                                                                             |
-| `jsdom`                         | 30.1.3      | Última                                                                                                                                                                             |
-| `@testing-library/react`        | 16.3.3      | Última                                                                                                                                                                             |
-| `@testing-library/dom`          | 10.4.2      | Última; la pide `@testing-library/react`                                                                                                                                           |
-| `@testing-library/jest-dom`     | 7.0.1       | Última                                                                                                                                                                             |
-| `@playwright/test`              | 1.64.1      | Última                                                                                                                                                                             |
-| `@axe-core/playwright`          | 4.14.0      | Última                                                                                                                                                                             |
-| `eslint`, `@eslint/js`          | 9.39.5      | **No es la última** (10.13.0): `eslint-plugin-jsx-a11y` 6.10.2, la última, solo acepta ESLint hasta 9. ESLint 9 figura como sin soporte; se revisa cuando el complemento admita 10 |
-| `typescript-eslint`             | 8.72.0      | Última                                                                                                                                                                             |
-| `eslint-plugin-react-hooks`     | 7.1.1       | Última                                                                                                                                                                             |
-| `eslint-plugin-jsx-a11y`        | 6.10.2      | Última                                                                                                                                                                             |
-| `globals`                       | 17.13.0     | Última                                                                                                                                                                             |
-| `prettier`                      | 3.9.10      | Última                                                                                                                                                                             |
-| `style-dictionary`              | 5.7.0       | Igual que `movil/`                                                                                                                                                                 |
-| `@types/react`                  | 19.2.4      | Igual que `movil/`                                                                                                                                                                 |
-| `@types/react-dom`              | 19.2.3      | Coincide con `react-dom`                                                                                                                                                           |
-| `@types/node`                   | 24.19.2     | Última de la serie 24, la del Node del pipeline                                                                                                                                    |
-| Node (pipeline)                 | 24.22.1 LTS | nodejs.org; SHA-256 del tarball fijado en `.azure-pipelines/web.yml`                                                                                                               |
+| Paquete                           | Versión     | Nota                                                                                                                                                                               |
+| --------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `react`, `react-dom`              | 19.2.3      | Igual que `movil/`. La última en npm es 19.3.1; no se adopta para no separarse de `movil/`                                                                                         |
+| `typescript`                      | 6.0.3       | Igual que `movil/`; `typescript-eslint` 8.72.0 acepta `>=4.8.4 <6.1.0`. La última en npm es 7.0.2, fuera de ese rango                                                              |
+| `vite`                            | 8.3.5       | Última                                                                                                                                                                             |
+| `@vitejs/plugin-react`            | 6.1.2       | Última; pide `vite ^8`                                                                                                                                                             |
+| `vitest`, `@vitest/coverage-v8`   | 5.0.5       | Última                                                                                                                                                                             |
+| `jsdom`                           | 30.1.3      | Última                                                                                                                                                                             |
+| `@testing-library/react`          | 16.3.3      | Última                                                                                                                                                                             |
+| `@testing-library/dom`            | 10.4.2      | Última; la pide `@testing-library/react`                                                                                                                                           |
+| `@testing-library/jest-dom`       | 7.0.1       | Última                                                                                                                                                                             |
+| `@playwright/test`                | 1.64.1      | Última                                                                                                                                                                             |
+| `@axe-core/playwright`            | 4.14.0      | Última                                                                                                                                                                             |
+| `eslint`, `@eslint/js`            | 9.39.5      | **No es la última** (10.13.0): `eslint-plugin-jsx-a11y` 6.10.2, la última, solo acepta ESLint hasta 9. ESLint 9 figura como sin soporte; se revisa cuando el complemento admita 10 |
+| `typescript-eslint`               | 8.72.0      | Última                                                                                                                                                                             |
+| `eslint-plugin-react-hooks`       | 7.1.1       | Última                                                                                                                                                                             |
+| `eslint-plugin-jsx-a11y`          | 6.10.2      | Última                                                                                                                                                                             |
+| `globals`                         | 17.13.0     | Última                                                                                                                                                                             |
+| `prettier`                        | 3.9.10      | Última                                                                                                                                                                             |
+| `style-dictionary`                | 5.7.0       | Igual que `movil/`                                                                                                                                                                 |
+| `@types/react`                    | 19.2.4      | Igual que `movil/`                                                                                                                                                                 |
+| `@types/react-dom`                | 19.2.3      | Coincide con `react-dom`                                                                                                                                                           |
+| `@types/node`                     | 24.19.2     | Última de la serie 24, la del Node del pipeline                                                                                                                                    |
+| npm (pipeline, Docker, `engines`) | 12.2.1      | registro de npm, 2026-10-24; requiere Node `^22.22.2 \|\| ^24.15.0 \|\| >=26`; SHA-512 del tarball fijado en `.azure-pipelines/web.yml` y `api/Dockerfile`                         |
+| Node (pipeline)                   | 24.22.1 LTS | nodejs.org; SHA-256 del tarball fijado en `.azure-pipelines/web.yml`                                                                                                               |
