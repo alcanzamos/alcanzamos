@@ -42,9 +42,9 @@ Rama `feat/us-49-movil-componentes` (D-155). Los componentes de E14-SDD 5 en Rea
 - **`accessibilityHint`:** E14 no define pistas; se usa el texto de ayuda del campo donde existe. El plugin de ESLint (`has-accessibility-hint`) exige la pista junto a todo `accessibilityLabel`; dos casos la omiten con la razón escrita (el logo y el botón Ver y Ocultar, de los que E14 fija solo el nombre).
 - **Pruebas:** `tests/ayudas/preparar.ts` mockea los márgenes del sistema (`react-native-safe-area-context`) para todas las pruebas.
 
-### Aviso de la auditoría al sumar el selector de fecha
+### Por qué el selector de fecha aparece en la auditoría
 
-`npm run auditoria` **falla desde esta rama**, sin ningún aviso nuevo: `@react-native-community/datetimepicker` declara `expo` como dependencia par opcional y `npm audit` lista ahora al selector como «vulnerable» por esa vía. Los dos avisos con excepción (`node-forge` y `zod`) ganan un camino más, `@react-native-community/datetimepicker > expo > @expo/cli > …`, y el script exige que el dueño revise las `rutas` de `auditoria-excepciones.json`. No se agregó ni se cambió ninguna excepción (D-155): queda para decisión del dueño.
+`@react-native-community/datetimepicker` declara `expo` como dependencia par opcional y `npm audit` lo lista como «vulnerable» solo por esa vía (sin aviso propio), así que las dos excepciones de `auditoria-excepciones.json` (`node-forge` y `zod`) suman los caminos que entran por el selector, con los mismos avisos, motivo y fecha de revisión; la comprobación del paquete sigue cubriendo que no entren en la app (D-156).
 
 ## Crear la cuenta, verificar el correo y la pantalla provisional (US-49, A3)
 
@@ -81,6 +81,8 @@ npm run typecheck       # incluye las pruebas
 ```
 
 Las pruebas de la lógica de `scripts/` (`auditoria-logica.mjs`, `licencias-logica.mjs` y `bundle-logica.mjs`) también van en `tests/` y cuentan en Jest y en la cobertura. Los `.mjs` pasan por `babel-jest` (clave `transform` de la configuración de Jest) porque el preset de Expo solo transforma `.js`, `.ts` y `.tsx`.
+
+`tests/paridad-textos.test.ts` falla si un texto presente en `web/src/textos.ts` y en `src/textos.ts` difiere (misma ruta de claves, otra cadena) y lista, sin fallar, los textos de un solo lado (los de Android se permiten). Es un parche hasta el archivo único de textos de `diseno/` (D-156 (3b)); cumple la regla 4.13 de E17-ECO (paso 51).
 
 Versiones fijadas sin `~` ni `^`, verificadas en el registro de npm el 2026-10-23: `jest-expo` 57.0.6 (etiqueta `sdk-57`, publicada el 2026-10-12; `expo/bundledNativeModules.json` pide `~57.0.6`), `@react-native/jest-preset` 0.86.3 (peer de `jest-expo`, misma versión que `react-native`), `jest` 30.5.2 (2026-09-18, última), `@types/jest` 30.0.0 (última), `@testing-library/react-native` 14.1.0 (2026-10-08, última) y `test-renderer` 1.3.1 (2026-10-12; peer de la anterior).
 
