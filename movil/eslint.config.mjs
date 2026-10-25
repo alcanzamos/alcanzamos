@@ -100,11 +100,9 @@ export default defineConfig(
     rules: { "no-restricted-syntax": "off" },
   },
   {
-    // D-162 no se aplica a estos dos archivos (siguen con la regla de colores y medidas): PantallaCifras es la pantalla
-    // de prueba de tipografía (cifras inventadas; App.tsx ya no la monta) y los dos mensajes de App.tsx son los de la
-    // carga de fuentes, que salen antes de que la app tenga textos y no están en E14-PCP. Esos mensajes quedan
-    // pendientes de que el dueño los lleve a E14 como «propuesto»; entonces pasan a es.json y se quita esta excepción.
-    files: ["App.tsx", "src/PantallaCifras.tsx"],
+    // D-162 no se aplica a PantallaCifras (siguen la regla de colores y medidas): es la pantalla de prueba de
+    // tipografía, con cifras inventadas, y ninguna parte de la app la monta ya. App.tsx vuelve a la regla (D-163).
+    files: ["src/PantallaCifras.tsx"],
     rules: { "no-restricted-syntax": ["error", ...colorOMedidaSuelta] },
   },
   {
