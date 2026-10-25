@@ -102,7 +102,7 @@ function expectTypeOfIgual<A, B>(..._: [A] extends [B] ? ([B] extends [A] ? [] :
   return _;
 }
 
-describe('plural (S4: one y other con Intl.PluralRules)', () => {
+describe('plural (S4, D-163: one y other con la regla manual del español)', () => {
   const ingresos = textos.porConfirmar.ingresos;
 
   it.each([
@@ -115,9 +115,16 @@ describe('plural (S4: one y other con Intl.PluralRules)', () => {
     expect(plural(ingresos, n)).toBe(esperado);
   });
 
-  it('en español 1000000 es «many» para Intl.PluralRules y aquí cae en «other»', () => {
-    expect(['many', 'other']).toContain(new Intl.PluralRules('es').select(1e6));
-    expect(plural(ingresos, 2e6)).toBe('2000000 ingresos');
+  it('solo el 1 es «one»; 0, 2 y los millones son «other»', () => {
+    expect(plural(ingresos, 1)).toBe('1 ingreso');
+    for (const n of [0, 2, 13, 1000000]) expect(plural(ingresos, n)).toBe(`${n} ingresos`);
+  });
+
+  it('no usa Intl.PluralRules (Hermes no la trae): ni la consulta ni la necesita', () => {
+    const select = jest.spyOn(Intl.PluralRules.prototype, 'select');
+    for (const n of [0, 1, 2, 13, 1000000]) plural(ingresos, n);
+    expect(select).not.toHaveBeenCalled();
+    select.mockRestore();
   });
 
   it('una forma puede no llevar {n}, y los demás marcadores se piden exactos', () => {
@@ -126,38 +133,5 @@ describe('plural (S4: one y other con Intl.PluralRules)', () => {
     expect(plural(formas, 2, { quien: 'Laura' })).toBe('2 cosas de Laura');
     // @ts-expect-error falta el dato «quien»
     expect(() => plural(formas, 2)).toThrow(/faltan \[quien\]/);
-  });
-
-  // Hermes (Android) no trae Intl.PluralRules (facebook/hermes#1462): la app no puede caerse al arrancar por eso.
-  describe('sin Intl.PluralRules (Hermes)', () => {
-    const intl = Intl as { PluralRules?: unknown };
-    const original = intl.PluralRules;
-    afterEach(() => {
-      intl.PluralRules = original;
-    });
-
-    function pluralSinIntl() {
-      intl.PluralRules = undefined;
-      let modulo!: typeof import('../../src/textos/es.generated');
-      jest.isolateModules(() => {
-        // isolateModules es síncrono: pide require, no import() (que Jest no admite sin --experimental-vm-modules).
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        modulo = require('../../src/textos/es.generated');
-      });
-      return modulo;
-    }
-
-    it('el módulo se carga y la regla es: one solo para 1, other para lo demás', () => {
-      const { plural: sinIntl, textos: t } = pluralSinIntl();
-      expect(typeof Intl.PluralRules).toBe('undefined');
-      expect(sinIntl(t.porConfirmar.ingresos, 1)).toBe('1 ingreso');
-      for (const n of [0, 2, 13, 1000000]) expect(sinIntl(t.porConfirmar.ingresos, n)).toBe(`${n} ingresos`);
-    });
-
-    it.each([0, 1, 2, 3, 11, 13, 100, 1000000, 2000000])('da lo mismo que con Intl.PluralRules con %d', (n) => {
-      const { plural: sinIntl, textos: t } = pluralSinIntl();
-      intl.PluralRules = original;
-      expect(sinIntl(t.porConfirmar.gastos, n)).toBe(plural(textos.porConfirmar.gastos, n));
-    });
   });
 });

@@ -164,12 +164,16 @@ export const textos = {
     },
   },
   porConfirmar: {
-    // E14-PRR 4.7 (PN-72, D-093): «13 por confirmar: 2 ingresos y 11 gastos»
+    // E14-PRR 1.6 (PN-72, D-093, aprobado en D-163): «13 por confirmar: 2 ingresos y 11 gastos»
     resumen: "{total} por confirmar: {ingresos} y {gastos}",
-    // E14-PRR 4.7 (PN-72, D-093): «2 ingresos»; «1 ingreso» es el ejemplo del dueño (US-59, S4)
+    // E14-PRR 1.6 (PN-72, D-163): «2 ingresos» y «1 ingreso», con los dos tipos
     ingresos: { one: "{n} ingreso", other: "{n} ingresos" },
-    // E14-PRR 4.7 (PN-72, D-093): «11 gastos»; «1 gasto» es propuesto (derivado de «1 ingreso»), falta llevarlo a E14
+    // E14-PRR 1.6 (PN-72, D-163): «11 gastos» y «1 gasto», con los dos tipos
     gastos: { one: "{n} gasto", other: "{n} gastos" },
+    // E14-PRR 1.6 (PN-72, D-163): con un solo tipo, sin el cero y sin repetir el número: «13 ingresos por confirmar», «1 ingreso por confirmar»
+    soloIngresos: { one: "{n} ingreso por confirmar", other: "{n} ingresos por confirmar" },
+    // E14-PRR 1.6 (PN-72, D-163): con un solo tipo, sin el cero y sin repetir el número: «13 gastos por confirmar», «1 gasto por confirmar»
+    soloGastos: { one: "{n} gasto por confirmar", other: "{n} gastos por confirmar" },
   },
   pagina: {
     // E14-PCP 4.2 bis; E14-PCP 4.3 (PN-60); E14-PCP 4.4 bis; E14-PCP 4.6 (PN-63); E14-PCP 4.10 (PN-67); E14-PCP 4.11 (PN-68); E14-PCP 4.13 (PN-70); E14-PCP 4.16
@@ -293,6 +297,12 @@ export const textos = {
     // E14-PCP 4.7 (PN-64)
     titulo: "Sin esta autorización no podemos darte la cuenta.",
   },
+  arranque: {
+    // E14-PCP 1.19 (arranque de la app en Android, aprobado en D-163)
+    cargando: "Cargando…",
+    // E14-PCP 1.19 (arranque de la app en Android, aprobado en D-163)
+    noAbrio: "No pudimos abrir la app. Ciérrala y vuelve a abrirla.",
+  },
   textosDeEdad: {
     // E14-PCP 4.8: los dos errores de la fecha de nacimiento de PN-65. La fecha nunca sale del teléfono: se revisa aquí.
     vacia: "Falta la fecha de nacimiento.",
@@ -366,24 +376,18 @@ export function formatear<T extends string>(texto: T, ...argumentos: Argumentos<
   return texto.replace(MARCADOR, (_, nombre: string) => datos[nombre] ?? '');
 }
 
-// Hermes (Android) no implementa `Intl.PluralRules` (facebook/hermes#1462, abierto): crearla sin revisar tumbaría la app
-// al arrancar. Sin ella se usa la regla del español para enteros: `one` solo para 1; lo demás es `other`. Es el mismo
-// resultado que la convención de abajo con `Intl.PluralRules`, que solo agrega `many` para millones exactos.
-const reglasDePlural =
-  typeof Intl !== 'undefined' && typeof Intl.PluralRules === 'function' ? new Intl.PluralRules('es') : undefined;
-
 /**
- * Elige la forma del plural y pone el número en `{n}`. La convención usa solo `one` y `other`: en español
- * `Intl.PluralRules` da `one` para 1, `other` para el resto y `many` para los millones exactos (1000000), que aquí
- * cae en `other`; sin `Intl.PluralRules` (Hermes) solo el 1 es `one`. El número va tal cual (sin separador de miles):
- * son recuentos pequeños.
+ * Elige la forma del plural y pone el número en `{n}`. La convención usa solo `one` y `other`, con la regla manual del
+ * español para enteros: `one` solo para 1 y `other` para todo lo demás (también 0 y los millones). No usa
+ * `Intl.PluralRules`: Hermes (Android) no la implementa (facebook/hermes#1462) y así web y Android siguen un mismo
+ * camino (D-163). El número va tal cual (sin separador de miles): son recuentos pequeños.
  */
 export function plural<F extends FormasDePlural>(
   formas: F,
   n: number,
   ...argumentos: ArgumentosDePlural<F>
 ): string {
-  const forma = (reglasDePlural ? reglasDePlural.select(n) === 'one' : n === 1) ? formas.one : formas.other;
+  const forma = n === 1 ? formas.one : formas.other;
   const datos: Record<string, string> = { ...(argumentos[0] ?? {}) };
   if (nombresDe(forma).includes('n')) datos.n = String(n);
   return (formatear as (texto: string, datos: Record<string, string>) => string)(forma, datos);

@@ -127,6 +127,9 @@ const erroresDeCampo = {
   },
 } satisfies Record<string, Record<string, string>>;
 
+// E14-PCP 1.19 (D-163): lo que dice App.tsx al arrancar en Android, mientras cargan las fuentes y si fallan
+export const textosDeArranque = textos.arranque;
+
 // E14-PCP 4.8: los dos errores de la fecha de nacimiento de PN-65. La fecha nunca sale del teléfono: se revisa aquí.
 export const textosDeEdad = textos.textosDeEdad;
 
@@ -148,10 +151,18 @@ export function avisoDeFallo(
 }
 
 /**
- * El resumen de PN-72 (D-093, E14-PRR 4.7): «13 por confirmar: 2 ingresos y 11 gastos». El total es la suma; los
- * recuentos usan la convención de plurales de US-59 (`one` y `other`). PN-72 todavía no se construye: la llamará.
+ * El resumen de PN-72 (D-093, D-163, E14-PRR 1.6). Con los dos tipos: «13 por confirmar: 2 ingresos y 11 gastos». Con
+ * un solo tipo, sin el cero y sin repetir el número: «13 gastos por confirmar», «1 ingreso por confirmar». Los recuentos
+ * usan la convención de plurales de US-59 (`one` y `other`). E14 no tiene texto para total 0 (PN-72 solo muestra el
+ * resumen cuando hay fechas por confirmar): con 0 y 0 lanza un error, para que un llamado equivocado no pinte un texto
+ * inventado. PN-72 todavía no se construye: la llamará.
  */
 export function resumenPorConfirmar(ingresos: number, gastos: number): string {
+  if (ingresos === 0 && gastos === 0) {
+    throw new Error('resumenPorConfirmar: no hay nada por confirmar y E14 no tiene texto para eso.');
+  }
+  if (gastos === 0) return plural(textos.porConfirmar.soloIngresos, ingresos);
+  if (ingresos === 0) return plural(textos.porConfirmar.soloGastos, gastos);
   return formatear(textos.porConfirmar.resumen, {
     total: String(ingresos + gastos),
     ingresos: plural(textos.porConfirmar.ingresos, ingresos),

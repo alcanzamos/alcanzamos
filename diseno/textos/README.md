@@ -25,7 +25,7 @@ Una hoja es un objeto con el texto y su referencia en E14. Los grupos son objeto
 ```
 
 - `texto`: una cadena, o un plural `{ "one": "…", "other": "…" }`.
-- `e14`: dónde está el texto en E14 (obligatorio). Si el texto no está en E14, la referencia lo dice.
+- `e14`: dónde está el texto en E14 (obligatorio). Todo texto del código ya está aprobado en E14; si uno se propone antes, la referencia lo dice y el dueño lo aprueba antes de que el código lo use.
 - `texto` y `e14` son palabras reservadas: no sirven de nombre de un grupo.
 - Los nombres de las claves son identificadores (`[A-Za-z_][A-Za-z0-9_]*`).
 - Una ruta no puede estar en `comun` y en `solo_<plataforma>` a la vez.
@@ -44,11 +44,12 @@ El módulo generado deja los textos como tipos literales, así que `formatear` p
 
 ## Plurales
 
-En el JSON, `{ "one": "{n} ingreso", "other": "{n} ingresos" }`; `plural(formas, n)` elige la forma con `new Intl.PluralRules('es')` y pone `n` en `{n}`. Las dos formas llevan los mismos marcadores (menos `n`, que una forma puede no llevar: «Un ingreso»); los demás se pasan como en `formatear`.
+En el JSON, `{ "one": "{n} ingreso", "other": "{n} ingresos" }`; `plural(formas, n)` elige la forma y pone `n` en `{n}`. Las dos formas llevan los mismos marcadores (menos `n`, que una forma puede no llevar: «Un ingreso»); los demás se pasan como en `formatear`.
 
-- Solo hay `one` y `other`. En español `Intl.PluralRules` da `one` para 1, `other` para el resto y **`many` para los millones exactos** (`select(1000000)` es `many`, comprobado en Node 26): `many` cae en `other`.
+- Solo hay `one` y `other`, con **una regla manual del español**: `n === 1` es `one` y todo lo demás (0, 2, 13, los millones) es `other`.
+- **No se usa `Intl.PluralRules`** (D-163). Hermes (Android) no la implementa (su `doc/IntlAPIs.md` no la lista y facebook/hermes#1462 sigue abierta, consultado el 2026-10-24); así web y Android siguen un mismo camino, sin ramas por plataforma, y las pruebas (que corren en Node) prueban el mismo código que corre en el teléfono.
 - `n` va tal cual (`String(n)`), sin separador de miles: son recuentos pequeños.
-- **Hermes (Android) no implementa `Intl.PluralRules`** (su `doc/IntlAPIs.md` no la lista y facebook/hermes#1462 sigue abierta, consultado el 2026-10-24). `plural` comprueba que exista y, si no, usa `one` solo para 1 y `other` para lo demás: es el mismo resultado de la convención. Sin esa comprobación, crear la regla al cargar el módulo tumbaría la app. Hay prueba de las dos rutas en web y móvil.
+- Un texto que cambia según el tipo, como el recuento de PN-72, tiene un plural por cada forma (`porConfirmar.ingresos`, `soloIngresos`…) y la función que elige cuál usar vive en `textos.ts` de cada app (`resumenPorConfirmar`).
 
 ## Qué sección va cada texto
 
@@ -58,7 +59,7 @@ En el JSON, `{ "one": "{n} ingreso", "other": "{n} ingresos" }`; `plural(formas,
 
 ## Cómo se comprueba
 
-- Web (Vitest, `web/tests/textos/`): tipos y ejecución de `formatear` y `plural` (con y sin `Intl.PluralRules`); el escaneo de `es.json` (cada `{…}` es un marcador válido, sin llaves sueltas, hojas bien formadas); que `es.generated.ts` es lo que genera el generador; y que toda clave usada existe y toda clave de `comun` o `solo_web` la usa alguien.
+- Web (Vitest, `web/tests/textos/`): tipos y ejecución de `formatear` y `plural` (regla manual: 0, 1, 2, 13 y 1000000); el escaneo de `es.json` (cada `{…}` es un marcador válido, sin llaves sueltas, hojas bien formadas); que `es.generated.ts` es lo que genera el generador; y que toda clave usada existe y toda clave de `comun` o `solo_web` la usa alguien.
 - ESLint de web y de móvil: `no-restricted-syntax` impide textos sueltos en JSX (D-162); `web/tests/eslint/texto-suelto.test.ts` y `movil/tests/eslint/texto-suelto.test.ts` lo prueban.
-- Móvil (Jest, `movil/tests/textos/`): el equivalente de la web para `comun` + `solo_android` (claves usadas y sobrantes, marcadores exactos en tipo y ejecución, plurales con y sin `Intl.PluralRules`, `es.generated.ts` igual a lo generado) y que ningún texto de `es.json` esté copiado en `movil/src` fuera del módulo generado. Reemplaza a la prueba de paridad del paso 51.
+- Móvil (Jest, `movil/tests/textos/`): el equivalente de la web para `comun` + `solo_android` (claves usadas y sobrantes, marcadores exactos en tipo y ejecución, plurales con la regla manual, `es.generated.ts` igual a lo generado) y que ningún texto de `es.json` esté copiado en `movil/src` fuera del módulo generado. Reemplaza a la prueba de paridad del paso 51.
 - Pipelines: un cambio en `diseno/` corre los de `web` y `movil` (y el de `api`); los dos regeneran los textos y fallan si el archivo generado cambia.
