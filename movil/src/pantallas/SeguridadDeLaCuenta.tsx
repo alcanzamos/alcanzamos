@@ -14,6 +14,7 @@ import { seguirPorAccesoNegado } from '../navegacion/accesoNegado';
 import { avisoDeLlegada, reemplazarPila } from '../navegacion/llegada';
 import type { Rutas } from '../navegacion/rutas';
 import { avisoDeFallo, avisos, type DatosDeAviso } from '../textos';
+import { formatear, textos } from '../textos/es.generated';
 import { tokens } from '../tokens/tokens.generated';
 
 type Estado = { fase: 'cargando' } | { fase: 'error'; aviso: DatosDeAviso } | { fase: 'listo'; ingreso: string | null };
@@ -68,7 +69,7 @@ export function SeguridadDeLaCuenta({ navigation, route }: NativeStackScreenProp
               setIntento(intento + 1);
             }}
           >
-            Intentar de nuevo
+            {textos.acciones.intentarDeNuevo}
           </Boton>
         </>
       )}
@@ -76,28 +77,28 @@ export function SeguridadDeLaCuenta({ navigation, route }: NativeStackScreenProp
         <>
           <View style={estilos.tarjeta}>
             <Text accessibilityRole="header" style={estilos.tituloDeTarjeta}>
-              Tu último ingreso
+              {textos.seguridadDeLaCuenta.tarjeta}
             </Text>
             {fecha ? (
               <>
-                <Text style={estilos.fecha}>{cifras(`Tu ingreso anterior fue ${fecha}`)}</Text>
-                <Texto variante="ayuda">Es la fecha de tu ingreso anterior, no la de ahora.</Texto>
+                <Text style={estilos.fecha}>{cifras(formatear(textos.seguridadDeLaCuenta.ingresoAnterior, { fecha }))}</Text>
+                <Texto variante="ayuda">{textos.seguridadDeLaCuenta.ingresoAclaracion}</Texto>
               </>
             ) : (
-              <Texto>Este es tu primer ingreso.</Texto>
+              <Texto>{textos.seguridadDeLaCuenta.primerIngreso}</Texto>
             )}
           </View>
           {fecha && (
             <>
               <Aviso {...avisos.noReconoceElIngreso} />
               <Boton variante="secundario" alTocar={() => navigation.navigate('CambiarContrasena')}>
-                Cambiar mi contraseña
+                {textos.seguridadDeLaCuenta.cambiarContrasena}
               </Boton>
             </>
           )}
         </>
       )}
-      <BotonDeTexto alTocar={() => void salir()}>Cerrar sesión</BotonDeTexto>
+      <BotonDeTexto alTocar={() => void salir()}>{textos.acciones.cerrarSesion}</BotonDeTexto>
     </Pantalla>
   );
 }

@@ -40,7 +40,7 @@ export function CampoDeFecha({
     <MarcoDeCampo etiqueta={etiqueta} ayuda={ayuda} error={error} enFoco={enFoco}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={texto ? `${etiqueta}, ${texto}` : etiqueta}
+        accessibilityLabel={texto ? [etiqueta, texto].join(', ') : etiqueta}
         accessibilityHint={ayuda}
         onPress={abrir}
         onFocus={() => setEnFoco(true)}

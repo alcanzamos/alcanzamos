@@ -250,16 +250,6 @@
         }
       }
     },
-    "textosDeRepeticion": {
-      "vacia": {
-        "texto": "Falta repetir la contraseña.",
-        "e14": "E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62"
-      },
-      "distinta": {
-        "texto": "Falta que las dos contraseñas sean iguales.",
-        "e14": "E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62"
-      }
-    },
     "porConfirmar": {
       "resumen": {
         "texto": "{total} por confirmar: {ingresos} y {gastos}",
@@ -279,29 +269,11 @@
         },
         "e14": "E14-PRR 4.7 (PN-72, D-093): «11 gastos»; «1 gasto» es propuesto (derivado de «1 ingreso»), falta llevarlo a E14"
       }
-    }
-  },
-  "solo_web": {
-    "erroresDeCampo": {
-      "crearCuenta": {
-        "mayor_de_edad_requerido": {
-          "texto": "Falta marcar que eres mayor de edad.",
-          "e14": "E14-PCP 4.1 (PN-58)"
-        }
-      }
     },
     "pagina": {
       "logo": {
         "texto": "Alcanzamos",
         "e14": "E14-PCP 4.2 bis; E14-PCP 4.3 (PN-60); E14-PCP 4.4 bis; E14-PCP 4.6 (PN-63); E14-PCP 4.10 (PN-67); E14-PCP 4.11 (PN-68); E14-PCP 4.13 (PN-70); E14-PCP 4.16"
-      },
-      "atras": {
-        "texto": "Atrás",
-        "e14": "E14-PCP 4.4 (PN-61); E14-PCP 4.6 (PN-63); E14-PCP 4.7 (PN-64); E14-PCP 4.9 (PN-66); E14-PCP 4.10 (PN-67); E14-PCP 4.11 (PN-68); E14-PCP 4.12 (PN-69); E14-PCP 4.13 (PN-70); E14-PCP 4.14 (PN-71); E14-PCP 4.15 (PN-73); E14-PCP 4.16"
-      },
-      "titulo_del_documento": {
-        "texto": "{titulo} · Alcanzamos",
-        "e14": "No está en E14-PCP: ya existía en la web (Pagina.tsx, US-57); sin texto de E14 todavía"
       }
     },
     "acciones": {
@@ -356,17 +328,9 @@
         }
       },
       "contrasenaNueva": {
-        "etiqueta": {
-          "texto": "Contraseña nueva",
-          "e14": "E14-PCP 4.5 (PN-62); E14-PCP 4.15 (PN-73)"
-        },
         "etiquetaPropia": {
           "texto": "Tu contraseña nueva",
           "e14": "E14-PCP 4.15 (PN-73)"
-        },
-        "repeticion": {
-          "texto": "Repite la contraseña nueva",
-          "e14": "E14-PCP 4.5 (PN-62)"
         }
       },
       "contrasenaDeAhora": {
@@ -383,12 +347,6 @@
         "ayuda": {
           "texto": "Es el nombre que verás en la app. Puede ser un apodo.",
           "e14": "E14-PCP 4.1 (PN-58)"
-        }
-      },
-      "mayorDeEdad": {
-        "etiqueta": {
-          "texto": "Soy mayor de edad",
-          "e14": "E14-PCP 4.1 (PN-58); E14-PCP 4.8 (PN-65); E14-PCP 4.16"
         }
       }
     },
@@ -448,16 +406,6 @@
       "volver": {
         "texto": "Volver a iniciar sesión",
         "e14": "E14-PCP 4.4 (PN-61)"
-      }
-    },
-    "recuperar": {
-      "titulo": {
-        "texto": "Elige tu contraseña nueva",
-        "e14": "E14-PCP 4.5 (PN-62)"
-      },
-      "pedirOtro": {
-        "texto": "Pedir otro enlace",
-        "e14": "E14-PCP 4.5 (PN-62)"
       }
     },
     "cambiarContrasena": {
@@ -537,6 +485,64 @@
       }
     }
   },
+  "solo_web": {
+    "erroresDeCampo": {
+      "crearCuenta": {
+        "mayor_de_edad_requerido": {
+          "texto": "Falta marcar que eres mayor de edad.",
+          "e14": "E14-PCP 4.1 (PN-58)"
+        }
+      }
+    },
+    "pagina": {
+      "atras": {
+        "texto": "Atrás",
+        "e14": "E14-PCP 4.4 (PN-61); E14-PCP 4.6 (PN-63); E14-PCP 4.7 (PN-64); E14-PCP 4.9 (PN-66); E14-PCP 4.10 (PN-67); E14-PCP 4.11 (PN-68); E14-PCP 4.12 (PN-69); E14-PCP 4.13 (PN-70); E14-PCP 4.14 (PN-71); E14-PCP 4.15 (PN-73); E14-PCP 4.16"
+      },
+      "titulo_del_documento": {
+        "texto": "{titulo} · Alcanzamos",
+        "e14": "No está en E14-PCP: ya existía en la web (Pagina.tsx, US-57); sin texto de E14 todavía"
+      }
+    },
+    "campos": {
+      "contrasenaNueva": {
+        "etiqueta": {
+          "texto": "Contraseña nueva",
+          "e14": "E14-PCP 4.5 (PN-62); E14-PCP 4.15 (PN-73)"
+        },
+        "repeticion": {
+          "texto": "Repite la contraseña nueva",
+          "e14": "E14-PCP 4.5 (PN-62)"
+        }
+      },
+      "mayorDeEdad": {
+        "etiqueta": {
+          "texto": "Soy mayor de edad",
+          "e14": "E14-PCP 4.1 (PN-58); E14-PCP 4.8 (PN-65); E14-PCP 4.16"
+        }
+      }
+    },
+    "recuperar": {
+      "titulo": {
+        "texto": "Elige tu contraseña nueva",
+        "e14": "E14-PCP 4.5 (PN-62)"
+      },
+      "pedirOtro": {
+        "texto": "Pedir otro enlace",
+        "e14": "E14-PCP 4.5 (PN-62)"
+      }
+    },
+    "textosDeRepeticion": {
+      "vacia": {
+        "texto": "Falta repetir la contraseña.",
+        "e14": "E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62"
+      },
+      "distinta": {
+        "texto": "Falta que las dos contraseñas sean iguales.",
+        "e14": "E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62"
+      }
+    }
+  },
   "solo_android": {
     "avisos": {
       "menorDeEdad": {
@@ -558,6 +564,30 @@
       "futura": {
         "texto": "Falta una fecha que ya haya pasado.",
         "e14": "E14-PCP 4.8: los dos errores de la fecha de nacimiento de PN-65. La fecha nunca sale del teléfono: se revisa aquí."
+      }
+    },
+    "edad": {
+      "titulo": {
+        "texto": "Antes de empezar",
+        "e14": "E14-PCP 4.8 (PN-65)"
+      },
+      "frase": {
+        "texto": "Escribe tu fecha de nacimiento.",
+        "e14": "E14-PCP 4.8 (PN-65)"
+      },
+      "fecha": {
+        "etiqueta": {
+          "texto": "Fecha de nacimiento",
+          "e14": "E14-PCP 4.8 (PN-65)"
+        },
+        "ayuda": {
+          "texto": "La usamos solo para mostrarte la pantalla que sigue. No la guardamos.",
+          "e14": "E14-PCP 4.8 (PN-65)"
+        }
+      },
+      "continuar": {
+        "texto": "Continuar",
+        "e14": "E14-PCP 4.8 (PN-65)"
       }
     }
   }

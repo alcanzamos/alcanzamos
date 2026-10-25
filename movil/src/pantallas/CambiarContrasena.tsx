@@ -11,6 +11,7 @@ import { seguirPorAccesoNegado } from '../navegacion/accesoNegado';
 import { reemplazarPila } from '../navegacion/llegada';
 import type { Rutas } from '../navegacion/rutas';
 import { avisoDeFallo, avisos, textoDeErrorDeCampo, type DatosDeAviso } from '../textos';
+import { textos } from '../textos/es.generated';
 
 // PN-73 · Cambiar la contraseña con la sesión iniciada (E14-PCP 4.15). Sin la fila del menor (solo si la cuenta es de un
 // menor: llega con I11). El título lo pone la barra nativa; Atrás vuelve a PN-71.
@@ -47,11 +48,11 @@ export function CambiarContrasena({ navigation }: NativeStackScreenProps<Rutas, 
 
   return (
     <Pantalla conBarra>
-      <Texto>Escribe tu contraseña de ahora y la nueva.</Texto>
+      <Texto>{textos.cambiarContrasena.intro}</Texto>
       {aviso && <Aviso {...aviso} />}
       <CampoDeContrasena
         ref={campoActual}
-        etiqueta="Tu contraseña de ahora"
+        etiqueta={textos.campos.contrasenaDeAhora.etiqueta}
         autocompletar="current-password"
         valor={actual}
         alCambiar={setActual}
@@ -59,18 +60,18 @@ export function CambiarContrasena({ navigation }: NativeStackScreenProps<Rutas, 
       />
       <CampoDeContrasena
         ref={campoNueva}
-        etiqueta="Tu contraseña nueva"
-        ayuda="Usa una frase de tres o cuatro palabras."
+        etiqueta={textos.campos.contrasenaNueva.etiquetaPropia}
+        ayuda={textos.campos.contrasena.ayuda}
         autocompletar="new-password"
         valor={nueva}
         alCambiar={setNueva}
         error={errores.nueva}
       />
       <Boton deshabilitado={enviando} alTocar={() => void enviar()}>
-        Guardar la contraseña
+        {textos.acciones.guardarLaContrasena}
       </Boton>
       <Boton variante="secundario" alTocar={() => navigation.goBack()}>
-        Ahora no
+        {textos.cambiarContrasena.ahoraNo}
       </Boton>
     </Pantalla>
   );

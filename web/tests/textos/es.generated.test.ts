@@ -1,4 +1,4 @@
-import { describe, expect, expectTypeOf, it } from "vitest";
+import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 import {
   formatear,
   plural,
@@ -111,6 +111,28 @@ describe("plural (S4: one y other con Intl.PluralRules)", () => {
     // @ts-expect-error «otro» no es un marcador del plural
     expect(() => plural(formas, 1, { quien: "Laura", otro: "x" })).toThrow(
       /sobran \[otro\]/,
+    );
+  });
+
+  // Hermes (Android) no trae Intl.PluralRules (facebook/hermes#1462); el helper es el mismo en las dos apps y no
+  // puede caerse al cargar en una plataforma sin ella (la web de hoy sí la tiene: se prueba la rama).
+  describe("sin Intl.PluralRules", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      vi.resetModules();
+    });
+
+    it.each([0, 1, 2, 13, 1000000])(
+      "carga y da lo mismo que con Intl.PluralRules con %d",
+      async (n) => {
+        vi.stubGlobal("Intl", { ...Intl, PluralRules: undefined });
+        vi.resetModules();
+        const sinIntl = await import("../../src/textos/es.generated");
+        expect(typeof Intl.PluralRules).toBe("undefined");
+        expect(sinIntl.plural(sinIntl.textos.porConfirmar.gastos, n)).toBe(
+          plural(textos.porConfirmar.gastos, n),
+        );
+      },
     );
   });
 });

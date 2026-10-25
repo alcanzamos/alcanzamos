@@ -9,6 +9,7 @@ import { resultadoDeEdad } from '../edad/calculo';
 import { hayMenorRecordado, recordarMenor } from '../edad/recuerdo';
 import type { Rutas } from '../navegacion/rutas';
 import { avisos, textosDeEdad } from '../textos';
+import { textos } from '../textos/es.generated';
 
 // PN-65 · Pantalla neutral de edad, solo Android (E14-PCP 4.8, RE-002). Se abre solo desde «Crear una cuenta» de PN-60.
 // La edad se calcula aquí: la fecha no se envía a ningún lado ni se guarda (D-089); vive solo en el estado de esta
@@ -46,14 +47,14 @@ export function Edad({ navigation }: NativeStackScreenProps<Rutas, 'Edad'>) {
   }
 
   return (
-    <Pantalla conLogo titulo="Antes de empezar">
+    <Pantalla conLogo titulo={textos.edad.titulo}>
       {fase === 'menor' && <Aviso {...avisos.menorDeEdad} />}
       {fase === 'campo' && (
         <>
-          <Texto>Escribe tu fecha de nacimiento.</Texto>
+          <Texto>{textos.edad.frase}</Texto>
           <CampoDeFecha
-            etiqueta="Fecha de nacimiento"
-            ayuda="La usamos solo para mostrarte la pantalla que sigue. No la guardamos."
+            etiqueta={textos.edad.fecha.etiqueta}
+            ayuda={textos.edad.fecha.ayuda}
             valor={fecha}
             alCambiar={(nueva) => {
               setFecha(nueva);
@@ -61,7 +62,7 @@ export function Edad({ navigation }: NativeStackScreenProps<Rutas, 'Edad'>) {
             }}
             error={error}
           />
-          <Boton alTocar={() => void continuar()}>Continuar</Boton>
+          <Boton alTocar={() => void continuar()}>{textos.edad.continuar}</Boton>
         </>
       )}
     </Pantalla>

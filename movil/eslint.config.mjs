@@ -46,9 +46,34 @@ const colorOMedidaSuelta = [
   },
 ];
 
+// D-162: sin textos sueltos en JSX. Equivale a `react/jsx-no-literals` con `noStrings: true` (el complemento no se
+// usa: eslint-plugin-react no publica desde abril de 2025); es la misma regla de web/eslint.config.js. Los textos
+// salen del módulo generado desde diseno/textos/es.json. Se permiten el espacio en blanco, las cadenas vacías y los
+// números. En las propiedades solo se revisan las que llevan texto que ve o lee la persona: las de React Native
+// (accessibilityLabel, accessibilityHint, aria-label, placeholder, title) y las de los componentes de la app (titulo,
+// etiqueta, ayuda, pista, texto, error, mensaje); autocompletar, teclado, variante, accessibilityRole, etc. quedan
+// libres. Sin salir de un nivel, también se revisa `cond ? "a" : "b"` y `cond && "a"`. Los argumentos de una función
+// (`conBarra("...")`) no se ven: los revisa tests/textos/claves.test.ts (ninguna copia de un texto fuera del módulo).
+// tests/eslint/texto-suelto.test.ts prueba lo que debe y lo que no debe reportar.
+const textoSuelto = "Texto suelto en JSX: usa un texto de src/textos/es.generated.ts (diseno/textos/es.json).";
+const hijoDeJsx = "JSXExpressionContainer[parent.type=/^JSX(Element|Fragment)$/]";
+const propiedadDeTexto =
+  "JSXAttribute[name.name=/^(accessibilityLabel|accessibilityHint|aria-label|placeholder|title|titulo|etiqueta|ayuda|pista|texto|error|mensaje)$/]";
+const cadena = "Literal[value=type(string)][value=/\\S/]";
+const cadenaOPlantilla = `:matches(${cadena}, TemplateLiteral)`;
+const conCondicion = ":matches(ConditionalExpression, LogicalExpression)";
+const textoSueltoEnJsx = [
+  "JSXText[value=/\\S/]",
+  `${hijoDeJsx} > ${cadenaOPlantilla}`,
+  `${hijoDeJsx} > ${conCondicion} > ${cadenaOPlantilla}`,
+  `${propiedadDeTexto} > ${cadena}`,
+  `${propiedadDeTexto} > JSXExpressionContainer > ${cadenaOPlantilla}`,
+  `${propiedadDeTexto} > JSXExpressionContainer > ${conCondicion} > ${cadenaOPlantilla}`,
+].map((selector) => ({ selector, message: textoSuelto }));
+
 export default defineConfig(
   {
-    ignores: ["coverage/", ".expo/", "dist/", "src/tokens/tokens.generated.ts"],
+    ignores: ["coverage/", ".expo/", "dist/", "src/tokens/tokens.generated.ts", "src/textos/es.generated.ts"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -66,13 +91,21 @@ export default defineConfig(
         "error",
         { "ts-ignore": "allow-with-description", minimumDescriptionLength: 10 },
       ],
-      "no-restricted-syntax": ["error", ...colorOMedidaSuelta],
+      "no-restricted-syntax": ["error", ...colorOMedidaSuelta, ...textoSueltoEnJsx],
     },
   },
   {
     files: ["*.config.{js,mjs,ts}", "scripts/**", "tests/**"],
     languageOptions: { globals: { ...globals.node, ...globals.jest } },
     rules: { "no-restricted-syntax": "off" },
+  },
+  {
+    // D-162 no se aplica a estos dos archivos (siguen con la regla de colores y medidas): PantallaCifras es la pantalla
+    // de prueba de tipografía (cifras inventadas; App.tsx ya no la monta) y los dos mensajes de App.tsx son los de la
+    // carga de fuentes, que salen antes de que la app tenga textos y no están en E14-PCP. Esos mensajes quedan
+    // pendientes de que el dueño los lleve a E14 como «propuesto»; entonces pasan a es.json y se quita esta excepción.
+    files: ["App.tsx", "src/PantallaCifras.tsx"],
+    rules: { "no-restricted-syntax": ["error", ...colorOMedidaSuelta] },
   },
   {
     // Copia del SVG de la marca (marca/): sus colores son los del logo, no estilos de la app.

@@ -10,6 +10,7 @@ import { Pantalla } from '../componentes/Pantalla';
 import { avisoDeLlegada, reemplazarPila } from '../navegacion/llegada';
 import type { Rutas } from '../navegacion/rutas';
 import { avisoDeFallo, avisos, textoDeErrorDeCampo, type DatosDeAviso } from '../textos';
+import { textos } from '../textos/es.generated';
 
 type Campo = 'identificador' | 'contrasena';
 
@@ -64,11 +65,11 @@ export function Entrar({ navigation, route }: NativeStackScreenProps<Rutas, 'Ent
   }
 
   return (
-    <Pantalla conLogo titulo="Inicia sesión" estado={llegada}>
+    <Pantalla conLogo titulo={textos.entrar.titulo} estado={llegada}>
       {aviso && <Aviso {...aviso} />}
       <CampoDeTexto
         ref={campoDeCorreo}
-        etiqueta="Correo electrónico"
+        etiqueta={textos.campos.correo.etiqueta}
         autocompletar="email"
         teclado="email-address"
         valor={correo}
@@ -77,18 +78,18 @@ export function Entrar({ navigation, route }: NativeStackScreenProps<Rutas, 'Ent
       />
       <CampoDeContrasena
         ref={campoDeContrasena}
-        etiqueta="Contraseña"
+        etiqueta={textos.campos.contrasena.etiqueta}
         autocompletar="current-password"
         valor={contrasena}
         alCambiar={setContrasena}
         error={errores.contrasena}
       />
-      <BotonDeTexto alTocar={() => navigation.navigate('RecuperarAcceso')}>¿Olvidaste tu contraseña?</BotonDeTexto>
+      <BotonDeTexto alTocar={() => navigation.navigate('RecuperarAcceso')}>{textos.entrar.olvidaste}</BotonDeTexto>
       <Boton deshabilitado={enviando} alTocar={() => void enviar()}>
-        Iniciar sesión
+        {textos.entrar.entrar}
       </Boton>
       <Boton variante="secundario" alTocar={() => navigation.navigate('Edad')}>
-        Crear una cuenta
+        {textos.entrar.crearCuenta}
       </Boton>
     </Pantalla>
   );

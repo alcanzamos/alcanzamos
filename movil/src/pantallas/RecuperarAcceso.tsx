@@ -9,6 +9,7 @@ import { Pantalla } from '../componentes/Pantalla';
 import { Texto } from '../componentes/Texto';
 import type { Rutas } from '../navegacion/rutas';
 import { avisoDeFallo, avisos, textoDeErrorDeCampo, type DatosDeAviso } from '../textos';
+import { textos } from '../textos/es.generated';
 
 // PN-61 · Recuperar el acceso: pedir el enlace (E14-PCP 4.4). El resultado es el mismo con o sin cuenta. El enlace del
 // correo abre la web en el navegador (D-155): la persona elige allí su contraseña nueva (PN-62), vuelve a la app y entra
@@ -44,7 +45,7 @@ export function RecuperarAcceso({ navigation }: NativeStackScreenProps<Rutas, 'R
         <>
           {aviso && <Aviso {...aviso} />}
           <Boton variante="secundario" alTocar={() => navigation.goBack()}>
-            Volver a iniciar sesión
+            {textos.recuperarAcceso.volver}
           </Boton>
         </>
       ) : (
@@ -52,11 +53,11 @@ export function RecuperarAcceso({ navigation }: NativeStackScreenProps<Rutas, 'R
           {/* La fila 5 de E14-PCP 4.4 («¿Entras con nombre de usuario? Pide a tu tutor que restablezca tu acceso.», solo
               Android) no se muestra hasta I11: apunta a un ingreso con nombre de usuario que no existe todavía (D-137, D-156).
               Entra en I11 con la fila 8 de PN-60 y el botón de PN-65. */}
-          <Texto>Escribe el correo de tu cuenta. Te enviamos un enlace para elegir una contraseña nueva.</Texto>
+          <Texto>{textos.recuperarAcceso.intro}</Texto>
           {aviso && <Aviso {...aviso} />}
           <CampoDeTexto
             ref={campoDeCorreo}
-            etiqueta="Correo electrónico"
+            etiqueta={textos.campos.correo.etiqueta}
             autocompletar="email"
             teclado="email-address"
             valor={correo}
@@ -64,7 +65,7 @@ export function RecuperarAcceso({ navigation }: NativeStackScreenProps<Rutas, 'R
             error={error}
           />
           <Boton deshabilitado={enviando} alTocar={() => void enviar()}>
-            Enviar el enlace
+            {textos.recuperarAcceso.enviar}
           </Boton>
         </>
       )}
