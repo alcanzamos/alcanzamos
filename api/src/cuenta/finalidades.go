@@ -29,6 +29,12 @@ const (
 	CuentaDelMenor       = "cuenta_del_menor"
 )
 
+// Finalidades accesorias activas que PN-64 le ofrece a una persona adulta (D-139).
+const (
+	Avisos      = "avisos"
+	HorasDeVida = "horas_de_vida"
+)
+
 // FinalidadNecesaria es una finalidad que la etapa del titular debe tener autorizada, y quién la otorga.
 type FinalidadNecesaria struct {
 	Codigo string
@@ -58,7 +64,19 @@ type ReglaDeFinalidades struct{}
 var (
 	necesariasDelAdulto = []FinalidadNecesaria{{CuentaYAcceso, LaPersona}, {FuncionesFinancieras, LaPersona}}
 	necesariasDelMenor  = []FinalidadNecesaria{{CuentaDelMenor, ElTutor}}
+	// accesoriasDelAdulto son las que PN-64 ofrece. Quedan fuera `correo_del_menor` (es del menor, I11) y
+	// `transferencia` (inactiva, NM-06).
+	accesoriasDelAdulto = []string{Avisos, HorasDeVida}
 )
+
+// Accesorias devuelve los códigos de las finalidades accesorias que se le ofrecen a la etapa: para la adulta,
+// `avisos` y `horas_de_vida`; nada para las demás. Sirve a PN-64 (US-50): lo que no está aquí no se puede autorizar.
+func (ReglaDeFinalidades) Accesorias(e Etapa) []string {
+	if e == EtapaAdulta {
+		return slices.Clone(accesoriasDelAdulto)
+	}
+	return nil
+}
 
 // Necesarias devuelve las finalidades necesarias de la etapa, o nada si la etapa no se conoce (ante la duda, quien
 // llama no da por autorizada a nadie: ver Cumple).

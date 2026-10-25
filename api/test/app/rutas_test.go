@@ -29,6 +29,9 @@ var rutasEsperadas = []servidor.Ruta{
 	{Patron: "POST /api/v1/recuperacion", Nivel: seguridad.Publica},
 	{Patron: "POST /api/v1/recuperacion/contrasena", Nivel: seguridad.Publica},
 	{Patron: "POST /api/v1/cuenta/contrasena", Nivel: seguridad.RequiereAutorizacion},
+	{Patron: "GET /api/v1/autorizaciones", Nivel: seguridad.SinAutorizacion},
+	{Patron: "POST /api/v1/autorizaciones", Nivel: seguridad.SinAutorizacion},
+	{Patron: "POST /api/v1/autorizaciones/rechazo", Nivel: seguridad.SinAutorizacion},
 }
 
 func enrutadorDePrueba(t *testing.T) *servidor.Enrutador {
@@ -73,4 +76,35 @@ func TestTodaRutaDeAPITieneSuNivelDeclarado(t *testing.T) {
 // Ruta por ruta (SEG-010): cada ruta registrada responde lo que le toca a cada clase de Sujeto.
 func TestCadaRutaRespondeSegunSuNivelParaCadaSujeto(t *testing.T) {
 	accesotest.ProbarRutas(t, enrutadorDePrueba(t).Rutas())
+}
+
+// «Nada se guarda antes de autorizar» (US-50, Ley 1581): solo estas rutas están por debajo de `requiere_autorizacion`, y
+// ninguna guarda datos personales o financieros de la persona más allá de lo que hace falta para llegar a PN-64: crear
+// la cuenta y verificar el correo (lo borra «No autorizo» o la tarea de 7 días, D-135), entrar, recuperar el acceso,
+// cerrar sesión y las tres de la autorización. Una ruta nueva que escriba datos debe declararse `requiere_autorizacion`;
+// si de verdad pertenece al ingreso, se suma aquí con la razón.
+var rutasAntesDeAutorizar = map[string]bool{
+	"POST /api/v1/cuentas":                      true, // crea la cuenta (PN-58)
+	"POST /api/v1/cuentas/verificacion":         true, // confirma el correo
+	"GET /api/v1/cuentas/estado":                true, // solo lee
+	"POST /api/v1/cuentas/verificacion/reenvio": true, // enlace nuevo
+	"POST /api/v1/cuentas/correo":               true, // corrige el correo de la cuenta sin verificar
+	"POST /api/v1/sesiones":                     true, // entrar
+	"DELETE /api/v1/sesiones/actual":            true, // salir
+	"POST /api/v1/recuperacion":                 true, // pide el enlace
+	"POST /api/v1/recuperacion/contrasena":      true, // elige la contraseña con el enlace
+	"GET /api/v1/autorizaciones":                true, // PN-64: solo lee
+	"POST /api/v1/autorizaciones":               true, // PN-64: autorizar
+	"POST /api/v1/autorizaciones/rechazo":       true, // PN-64: «No autorizo», borra
+}
+
+func TestSoloLasRutasDelIngresoNoExigenAutorizacion(t *testing.T) {
+	for _, r := range enrutadorDePrueba(t).Rutas() {
+		if r.Nivel != seguridad.RequiereAutorizacion && !rutasAntesDeAutorizar[r.Patron] {
+			t.Errorf("%s es %s: lo que guarda datos de la persona debe ser requiere_autorizacion", r.Patron, r.Nivel)
+		}
+		if r.Nivel == seguridad.RequiereAutorizacion && rutasAntesDeAutorizar[r.Patron] {
+			t.Errorf("%s está en la lista del ingreso pero exige autorización", r.Patron)
+		}
+	}
 }

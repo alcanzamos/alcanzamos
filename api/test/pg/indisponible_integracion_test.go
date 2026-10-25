@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/alcanzamos/alcanzamos/api/src/autenticacion"
+	"github.com/alcanzamos/alcanzamos/api/src/autorizacion"
 	"github.com/alcanzamos/alcanzamos/api/src/cuenta"
 	"github.com/alcanzamos/alcanzamos/api/src/pg"
 	"github.com/alcanzamos/alcanzamos/api/src/seguridad"
@@ -30,6 +31,7 @@ func TestConLaBaseCaidaCadaOperacionFallaConUnErrorDeInfraestructura(t *testing.
 
 	cuentas, autenticaciones := pg.NuevoCuentas(pool), pg.NuevoAutenticacion(pool)
 	sesiones, limpieza := pg.NuevoSesiones(pool), pg.NuevoLimpieza(pool)
+	autorizaciones := pg.NuevoAutorizaciones(pool)
 
 	casos := []struct {
 		nombre    string
@@ -72,6 +74,13 @@ func TestConLaBaseCaidaCadaOperacionFallaConUnErrorDeInfraestructura(t *testing.
 		{"autenticacion.CambiarContrasena", func() error { return autenticaciones.CambiarContrasena(ctx, persona, "h", huella) }},
 		{"sesiones.Crear", func() error { return sesiones.Crear(ctx, persona, huella, ahora) }},
 		{"sesiones.Sujeto", func() error { _, err := sesiones.Sujeto(ctx, huella, ahora); return err }},
+		{"autorizaciones.Vigentes", func() error { _, err := autorizaciones.Vigentes(ctx, persona); return err }},
+		{"autorizaciones.Otorgar", func() error {
+			return autorizaciones.Otorgar(ctx, persona, []string{"cuenta_y_acceso"}, "1.0 del 2026-10-30", ahora)
+		}},
+		{"autorizaciones.Rechazar", func() error {
+			return autorizaciones.Rechazar(ctx, persona, []string{"cuenta_y_acceso"}, ahora, ahora)
+		}},
 		{"limpieza.LimpiarSesionesYEnlaces", func() error { _, _, err := limpieza.LimpiarSesionesYEnlaces(ctx, ahora); return err }},
 	}
 	for _, c := range casos {
@@ -80,7 +89,7 @@ func TestConLaBaseCaidaCadaOperacionFallaConUnErrorDeInfraestructura(t *testing.
 			if err == nil {
 				t.Fatal("se esperaba un error")
 			}
-			for _, deNegocio := range []error{autenticacion.ErrNoExiste, seguridad.ErrSinSesion, cuenta.ErrEnlaceInvalido, cuenta.ErrCorreoYaRegistrado} {
+			for _, deNegocio := range []error{autenticacion.ErrNoExiste, seguridad.ErrSinSesion, cuenta.ErrEnlaceInvalido, cuenta.ErrCorreoYaRegistrado, autorizacion.ErrSinCuenta, autorizacion.ErrYaAutorizada} {
 				if errors.Is(err, deNegocio) {
 					t.Fatalf("una base caída se confundió con una respuesta de negocio (%v): %v", deNegocio, err)
 				}
@@ -159,4 +168,48 @@ func TestIniciarSesionQueFallaNoMejoraElHash(t *testing.T) {
 	if despues.Hash != antes.Hash {
 		t.Errorf("el hash cambió pese al fallo: %q", despues.Hash)
 	}
+}
+
+// Si una sentencia falla a mitad de «No autorizo» o de «Autorizar», la transacción se deshace: la cuenta sigue y no queda
+// ninguna autorización a medias.
+func TestAutorizacionesQueFallanALaMitadNoCambianNada(t *testing.T) {
+	ctx := context.Background()
+	necesarias := []string{"cuenta_y_acceso", "funciones_financieras"}
+	for _, c := range []struct{ nombre, preparar string }{
+		{"falla el borrado de la persona", `CREATE FUNCTION falla() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'falla de prueba'; END $$;
+			CREATE TRIGGER t BEFORE DELETE ON persona FOR EACH STATEMENT EXECUTE FUNCTION falla()`},
+		{"falla el retiro de las autorizaciones", `CREATE FUNCTION falla() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'falla de prueba'; END $$;
+			CREATE TRIGGER t BEFORE UPDATE ON autorizacion FOR EACH STATEMENT EXECUTE FUNCTION falla()`},
+		{"falla la consulta de las vigentes", `DROP TABLE autorizacion`},
+	} {
+		t.Run(c.nombre, func(t *testing.T) {
+			e := nuevoEntorno(t)
+			persona := e.sembrar(t, "laura@ejemplo.test")
+			verificar(t, e.pool, persona)
+			if _, err := e.pool.Exec(ctx, c.preparar); err != nil {
+				t.Fatal(err)
+			}
+			repo := pg.NuevoAutorizaciones(e.pool)
+			if err := repo.Rechazar(ctx, persona, necesarias, ahora, ahora); err == nil || errors.Is(err, autorizacion.ErrSinCuenta) {
+				t.Fatalf("Rechazar = %v, se esperaba un fallo de la base", err)
+			}
+			if contar(t, e.pool, `SELECT count(*) FROM persona WHERE id = $1::uuid`, persona) != 1 {
+				t.Error("la cuenta debe seguir: la transacción se deshace")
+			}
+		})
+	}
+	t.Run("falla el guardado de las autorizaciones", func(t *testing.T) {
+		e := nuevoEntorno(t)
+		persona := e.sembrar(t, "laura@ejemplo.test")
+		if _, err := e.pool.Exec(ctx, `DROP TABLE autorizacion`); err != nil {
+			t.Fatal(err)
+		}
+		repo := pg.NuevoAutorizaciones(e.pool)
+		if _, err := repo.Vigentes(ctx, persona); err == nil {
+			t.Error("Vigentes debe fallar sin la tabla")
+		}
+		if err := repo.Otorgar(ctx, persona, necesarias, "1.0 del 2026-10-30", ahora); err == nil {
+			t.Error("Otorgar debe fallar sin la tabla")
+		}
+	})
 }
