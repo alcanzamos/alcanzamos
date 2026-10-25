@@ -27,9 +27,7 @@ describe("/verificar?t= · enlace del correo", () => {
       json(200, { estado: "verificado", con_sesion: true }),
     );
     abrir("?t=abc123");
-    await waitFor(() =>
-      expect(window.location.pathname).toBe("/sin-autorizacion"),
-    );
+    await waitFor(() => expect(window.location.pathname).toBe("/privacidad"));
     expect(pedidos).toEqual([
       {
         metodo: "POST",
@@ -40,12 +38,10 @@ describe("/verificar?t= · enlace del correo", () => {
   });
 
   // E14-PCP 4.16 T11 (D-153): sin espera. Se va enseguida y el mensaje de estado lo muestra el destino.
-  it("con sesión va enseguida a la pantalla provisional, con «Listo, confirmamos tu correo.» como estado", async () => {
+  it("con sesión va enseguida a PN-63, con «Listo, confirmamos tu correo.» como estado", async () => {
     simularApi(() => json(200, { estado: "verificado", con_sesion: true }));
     abrir("?t=abc");
-    await waitFor(() =>
-      expect(window.location.pathname).toBe("/sin-autorizacion"),
-    );
+    await waitFor(() => expect(window.location.pathname).toBe("/privacidad"));
     expect(avisoDeLlegada()).toBe(avisos.correoConfirmado);
     expect(avisos.correoConfirmado.titulo).toBe(
       "Listo, confirmamos tu correo.",
@@ -67,7 +63,7 @@ describe("/verificar?t= · enlace del correo", () => {
     abrir("?t=abc");
     // Solo se resuelven las promesas del pedido: ningún reloj corre.
     await act(() => vi.advanceTimersByTimeAsync(0));
-    expect(window.location.pathname).toBe("/sin-autorizacion");
+    expect(window.location.pathname).toBe("/privacidad");
     expect(temporizador).not.toHaveBeenCalled();
     expect(intervalo).not.toHaveBeenCalled();
     expect(vi.getTimerCount()).toBe(0);

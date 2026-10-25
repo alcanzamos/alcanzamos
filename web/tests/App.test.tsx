@@ -12,13 +12,21 @@ describe("App · rutas", () => {
   it.each([
     ["/crear-cuenta", "Crea tu cuenta"],
     ["/revisa-tu-correo", "Revisa tu correo"],
-    ["/sin-autorizacion", "Sin esta autorización no podemos darte la cuenta."],
+    ["/privacidad", "Cómo cuidamos tus datos"],
     ["/entrar", "Inicia sesión"],
     ["/cuenta/contrasena", "Cambiar mi contraseña"],
   ])("%s muestra su pantalla", (ruta, titulo) => {
     irA(ruta);
     expect(
       screen.getByRole("heading", { level: 1, name: titulo }),
+    ).toBeInTheDocument();
+  });
+
+  it("/autorizacion muestra PN-64", () => {
+    simularApi(() => json(500, { error: "interno" }));
+    irA("/autorizacion");
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Tu autorización" }),
     ).toBeInTheDocument();
   });
 

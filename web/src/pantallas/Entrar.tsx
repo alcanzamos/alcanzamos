@@ -48,7 +48,7 @@ export function Entrar() {
     setEnviando(false);
     if (respuesta.ok) {
       // La cuenta sin verificar tiene una sesión limitada: sigue a PN-59 (D-138). Si no hay autorización,
-      // la pantalla de destino lo descubre y sigue a la provisional.
+      // la pantalla de destino lo descubre y sigue a PN-63.
       if (respuesta.cuerpo.estado === "verificacion_pendiente") {
         guardarCorreo(correo);
         navegar("/revisa-tu-correo");

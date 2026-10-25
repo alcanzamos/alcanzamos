@@ -1,13 +1,14 @@
 import { useEffect, type ReactElement } from "react";
 import { navegar, useUbicacion } from "./enrutador";
+import { Autorizacion } from "./pantallas/Autorizacion";
 import { CambiarContrasena } from "./pantallas/CambiarContrasena";
 import { CrearCuenta } from "./pantallas/CrearCuenta";
 import { Entrar } from "./pantallas/Entrar";
+import { Privacidad } from "./pantallas/Privacidad";
 import { Recuperar } from "./pantallas/Recuperar";
 import { RecuperarAcceso } from "./pantallas/RecuperarAcceso";
 import { RevisaTuCorreo } from "./pantallas/RevisaTuCorreo";
 import { SeguridadDeLaCuenta } from "./pantallas/SeguridadDeLaCuenta";
-import { SinAutorizacion } from "./pantallas/SinAutorizacion";
 import { Verificar } from "./pantallas/Verificar";
 
 function Redirigir({ a }: { a: string }) {
@@ -20,7 +21,8 @@ const pantallas: Record<string, () => ReactElement> = {
   "/crear-cuenta": CrearCuenta,
   "/revisa-tu-correo": RevisaTuCorreo,
   "/verificar": Verificar,
-  "/sin-autorizacion": SinAutorizacion,
+  "/privacidad": Privacidad,
+  "/autorizacion": Autorizacion,
   "/recuperar-acceso": RecuperarAcceso,
   "/recuperar": Recuperar,
   "/cuenta/seguridad": SeguridadDeLaCuenta,

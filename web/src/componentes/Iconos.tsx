@@ -67,3 +67,12 @@ export const IconoAtras = () => (
     <path d="M19 12H5M11 6l-6 6 6 6" />
   </Icono>
 );
+
+// Propio, de la Marca de propiedad (E14-SDD 5.16): una persona dentro de un círculo.
+export const IconoPropio = () => (
+  <Icono>
+    <circle cx="12" cy="12" r="9" />
+    <circle cx="12" cy="10" r="3" />
+    <path d="M6.5 18.5c1.2-2.4 3.2-3.5 5.5-3.5s4.3 1.1 5.5 3.5" />
+  </Icono>
+);

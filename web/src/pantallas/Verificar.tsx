@@ -28,9 +28,9 @@ export function Verificar() {
     if (!token) return;
     void verificarCorreo(token).then((respuesta) => {
       if (respuesta.ok) {
-        // Con sesión, PN-63 (en la US-49, la pantalla provisional que la reemplaza); sin ella, PN-60.
+        // Con sesión, PN-63; sin ella, PN-60.
         irConAviso(
-          respuesta.cuerpo.con_sesion ? "/sin-autorizacion" : "/entrar",
+          respuesta.cuerpo.con_sesion ? "/privacidad" : "/entrar",
           "correo_confirmado",
         );
       } else if (respuesta.codigo === "enlace_invalido") {

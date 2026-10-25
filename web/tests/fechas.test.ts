@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fechaEnPalabras } from "../src/fechas";
+import { diaEnPalabras, fechaEnPalabras } from "../src/fechas";
 
 describe("fechaEnPalabras", () => {
   it("da la fecha de E14 en la hora de Colombia (D-090)", () => {
@@ -38,5 +38,23 @@ describe("fechaEnPalabras", () => {
 
   it("devuelve null si no es una fecha", () => {
     expect(fechaEnPalabras("ayer")).toBeNull();
+  });
+});
+
+describe("diaEnPalabras", () => {
+  it("escribe una fecha AAAA-MM-DD en palabras, sin hora y sin ceros (D-090)", () => {
+    expect(diaEnPalabras("2026-10-30")).toBe("30 de octubre de 2026");
+    expect(diaEnPalabras("2027-01-05")).toBe("5 de enero de 2027");
+  });
+
+  it.each([
+    "",
+    "30 de octubre",
+    "2026-10-30T00:00:00Z",
+    "2026-13-01",
+    "2026-00-10",
+    "2026-02-30",
+  ])("«%s» no es una fecha: null", (entrada) => {
+    expect(diaEnPalabras(entrada)).toBeNull();
   });
 });

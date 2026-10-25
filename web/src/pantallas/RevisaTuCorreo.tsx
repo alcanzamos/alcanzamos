@@ -29,7 +29,7 @@ const ESPERA_MS = 30_000;
 // Fallos que no dependen de la acción: la sesión se perdió o la cuenta ya está verificada.
 function siguePorFallo(respuesta: Extract<Respuesta<unknown>, { ok: false }>) {
   if (respuesta.codigo === "ya_verificada") {
-    navegar("/sin-autorizacion");
+    navegar("/privacidad");
     return true;
   }
   return seguirPorAccesoNegado(respuesta);
@@ -76,7 +76,7 @@ export function RevisaTuCorreo() {
     const respuesta = await estadoDeLaCuenta();
     setOcupado(false);
     if (respuesta.ok) {
-      if (respuesta.cuerpo.verificada) navegar("/sin-autorizacion");
+      if (respuesta.cuerpo.verificada) navegar("/privacidad");
       else mostrar(avisos.sinConfirmarTodavia);
     } else if (!siguePorFallo(respuesta)) {
       mostrar(avisoDeFallo(respuesta, avisos.errorAlRevisarElCorreo));
