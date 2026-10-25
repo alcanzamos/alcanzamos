@@ -14,6 +14,7 @@ import {
   textosDeRepeticion,
   type DatosDeAviso,
 } from "../textos";
+import { textos } from "../textos/es.generated";
 
 // PN-62 · Recuperar el acceso: elegir la contraseña nueva, con el enlace del correo (/recuperar?t=, E14-PCP 4.5).
 export function Recuperar() {
@@ -81,18 +82,18 @@ export function Recuperar() {
   }
 
   return (
-    <Pagina titulo="Elige tu contraseña nueva">
+    <Pagina titulo={textos.recuperar.titulo}>
       {aviso && <Aviso {...aviso} />}
       {vencido ? (
         <BotonEnlace href="/recuperar-acceso" variante="primario">
-          Pedir otro enlace
+          {textos.recuperar.pedirOtro}
         </BotonEnlace>
       ) : (
         <form className="formulario" noValidate onSubmit={enviar}>
           <CampoDeContrasena
             id="contrasena"
-            etiqueta="Contraseña nueva"
-            ayuda="Usa una frase de tres o cuatro palabras."
+            etiqueta={textos.campos.contrasenaNueva.etiqueta}
+            ayuda={textos.campos.contrasena.ayuda}
             autocompletar="new-password"
             valor={contrasena}
             alCambiar={setContrasena}
@@ -100,14 +101,14 @@ export function Recuperar() {
           />
           <CampoDeContrasena
             id="repeticion"
-            etiqueta="Repite la contraseña nueva"
+            etiqueta={textos.campos.contrasenaNueva.repeticion}
             autocompletar="new-password"
             valor={repeticion}
             alCambiar={setRepeticion}
             error={errores.repeticion}
           />
           <Boton tipo="submit" deshabilitado={enviando}>
-            Guardar la contraseña
+            {textos.acciones.guardarLaContrasena}
           </Boton>
         </form>
       )}

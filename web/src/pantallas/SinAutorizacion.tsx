@@ -7,6 +7,7 @@ import { Pagina } from "../componentes/Pagina";
 import { navegar } from "../enrutador";
 import { avisoDeLlegada } from "../llegada";
 import { avisos } from "../textos";
+import { textos } from "../textos/es.generated";
 
 // PANTALLA PROVISIONAL (US-49, P1). Hasta que la US-50 construya PN-63 y PN-64, una cuenta verificada
 // llega aquí: sin autorización no se usa para nada más. La US-50 la reemplaza por PN-63 y PN-64.
@@ -24,13 +25,10 @@ export function SinAutorizacion() {
   }
 
   return (
-    <Pagina
-      titulo="Sin esta autorización no podemos darte la cuenta."
-      estado={avisoDeLlegada()}
-    >
+    <Pagina titulo={textos.sinAutorizacion.titulo} estado={avisoDeLlegada()}>
       {sinConexion && <Aviso {...avisos.sinConexion} />}
       <Boton variante="texto" alTocar={() => void salir()}>
-        Cerrar sesión
+        {textos.acciones.cerrarSesion}
       </Boton>
     </Pagina>
   );

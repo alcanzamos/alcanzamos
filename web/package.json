@@ -13,6 +13,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "tokens": "style-dictionary build --config ../diseno/style-dictionary.web.config.mjs",
+    "textos": "node ../diseno/generar-textos.mjs web src/textos/es.generated.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format:check": "prettier --check .",

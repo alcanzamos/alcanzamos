@@ -43,6 +43,10 @@ Genera `web/src/estilos/tokens.css` (no se edita a mano, y sí se versiona) con 
 - Medidas (`fontSizes`, `spacing`, `borderRadius`, `borderWidth`, `sizing`) en `px`; `typography` se separa en `-font-family`, `-font-weight`, `-font-size`, `-line-height` (factor sin unidad) y `-letter-spacing`.
 - Verificación (E17-ECO 4.4): tras regenerar, `git diff --exit-code diseno/ web/ movil/` no debe mostrar cambios.
 
+## Textos de la interfaz (US-59, D-160)
+
+[`textos/es.json`](textos/es.json) es la única fuente de los textos de la web y de Android (`comun`, `solo_web`, `solo_android`) y [`generar-textos.mjs`](generar-textos.mjs) genera el módulo de TypeScript de cada app, con `formatear` (marcadores `{nombre}`) y `plural` (`one`/`other` con `Intl.PluralRules`). La forma de cada texto, los marcadores, los plurales y las pruebas están en [`textos/README.md`](textos/README.md). Desde `web/`: `npm run textos`; el pipeline falla si el archivo generado cambia.
+
 ## Fuentes
 
 Archivos TTF estáticos, solo los pesos que usa la pantalla de prueba. Los de Google Fonts (`google/fonts`, carpeta `ofl/`) solo traen la fuente variable; los estáticos salen del repositorio de cada diseñador, en el mismo commit que registra Google Fonts en su `METADATA.pb` y `upstream_info.md` (commit `45e3d52` de `google/fonts`, consultado el 2026-10-22).

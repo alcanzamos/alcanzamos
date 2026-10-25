@@ -4,6 +4,7 @@ import type { DatosDeAviso } from "../textos";
 import { IconoAtras } from "./Iconos";
 import { MensajeDeEstado } from "./MensajeDeEstado";
 import logo from "../../../marca/logo-horizontal-color.svg";
+import { formatear, textos } from "../textos/es.generated";
 
 // Columna centrada de 560 px (E14-PCP 1). El título es el h1.
 // - `estado`: el mensaje de estado de la llegada (E14-PCP 4.16 T11); va arriba de todo.
@@ -25,7 +26,7 @@ export function Pagina({
 }) {
   const encabezado = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
-    document.title = `${titulo} · Alcanzamos`;
+    document.title = formatear(textos.pagina.titulo_del_documento, { titulo });
     if (llegoNavegando()) encabezado.current?.focus();
   }, [titulo]);
   const h1 = (
@@ -36,13 +37,13 @@ export function Pagina({
   return (
     <main className="columna">
       {estado && <MensajeDeEstado aviso={estado} />}
-      {conLogo && <img src={logo} alt="Alcanzamos" className="logo" />}
+      {conLogo && <img src={logo} alt={textos.pagina.logo} className="logo" />}
       {atras ? (
         <header className="barra">
           <a
             href={atras}
             className="barra__atras"
-            aria-label="Atrás"
+            aria-label={textos.pagina.atras}
             onClick={alTocarEnlace(atras)}
           >
             <IconoAtras />

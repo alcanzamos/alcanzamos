@@ -1,5 +1,5 @@
-# Pipeline de web/: tipos, ESLint, Prettier, tokens sin diff, pruebas con cobertura, build y Playwright con axe-core.
-# No usa conexión de servicio ni secretos. Corre cuando cambia web/, diseno/ (tokens y fuentes) o este archivo
+# Pipeline de web/: tipos, ESLint, Prettier, tokens y textos sin diff, pruebas con cobertura, build y Playwright con axe-core.
+# No usa conexión de servicio ni secretos. Corre cuando cambia web/, diseno/ (tokens, textos y fuentes) o este archivo
 # (ADR-001, filtros por carpeta). También corre cuando cambia el logo que la web importa (marca/logo-horizontal-color.svg, D-152).
 trigger:
   branches:
@@ -112,6 +112,14 @@ steps:
       git diff --exit-code -- ../diseno ../web ../movil
     workingDirectory: web
     displayName: Los tokens regenerados no cambian nada
+
+  # E17-ECO 4.13 (D-160): los textos salen de diseno/textos/es.json; regenerar el módulo no debe cambiar nada.
+  - script: |
+      set -eu
+      npm run textos
+      git diff --exit-code -- ../diseno ../web ../movil
+    workingDirectory: web
+    displayName: Los textos regenerados no cambian nada
 
   - script: npm run test:coverage
     workingDirectory: web

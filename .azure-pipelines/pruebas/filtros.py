@@ -14,7 +14,7 @@ RAIZ = pathlib.Path(__file__).resolve().parents[2]
 CARPETA = RAIZ / ".azure-pipelines"
 
 # Archivo de ejemplo -> pipelines que deben correr. Cuando llegue un pipeline nuevo, se agregan aquí sus casos.
-# `diseno/` dispara también el de web (construye con sus tokens y fuentes), el de api (la imagen embebe la web) y el de movil (mismos tokens y fuentes).
+# `diseno/` (tokens, textos de `diseno/textos/` y fuentes) dispara también el de web (construye con ellos), el de api (la imagen embebe la web) y el de movil (mismos tokens y fuentes).
 # De `marca/` solo el logo horizontal en color que importa la web (D-152) dispara web y api; el resto de la carpeta, solo `comun`.
 ESPERADO = {
     "reglas/conjuntos/conjunto-de-prueba.jsonl": {"comun", "reglas"},
@@ -43,6 +43,10 @@ ESPERADO = {
     "diseno/README.md": {"comun", "web", "api", "movil"},
     "diseno/tokens/alcanzamos.tokens.json": {"comun", "web", "api", "movil"},
     "diseno/fuentes/figtree/Figtree-Bold.ttf": {"comun", "web", "api", "movil"},
+    "diseno/textos/es.json": {"comun", "web", "api", "movil"},
+    "diseno/textos/README.md": {"comun", "web", "api", "movil"},
+    "diseno/textos/ayudas.plantilla.ts": {"comun", "web", "api", "movil"},
+    "diseno/generar-textos.mjs": {"comun", "web", "api", "movil"},
     "marca/logo-horizontal-color.svg": {"comun", "web", "api", "movil"},
     "marca/logo-vertical-color.svg": {"comun"},
     "marca/README.md": {"comun"},

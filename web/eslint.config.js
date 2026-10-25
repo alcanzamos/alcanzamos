@@ -33,6 +33,31 @@ const colorOMedidaSuelta = [
   },
 ];
 
+// D-162: sin textos sueltos en JSX. Equivale a `react/jsx-no-literals` con `noStrings: true` (el complemento no se
+// usa: eslint-plugin-react no publica desde abril de 2025). Los textos salen del módulo generado desde
+// diseno/textos/es.json. Se permiten el espacio en blanco, las cadenas vacías (`alt=""`) y los números. En las
+// propiedades solo se revisan las que llevan texto que ve o lee la persona: las de HTML (aria-label, title, alt,
+// placeholder) y las de los componentes de la app (titulo, etiqueta, ayuda, texto, error, mensaje); className, type,
+// id, href, etc. quedan libres. Sin salir de un nivel, también se revisa `cond ? "a" : "b"` y `cond && "a"`.
+// tests/eslint/texto-suelto.test.ts prueba lo que debe y lo que no debe reportar.
+const textoSuelto =
+  "Texto suelto en JSX: usa un texto de src/textos/es.generated.ts (diseno/textos/es.json).";
+const hijoDeJsx =
+  "JSXExpressionContainer[parent.type=/^JSX(Element|Fragment)$/]";
+const propiedadDeTexto =
+  "JSXAttribute[name.name=/^(aria-label|title|alt|placeholder|titulo|etiqueta|ayuda|texto|error|mensaje)$/]";
+const cadena = "Literal[value=type(string)][value=/\\S/]";
+const cadenaOPlantilla = `:matches(${cadena}, TemplateLiteral)`;
+const conCondicion = ":matches(ConditionalExpression, LogicalExpression)";
+const textoSueltoEnJsx = [
+  "JSXText[value=/\\S/]",
+  `${hijoDeJsx} > ${cadenaOPlantilla}`,
+  `${hijoDeJsx} > ${conCondicion} > ${cadenaOPlantilla}`,
+  `${propiedadDeTexto} > ${cadena}`,
+  `${propiedadDeTexto} > JSXExpressionContainer > ${cadenaOPlantilla}`,
+  `${propiedadDeTexto} > JSXExpressionContainer > ${conCondicion} > ${cadenaOPlantilla}`,
+].map((selector) => ({ selector, message: textoSuelto }));
+
 export default defineConfig(
   {
     ignores: [
@@ -55,7 +80,11 @@ export default defineConfig(
         "error",
         { "ts-ignore": "allow-with-description", minimumDescriptionLength: 10 },
       ],
-      "no-restricted-syntax": ["error", ...colorOMedidaSuelta],
+      "no-restricted-syntax": [
+        "error",
+        ...colorOMedidaSuelta,
+        ...textoSueltoEnJsx,
+      ],
     },
   },
   {

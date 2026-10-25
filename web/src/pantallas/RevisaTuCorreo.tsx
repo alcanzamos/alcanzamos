@@ -21,6 +21,7 @@ import {
   textoDeErrorDeCampo,
   type DatosDeAviso,
 } from "../textos";
+import { formatear, textos } from "../textos/es.generated";
 
 // Espera corta entre un reenvío y el siguiente (E14-PCP 4.2, D-143). El API la impone; esto solo la muestra.
 const ESPERA_MS = 30_000;
@@ -127,24 +128,22 @@ export function RevisaTuCorreo() {
   }
 
   return (
-    <Pagina titulo="Revisa tu correo">
+    <Pagina titulo={textos.revisaTuCorreo.titulo}>
       <p>
         {cifras(
           correo
-            ? `Te enviamos un enlace a ${correo}. Ábrelo para confirmar tu cuenta.`
-            : "Te enviamos un enlace a tu correo. Ábrelo para confirmar tu cuenta.",
+            ? formatear(textos.revisaTuCorreo.enviadoA, { correo })
+            : textos.revisaTuCorreo.enviado,
         )}
       </p>
       <p className="nota">
         <IconoInformacion />
-        <span>¿No llegó? Mira también en el correo no deseado.</span>
+        <span>{textos.revisaTuCorreo.noLlego}</span>
       </p>
-      <p className="ayuda">
-        {cifras("Si no lo confirmas en 7 días, borramos esta cuenta.")}
-      </p>
+      <p className="ayuda">{cifras(textos.revisaTuCorreo.plazo)}</p>
       {aviso && <Aviso {...aviso} />}
       <Boton alTocar={() => void yaLoConfirme()} deshabilitado={ocupado}>
-        Ya lo confirmé
+        {textos.revisaTuCorreo.yaLoConfirme}
       </Boton>
       <Boton
         variante="secundario"
@@ -152,19 +151,19 @@ export function RevisaTuCorreo() {
         deshabilitado={enEspera || ocupado}
         descritoPor={enEspera ? "espera" : undefined}
       >
-        Reenviar el correo
+        {textos.acciones.reenviarElCorreo}
       </Boton>
       {enEspera && (
         <p id="espera" className="ayuda">
-          Puedes pedir otro en un momento.
+          {textos.revisaTuCorreo.espera}
         </p>
       )}
       {cambiando ? (
         <form className="formulario" noValidate onSubmit={guardarNuevoCorreo}>
           <CampoDeTexto
             id="nuevo-correo"
-            etiqueta="Correo electrónico"
-            ayuda="Te enviaremos un enlace para confirmarlo."
+            etiqueta={textos.campos.correo.etiqueta}
+            ayuda={textos.campos.correo.ayuda}
             tipo="email"
             autocompletar="email"
             valor={nuevoCorreo}
@@ -172,12 +171,12 @@ export function RevisaTuCorreo() {
             error={errorDeCorreo}
           />
           <Boton tipo="submit" deshabilitado={ocupado}>
-            Cambiar el correo
+            {textos.acciones.cambiarElCorreo}
           </Boton>
         </form>
       ) : (
         <Boton variante="texto" alTocar={abrirCambioDeCorreo}>
-          Cambiar el correo
+          {textos.acciones.cambiarElCorreo}
         </Boton>
       )}
     </Pagina>

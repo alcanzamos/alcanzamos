@@ -13,6 +13,7 @@ import {
   textoDeErrorDeCampo,
   type DatosDeAviso,
 } from "../textos";
+import { textos } from "../textos/es.generated";
 
 // PN-73 · Cambiar la contraseña con la sesión iniciada (E14-PCP 4.15). Sin la fila del menor: es solo Android.
 export function CambiarContrasena() {
@@ -68,13 +69,13 @@ export function CambiarContrasena() {
   }
 
   return (
-    <Pagina titulo="Cambiar mi contraseña" atras="/cuenta/seguridad">
-      <p>Escribe tu contraseña de ahora y la nueva.</p>
+    <Pagina titulo={textos.cambiarContrasena.titulo} atras="/cuenta/seguridad">
+      <p>{textos.cambiarContrasena.intro}</p>
       <form className="formulario" noValidate onSubmit={enviar}>
         {aviso && <Aviso {...aviso} />}
         <CampoDeContrasena
           id="contrasena-actual"
-          etiqueta="Tu contraseña de ahora"
+          etiqueta={textos.campos.contrasenaDeAhora.etiqueta}
           autocompletar="current-password"
           valor={actual}
           alCambiar={setActual}
@@ -82,18 +83,20 @@ export function CambiarContrasena() {
         />
         <CampoDeContrasena
           id="contrasena-nueva"
-          etiqueta="Tu contraseña nueva"
-          ayuda="Usa una frase de tres o cuatro palabras."
+          etiqueta={textos.campos.contrasenaNueva.etiquetaPropia}
+          ayuda={textos.campos.contrasena.ayuda}
           autocompletar="new-password"
           valor={nueva}
           alCambiar={setNueva}
           error={errores.contrasena_nueva}
         />
         <Boton tipo="submit" deshabilitado={enviando}>
-          Guardar la contraseña
+          {textos.acciones.guardarLaContrasena}
         </Boton>
       </form>
-      <BotonEnlace href="/cuenta/seguridad">Ahora no</BotonEnlace>
+      <BotonEnlace href="/cuenta/seguridad">
+        {textos.cambiarContrasena.ahoraNo}
+      </BotonEnlace>
     </Pagina>
   );
 }
