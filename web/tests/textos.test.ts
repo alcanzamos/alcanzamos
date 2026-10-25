@@ -184,20 +184,37 @@ describe("textos de E14", () => {
   });
 });
 
-describe("recuento de PN-72 (US-59, S4, D-093)", () => {
-  it("da exactamente el resumen de E14-PRR: 13 por confirmar, 2 ingresos y 11 gastos", () => {
+describe("recuento de PN-72 (US-59, S4, D-093, D-163)", () => {
+  it("con los dos tipos: «13 por confirmar: 2 ingresos y 11 gastos»", () => {
     expect(resumenPorConfirmar(2, 11)).toBe(
       "13 por confirmar: 2 ingresos y 11 gastos",
     );
   });
 
-  // «1 ingreso» es el ejemplo del dueño; «1 gasto» y los ceros no están en E14: son propuestos (ver el PR).
+  it("solo ingresos: sin el cero y sin repetir el número", () => {
+    expect(resumenPorConfirmar(13, 0)).toBe("13 ingresos por confirmar");
+  });
+
+  it("solo gastos: sin el cero y sin repetir el número", () => {
+    expect(resumenPorConfirmar(0, 13)).toBe("13 gastos por confirmar");
+  });
+
+  it("total 1 (un solo movimiento): singular en las dos formas", () => {
+    expect(resumenPorConfirmar(0, 1)).toBe("1 gasto por confirmar");
+    expect(resumenPorConfirmar(1, 0)).toBe("1 ingreso por confirmar");
+  });
+
   it.each([
+    [1, 1, "2 por confirmar: 1 ingreso y 1 gasto"],
     [1, 2, "3 por confirmar: 1 ingreso y 2 gastos"],
     [2, 1, "3 por confirmar: 2 ingresos y 1 gasto"],
-    [1, 1, "2 por confirmar: 1 ingreso y 1 gasto"],
-    [0, 13, "13 por confirmar: 0 ingresos y 13 gastos"],
   ])("con %d ingresos y %d gastos: %s", (ingresos, gastos, esperado) => {
     expect(resumenPorConfirmar(ingresos, gastos)).toBe(esperado);
+  });
+
+  it("sin nada por confirmar falla: E14 no tiene texto para total 0 y PN-72 no muestra la tarjeta", () => {
+    expect(() => resumenPorConfirmar(0, 0)).toThrow(
+      /no hay nada por confirmar/,
+    );
   });
 });

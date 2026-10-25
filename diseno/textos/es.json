@@ -253,21 +253,35 @@
     "porConfirmar": {
       "resumen": {
         "texto": "{total} por confirmar: {ingresos} y {gastos}",
-        "e14": "E14-PRR 4.7 (PN-72, D-093): «13 por confirmar: 2 ingresos y 11 gastos»"
+        "e14": "E14-PRR 1.6 (PN-72, D-093, aprobado en D-163): «13 por confirmar: 2 ingresos y 11 gastos»"
       },
       "ingresos": {
         "texto": {
           "one": "{n} ingreso",
           "other": "{n} ingresos"
         },
-        "e14": "E14-PRR 4.7 (PN-72, D-093): «2 ingresos»; «1 ingreso» es el ejemplo del dueño (US-59, S4)"
+        "e14": "E14-PRR 1.6 (PN-72, D-163): «2 ingresos» y «1 ingreso», con los dos tipos"
       },
       "gastos": {
         "texto": {
           "one": "{n} gasto",
           "other": "{n} gastos"
         },
-        "e14": "E14-PRR 4.7 (PN-72, D-093): «11 gastos»; «1 gasto» es propuesto (derivado de «1 ingreso»), falta llevarlo a E14"
+        "e14": "E14-PRR 1.6 (PN-72, D-163): «11 gastos» y «1 gasto», con los dos tipos"
+      },
+      "soloIngresos": {
+        "texto": {
+          "one": "{n} ingreso por confirmar",
+          "other": "{n} ingresos por confirmar"
+        },
+        "e14": "E14-PRR 1.6 (PN-72, D-163): con un solo tipo, sin el cero y sin repetir el número: «13 ingresos por confirmar», «1 ingreso por confirmar»"
+      },
+      "soloGastos": {
+        "texto": {
+          "one": "{n} gasto por confirmar",
+          "other": "{n} gastos por confirmar"
+        },
+        "e14": "E14-PRR 1.6 (PN-72, D-163): con un solo tipo, sin el cero y sin repetir el número: «13 gastos por confirmar», «1 gasto por confirmar»"
       }
     },
     "pagina": {
@@ -501,7 +515,7 @@
       },
       "titulo_del_documento": {
         "texto": "{titulo} · Alcanzamos",
-        "e14": "No está en E14-PCP: ya existía en la web (Pagina.tsx, US-57); sin texto de E14 todavía"
+        "e14": "E14-PCP 1.19 (título de la pestaña del navegador, aprobado en D-163)"
       }
     },
     "campos": {
@@ -544,6 +558,16 @@
     }
   },
   "solo_android": {
+    "arranque": {
+      "cargando": {
+        "texto": "Cargando…",
+        "e14": "E14-PCP 1.19 (arranque de la app en Android, aprobado en D-163)"
+      },
+      "noAbrio": {
+        "texto": "No pudimos abrir la app. Ciérrala y vuelve a abrirla.",
+        "e14": "E14-PCP 1.19 (arranque de la app en Android, aprobado en D-163)"
+      }
+    },
     "avisos": {
       "menorDeEdad": {
         "titulo": {

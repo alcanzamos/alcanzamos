@@ -45,7 +45,7 @@ Base de la US-57 (Vite, React, TypeScript, tokens, fuentes propias, CSP) y, desd
 - **Navegación lateral web** de PN-71 y PN-73 (E14-PCP 1): no hay otras pantallas de dentro a las que llevar; PN-71 solo lleva «Cerrar sesión» y PN-73 su Atrás. La barra llega con el Inicio.
 - **Estados de PN-60 de otras historias** («Cuenta borrada», «Sin autorización» de PN-64): no se construyen aquí.
 - **Título de la pestaña** («{titulo} · Alcanzamos», `pagina.titulo_del_documento`): ya existía en `Pagina.tsx` y no está en E14-PCP; se movió a `es.json` sin cambiarlo y su referencia lo dice. Falta llevarlo a E14.
-- **Plurales de PN-72** (`porConfirmar` en `es.json`): E14 solo tiene «13 por confirmar: 2 ingresos y 11 gastos». «1 ingreso» es el ejemplo del dueño (US-59, S4); «1 gasto» y qué decir con 0 («0 ingresos») son propuestos y faltan en E14.
+- **Plurales de PN-72** (`porConfirmar` en `es.json`, aprobados en D-163, E14-PRR 1.6): con los dos tipos, «13 por confirmar: 2 ingresos y 11 gastos»; con un solo tipo, sin el cero: «13 gastos por confirmar», «1 ingreso por confirmar». `resumenPorConfirmar(ingresos, gastos)` (`src/textos.ts`) elige la forma y lanza un error si los dos son 0, porque E14 no tiene texto para eso (PN-72 solo muestra el resumen con fechas por confirmar). `plural` usa solo la regla manual del español (1 → `one`, lo demás → `other`), sin `Intl.PluralRules`.
 - **PN-63 y PN-64** (US-50): hasta entonces, la pantalla provisional `/sin-autorizacion`.
 
 ## Cómo se usa

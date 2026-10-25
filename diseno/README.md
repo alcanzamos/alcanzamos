@@ -45,7 +45,7 @@ Genera `web/src/estilos/tokens.css` (no se edita a mano, y sí se versiona) con 
 
 ## Textos de la interfaz (US-59, D-160)
 
-[`textos/es.json`](textos/es.json) es la única fuente de los textos de la web y de Android (`comun`, `solo_web`, `solo_android`) y [`generar-textos.mjs`](generar-textos.mjs) genera el módulo de TypeScript de cada app, con `formatear` (marcadores `{nombre}`) y `plural` (`one`/`other` con `Intl.PluralRules`). La forma de cada texto, los marcadores, los plurales y las pruebas están en [`textos/README.md`](textos/README.md). Desde `web/`: `npm run textos`; el pipeline falla si el archivo generado cambia.
+[`textos/es.json`](textos/es.json) es la única fuente de los textos de la web y de Android (`comun`, `solo_web`, `solo_android`) y [`generar-textos.mjs`](generar-textos.mjs) genera el módulo de TypeScript de cada app, con `formatear` (marcadores `{nombre}`) y `plural` (`one`/`other` con la regla del español: 1 es `one` y el resto `other`, sin `Intl.PluralRules`, que Hermes no tiene; D-163). La forma de cada texto, los marcadores, los plurales y las pruebas están en [`textos/README.md`](textos/README.md). Desde `web/` y `movil/`: `npm run textos`; los pipelines fallan si el archivo generado cambia.
 
 ## Fuentes
 
