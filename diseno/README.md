@@ -49,7 +49,7 @@ Genera `web/src/estilos/tokens.css` (no se edita a mano, y sí se versiona) con 
 
 ## Fuentes
 
-Archivos TTF estáticos, solo los pesos que usa la pantalla de prueba. Los de Google Fonts (`google/fonts`, carpeta `ofl/`) solo traen la fuente variable; los estáticos salen del repositorio de cada diseñador, en el mismo commit que registra Google Fonts en su `METADATA.pb` y `upstream_info.md` (commit `45e3d52` de `google/fonts`, consultado el 2026-10-22).
+Archivos TTF estáticos, solo los pesos que usan las apps (los de `fuentes/`). Los de Google Fonts (`google/fonts`, carpeta `ofl/`) solo traen la fuente variable; los estáticos salen del repositorio de cada diseñador, en el mismo commit que registra Google Fonts en su `METADATA.pb` y `upstream_info.md` (commit `45e3d52` de `google/fonts`, consultado el 2026-10-22).
 
 | Familia | Repositorio | Commit | Archivos | Licencia |
 |---|---|---|---|---|

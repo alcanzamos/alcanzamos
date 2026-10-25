@@ -3,21 +3,21 @@
 Alcanzamos es una app de finanzas personales y del hogar para registrar gastos e ingresos escribiendo un mensaje en lenguaje cotidiano, con web y Android.
 Este repositorio contiene el código del producto y las decisiones de arquitectura que un colaborador necesita conocer.
 
-> El proyecto está en construcción: por ahora hay estructura, licencia, decisiones y conjuntos de prueba, pero todavía no hay código.
+> El proyecto está en construcción (iteración I05). Ya hay código en `api/`, `web/` y `movil/`: la cuenta y el acceso de la US-49 (crear la cuenta, verificar el correo, iniciar sesión, recuperar el acceso y cambiar la contraseña). Faltan el motor de reglas y el resto de las historias.
 
 ## Estructura
 
 | Carpeta | Contenido |
 |---|---|
-| [`api/`](api/) | API en Go (monolito modular) |
-| [`web/`](web/) | App web en Vite + React + TypeScript |
-| [`movil/`](movil/) | App en React Native con Expo |
+| [`api/`](api/) | API en Go (monolito modular): cuenta, sesiones y eventos de seguridad |
+| [`web/`](web/) | App web en Vite + React + TypeScript: pantallas de cuenta y acceso |
+| [`movil/`](movil/) | App en React Native con Expo (SDK 58): pantallas de cuenta y acceso |
 | [`reglas/`](reglas/) | Reglas de interpretación y conjuntos de prueba congelados con SHA-256 |
-| [`diseno/`](diseno/) | Tokens de diseño y textos de la interfaz |
-| [`infra/`](infra/) | Infraestructura como código, sin secretos |
+| [`diseno/`](diseno/) | Tokens de diseño, fuentes y textos únicos de la interfaz (`textos/es.json`) |
+| [`infra/`](infra/) | Infraestructura como código (OpenTofu) y ambiente local en Docker, sin secretos |
 | [`docs/adr/`](docs/adr/) | Registros de decisión arquitectónica (ADR-001 a ADR-006) |
 | [`marca/`](marca/) | Nombre, logo, símbolo e ícono: **fuera de la AGPLv3** |
-| [`.azure-pipelines/`](.azure-pipelines/) | Pipelines, uno por carpeta |
+| [`.azure-pipelines/`](.azure-pipelines/) | Seis pipelines: `comun`, `reglas`, `infra`, `api`, `web` y `movil` |
 
 ## Licencia y marca
 

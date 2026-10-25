@@ -26,7 +26,7 @@ Mailpit recibe todo y no reenvía nada: no tiene configurado ningún servidor de
 - Base de datos: `postgres://alcanzamos:solo-local@127.0.0.1:5432/alcanzamos?sslmode=disable`. En local no hay TLS; en producción es obligatorio.
 - Correo: SMTP en `127.0.0.1:1025`, sin autenticación ni TLS. En producción el correo sale por Azure Communication Services (D-113).
 
-El API leerá estos valores de variables de entorno. Se definen en la US-45.
+El API lee estos valores de variables de entorno (`BASE_DE_DATOS_URL`, `CORREO_SMTP` y las demás de la tabla «Configuración» de [`api/README.md`](../../api/README.md)); los ejemplos locales de esa tabla coinciden con este ambiente.
 
 ## Versiones
 
