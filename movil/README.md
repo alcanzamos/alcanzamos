@@ -3,12 +3,12 @@
 App móvil en React Native con Expo, primero Android y después iOS (ADR-003). Las notificaciones usan FCM sin pasar por el servicio de notificaciones de Expo.
 
 - Archivo de construcción: `package.json` en esta carpeta.
-- Reglas: estándar de codificación (E17-ECO), misma configuración de TypeScript, ESLint y Prettier que `web/`. Código en `src/` y pruebas en `tests/`.
+- Reglas: estándar de codificación (E17-ECO), misma configuración de TypeScript y ESLint que `web/` (Prettier no está configurado en `movil/`). Código en `src/` y pruebas en `tests/`.
 - Los tokens de diseño vienen de [`diseno/`](../diseno/) y se convierten con `npm run tokens`.
 
-## Estado (US-45, T3)
+## Estado
 
-Solo hay una pantalla de prueba con cifras inventadas (`src/PantallaCifras.tsx`): cifras tabulares de Figtree, cero de Atkinson Hyperlegible Next y qué fuente cargó. No hay lógica de negocio. ESLint ya está configurado (ver «Pipeline»); Prettier todavía no (pendiente con `web/`).
+Desde la US-49 la app tiene las pantallas de cuenta y acceso (ver las secciones de abajo) y abre en PN-60. La pantalla de prueba de cifras (`src/PantallaCifras.tsx`, con cifras inventadas) sigue en el código. No hay otra lógica de negocio. ESLint ya está configurado (ver «Pipeline»); Prettier no.
 
 ## Base de la cuenta y el acceso (US-49, A1)
 

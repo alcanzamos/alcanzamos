@@ -26,11 +26,11 @@ Los nombres siguen las abreviaturas de Microsoft Cloud Adoption Framework: tipo,
 - Sin secretos en el repositorio. El estado de OpenTofu va en Azure Storage, con Entra ID y sin claves compartidas.
 - El API entra a PostgreSQL, Key Vault y el correo con su identidad administrada, sin contraseñas ni claves.
 - PostgreSQL admite conexiones solo desde servicios de Azure (regla `0.0.0.0`), porque Container Apps de consumo no tiene una IP de salida fija. Esa regla deja pasar servicios de otros clientes de Azure. Lo compensan la autenticación solo con Entra ID y TLS obligatorio. Si el riesgo no se acepta, la alternativa es una red virtual, que cuesta más (ADR-006).
-- El API escucha en el puerto 8080; se confirma en la US-45.
+- El API escucha en el puerto 8080 (`ENV PUERTO=8080` y `EXPOSE 8080` en `api/Dockerfile`).
 - OpenTofu no administra el DNS. La salida `registros_dns_de_avisos` lista los registros que el dueño carga en Cloudflare (E17-CCO §10.6).
 - La alerta cuenta por tipo de evento (E11-DAR §7): la consulta agrupa por la dimensión `tipo`, y el umbral vale para cada tipo por separado.
 - La imagen del API no tiene valor por defecto. La pasa el pipeline de despliegue, con versión o digest; `latest` se rechaza.
-- Cada correo dice dónde escribir: `privacidad@alcanzamos.co` (RF-060). Es la condición del remitente (D-120) y se cumple en las plantillas de la US-45.
+- Cada correo dice dónde escribir: `privacidad@alcanzamos.co` (RF-060). Es la condición del remitente (D-120) y los correos del API ya lo cumplen (ver «Correo» en [`api/README.md`](../../api/README.md)).
 
 ## Antes del primer despliegue (D-120)
 
@@ -43,10 +43,10 @@ No bloquean la US-44.
 5. **Probar que el aviso de la alerta llega** a `andres@alcanzamos.co` (O-5).
 6. **Variables de la base (D-123).** La configuración pasa `PGHOST`, `PGDATABASE`, `PGUSER` y `PGSSLMODE`, pero el API lee `BASE_DE_DATOS_URL`. Se resuelve en I05, con la conexión por Entra ID.
 
-## Para la US-45
+## Registro de eventos de seguridad
 
-- El campo con el tipo de evento se llama `evento_seguridad`; la alerta depende de ese nombre.
-- E11-DAR §7 habla de un «contador por origen», pero la lista de campos no incluye el origen. Si es la IP, es un dato personal (NM-03). Se resuelve al escribir el registro.
+- El campo con el tipo de evento se llama `evento_seguridad`; la alerta depende de ese nombre. El API ya lo escribe así (`api/README.md`, «Eventos de seguridad»).
+- E11-DAR §7 habla de un «contador por origen», pero el registro del API **no incluye origen ni IP** (D-123; `api/README.md`): sigue sin ser un dato personal (NM-03).
 
 ## Versiones
 
