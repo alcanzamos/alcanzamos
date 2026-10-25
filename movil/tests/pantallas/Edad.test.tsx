@@ -22,7 +22,7 @@ async function mostrar() {
 async function elegir(fecha: Date) {
   await fireEvent.press(screen.getByRole('button', { name: /Fecha de nacimiento/ }));
   await act(async () => {
-    abrir.mock.calls.at(-1)[0].onChange({ type: 'set' }, fecha);
+    abrir.mock.calls.at(-1)[0].onValueChange({ nativeEvent: { timestamp: fecha.getTime(), utcOffset: 0 } }, fecha);
   });
 }
 
