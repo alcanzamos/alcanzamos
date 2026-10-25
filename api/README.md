@@ -79,7 +79,7 @@ Toda ruta de `/api/` se registra con `Enrutador.Registrar(nivel, patron, manejad
 |---|---|---|
 | `publica` | nada | crear la cuenta, verificar el correo con el enlace, iniciar sesión y recuperar el acceso (pedir el enlace y elegir la contraseña con él) |
 | `sin_verificar` | una sesión, aunque sea la **limitada** de una cuenta con el correo sin verificar (o la sesión de mentira de D-141) | PN-59: revisar el estado, reenviar, cambiar el correo; cerrar sesión |
-| `sin_autorizacion` | cuenta con el correo **verificado**, aunque no haya autorizado lo necesario | cerrar sesión y las acciones de PN-63 y PN-64 (US-50) |
+| `sin_autorizacion` | cuenta con el correo **verificado**, aunque no haya autorizado lo necesario | las acciones de PN-64: ver las finalidades, autorizar y «No autorizo» ([Autorización](#autorización-us-50)) |
 | `requiere_autorizacion` | cuenta verificada y con las finalidades necesarias de su etapa **autorizadas** (`ReglaDeFinalidades`) | el ingreso anterior de PN-71, el cambio de contraseña de PN-73 y todo lo demás |
 
 | Sujeto → | sin sesión | limitada o de mentira | verificada sin autorizar | autorizada |
@@ -323,6 +323,65 @@ Código en `src/autenticacion` (`Servicio` y `Handler`; E12 `AutenticacionServic
 | las de `/api/` que piden sesión | 401 | `sin_sesion` | PN-60 «Sesión cerrada» |
 | `GET /api/v1/cuenta/seguridad` | 403 | `verificacion_pendiente`, `autorizacion_pendiente` | el cliente sigue a PN-59 o a PN-63 |
 
+## Autorización (US-50)
+
+PN-63 es solo información (no llama al API). PN-64 usa estas tres rutas, todas `sin_autorizacion`: las usa la sesión de una cuenta con el correo verificado que aún no autorizó lo necesario. Código en `src/autorizacion` (`Servicio` y `Handler`) y `pg.Autorizaciones`. **El API no manda textos de interfaz:** los textos de las finalidades salen de E14-PCP 5 (`diseno/textos`) y cada app asocia el `codigo` con su texto.
+
+| Ruta | Nivel | Qué hace |
+|---|---|---|
+| `GET /api/v1/autorizaciones` | `sin_autorizacion` | Las finalidades que una persona adulta puede autorizar ahora y la versión vigente del texto |
+| `POST /api/v1/autorizaciones` | `sin_autorizacion` | Guarda la autorización (PN-64, «Autorizar y continuar»). Cuerpo: `{"finalidades":[…],"version":"1.0"}` |
+| `POST /api/v1/autorizaciones/rechazo` | `sin_autorizacion` | «No autorizo»: borra la cuenta recién creada y cierra la sesión (RF-031, D-089) |
+
+### Ver las finalidades
+
+`200` con `Cache-Control: no-store`:
+
+```json
+{
+  "version": { "numero": "1.0", "fecha": "2026-10-30" },
+  "finalidades": [
+    { "codigo": "cuenta_y_acceso", "tipo": "necesaria", "otorgada": false },
+    { "codigo": "funciones_financieras", "tipo": "necesaria", "otorgada": false },
+    { "codigo": "avisos", "tipo": "accesoria", "otorgada": false },
+    { "codigo": "horas_de_vida", "tipo": "accesoria", "otorgada": false }
+  ]
+}
+```
+
+- **Por qué solo estas cuatro (D-139).** La lista sale de `cuenta.ReglaDeFinalidades` (`Codigos` y `Accesorias` de la etapa adulta): las dos necesarias de la persona adulta y las accesorias activas que PN-64 le ofrece. Quedan fuera `cuenta_del_menor` (necesaria, pero se autoriza en PN-36 con la tutoría), `correo_del_menor` (es del menor, I11) y `transferencia` (inactiva, NM-06). Lo que no está en la lista no se puede autorizar: el `POST` lo rechaza.
+- `otorgada` es verdadero si la persona tiene esa finalidad vigente (`retirada_en` nula) otorgada por ella misma.
+- `version` es el texto vigente. En la base se guarda como «1.0 del 2026-10-30» (`autorizacion.version_del_texto`); cada app escribe la fecha en palabras con la función común (D-090): «Texto versión 1.0 del 30 de octubre de 2026.».
+
+### Autorizar
+
+Cuerpo `{"finalidades":["cuenta_y_acceso","funciones_financieras","avisos"],"version":"1.0"}`; un campo que no esté en el contrato da `400 solicitud_invalida`. Respuesta `200 {"estado":"autorizada"}` con `Cache-Control: no-store`.
+
+| Código | Error | Cuándo |
+|---|---|---|
+| `409` | `version_desactualizada` | `version` no es la vigente (o falta). Se revisa primero. El cliente vuelve a pedir la lista y muestra el texto nuevo: es un conflicto con el estado actual, no un campo mal escrito |
+| `422` | `finalidad_invalida` | un código desconocido, inactivo o que no le toca a una persona adulta |
+| `422` | `faltan_necesarias` | no vienen las dos necesarias (las dos viajan juntas, en una sola casilla). Las accesorias son libres |
+| `401` | `sin_sesion` | la cuenta se borró entre el guard y la escritura |
+
+- **Una transacción** inserta una fila de `autorizacion` por finalidad: `titular_id = otorgante_id = la persona`, `version_del_texto = "1.0 del 2026-10-30"`, `otorgada_en` = la hora del `Reloj`. Antes toma la fila de la persona (`FOR UPDATE`) para turnarse con «No autorizo».
+- **Idempotente.** Repetir la llamada no duplica nada ni mueve la fecha: `ON CONFLICT … DO NOTHING` sobre el índice único de las vigentes (`ix_autorizacion_vigente`). Si se suma una accesoria, solo entra esa. Una finalidad repetida en la lista cuenta una vez.
+- **La misma sesión sube de nivel, sin reautenticar.** El nivel no se guarda: `pg.Sesiones.Sujeto` calcula `Autorizada` en cada petición desde la base. No hay sesión nueva, no se rota el token y **`credencial.ingreso_anterior` no se toca**: tras autorizar, PN-71 de la misma sesión responde `{"ingreso_anterior":null}` y la persona ve «Este es tu primer ingreso.» (S2, `TestS2LaPersonaNuevaAutorizaYVeSuPrimerIngresoEnLaMismaSesion`).
+- **Evento.** No hay un evento de seguridad nuevo: el conjunto de E17-VTE 2.1 es cerrado (`inicio_sesion_fallido`, `acceso_denegado`, `error_autorizacion`) y la alerta de producción cuenta por esos tres valores; agregar uno cambiaría `infra/produccion/alertas.tf`. Un otorgamiento correcto no es un fallo ni una negación: queda en el registro común (`INFO`, solo el identificador de la petición).
+
+### «No autorizo»
+
+`POST /api/v1/autorizaciones/rechazo` (sin cuerpo): `204`, `Cache-Control: no-store` y la cookie `__Host-sesion` vencida (Android no tiene cookie: el token ya no sirve porque la sesión se borró). La app va a PN-60.
+
+- **Solo la sesión de nivel exactamente `sin_autorizacion`.** Con lo necesario ya autorizado responde `403 {"error":"ya_autorizada"}` y deja el evento `acceso_denegado` con la cuenta; no borra nada. Quien ya autorizó borra su cuenta por PN-69. La condición se vuelve a comprobar **dentro de la transacción** (si autorizó entre el guard y el borrado, también `403`).
+- **Una transacción** borra la persona y, por `ON DELETE CASCADE`, todo lo que tenga llave a ella: `perfil_adulto`, `credencial`, `sesion` (todas, no solo la de la petición), `enlace_un_uso` (verificación y recuperación), `token_dispositivo`, `ocultamiento_categoria`, `aviso`… La prueba recorre las llaves foráneas desde el catálogo de PostgreSQL (la consulta de E13 §7), así que una tabla nueva con llave a la persona entra sola, y comprueba que no queda ninguna fila.
+- **`autorizacion` es la excepción de E13 §7 y D-135.** No tiene llave a la persona, así que no se borra en cascada: las que hubiera (una necesaria suelta, por ejemplo) quedan retiradas (`retirada_en`) y conservadas hasta `conservar_hasta` (3 años, plazo provisional, `cuenta.AniosDeLaPruebaDeAutorizacion`) como prueba mínima, sin datos de contacto. Es el mismo criterio de `BorrarSinConfirmar`. Con el flujo normal no hay ninguna, porque no se guarda nada antes de autorizar.
+- Después, el correo y la contraseña ya no sirven (`401 credenciales_invalidas`) y la persona puede empezar de nuevo.
+
+### «Nada se guarda antes de autorizar» (S1, Ley 1581)
+
+Las rutas por debajo de `requiere_autorizacion` son solo las del ingreso (crear la cuenta y verificar el correo, entrar, recuperar el acceso, cerrar sesión y las tres de arriba); hoy la única que escribe datos de la persona más allá de eso, el cambio de contraseña (PN-73), exige autorización, igual que PN-71. `TestSoloLasRutasDelIngresoNoExigenAutorizacion` (`test/app`) falla si aparece una ruta nueva por debajo de `requiere_autorizacion` que no esté en esa lista a propósito. `TestSinAutorizarLasRutasProtegidasDan403YAutorizandoPasan` prueba `403 autorizacion_pendiente` sin autorizar y que, al autorizar en la misma sesión, pasan.
+
 ## Gaps de la US-49
 
 - **Origen detrás de un proxy:** el límite por origen usa la dirección de la conexión. Detrás de Azure Container Apps todos los pedidos llegarían con la dirección de su entrada y el límite se volvería de todos juntos. Es la fila 17 del primer despliegue (D-143 (4)): se confiará solo en la dirección que agregue esa entrada. No se lee `X-Forwarded-For` mientras tanto.
@@ -376,7 +435,7 @@ docker compose -f ../infra/local/compose.yaml --env-file ../infra/local/.env.exa
 
 Las pruebas viven en `test/` y miden `src/` con `-coverpkg=./src/...`. Las dos listas de paquetes son explícitas (E17-ECO 5.5) y se comparan por ruta completa relativa a `src/` (`cmd/api` es ese paquete; `cmd` solo no lo es). El pipeline `api` (`.azure-pipelines/api.yml`) falla si:
 
-- el grupo **núcleo y seguridad** (`nucleo` cuando exista, `seguridad`, `argon2id`, `sesion`, `servidor`, `autenticacion` y `cuenta`, D-151) queda bajo **90 %**;
+- el grupo **núcleo y seguridad** (`nucleo` cuando exista, `seguridad`, `argon2id`, `sesion`, `servidor`, `autenticacion`, `cuenta`, D-151, y `autorizacion`, US-50) queda bajo **90 %**;
 - el grupo **resto del API** (`app`, `bd`, `cmd/api`, `config`, `correo`, `pg`, `reloj`, `tareas` y `web`) queda bajo **75 %**;
 - algún grupo queda bajo la base de `test/cobertura-base.json` (sin bajar respecto de `main`). Un PR que sube la cobertura puede subir la base (valores con un decimal, redondeados hacia abajo); **nunca bajarla**;
 - aparece un paquete de `src/` que **no está en ninguna de las dos listas**. Se busca en el perfil de cobertura y también en un recorrido de las carpetas de `src/` con archivos `.go` (tercer argumento de `medir`), así que un paquete sin pruebas tampoco pasa. Hay que clasificarlo en E17-ECO 5.5 y en `cobertura.py`. Un paquete nuevo de seguridad no cae al 75 % sin que nadie lo note. `nucleo` puede no existir todavía: su ausencia no falla.

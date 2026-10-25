@@ -143,3 +143,34 @@ func TestCumple(t *testing.T) {
 		t.Error("sin titular no se cumple, aunque el otorgante también venga vacío")
 	}
 }
+
+// Lo que PN-64 ofrece como accesorio (D-139): solo `avisos` y `horas_de_vida`, y solo a la persona adulta.
+func TestAccesoriasDeCadaEtapa(t *testing.T) {
+	var r cuenta.ReglaDeFinalidades
+	if got := r.Accesorias(cuenta.EtapaAdulta); !slices.Equal(got, []string{"avisos", "horas_de_vida"}) {
+		t.Errorf("Accesorias(adulta) = %v", got)
+	}
+	for _, e := range []cuenta.Etapa{cuenta.EtapaMenor, "", "otra"} {
+		if got := r.Accesorias(e); got != nil {
+			t.Errorf("Accesorias(%q) = %v, se esperaba nada", e, got)
+		}
+	}
+	r.Accesorias(cuenta.EtapaAdulta)[0] = "otra"
+	if r.Accesorias(cuenta.EtapaAdulta)[0] != "avisos" {
+		t.Error("Accesorias devolvió la lista interna")
+	}
+}
+
+// La regla no puede ofrecer una accesoria que el catálogo no tenga como accesoria y activa.
+func TestLaReglaSoloOfreceAccesoriasActivasDelCatalogo(t *testing.T) {
+	var r cuenta.ReglaDeFinalidades
+	catalogo := map[string]finalidadDelCatalogo{}
+	for _, f := range catalogoDeLaMigracion(t) {
+		catalogo[f.codigo] = f
+	}
+	for _, codigo := range r.Accesorias(cuenta.EtapaAdulta) {
+		if c, ok := catalogo[codigo]; !ok || c.tipo != "accesoria" || !c.activa {
+			t.Errorf("la regla ofrece %q, pero el catálogo no la tiene como accesoria y activa", codigo)
+		}
+	}
+}
