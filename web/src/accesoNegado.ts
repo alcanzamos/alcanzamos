@@ -4,7 +4,7 @@ import { navegar } from "./enrutador";
 
 /**
  * Lo que hace toda pantalla de dentro cuando el API le niega el paso: sin sesión va a PN-60 («Tu sesión se cerró»);
- * con la cuenta sin verificar, a PN-59; sin autorización, a la pantalla provisional (PN-63 y PN-64 llegan con la US-50).
+ * con la cuenta sin verificar, a PN-59; sin autorización, a PN-63 (la información de privacidad, antes de PN-64).
  * Devuelve verdadero si ya llevó a la persona a otra pantalla.
  */
 export function seguirPorAccesoNegado(
@@ -20,7 +20,7 @@ export function seguirPorAccesoNegado(
     respuesta.estado === 403 &&
     respuesta.codigo === "autorizacion_pendiente"
   )
-    navegar("/sin-autorizacion", true);
+    navegar("/privacidad", true);
   else return false;
   return true;
 }

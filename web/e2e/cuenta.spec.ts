@@ -229,7 +229,7 @@ test.describe("PN-59 · Verificar el correo", () => {
     ).toBe(true);
   });
 
-  test("«Ya lo confirmé» sin confirmar: aviso; confirmado: pantalla provisional", async ({
+  test("«Ya lo confirmé» sin confirmar: aviso; confirmado: PN-63", async ({
     page,
   }) => {
     let verificada = false;
@@ -247,7 +247,7 @@ test.describe("PN-59 · Verificar el correo", () => {
     await sinViolaciones(page);
     verificada = true;
     await page.getByRole("button", { name: "Ya lo confirmé" }).click();
-    await expect(page).toHaveURL(/\/sin-autorizacion$/);
+    await expect(page).toHaveURL(/\/privacidad$/);
   });
 
   test("«Reenviar el correo»: aviso, 30 s de espera con su texto y luego se libera", async ({
@@ -347,7 +347,7 @@ test.describe("PN-59 · Verificar el correo", () => {
 });
 
 test.describe("/verificar?t= · enlace del correo", () => {
-  test("enlace bueno con sesión: va enseguida a la pantalla provisional con «Listo, confirmamos tu correo.» como estado (T11)", async ({
+  test("enlace bueno con sesión: va enseguida a PN-63 con «Listo, confirmamos tu correo.» como estado (T11)", async ({
     page,
   }) => {
     const pedidos = await simularApi(page, {
@@ -357,7 +357,7 @@ test.describe("/verificar?t= · enlace del correo", () => {
       }),
     });
     await page.goto("/verificar?t=abc123");
-    await expect(page).toHaveURL(/\/sin-autorizacion$/);
+    await expect(page).toHaveURL(/\/privacidad$/);
     const estado = page.getByRole("status");
     await expect(estado).toHaveText("Listo, confirmamos tu correo.");
     // El estado va arriba, antes del título.
@@ -422,27 +422,7 @@ test.describe("/verificar?t= · enlace del correo", () => {
   });
 });
 
-test.describe("pantalla provisional y rutas", () => {
-  test("sin autorización: solo «Cerrar sesión», que sale a entrar; sin violaciones", async ({
-    page,
-  }) => {
-    const pedidos = await simularApi(page, {
-      "DELETE /api/v1/sesiones/actual": (ruta) => ruta.fulfill({ status: 204 }),
-    });
-    await page.goto("/sin-autorizacion");
-    await expect(
-      page.getByRole("heading", {
-        level: 1,
-        name: "Sin esta autorización no podemos darte la cuenta.",
-      }),
-    ).toBeVisible();
-    await expect(page.getByRole("button")).toHaveCount(1);
-    await sinViolaciones(page);
-    await page.getByRole("button", { name: "Cerrar sesión" }).click();
-    await expect(page).toHaveURL(/\/entrar$/);
-    expect(pedidos).toHaveLength(1);
-  });
-
+test.describe("rutas", () => {
   test("/ y las rutas desconocidas llevan a /entrar que no tiene violaciones", async ({
     page,
   }) => {

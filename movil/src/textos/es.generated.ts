@@ -293,10 +293,6 @@ export const textos = {
     // E14-PCP 4.14 (PN-71)
     cambiarContrasena: "Cambiar mi contraseña",
   },
-  sinAutorizacion: {
-    // E14-PCP 4.7 (PN-64)
-    titulo: "Sin esta autorización no podemos darte la cuenta.",
-  },
   arranque: {
     // E14-PCP 1.19 (arranque de la app en Android, aprobado en D-163)
     cargando: "Cargando…",
@@ -322,6 +318,10 @@ export const textos = {
     },
     // E14-PCP 4.8 (PN-65)
     continuar: "Continuar",
+  },
+  sinAutorizacion: {
+    // E14-PCP 4.7 (PN-64)
+    titulo: "Sin esta autorización no podemos darte la cuenta.",
   },
 } as const;
 

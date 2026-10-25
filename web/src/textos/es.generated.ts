@@ -116,6 +116,26 @@ export const textos = {
       // E14-PCP 4.3, PN-60 (se llega a ella cuando el API niega el paso por falta de sesión)
       titulo: "Tu sesión se cerró. Entra de nuevo.",
     },
+    errorAlCargarInformacion: {
+      // E14-PCP 4.6, estado «Error de carga» de PN-63; en la web también cuando el catálogo de PN-64 no carga o trae una finalidad que E14 no tiene
+      titulo: "No pudimos cargar la información.",
+    },
+    errorAlGuardarAutorizacion: {
+      // E14-PCP 4.7 (PN-64), estado «Error de envío»; también con 409, 422 y 403
+      titulo: "No pudimos guardar tu autorización.",
+      // E14-PCP 4.7 (PN-64), estado «Error de envío»; también con 409, 422 y 403
+      mensaje: "Intenta de nuevo.",
+    },
+    errorAlBorrarElCorreo: {
+      // E14-PCP 4.7 (PN-64), estado «Sin conexión» con «No autorizo»; en la web también con un error del servidor
+      titulo: "Todavía no pudimos borrar tu correo. Intenta de nuevo.",
+    },
+    correoBorrado: {
+      // E14-PCP 4.7 (PN-64), estado «No autorizo» (llega a PN-60)
+      titulo: "Borramos el correo que nos diste.",
+      // E14-PCP 4.7 (PN-64), estado «No autorizo» (llega a PN-60)
+      mensaje: "Sin tu autorización no creamos la cuenta. Puedes empezar de nuevo cuando quieras.",
+    },
   },
   correo: {
     // E14-PCP 4.1 (errores de campo de PN-58): el campo del correo es el mismo en PN-58, en «Cambiar el correo» de PN-59 (4.16 T3) y en PN-61.
@@ -301,10 +321,6 @@ export const textos = {
     // E14-PCP 4.14 (PN-71)
     cambiarContrasena: "Cambiar mi contraseña",
   },
-  sinAutorizacion: {
-    // E14-PCP 4.7 (PN-64)
-    titulo: "Sin esta autorización no podemos darte la cuenta.",
-  },
   recuperar: {
     // E14-PCP 4.5 (PN-62)
     titulo: "Elige tu contraseña nueva",
@@ -316,6 +332,122 @@ export const textos = {
     vacia: "Falta repetir la contraseña.",
     // E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62
     distinta: "Falta que las dos contraseñas sean iguales.",
+  },
+  privacidad: {
+    // E14-PCP 4.6 (PN-63), fila 1
+    titulo: "Cómo cuidamos tus datos",
+    // E14-PCP 4.6 (PN-63), fila 2
+    intro: "Antes de seguir, esto es lo que hacemos con tu información.",
+    // E14-PCP 4.6 (PN-63), fila 11 (solo en el primer uso; lleva a PN-64)
+    continuar: "Continuar",
+    tarjetas: {
+      queGuardamos: {
+        // E14-PCP 4.6 (PN-63), fila 3
+        titulo: "Lo que guardamos",
+        // E14-PCP 4.6 (PN-63), fila 3
+        cuerpo: "Tu correo, tu contraseña y tu nombre para mostrar. Y lo que tú registras: movimientos, metas, deudas y presupuestos.",
+      },
+      paraQue: {
+        // E14-PCP 4.6 (PN-63), fila 4
+        titulo: "Para qué lo usamos",
+        // E14-PCP 4.6 (PN-63), fila 4
+        cuerpo: "Para mostrarte tu plata disponible, avisarte de un faltante y explicarte por qué.",
+      },
+      loTuyo: {
+        // E14-PCP 4.6 (PN-63), fila 5
+        titulo: "Lo tuyo es solo tuyo",
+        // E14-PCP 4.6 (PN-63), fila 5
+        cuerpo: "Solo se comparte con tu hogar lo que tú marcas como compartido.",
+      },
+      avisos: {
+        // E14-PCP 4.6 (PN-63), fila 6
+        titulo: "Los avisos no cuentan nada",
+        // E14-PCP 4.6 (PN-63), fila 6
+        cuerpo: "La notificación solo dice «Tienes un aviso en Alcanzamos.» Las cifras las ves dentro de la app.",
+      },
+      cuidado: {
+        // E14-PCP 4.6 (PN-63), fila 7
+        titulo: "Cuida lo que escribes",
+        // E14-PCP 4.6 (PN-63), fila 7
+        cuerpo: "No escribas datos de salud, religión ni de otras personas.",
+      },
+      derechos: {
+        // E14-PCP 4.6 (PN-63), fila 8
+        titulo: "Tus derechos",
+        // E14-PCP 4.6 (PN-63), fila 8
+        cuerpo: "Puedes conocer, corregir y borrar tus datos, y retirar tu autorización cuando quieras.",
+      },
+      quienResponde: {
+        // E14-PCP 4.6 (PN-63), fila 9
+        titulo: "Quién responde",
+        // E14-PCP 4.6 (PN-63), fila 9
+        cuerpo: "Andrés Jiménez es el responsable. Escríbele a privacidad@alcanzamos.co.",
+      },
+      dondeSeGuardan: {
+        // E14-PCP 4.6 (PN-63), fila 9 b (D-126; sujeto a la revisión jurídica de D-071)
+        titulo: "Dónde se guardan",
+        // E14-PCP 4.6 (PN-63), fila 9 b (D-126; sujeto a la revisión jurídica de D-071)
+        cuerpo: "En Azure, en México. El correo que te enviamos sale por un servicio que guarda sus datos en Francia, y lo que escribes a privacidad@alcanzamos.co queda en Estados Unidos. Los detalles están en la política.",
+      },
+    },
+  },
+  autorizacion: {
+    // E14-PCP 4.7 (PN-64), fila 1
+    titulo: "Tu autorización",
+    // E14-PCP 4.7 (PN-64), fila 2
+    explicacion: "Necesitamos tu permiso para usar algunos datos. Lee con calma y decide.",
+    necesarias: {
+      // E14-PCP 4.7 (PN-64), fila 3
+      titulo: "Lo necesario para usar la app",
+      // E14-PCP 4.7 (PN-64), fila 4
+      casilla: "Autorizo el uso de mis datos para estas finalidades necesarias.",
+      // E14-PCP 4.7 (PN-64), fila 5
+      nota: "Sin esta autorización no podemos darte la cuenta. Si no autorizas, borramos al momento el correo que nos diste.",
+      // E14-PCP 4.7 (PN-64), errores de campo
+      error: "Falta tu autorización para lo necesario.",
+    },
+    opcionales: {
+      // E14-PCP 4.7 (PN-64), fila 6
+      titulo: "Lo que puedes elegir",
+      // E14-PCP 4.7 (PN-64), fila 8
+      nota: "Puedes decir que no. La app funciona igual. Lo cambias cuando quieras en Preferencias.",
+    },
+    // E14-PCP 4.7 (PN-64), fila 9; la fecha en palabras (D-090)
+    version: "Texto versión {numero} del {fecha}.",
+    // E14-PCP 4.7 (PN-64), fila 11
+    autorizar: "Autorizar y continuar",
+    // E14-PCP 4.7 (PN-64), fila 12
+    noAutorizo: "No autorizo",
+  },
+  finalidades: {
+    cuenta_y_acceso: {
+      // E14-PCP 5 (PN-64)
+      nombre: "Cuenta y acceso",
+      // E14-PCP 5 (PN-64)
+      descripcion: "Usamos tu correo, tu contraseña y tu nombre para crear tu cuenta, dejarte entrar y ayudarte a recuperar el acceso.",
+    },
+    funciones_financieras: {
+      // E14-PCP 5 (PN-64)
+      nombre: "Funciones financieras",
+      // E14-PCP 5 (PN-64)
+      descripcion: "Usamos lo que registras —movimientos, presupuestos, deudas y metas— para calcular tu plata disponible, avisarte de un faltante y mostrarte tus resúmenes.",
+    },
+    avisos: {
+      // E14-PCP 5 (PN-64)
+      nombre: "Avisos con la app cerrada",
+      // E14-PCP 5 (PN-64)
+      descripcion: "Usamos un código de tu teléfono para enviarte avisos aunque la app esté cerrada. El aviso solo dice «Tienes un aviso en Alcanzamos.» y no lleva cifras ni nombres.",
+      // E14-PCP 4.7 (PN-64), fila 7
+      casilla: "Autorizo los avisos con la app cerrada.",
+    },
+    horas_de_vida: {
+      // E14-PCP 5 (PN-64)
+      nombre: "Horas de vida",
+      // E14-PCP 5 (PN-64)
+      descripcion: "Usamos tu ingreso y tus horas de trabajo para mostrarte cuánto tiempo de tu vida cuesta un gasto. Está apagado hasta que lo actives. Es solo para personas adultas.",
+      // E14-PCP 4.7 (PN-64), fila 7
+      casilla: "Autorizo mostrar el costo de un gasto en horas de vida.",
+    },
   },
 } as const;
 

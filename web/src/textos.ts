@@ -100,6 +100,24 @@ export const avisos = {
     titulo: a.contrasenaRecuperada.titulo,
   },
   sesionCerrada: { tipo: "informacion", titulo: a.sesionCerrada.titulo },
+  errorAlCargarInformacion: {
+    tipo: "informacion",
+    titulo: a.errorAlCargarInformacion.titulo,
+  },
+  errorAlGuardarAutorizacion: {
+    tipo: "informacion",
+    titulo: a.errorAlGuardarAutorizacion.titulo,
+    mensaje: a.errorAlGuardarAutorizacion.mensaje,
+  },
+  errorAlBorrarElCorreo: {
+    tipo: "informacion",
+    titulo: a.errorAlBorrarElCorreo.titulo,
+  },
+  correoBorrado: {
+    tipo: "informacion",
+    titulo: a.correoBorrado.titulo,
+    mensaje: a.correoBorrado.mensaje,
+  },
 } satisfies Record<string, DatosDeAviso>;
 
 /**
@@ -130,6 +148,12 @@ export const textoDeErrorDeCampo = (
   pantalla: keyof typeof erroresDeCampo = "crearCuenta",
 ): string | undefined =>
   (erroresDeCampo[pantalla] as Record<string, string>)[codigo];
+
+/** Lo que PN-64 muestra de cada finalidad que el API entrega por su `codigo` (E14-PCP 5); el API no manda textos. */
+export const finalidadesDeE14: Record<
+  string,
+  { nombre: string; descripcion: string; casilla?: string }
+> = textos.finalidades;
 
 /** El aviso que corresponde a un fallo que no es de campo; `generico` es el de la pantalla para lo demás. */
 export function avisoDeFallo(

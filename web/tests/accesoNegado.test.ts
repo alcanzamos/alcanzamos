@@ -20,11 +20,11 @@ describe("acceso negado", () => {
     expect(window.location.pathname).toBe("/revisa-tu-correo");
   });
 
-  it("403 autorizacion_pendiente lleva a la pantalla provisional", () => {
+  it("403 autorizacion_pendiente lleva a PN-63", () => {
     expect(seguirPorAccesoNegado(fallo(403, "autorizacion_pendiente"))).toBe(
       true,
     );
-    expect(window.location.pathname).toBe("/sin-autorizacion");
+    expect(window.location.pathname).toBe("/privacidad");
   });
 
   it.each([

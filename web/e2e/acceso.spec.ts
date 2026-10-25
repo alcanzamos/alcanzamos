@@ -108,9 +108,7 @@ test.describe("PN-60 · Iniciar sesión", () => {
     await expect(page.getByText("Este es tu primer ingreso.")).toBeVisible();
   });
 
-  test("cuenta activa sin autorización va a la pantalla provisional", async ({
-    page,
-  }) => {
+  test("cuenta activa sin autorización va a PN-63", async ({ page }) => {
     await simularApi(page, {
       "POST /api/v1/sesiones": responder(200, { estado: "activa" }),
       "GET /api/v1/cuenta/seguridad": responder(403, {
@@ -119,7 +117,7 @@ test.describe("PN-60 · Iniciar sesión", () => {
     });
     await page.goto("/entrar");
     await page.getByRole("button", { name: "Iniciar sesión" }).click();
-    await expect(page).toHaveURL(/\/sin-autorizacion$/);
+    await expect(page).toHaveURL(/\/privacidad$/);
   });
 
   test("solo con el teclado: de los campos a la seguridad de la cuenta", async ({
@@ -521,9 +519,7 @@ test.describe("PN-73 · Cambiar la contraseña", () => {
     });
   });
 
-  test("sin autorización el API manda a la pantalla provisional", async ({
-    page,
-  }) => {
+  test("sin autorización el API manda a PN-63", async ({ page }) => {
     await simularApi(page, {
       "POST /api/v1/cuenta/contrasena": responder(403, {
         error: "autorizacion_pendiente",
@@ -531,6 +527,6 @@ test.describe("PN-73 · Cambiar la contraseña", () => {
     });
     await page.goto("/cuenta/contrasena");
     await page.getByRole("button", { name: "Guardar la contraseña" }).click();
-    await expect(page).toHaveURL(/\/sin-autorizacion$/);
+    await expect(page).toHaveURL(/\/privacidad$/);
   });
 });

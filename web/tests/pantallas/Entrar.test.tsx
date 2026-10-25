@@ -190,6 +190,8 @@ describe("PN-60 · Iniciar sesión", () => {
     ["sesion_cerrada", "Tu sesión se cerró. Entra de nuevo."],
     // E14-PCP 4.16 T11: el enlace de verificación abierto sin sesión
     ["correo_confirmado", "Listo, confirmamos tu correo."],
+    // E14-PCP 4.7, estado «No autorizo» de PN-64
+    ["cuenta_borrada", "Borramos el correo que nos diste."],
   ] as const)(
     "al llegar con %s muestra su mensaje de estado arriba, sin mover el foco",
     async (llegada, texto) => {

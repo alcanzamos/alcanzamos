@@ -25,13 +25,22 @@ const colorOMedidaSuelta = [
     message:
       "La paleta primitiva no se usa en componentes: usa tokens semánticos (--color-*).",
   },
-  {
-    selector:
-      "Literal[value=/alcanzamos\\.co|localhost|127\\.0\\.0\\.1|^https?:\\/\\//]",
-    message:
-      "Sin dominio fijo (D-129): el API es del mismo origen, usa rutas relativas como /api/....",
-  },
 ];
+
+// D-129: el dominio de la app y del API no está decidido: ningún literal lo fija, el API es del mismo origen y se usa con
+// rutas relativas (/api/...). Única excepción: el buzón «privacidad@alcanzamos.co», un texto legal fijo y aprobado de
+// E14-PCP 4.6 y 5 (D-120) que sale palabra por palabra en `src/textos/es.generated.ts` (D-160). Solo ese módulo lo
+// admite, y solo esa dirección: cualquier otro `alcanzamos.co` o `localhost` ahí sigue fallando (`https://app.alcanzamos.co`
+// también), y el buzón en cualquier otro archivo de `src/` falla. tests/eslint/dominio-fijo.test.ts lo prueba.
+const sinDominioFijo = (dominios) => ({
+  selector: `Literal[value=/${dominios}|localhost|127\\.0\\.0\\.1|^https?:\\/\\//]`,
+  message:
+    "Sin dominio fijo (D-129): el API es del mismo origen, usa rutas relativas como /api/....",
+});
+const cualquierDominio = sinDominioFijo("alcanzamos\\.co");
+const todoMenosElBuzon = sinDominioFijo(
+  "(?<!privacidad@)alcanzamos\\.co|privacidad@alcanzamos\\.co[\\w-]",
+);
 
 // D-162: sin textos sueltos en JSX. Equivale a `react/jsx-no-literals` con `noStrings: true` (el complemento no se
 // usa: eslint-plugin-react no publica desde abril de 2025). Los textos salen del módulo generado desde
@@ -83,6 +92,18 @@ export default defineConfig(
       "no-restricted-syntax": [
         "error",
         ...colorOMedidaSuelta,
+        cualquierDominio,
+        ...textoSueltoEnJsx,
+      ],
+    },
+  },
+  {
+    files: ["src/textos/es.generated.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        ...colorOMedidaSuelta,
+        todoMenosElBuzon,
         ...textoSueltoEnJsx,
       ],
     },

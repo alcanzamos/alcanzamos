@@ -333,3 +333,24 @@
   font-size: var(--tipografia-titulo-3-font-size);
   line-height: var(--tipografia-titulo-3-line-height);
 }
+
+/* Fila de lista sin valor (E14-SDD 5.15): nombre en cuerpo destacado y su texto debajo */
+.fila {
+  display: grid;
+  gap: var(--espacio-1);
+}
+
+.fila p {
+  margin: 0;
+}
+
+.fila__nombre {
+  font-family: var(--tipografia-cuerpo-destacado-font-family), sans-serif;
+  font-weight: var(--tipografia-cuerpo-destacado-font-weight);
+}
+
+.titulo-tarjeta {
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-2);
+}

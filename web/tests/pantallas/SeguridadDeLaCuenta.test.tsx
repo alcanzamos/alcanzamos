@@ -85,7 +85,7 @@ describe("PN-71 · Seguridad de la cuenta", () => {
   it.each([
     [401, { error: "sin_sesion" }, "/entrar"],
     [403, { error: "verificacion_pendiente" }, "/revisa-tu-correo"],
-    [403, { error: "autorizacion_pendiente" }, "/sin-autorizacion"],
+    [403, { error: "autorizacion_pendiente" }, "/privacidad"],
   ])("%i %j lleva a %s", async (estado, cuerpo, destino) => {
     simularApi(() => json(estado, cuerpo));
     render(<SeguridadDeLaCuenta />);

@@ -50,13 +50,11 @@ describe("PN-59 · Verificar el correo", () => {
   });
 
   describe("Ya lo confirmé", () => {
-    it("si ya está verificada sigue a la pantalla provisional", async () => {
+    it("si ya está verificada sigue a PN-63", async () => {
       const pedidos = simularApi(() => json(200, { verificada: true }));
       render(<RevisaTuCorreo />);
       fireEvent.click(boton("Ya lo confirmé"));
-      await waitFor(() =>
-        expect(window.location.pathname).toBe("/sin-autorizacion"),
-      );
+      await waitFor(() => expect(window.location.pathname).toBe("/privacidad"));
       expect(pedidos[0]).toMatchObject({
         metodo: "GET",
         ruta: "/api/v1/cuentas/estado",
@@ -158,13 +156,11 @@ describe("PN-59 · Verificar el correo", () => {
       );
     });
 
-    it("409 ya_verificada sigue a la pantalla provisional", async () => {
+    it("409 ya_verificada sigue a PN-63", async () => {
       simularApi(() => json(409, { error: "ya_verificada" }));
       render(<RevisaTuCorreo />);
       fireEvent.click(boton("Reenviar el correo"));
-      await waitFor(() =>
-        expect(window.location.pathname).toBe("/sin-autorizacion"),
-      );
+      await waitFor(() => expect(window.location.pathname).toBe("/privacidad"));
     });
 
     it("401 lleva a entrar", async () => {
@@ -277,14 +273,12 @@ describe("PN-59 · Verificar el correo", () => {
       ).toBeInTheDocument();
     });
 
-    it("409 ya_verificada sigue a la pantalla provisional y 401 a entrar", async () => {
+    it("409 ya_verificada sigue a PN-63 y 401 a entrar", async () => {
       simularApi(() => json(409, { error: "ya_verificada" }));
       const { unmount } = render(<RevisaTuCorreo />);
       abrir();
       fireEvent.click(boton("Cambiar el correo"));
-      await waitFor(() =>
-        expect(window.location.pathname).toBe("/sin-autorizacion"),
-      );
+      await waitFor(() => expect(window.location.pathname).toBe("/privacidad"));
       unmount();
       simularApi(() => json(401, { error: "sin_sesion" }));
       render(<RevisaTuCorreo />);
