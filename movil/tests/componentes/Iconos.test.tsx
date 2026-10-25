@@ -2,9 +2,11 @@ import { render, screen } from '@testing-library/react-native';
 import {
   IconoAtencion,
   IconoCalendario,
+  IconoCheck,
   IconoInformacion,
   IconoLogro,
   IconoOcultar,
+  IconoPropio,
   IconoVer,
 } from '../../src/componentes/Iconos';
 
@@ -16,6 +18,8 @@ describe('Iconos (E14-SDD 5.1)', () => {
     ['Ver', IconoVer],
     ['Ocultar', IconoOcultar],
     ['Calendario', IconoCalendario],
+    ['Check', IconoCheck],
+    ['Propio', IconoPropio],
   ])('el ícono %s se dibuja y el lector de pantalla lo salta', async (_nombre, Icono) => {
     await render(<Icono color="red" />);
     expect(screen.toJSON()).not.toBeNull();

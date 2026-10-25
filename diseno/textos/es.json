@@ -182,6 +182,38 @@
           "texto": "Tu sesión se cerró. Entra de nuevo.",
           "e14": "E14-PCP 4.3, PN-60 (se llega a ella cuando el API niega el paso por falta de sesión)"
         }
+      },
+      "errorAlCargarInformacion": {
+        "titulo": {
+          "texto": "No pudimos cargar la información.",
+          "e14": "E14-PCP 4.6, estado «Error de carga» de PN-63; también cuando el catálogo de PN-64 no carga o trae una finalidad que E14 no tiene"
+        }
+      },
+      "errorAlGuardarAutorizacion": {
+        "titulo": {
+          "texto": "No pudimos guardar tu autorización.",
+          "e14": "E14-PCP 4.7 (PN-64), estado «Error de envío»; también con 409, 422 y 403"
+        },
+        "mensaje": {
+          "texto": "Intenta de nuevo.",
+          "e14": "E14-PCP 4.7 (PN-64), estado «Error de envío»; también con 409, 422 y 403"
+        }
+      },
+      "errorAlBorrarElCorreo": {
+        "titulo": {
+          "texto": "Todavía no pudimos borrar tu correo. Intenta de nuevo.",
+          "e14": "E14-PCP 4.7 (PN-64), estado «Sin conexión» con «No autorizo»; también con un error del servidor"
+        }
+      },
+      "correoBorrado": {
+        "titulo": {
+          "texto": "Borramos el correo que nos diste.",
+          "e14": "E14-PCP 4.7 (PN-64), estado «No autorizo» (llega a PN-60)"
+        },
+        "mensaje": {
+          "texto": "Sin tu autorización no creamos la cuenta. Puedes empezar de nuevo cuando quieras.",
+          "e14": "E14-PCP 4.7 (PN-64), estado «No autorizo» (llega a PN-60)"
+        }
       }
     },
     "correo": {
@@ -491,98 +523,6 @@
         "texto": "Cambiar mi contraseña",
         "e14": "E14-PCP 4.14 (PN-71)"
       }
-    }
-  },
-  "solo_web": {
-    "erroresDeCampo": {
-      "crearCuenta": {
-        "mayor_de_edad_requerido": {
-          "texto": "Falta marcar que eres mayor de edad.",
-          "e14": "E14-PCP 4.1 (PN-58)"
-        }
-      }
-    },
-    "pagina": {
-      "atras": {
-        "texto": "Atrás",
-        "e14": "E14-PCP 4.4 (PN-61); E14-PCP 4.6 (PN-63); E14-PCP 4.7 (PN-64); E14-PCP 4.9 (PN-66); E14-PCP 4.10 (PN-67); E14-PCP 4.11 (PN-68); E14-PCP 4.12 (PN-69); E14-PCP 4.13 (PN-70); E14-PCP 4.14 (PN-71); E14-PCP 4.15 (PN-73); E14-PCP 4.16"
-      },
-      "titulo_del_documento": {
-        "texto": "{titulo} · Alcanzamos",
-        "e14": "E14-PCP 1.19 (título de la pestaña del navegador, aprobado en D-163)"
-      }
-    },
-    "campos": {
-      "contrasenaNueva": {
-        "etiqueta": {
-          "texto": "Contraseña nueva",
-          "e14": "E14-PCP 4.5 (PN-62); E14-PCP 4.15 (PN-73)"
-        },
-        "repeticion": {
-          "texto": "Repite la contraseña nueva",
-          "e14": "E14-PCP 4.5 (PN-62)"
-        }
-      },
-      "mayorDeEdad": {
-        "etiqueta": {
-          "texto": "Soy mayor de edad",
-          "e14": "E14-PCP 4.1 (PN-58); E14-PCP 4.8 (PN-65); E14-PCP 4.16"
-        }
-      }
-    },
-    "recuperar": {
-      "titulo": {
-        "texto": "Elige tu contraseña nueva",
-        "e14": "E14-PCP 4.5 (PN-62)"
-      },
-      "pedirOtro": {
-        "texto": "Pedir otro enlace",
-        "e14": "E14-PCP 4.5 (PN-62)"
-      }
-    },
-    "textosDeRepeticion": {
-      "vacia": {
-        "texto": "Falta repetir la contraseña.",
-        "e14": "E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62"
-      },
-      "distinta": {
-        "texto": "Falta que las dos contraseñas sean iguales.",
-        "e14": "E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62"
-      }
-    },
-    "avisos": {
-      "errorAlCargarInformacion": {
-        "titulo": {
-          "texto": "No pudimos cargar la información.",
-          "e14": "E14-PCP 4.6, estado «Error de carga» de PN-63; en la web también cuando el catálogo de PN-64 no carga o trae una finalidad que E14 no tiene"
-        }
-      },
-      "errorAlGuardarAutorizacion": {
-        "titulo": {
-          "texto": "No pudimos guardar tu autorización.",
-          "e14": "E14-PCP 4.7 (PN-64), estado «Error de envío»; también con 409, 422 y 403"
-        },
-        "mensaje": {
-          "texto": "Intenta de nuevo.",
-          "e14": "E14-PCP 4.7 (PN-64), estado «Error de envío»; también con 409, 422 y 403"
-        }
-      },
-      "errorAlBorrarElCorreo": {
-        "titulo": {
-          "texto": "Todavía no pudimos borrar tu correo. Intenta de nuevo.",
-          "e14": "E14-PCP 4.7 (PN-64), estado «Sin conexión» con «No autorizo»; en la web también con un error del servidor"
-        }
-      },
-      "correoBorrado": {
-        "titulo": {
-          "texto": "Borramos el correo que nos diste.",
-          "e14": "E14-PCP 4.7 (PN-64), estado «No autorizo» (llega a PN-60)"
-        },
-        "mensaje": {
-          "texto": "Sin tu autorización no creamos la cuenta. Puedes empezar de nuevo cuando quieras.",
-          "e14": "E14-PCP 4.7 (PN-64), estado «No autorizo» (llega a PN-60)"
-        }
-      }
     },
     "privacidad": {
       "titulo": {
@@ -781,6 +721,64 @@
       }
     }
   },
+  "solo_web": {
+    "erroresDeCampo": {
+      "crearCuenta": {
+        "mayor_de_edad_requerido": {
+          "texto": "Falta marcar que eres mayor de edad.",
+          "e14": "E14-PCP 4.1 (PN-58)"
+        }
+      }
+    },
+    "pagina": {
+      "atras": {
+        "texto": "Atrás",
+        "e14": "E14-PCP 4.4 (PN-61); E14-PCP 4.6 (PN-63); E14-PCP 4.7 (PN-64); E14-PCP 4.9 (PN-66); E14-PCP 4.10 (PN-67); E14-PCP 4.11 (PN-68); E14-PCP 4.12 (PN-69); E14-PCP 4.13 (PN-70); E14-PCP 4.14 (PN-71); E14-PCP 4.15 (PN-73); E14-PCP 4.16"
+      },
+      "titulo_del_documento": {
+        "texto": "{titulo} · Alcanzamos",
+        "e14": "E14-PCP 1.19 (título de la pestaña del navegador, aprobado en D-163)"
+      }
+    },
+    "campos": {
+      "contrasenaNueva": {
+        "etiqueta": {
+          "texto": "Contraseña nueva",
+          "e14": "E14-PCP 4.5 (PN-62); E14-PCP 4.15 (PN-73)"
+        },
+        "repeticion": {
+          "texto": "Repite la contraseña nueva",
+          "e14": "E14-PCP 4.5 (PN-62)"
+        }
+      },
+      "mayorDeEdad": {
+        "etiqueta": {
+          "texto": "Soy mayor de edad",
+          "e14": "E14-PCP 4.1 (PN-58); E14-PCP 4.8 (PN-65); E14-PCP 4.16"
+        }
+      }
+    },
+    "recuperar": {
+      "titulo": {
+        "texto": "Elige tu contraseña nueva",
+        "e14": "E14-PCP 4.5 (PN-62)"
+      },
+      "pedirOtro": {
+        "texto": "Pedir otro enlace",
+        "e14": "E14-PCP 4.5 (PN-62)"
+      }
+    },
+    "textosDeRepeticion": {
+      "vacia": {
+        "texto": "Falta repetir la contraseña.",
+        "e14": "E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62"
+      },
+      "distinta": {
+        "texto": "Falta que las dos contraseñas sean iguales.",
+        "e14": "E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62"
+      }
+    }
+  },
   "solo_android": {
     "arranque": {
       "cargando": {
@@ -836,12 +834,6 @@
       "continuar": {
         "texto": "Continuar",
         "e14": "E14-PCP 4.8 (PN-65)"
-      }
-    },
-    "sinAutorizacion": {
-      "titulo": {
-        "texto": "Sin esta autorización no podemos darte la cuenta.",
-        "e14": "E14-PCP 4.7 (PN-64)"
       }
     }
   }

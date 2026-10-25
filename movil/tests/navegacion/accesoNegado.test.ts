@@ -9,7 +9,7 @@ describe('seguirPorAccesoNegado (api/README.md, «las de /api/ que piden sesión
   it.each([
     [401, 'sin_sesion', reinicio('Entrar', { llegada: 'sesion_cerrada' })],
     [403, 'verificacion_pendiente', reinicio('RevisaTuCorreo', undefined)],
-    [403, 'autorizacion_pendiente', reinicio('SinAutorizacion', undefined)],
+    [403, 'autorizacion_pendiente', reinicio('InformacionDePrivacidad', undefined)],
   ])('%s %s lleva a la pantalla que corresponde', (estado, codigo, accion) => {
     const dispatch = jest.fn();
     expect(seguirPorAccesoNegado({ dispatch } as never, fallo(estado, codigo))).toBe(true);

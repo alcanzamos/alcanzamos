@@ -178,7 +178,7 @@ describe('PN-73 · Cambiar la contraseña (E14-PCP 4.15)', () => {
     it.each([
       [401, 'sin_sesion', reinicio('Entrar', { llegada: 'sesion_cerrada' })],
       [403, 'verificacion_pendiente', reinicio('RevisaTuCorreo')],
-      [403, 'autorizacion_pendiente', reinicio('SinAutorizacion')],
+      [403, 'autorizacion_pendiente', reinicio('InformacionDePrivacidad')],
     ])('%s %s sigue a la pantalla que corresponde', async (estado, codigo, accion) => {
       instalarFetchFalso(respuestaJson(estado, { error: codigo }));
       const navegacion = await mostrar();

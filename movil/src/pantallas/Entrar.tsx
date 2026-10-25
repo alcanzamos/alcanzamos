@@ -36,7 +36,7 @@ export function Entrar({ navigation, route }: NativeStackScreenProps<Rutas, 'Ent
     setEnviando(false);
     if (respuesta.ok) {
       // La cuenta sin verificar tiene una sesión limitada: sigue a PN-59 (D-138). Si no hay autorización, la pantalla
-      // de destino lo descubre con el API y sigue a la provisional.
+      // de destino lo descubre con el API y sigue a PN-63.
       if (respuesta.cuerpo.estado === 'verificacion_pendiente')
         reemplazarPila(navigation, 'RevisaTuCorreo', { correo });
       else reemplazarPila(navigation, 'SeguridadDeLaCuenta');
