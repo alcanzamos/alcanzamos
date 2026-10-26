@@ -112,6 +112,7 @@ type respuesta struct {
 	Codigo  int
 	Cuerpo  string
 	Cookies []*http.Cookie
+	Cache   string // Cache-Control
 }
 
 // llamar manda una petición con un origen distinto cada vez, para que los límites de intentos no estorben.
@@ -130,7 +131,7 @@ func (c *cliente) llamar(metodo, ruta, cuerpo string) respuesta {
 	}
 	rr := httptest.NewRecorder()
 	c.s.h.ServeHTTP(rr, r)
-	return respuesta{rr.Code, strings.TrimSpace(rr.Body.String()), rr.Result().Cookies()}
+	return respuesta{rr.Code, strings.TrimSpace(rr.Body.String()), rr.Result().Cookies(), rr.Header().Get("Cache-Control")}
 }
 
 func (c *cliente) tokenDe(r respuesta) string {
@@ -655,5 +656,34 @@ func TestUnaCategoriaOcultaPorLaPersonaEsUn422YNoGuardaNada(t *testing.T) {
 		}
 		otra, _ := s.nuevaCuenta("otra@ejemplo.test", android, true)
 		s.crear(otra, cuerpoDe("gasto", "100", "2026-10-25", "3", ""))
+	})
+}
+
+// D-165: las próximas fechas de PN-03, por HTTP con una sesión real, en web (cookie) y en Android (Bearer).
+func TestProximasPorHTTPExigenSesionYAutorizacion(t *testing.T) {
+	const ruta = rutaProximas + "?periodicidad=mensual&inicio=2026-08-15"
+	formas(t, func(t *testing.T, android bool) {
+		s := nuevoServidor(t)
+		c, _ := s.nuevaCuenta("laura@ejemplo.test", android, false)
+		if r := (&cliente{s: s, android: android}).llamar("GET", ruta, ""); r.Codigo != 401 || r.Cuerpo != `{"error":"sin_sesion"}` {
+			t.Errorf("sin sesión: %d %s", r.Codigo, r.Cuerpo)
+		}
+		if r := c.llamar("GET", ruta, ""); r.Codigo != 403 || r.Cuerpo != `{"error":"autorizacion_pendiente"}` {
+			t.Errorf("sin autorizar: %d %s", r.Codigo, r.Cuerpo)
+		}
+		if r := c.llamar("POST", "/api/v1/autorizaciones", cuerpoAutorizar); r.Codigo != 200 {
+			t.Fatal(r.Cuerpo)
+		}
+		r := c.llamar("GET", ruta, "")
+		if r.Codigo != 200 || r.Cuerpo != `{"proximas":["2026-11-15","2026-12-15","2027-01-15"]}` || r.Cache != "no-store" {
+			t.Errorf("autorizada: %d %s (Cache-Control %q)", r.Codigo, r.Cuerpo, r.Cache)
+		}
+		if r := c.llamar("GET", rutaProximas+"?periodicidad=diaria", ""); r.Codigo != 422 ||
+			r.Cuerpo != `{"campos":{"inicio":"fecha_requerida","periodicidad":"periodicidad_invalida"},"error":"datos_invalidos"}` {
+			t.Errorf("inválida: %d %s", r.Codigo, r.Cuerpo)
+		}
+		if n := s.contar(`SELECT count(*) FROM movimiento`) + s.contar(`SELECT count(*) FROM movimiento_recurrente`); n != 0 {
+			t.Errorf("las próximas fechas no guardan nada: %d", n)
+		}
 	})
 }
