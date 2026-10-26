@@ -1,5 +1,7 @@
 import { SIN_CONEXION, SIN_CONFIGURACION, type Respuesta } from './api/cliente';
-import type { Periodicidad } from './api/registro';
+import type { Periodicidad, Tipo } from './api/registro';
+import { formatearPesos } from './dinero';
+import { diaEnPalabras } from './fechas';
 import { formatear, plural, textos } from './textos/es.generated';
 
 // Los textos que ve la persona salen de diseno/textos/es.json (D-160), palabra por palabra de E14, y llegan aquí por
@@ -196,3 +198,41 @@ export function resumenPorConfirmar(ingresos: number, gastos: number): string {
 export type OpcionDePeriodicidad = 'no_se_repite' | Periodicidad;
 export const etiquetasDePeriodicidad: Record<OpcionDePeriodicidad, string> = textos.periodicidad.opciones;
 export const explicacionesDePeriodicidad: Record<OpcionDePeriodicidad, string> = textos.periodicidad.explicaciones;
+
+/** Los nombres de las categorías de E09 por `id` del API («c1»…): el API manda el `id`, la pantalla pone el texto de E14. */
+export const nombresDeCategoria: Record<string, string> = textos.registro.categorias;
+
+/** Los códigos de error de campo del API al texto de E14-PPN 3.1 y E14-PRR (PN-03); un código sin texto da el aviso. */
+export const textosDeErrorDeRegistro: Record<string, string> = {
+  tipo_requerido: textos.registro.errores.tipo,
+  monto_requerido: textos.registro.errores.montoVacio,
+  monto_no_positivo: textos.registro.errores.montoCero,
+  monto_invalido: textos.registro.errores.montoIlegible,
+  fecha_requerida: textos.registro.errores.fecha,
+  fecha_invalida: textos.registro.errores.fecha,
+  categoria_requerida: textos.registro.errores.categoria,
+  medio_requerido: textos.registro.errores.medio,
+  periodicidad_requerida: textos.periodicidad.errores.sinPeriodicidad,
+};
+
+/**
+ * El aviso de después de guardar (E14-PPN 1.11, D-165; el monto sigue la regla de E14-SDD 5.5). Si solo se guardó la
+ * repetición (fecha futura, D-091) el movimiento todavía no pasó: «queda por confirmar el {fecha}», en palabras.
+ */
+export function avisoDeRegistro(tipo: Tipo, fecha: string, seRegistro: boolean, centavos: bigint): DatosDeAviso {
+  const monto = formatearPesos(centavos);
+  const gasto = tipo === 'gasto';
+  const titulo = seRegistro
+    ? formatear(gasto ? textos.registro.avisos.registramosGasto : textos.registro.avisos.registramosIngreso, { monto })
+    : formatear(
+        gasto ? textos.registro.avisos.quedaPorConfirmarGasto : textos.registro.avisos.quedaPorConfirmarIngreso,
+        { monto, fecha: diaEnPalabras(fecha) ?? fecha },
+      );
+  return { tipo: 'informacion', titulo };
+}
+
+export const avisoErrorAlGuardarMovimiento = (tipo: Tipo): DatosDeAviso => ({
+  tipo: 'informacion',
+  titulo: tipo === 'gasto' ? textos.registro.avisos.errorAlGuardarGasto : textos.registro.avisos.errorAlGuardarIngreso,
+  mensaje: textos.registro.avisos.errorAlGuardarMensaje,
+});

@@ -1,3 +1,4 @@
+import type { DatosDeAviso } from '../textos';
 import type { Llegada } from './llegada';
 
 // Las pantallas de la pila y los parámetros de cada una. Cada rama de la US-49 suma las suyas.
@@ -16,12 +17,17 @@ export type Rutas = {
   InformacionDePrivacidad: { llegada?: Llegada } | undefined;
   /** PN-64: solo se abre desde «Continuar» de PN-63; su Atrás vuelve a PN-63. */
   AutorizacionDeDatos: undefined;
-  /** PN-71, la pantalla de inicio provisional de quien entra con autorización. */
-  SeguridadDeLaCuenta: { llegada?: Llegada } | undefined;
+  /**
+   * PN-71, la pantalla de inicio provisional de quien entra con autorización. `aviso` es el mensaje de estado que lleva
+   * datos de la persona («Listo, registramos tu gasto de $45.000.»): solo vive en la memoria, nunca se guarda.
+   */
+  SeguridadDeLaCuenta: { llegada?: Llegada; aviso?: DatosDeAviso } | undefined;
+  /** PN-01 · Registrar (E14-PPN 3.1); su entrada desde PN-71 es provisional hasta que exista PN-01 (D-164). */
+  FormularioDeRegistro: undefined;
+  /** PN-03: se apila sobre Registrar; su Atrás vuelve al formulario sin cambiar nada. */
+  SeRepite: undefined;
   /** PN-73. */
   CambiarContrasena: undefined;
-  /** PN-03: se apila sobre el formulario de registro (PN-01, US-51); su Atrás vuelve a él sin cambiar nada. */
-  SeRepite: undefined;
   /** PN-61. Su Atrás vuelve a PN-60. */
   RecuperarAcceso: undefined;
 };

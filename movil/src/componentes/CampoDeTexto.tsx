@@ -53,6 +53,11 @@ export type PropiedadesDeCampo = {
   /** El propósito para el autocompletado de Android (`email`, `name`, `new-password`, `current-password`). */
   autocompletar?: TextInputProps['autoComplete'];
   teclado?: KeyboardTypeOptions;
+  /** El valor es una cifra: va en Figtree con cifras tabulares (`tipografia.cifra`, D-123). */
+  cifra?: boolean;
+  maxLength?: number;
+  /** La persona sale del campo (se pierde el foco). */
+  alSalir?: () => void;
   ref?: Ref<TextInputInstance>;
 };
 
@@ -65,6 +70,9 @@ export function CampoDeTexto({
   error,
   autocompletar,
   teclado,
+  cifra = false,
+  maxLength,
+  alSalir,
   ref,
   textoSeguro = false,
   accion,
@@ -77,16 +85,20 @@ export function CampoDeTexto({
         value={valor}
         onChangeText={alCambiar}
         onFocus={() => setEnFoco(true)}
-        onBlur={() => setEnFoco(false)}
+        onBlur={() => {
+          setEnFoco(false);
+          alSalir?.();
+        }}
         accessibilityLabel={etiqueta}
         accessibilityHint={ayuda}
         autoComplete={autocompletar}
         importantForAutofill="yes"
         keyboardType={teclado}
+        maxLength={maxLength}
         secureTextEntry={textoSeguro}
         autoCapitalize="none"
         autoCorrect={false}
-        style={estilos.entrada}
+        style={[estilos.entrada, cifra && estilos.cifra]}
       />
       {accion}
     </MarcoDeCampo>
@@ -115,6 +127,7 @@ const estilos = StyleSheet.create({
     paddingHorizontal: tokens.espacio['3'],
     color: tokens.color.texto.principal,
   },
+  cifra: { ...estiloDeTipografia('cifra'), fontVariant: ['tabular-nums'] },
   ayuda: { ...estiloDeTipografia('pequeno'), color: tokens.color.texto.secundario },
   error: { flexDirection: 'row', alignItems: 'flex-start', gap: tokens.espacio['2'] },
   textoDeError: { ...estiloDeTipografia('pequeno'), flex: 1, color: tokens.color.estado.atencion.texto },

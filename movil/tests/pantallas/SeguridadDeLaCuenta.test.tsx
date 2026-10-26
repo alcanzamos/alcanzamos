@@ -1,6 +1,8 @@
 import { CommonActions } from '@react-navigation/native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { cambiarBorrador, useBorrador } from '../../src/borradorDeRegistro';
 import { SeguridadDeLaCuenta } from '../../src/pantallas/SeguridadDeLaCuenta';
+import type { DatosDeAviso } from '../../src/textos';
 import { instalarFetchFalso, respuestaJson } from '../ayudas/fetchFalso';
 import { navegacionFalsa, propiedades } from '../ayudas/pantalla';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
@@ -11,11 +13,10 @@ const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crear
 const reinicio = (nombre: string, params?: object) =>
   CommonActions.reset({ index: 0, routes: [{ name: nombre, params }] });
 
-async function mostrar(llegada?: 'contrasena_cambiada') {
+async function mostrar(llegada?: 'contrasena_cambiada', aviso?: DatosDeAviso) {
   const navegacion = navegacionFalsa();
-  await render(
-    <SeguridadDeLaCuenta {...propiedades('SeguridadDeLaCuenta', navegacion, llegada ? { llegada } : undefined)} />,
-  );
+  const params = llegada || aviso ? { llegada, aviso } : undefined;
+  await render(<SeguridadDeLaCuenta {...propiedades('SeguridadDeLaCuenta', navegacion, params)} />);
   return navegacion;
 }
 
@@ -164,6 +165,44 @@ describe('PN-71 · Seguridad de la cuenta (E14-PCP 4.14)', () => {
       ).toBeOnTheScreen();
       expect(navegacion.dispatch).not.toHaveBeenCalled();
       expect(almacen.guardado.get('sesion')).toBe('tk-activa');
+    });
+  });
+
+  describe('«Registrar un movimiento» (US-51, D-164: botón provisional hasta que exista PN-01)', () => {
+    it('abre el formulario con un borrador vacío', async () => {
+      instalarFetchFalso(respuestaJson(200, { ingreso_anterior: null }));
+      cambiarBorrador({ monto: '45.000', periodicidad: 'mensual' });
+      let monto = '';
+      function Espia() {
+        monto = useBorrador().monto;
+        return null;
+      }
+      const navegacion = navegacionFalsa();
+      await render(
+        <>
+          <SeguridadDeLaCuenta {...propiedades('SeguridadDeLaCuenta', navegacion)} />
+          <Espia />
+        </>,
+      );
+      await screen.findByText('Este es tu primer ingreso.');
+      expect(monto).toBe('45.000');
+      await fireEvent.press(screen.getByRole('button', { name: 'Registrar un movimiento' }));
+      expect(navegacion.navigate).toHaveBeenCalledWith('FormularioDeRegistro');
+      expect(monto).toBe('');
+    });
+
+    it('el aviso de después de guardar llega arriba como mensaje de estado, que TalkBack anuncia', async () => {
+      instalarFetchFalso(respuestaJson(200, { ingreso_anterior: null }));
+      await mostrar(undefined, { tipo: 'informacion', titulo: 'Listo, registramos tu gasto de $45.000.' });
+      expect(await screen.findByText('Listo, registramos tu gasto de $45.000.')).toBeOnTheScreen();
+      expect(JSON.stringify(screen.toJSON())).toContain('"accessibilityLiveRegion":"polite"');
+    });
+
+    it('el aviso del registro gana sobre una llegada de las de siempre', async () => {
+      instalarFetchFalso(respuestaJson(200, { ingreso_anterior: null }));
+      await mostrar('contrasena_cambiada', { tipo: 'informacion', titulo: 'Listo, registramos tu ingreso de $1.000.' });
+      expect(await screen.findByText('Listo, registramos tu ingreso de $1.000.')).toBeOnTheScreen();
+      expect(screen.queryByText('Listo, cambiamos tu contraseña.')).not.toBeOnTheScreen();
     });
   });
 });

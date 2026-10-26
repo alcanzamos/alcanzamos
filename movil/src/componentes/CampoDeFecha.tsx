@@ -16,18 +16,21 @@ import { MarcoDeCampo } from './CampoDeTexto';
 export function CampoDeFecha({
   etiqueta,
   valor,
+  texto: textoDelValor,
   alCambiar,
   ayuda,
   error,
 }: {
   etiqueta: string;
   valor?: Date;
+  /** Lo que dice el campo en lugar de la fecha en palabras («Hoy», E14-PPN 3.1 fila 8). */
+  texto?: string;
   alCambiar: (fecha: Date) => void;
   ayuda?: string;
   error?: string;
 }) {
   const [enFoco, setEnFoco] = useState(false);
-  const texto = valor ? fechaLocalEnPalabras(valor) : undefined;
+  const texto = textoDelValor ?? (valor ? fechaLocalEnPalabras(valor) : undefined);
   const abrir = () =>
     DateTimePickerAndroid.open({
       value: valor ?? new Date(),
