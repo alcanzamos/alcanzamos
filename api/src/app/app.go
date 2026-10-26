@@ -22,6 +22,7 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/src/correo"
 	"github.com/alcanzamos/alcanzamos/api/src/cuenta"
 	"github.com/alcanzamos/alcanzamos/api/src/pg"
+	"github.com/alcanzamos/alcanzamos/api/src/registro"
 	"github.com/alcanzamos/alcanzamos/api/src/reloj"
 	"github.com/alcanzamos/alcanzamos/api/src/seguridad"
 	"github.com/alcanzamos/alcanzamos/api/src/servidor"
@@ -138,6 +139,7 @@ func ArmarEnrutador(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, 
 	cuenta.NuevoHandler(cuentas, sesiones, log).Registrar(enrutador)
 	autenticacion.NuevoHandler(autenticaciones, eventos, log).Registrar(enrutador)
 	autorizacion.NuevoHandler(autorizacion.NuevoServicio(pg.NuevoAutorizaciones(pool), hora), eventos, log).Registrar(enrutador)
+	registro.NuevoHandler(registro.NuevoServicio(pg.NuevoMovimientos(pool), hora), log).Registrar(enrutador)
 	return enrutador, func() { cuentas.Esperar(); autenticaciones.Esperar() }, nil
 }
 
