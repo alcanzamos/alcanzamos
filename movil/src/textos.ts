@@ -105,6 +105,24 @@ export const avisos = {
     titulo: a.menorDeEdad.titulo,
     mensaje: a.menorDeEdad.mensaje,
   },
+  errorAlCargarInformacion: {
+    tipo: 'informacion',
+    titulo: a.errorAlCargarInformacion.titulo,
+  },
+  errorAlGuardarAutorizacion: {
+    tipo: 'informacion',
+    titulo: a.errorAlGuardarAutorizacion.titulo,
+    mensaje: a.errorAlGuardarAutorizacion.mensaje,
+  },
+  errorAlBorrarElCorreo: {
+    tipo: 'informacion',
+    titulo: a.errorAlBorrarElCorreo.titulo,
+  },
+  correoBorrado: {
+    tipo: 'informacion',
+    titulo: a.correoBorrado.titulo,
+    mensaje: a.correoBorrado.mensaje,
+  },
 } satisfies Record<string, DatosDeAviso>;
 
 /**
@@ -132,6 +150,10 @@ export const textosDeArranque = textos.arranque;
 
 // E14-PCP 4.8: los dos errores de la fecha de nacimiento de PN-65. La fecha nunca sale del teléfono: se revisa aquí.
 export const textosDeEdad = textos.textosDeEdad;
+
+/** Lo que PN-64 muestra de cada finalidad que el API entrega por su `codigo` (E14-PCP 5); el API no manda textos. */
+export const finalidadesDeE14: Record<string, { nombre: string; descripcion: string; casilla?: string }> =
+  textos.finalidades;
 
 export const textoDeErrorDeCampo = (
   codigo: string,

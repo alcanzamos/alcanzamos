@@ -127,10 +127,10 @@ describe('PN-71 · Seguridad de la cuenta (E14-PCP 4.14)', () => {
       await waitFor(() => expect(navegacion.dispatch).toHaveBeenCalledWith(reinicio('RevisaTuCorreo')));
     });
 
-    it('403 autorizacion_pendiente → pantalla provisional', async () => {
+    it('403 autorizacion_pendiente → PN-63', async () => {
       instalarFetchFalso(respuestaJson(403, { error: 'autorizacion_pendiente' }));
       const navegacion = await mostrar();
-      await waitFor(() => expect(navegacion.dispatch).toHaveBeenCalledWith(reinicio('SinAutorizacion')));
+      await waitFor(() => expect(navegacion.dispatch).toHaveBeenCalledWith(reinicio('InformacionDePrivacidad')));
     });
 
     it('si se sale de la pantalla antes de que conteste el API, no actualiza nada', async () => {

@@ -45,7 +45,7 @@ export function RevisaTuCorreo({ navigation, route }: Pantalla59) {
   // Fallos que no dependen de la acción: la cuenta ya está verificada o la sesión se perdió.
   function siguePorFallo(respuesta: Extract<Respuesta<unknown>, { ok: false }>) {
     if (respuesta.codigo === 'ya_verificada') {
-      reemplazarPila(navigation, 'SinAutorizacion', { llegada: 'correo_confirmado' });
+      reemplazarPila(navigation, 'InformacionDePrivacidad', { llegada: 'correo_confirmado' });
       return true;
     }
     return seguirPorAccesoNegado(navigation, respuesta);
@@ -57,8 +57,9 @@ export function RevisaTuCorreo({ navigation, route }: Pantalla59) {
     const respuesta = await estadoDeLaCuenta();
     setOcupado(false);
     if (respuesta.ok) {
-      // Con el correo confirmado sigue PN-63 (en la US-49, la pantalla provisional) con «Listo, confirmamos tu correo.»
-      if (respuesta.cuerpo.verificada) reemplazarPila(navigation, 'SinAutorizacion', { llegada: 'correo_confirmado' });
+      // Con el correo confirmado sigue PN-63 con «Listo, confirmamos tu correo.»
+      if (respuesta.cuerpo.verificada)
+        reemplazarPila(navigation, 'InformacionDePrivacidad', { llegada: 'correo_confirmado' });
       else setAviso(avisos.sinConfirmarTodavia);
     } else if (!siguePorFallo(respuesta)) {
       setAviso(avisoDeFallo(respuesta, avisos.errorAlRevisarElCorreo));

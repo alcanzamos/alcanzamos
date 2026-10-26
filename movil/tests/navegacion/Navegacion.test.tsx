@@ -48,13 +48,11 @@ describe('Navegacion: la primera pantalla', () => {
     ).toBeOnTheScreen();
   });
 
-  it('con una cuenta sin autorización cae en la pantalla provisional', async () => {
+  it('con una cuenta sin autorización cae en PN-63', async () => {
     almacen.guardado.set('sesion', 'tk-sin-autorizacion');
     instalarFetchFalso(respuestaJson(403, { error: 'autorizacion_pendiente' }));
     await render(<Navegacion />);
-    expect(
-      await screen.findByRole('header', { name: 'Sin esta autorización no podemos darte la cuenta.' }),
-    ).toBeOnTheScreen();
+    expect(await screen.findByRole('header', { name: 'Cómo cuidamos tus datos' })).toBeOnTheScreen();
   });
 
   it('si el Keystore falla, empieza en PN-60', async () => {

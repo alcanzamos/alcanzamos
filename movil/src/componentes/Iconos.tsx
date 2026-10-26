@@ -69,3 +69,19 @@ export const IconoCalendario = ({ color }: Propiedades) => (
     <Path d="M4 10h16M8 3v4M16 3v4" />
   </Icono>
 );
+
+// El Check de la Casilla de verificación (E14-SDD 5.17).
+export const IconoCheck = ({ color }: Propiedades) => (
+  <Icono color={color}>
+    <Path d="m5 12.5 4.5 4.5L19 7.5" />
+  </Icono>
+);
+
+// Propio, de la Marca de propiedad (E14-SDD 5.16, PN-63 fila 5): una persona dentro de un círculo.
+export const IconoPropio = ({ color }: Propiedades) => (
+  <Icono color={color}>
+    <Circle cx="12" cy="12" r="9" />
+    <Circle cx="12" cy="10" r="3" />
+    <Path d="M6.5 18.5c1.2-2.4 3.2-3.5 5.5-3.5s4.3 1.1 5.5 3.5" />
+  </Icono>
+);

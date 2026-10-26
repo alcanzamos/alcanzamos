@@ -117,7 +117,7 @@ export const textos = {
       titulo: "Tu sesión se cerró. Entra de nuevo.",
     },
     errorAlCargarInformacion: {
-      // E14-PCP 4.6, estado «Error de carga» de PN-63; en la web también cuando el catálogo de PN-64 no carga o trae una finalidad que E14 no tiene
+      // E14-PCP 4.6, estado «Error de carga» de PN-63; también cuando el catálogo de PN-64 no carga o trae una finalidad que E14 no tiene
       titulo: "No pudimos cargar la información.",
     },
     errorAlGuardarAutorizacion: {
@@ -127,7 +127,7 @@ export const textos = {
       mensaje: "Intenta de nuevo.",
     },
     errorAlBorrarElCorreo: {
-      // E14-PCP 4.7 (PN-64), estado «Sin conexión» con «No autorizo»; en la web también con un error del servidor
+      // E14-PCP 4.7 (PN-64), estado «Sin conexión» con «No autorizo»; también con un error del servidor
       titulo: "Todavía no pudimos borrar tu correo. Intenta de nuevo.",
     },
     correoBorrado: {
@@ -321,18 +321,6 @@ export const textos = {
     // E14-PCP 4.14 (PN-71)
     cambiarContrasena: "Cambiar mi contraseña",
   },
-  recuperar: {
-    // E14-PCP 4.5 (PN-62)
-    titulo: "Elige tu contraseña nueva",
-    // E14-PCP 4.5 (PN-62)
-    pedirOtro: "Pedir otro enlace",
-  },
-  textosDeRepeticion: {
-    // E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62
-    vacia: "Falta repetir la contraseña.",
-    // E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62
-    distinta: "Falta que las dos contraseñas sean iguales.",
-  },
   privacidad: {
     // E14-PCP 4.6 (PN-63), fila 1
     titulo: "Cómo cuidamos tus datos",
@@ -448,6 +436,18 @@ export const textos = {
       // E14-PCP 4.7 (PN-64), fila 7
       casilla: "Autorizo mostrar el costo de un gasto en horas de vida.",
     },
+  },
+  recuperar: {
+    // E14-PCP 4.5 (PN-62)
+    titulo: "Elige tu contraseña nueva",
+    // E14-PCP 4.5 (PN-62)
+    pedirOtro: "Pedir otro enlace",
+  },
+  textosDeRepeticion: {
+    // E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62
+    vacia: "Falta repetir la contraseña.",
+    // E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62
+    distinta: "Falta que las dos contraseñas sean iguales.",
   },
 } as const;
 

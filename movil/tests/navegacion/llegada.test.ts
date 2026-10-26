@@ -8,6 +8,7 @@ describe('avisoDeLlegada', () => {
     expect(avisoDeLlegada('correo_confirmado')).toBe(avisos.correoConfirmado);
     expect(avisoDeLlegada('contrasena_recuperada')).toBe(avisos.contrasenaRecuperada);
     expect(avisoDeLlegada('contrasena_cambiada')).toBe(avisos.contrasenaCambiada);
+    expect(avisoDeLlegada('cuenta_borrada')).toBe(avisos.correoBorrado);
   });
 
   it('sin llegada, o con una que no existe, no hay aviso', () => {

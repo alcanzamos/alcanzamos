@@ -12,8 +12,10 @@ export type Rutas = {
   CrearCuenta: { mayorDeEdad: true };
   /** PN-59: el correo se pasa para mostrarlo; solo vive en la memoria de la pantalla, nunca se guarda. */
   RevisaTuCorreo: { correo?: string } | undefined;
-  /** Pantalla provisional hasta que la US-50 construya PN-63 y PN-64. */
-  SinAutorizacion: { llegada?: Llegada } | undefined;
+  /** PN-63, solo el primer uso (sin Atrás); `llegada` es el mensaje de estado de arriba («Listo, confirmamos tu correo.»). */
+  InformacionDePrivacidad: { llegada?: Llegada } | undefined;
+  /** PN-64: solo se abre desde «Continuar» de PN-63; su Atrás vuelve a PN-63. */
+  AutorizacionDeDatos: undefined;
   /** PN-71, la pantalla de inicio provisional de quien entra con autorización. */
   SeguridadDeLaCuenta: { llegada?: Llegada } | undefined;
   /** PN-73. */

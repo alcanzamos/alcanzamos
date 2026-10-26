@@ -36,3 +36,13 @@ export function fechaEnPalabras(rfc3339: string): string | null {
   const jornada = hora < 12 ? 'a. m.' : 'p. m.';
   return `el ${bogota.getUTCDate()} de ${MESES[bogota.getUTCMonth()]} de ${bogota.getUTCFullYear()}, ${articulo} ${hora12}:${minutos} ${jornada}`;
 }
+
+/** «30 de octubre de 2026» a partir de «AAAA-MM-DD» (una fecha sin hora, como la de la versión de un texto); `null` si no lo es. */
+export function diaEnPalabras(iso: string): string | null {
+  const partes = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!partes) return null;
+  const [anio, mes, dia] = partes.slice(1).map(Number) as [number, number, number];
+  const fecha = new Date(Date.UTC(anio, mes - 1, dia));
+  if (fecha.getUTCMonth() !== mes - 1 || fecha.getUTCDate() !== dia) return null;
+  return `${dia} de ${MESES[mes - 1]} de ${anio}`;
+}

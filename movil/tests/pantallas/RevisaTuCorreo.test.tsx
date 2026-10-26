@@ -61,12 +61,12 @@ describe('PN-59 · Verificar el correo, Android (E14-PCP 4.2)', () => {
   });
 
   describe('«Ya lo confirmé»', () => {
-    it('con el correo confirmado sigue a la pantalla provisional con «Listo, confirmamos tu correo.»', async () => {
+    it('con el correo confirmado sigue a PN-63 con «Listo, confirmamos tu correo.»', async () => {
       const { pedidos } = instalarFetchFalso(respuestaJson(200, { verificada: true }));
       const navegacion = await mostrar();
       await fireEvent.press(boton('Ya lo confirmé'));
       await waitFor(() =>
-        expect(navegacion.dispatch).toHaveBeenCalledWith(reinicio('SinAutorizacion', { llegada: 'correo_confirmado' })),
+        expect(navegacion.dispatch).toHaveBeenCalledWith(reinicio('InformacionDePrivacidad', { llegada: 'correo_confirmado' })),
       );
       expect(pedidos[0]?.url).toBe('http://api.prueba:18090/api/v1/cuentas/estado');
       expect(pedidos[0]?.init.method).toBe('GET');
@@ -109,11 +109,11 @@ describe('PN-59 · Verificar el correo, Android (E14-PCP 4.2)', () => {
       expect(almacen.guardado.has('sesion')).toBe(false);
     });
 
-    it('un 403 autorizacion_pendiente lleva a la pantalla provisional', async () => {
+    it('un 403 autorizacion_pendiente lleva a PN-63', async () => {
       instalarFetchFalso(respuestaJson(403, { error: 'autorizacion_pendiente' }));
       const navegacion = await mostrar();
       await fireEvent.press(boton('Ya lo confirmé'));
-      await waitFor(() => expect(navegacion.dispatch).toHaveBeenCalledWith(reinicio('SinAutorizacion', undefined)));
+      await waitFor(() => expect(navegacion.dispatch).toHaveBeenCalledWith(reinicio('InformacionDePrivacidad', undefined)));
     });
 
     it('un toque mientras revisa no repite el pedido', async () => {
@@ -168,12 +168,12 @@ describe('PN-59 · Verificar el correo, Android (E14-PCP 4.2)', () => {
       expect(boton('Reenviar el correo', { disabled: false })).toBeOnTheScreen();
     });
 
-    it('si la cuenta ya estaba verificada (409 ya_verificada) sigue a la pantalla provisional', async () => {
+    it('si la cuenta ya estaba verificada (409 ya_verificada) sigue a PN-63', async () => {
       instalarFetchFalso(respuestaJson(409, { error: 'ya_verificada' }));
       const navegacion = await mostrar();
       await fireEvent.press(boton('Reenviar el correo'));
       await waitFor(() =>
-        expect(navegacion.dispatch).toHaveBeenCalledWith(reinicio('SinAutorizacion', { llegada: 'correo_confirmado' })),
+        expect(navegacion.dispatch).toHaveBeenCalledWith(reinicio('InformacionDePrivacidad', { llegada: 'correo_confirmado' })),
       );
     });
 
