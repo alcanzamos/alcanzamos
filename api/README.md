@@ -384,12 +384,13 @@ Las rutas por debajo de `requiere_autorizacion` son solo las del ingreso (crear 
 
 ## Registro de movimientos (US-51)
 
-El formulario de registro (E14-PPN 3.1) y PN-03 usan estas dos rutas, las dos `requiere_autorizacion`: escriben y leen datos financieros de la persona, así que sin autorizar dan `403 autorizacion_pendiente`. Código en `src/registro` (`Servicio` y `Handler`), `src/fechas` (las fechas de una repetición, E15 5.2) y `pg.Movimientos`. **El API no manda textos de interfaz:** manda ids, claves del catálogo y códigos de error, y cada app pone el texto de E14 (`diseno/textos`). Alcance de D-164: solo «Efectivo» y «Transferencia» (sin «Tarjeta» ni «Cuotas»), «Solo mío» (`hogar_id` nulo) y sin lenguaje natural.
+El formulario de registro (E14-PPN 3.1) y PN-03 usan estas tres rutas, todas `requiere_autorizacion`: sin autorizar dan `403 autorizacion_pendiente` (las dos primeras escriben y leen datos financieros de la persona; la tercera no toca datos, pero solo la usa quien ya puede registrar). Código en `src/registro` (`Servicio` y `Handler`), `src/fechas` (las fechas de una repetición, E15 5.2) y `pg.Movimientos`. **El API no manda textos de interfaz:** manda ids, claves del catálogo y códigos de error, y cada app pone el texto de E14 (`diseno/textos`). Alcance de D-164: solo «Efectivo» y «Transferencia» (sin «Tarjeta» ni «Cuotas»), «Solo mío» (`hogar_id` nulo) y sin lenguaje natural.
 
 | Ruta | Nivel | Qué hace |
 |---|---|---|
 | `GET /api/v1/categorias` | `requiere_autorizacion` | Las categorías visibles de la persona, por tipo |
 | `POST /api/v1/movimientos` | `requiere_autorizacion` | Guarda un gasto o un ingreso, con o sin repetición |
+| `GET /api/v1/repeticiones/proximas` | `requiere_autorizacion` | Las próximas fechas de una repetición, antes de guardarla (PN-03) |
 
 ### Categorías
 
@@ -458,6 +459,23 @@ Cuerpo (un campo que no esté en el contrato, como `persona_id` o `hogar_id`, da
 | `repeticion` | `periodicidad_requerida` («Falta elegir cada cuánto se repite.»), `periodicidad_invalida` |
 
 Pruebas: `test/fechas` (E15 5.2), `test/registro/handler_test.go` (contrato y validación con un repositorio falso) y `test/registro/integracion_test.go` (de punta a punta contra PostgreSQL, en web con cookie y en Android con Bearer, incluido el caso del arriendo).
+
+### Próximas fechas de una repetición
+
+`GET /api/v1/repeticiones/proximas?periodicidad=mensual&inicio=2026-08-15` calcula las fechas de «Próximas fechas desde Hoy» de PN-03 **antes de guardar** (D-165): el cliente no lleva reglas de negocio (E17-ECO 4.7), llama al API y muestra lo que recibe. No lee ni escribe en la base. `200` con `Cache-Control: no-store`, hasta tres fechas `AAAA-MM-DD` **posteriores a hoy** (el de Colombia, del `Reloj`), con `fechas.Proximas` y las mismas tres (`ProximasQueSeMuestran`) que `proximas` del POST:
+
+```json
+{ "proximas": ["2026-11-15", "2026-12-15", "2027-01-15"] }
+```
+
+Es el arriendo del 15 de agosto, mensual, a 26 de octubre de 2026; con `inicio=2026-11-01` salen el 1 de noviembre, el 1 de diciembre y el 1 de enero de 2027 (un inicio futuro cuenta como primera fecha). `periodicidad` es una de las cinco de D-084 y `inicio` no puede ser anterior al año 1900: las mismas reglas y códigos del POST. Si falla alguno, `422 {"error":"datos_invalidos","campos":{…}}` con todos a la vez:
+
+| Campo | Códigos |
+|---|---|
+| `periodicidad` | `periodicidad_requerida` (falta o vacía), `periodicidad_invalida` |
+| `inicio` | `fecha_requerida`, `fecha_invalida` |
+
+Pruebas: `test/registro/handler_test.go` (arriendo, inicio futuro, casos de E15 por periodicidad, cada código) y `test/registro/integracion_test.go` (401, 403, 200 con cookie y con Bearer).
 
 ## Gaps de la US-49
 
