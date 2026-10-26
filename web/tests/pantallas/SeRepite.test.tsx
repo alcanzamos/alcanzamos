@@ -312,6 +312,7 @@ describe("PN-03 · Se repite (E14-PRR 4.3)", () => {
       render(<SeRepite />);
       fireEvent.click(opcion("Cada mes"));
       expect(screen.getByLabelText("Empieza el")).toHaveValue("");
+      expect(screen.getByText("No hay fechas próximas.")).toBeVisible();
       listo();
       expect(
         screen.getByText(porTexto("Falta la fecha en que empieza.")),

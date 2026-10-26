@@ -129,11 +129,12 @@ export function SeRepite() {
           <section
             className="tarjeta"
             aria-labelledby="titulo-proximas"
-            aria-busy={actual === null}
+            aria-busy={clave !== null && actual === null}
           >
             <h2 id="titulo-proximas" className="titulo-3">
               {p.proximas}
             </h2>
+            {!empieza && <p>{p.sinProximas}</p>}
             {actual?.fase === "listo" &&
               (actual.fechas.length > 0 ? (
                 <ul className="lista-de-fechas">
