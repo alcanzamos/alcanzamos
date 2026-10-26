@@ -3,9 +3,11 @@
 // teléfono no necesita: `expo-secure-store` se reemplaza por un almacén en memoria (no hay Keystore en Node) y los
 // imports sin extensión se resuelven como `.ts` (Node quita los tipos solo, sin compilar nada).
 //
+// Desde la US-51 también prueba el registro (categorías, un gasto en efectivo, el arriendo, PN-03) con la sesión ya autorizada.
 // Uso (el API, PostgreSQL y Mailpit ya arriba; ver README, «Probar en el celular»):
 //   EXPO_PUBLIC_URL_API=http://127.0.0.1:18090 URL_MAILPIT=http://127.0.0.1:58025 npm run integracion:api
 // Las autorizaciones se dan por el API (GET y POST /api/v1/autorizaciones), no por SQL. Datos sintéticos; nada sale del equipo.
+import { execFileSync } from 'node:child_process';
 import { registerHooks } from 'node:module';
 
 const URL_API = process.env.EXPO_PUBLIC_URL_API;
@@ -42,6 +44,8 @@ const { pedir, SIN_CONEXION } = await import('../src/api/cliente.ts');
 const cuentas = await import('../src/api/cuentas.ts');
 const acceso = await import('../src/api/acceso.ts');
 const autorizaciones = await import('../src/api/autorizaciones.ts');
+const registro = await import('../src/api/registro.ts');
+const { hoyEnColombia } = await import('../src/fechas.ts');
 
 let fallas = 0;
 const paso = (nombre, condicion, detalle = '') => {
@@ -315,7 +319,179 @@ paso(
   JSON.stringify(noPuede),
 );
 
-// 14. Sin conexión: una dirección que nadie escucha.
+// 14. Registro de movimientos (US-51): con la sesión ya autorizada de la cuenta de arriba. «Hoy» es el del servidor (la
+// cabecera Date de su respuesta, en la hora de Colombia), no el de esta máquina: las expectativas se adaptan a él.
+const hoy = hoyEnColombia(new Date((await fetch(`${URL_API}/salud`)).headers.get('date') ?? Date.now()));
+// Los siguientes días 15 estrictamente después de hoy (lo que el API llama «próximas» de una repetición mensual desde el 15).
+const proximosDia15 = (desde, cuantos) => {
+  const [anio, mes] = desde.split('-').map(Number);
+  const dias = [];
+  for (let i = 0; dias.length < cuantos; i++) {
+    const total = anio * 12 + (mes - 1) + i;
+    const dia = `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, '0')}-15`;
+    if (dia > desde) dias.push(dia);
+  }
+  return dias;
+};
+paso(`el «hoy» del servidor es una fecha posterior al 15 de agosto de 2026 (hoy ${hoy})`, hoy > '2026-08-15');
+
+const categorias = await registro.obtenerCategorias();
+const otrosGastos = categorias.ok ? categorias.cuerpo.gasto.find((c) => c.general) : undefined;
+const otrosIngresos = categorias.ok ? categorias.cuerpo.ingreso.find((c) => c.general) : undefined;
+paso(
+  'categorías: 200 con las de gasto y las de ingreso, y la general de cada tipo (ids 16 y 25)',
+  categorias.ok &&
+    categorias.cuerpo.gasto.length > 0 &&
+    categorias.cuerpo.ingreso.length > 0 &&
+    otrosGastos?.id === 16 &&
+    otrosIngresos?.id === 25 &&
+    categorias.cuerpo.gasto.some((c) => c.id === 4),
+  categorias.ok ? `${categorias.cuerpo.gasto.length} de gasto y ${categorias.cuerpo.ingreso.length} de ingreso` : JSON.stringify(categorias),
+);
+const base = { tipo: 'gasto', fecha: hoy, categoriaId: 16, medio: 'efectivo', descripcion: '', periodicidad: null };
+
+// Un gasto en efectivo de hoy, con centavos enteros.
+const efectivo = await registro.guardarMovimiento({ ...base, montoCentavos: 4500000n });
+paso(
+  'un gasto en efectivo de $45.000: 201, guarda el movimiento y no deja repetición ni pendientes',
+  efectivo.ok &&
+    efectivo.estado === 201 &&
+    typeof efectivo.cuerpo.movimiento_id === 'string' &&
+    efectivo.cuerpo.recurrente_id === null &&
+    efectivo.cuerpo.proximas.length === 0 &&
+    efectivo.cuerpo.pendientes.length === 0,
+  JSON.stringify(efectivo.cuerpo),
+);
+const grande = await registro.guardarMovimiento({ ...base, montoCentavos: 9223372036854775807n });
+paso('un monto de 64 bits (2^63 − 1 centavos) se guarda exacto: 201', grande.ok && grande.estado === 201, JSON.stringify(grande));
+
+// PN-03 contra el API de verdad: las fechas las calcula el servidor (D-165), la app solo las pide.
+const siguientes = proximosDia15(hoy, 3);
+const proximas = await registro.obtenerProximas('mensual', '2026-08-15');
+paso(
+  `PN-03: el arriendo del 15 de agosto, mensual: los tres siguientes días 15 después de hoy (${siguientes.join(', ')})`,
+  proximas.ok && JSON.stringify(proximas.cuerpo.proximas) === JSON.stringify(siguientes),
+  JSON.stringify(proximas.cuerpo),
+);
+const inicioMalo = await registro.obtenerProximas('mensual', '2026-02-30');
+paso(
+  'PN-03: un inicio que no existe da 422 con inicio = fecha_invalida',
+  !inicioMalo.ok && inicioMalo.estado === 422 && inicioMalo.campos.inicio === 'fecha_invalida',
+  JSON.stringify(inicioMalo),
+);
+const periodoMalo = await registro.obtenerProximas('diaria', '2026-08-15');
+paso(
+  'PN-03: una periodicidad que no es de las cinco da 422 con periodicidad = periodicidad_invalida',
+  !periodoMalo.ok && periodoMalo.estado === 422 && periodoMalo.campos.periodicidad === 'periodicidad_invalida',
+  JSON.stringify(periodoMalo),
+);
+
+// S4: el arriendo del 15 de agosto, mensual, escrito hoy. Registra el 15 de agosto; las fechas de en medio son historia
+// (E15 5.2) y la próxima es el siguiente día 15. Solo un día 15 de hoy que no es la fecha escrita queda pendiente.
+const arriendo = await registro.guardarMovimiento({
+  ...base,
+  montoCentavos: 120000000n,
+  fecha: '2026-08-15',
+  categoriaId: 4,
+  medio: 'transferencia',
+  descripcion: 'Arriendo',
+  periodicidad: 'mensual',
+});
+const pendientesEsperadas = hoy.endsWith('-15') ? [hoy] : [];
+paso(
+  'el arriendo del 15 de agosto, mensual: 201, registra el movimiento y crea la repetición',
+  arriendo.ok &&
+    arriendo.estado === 201 &&
+    typeof arriendo.cuerpo.movimiento_id === 'string' &&
+    typeof arriendo.cuerpo.recurrente_id === 'string',
+  JSON.stringify(arriendo.cuerpo),
+);
+paso(
+  `el arriendo: las fechas de en medio son historia (pendientes ${JSON.stringify(pendientesEsperadas)}) y las próximas son ${siguientes.join(', ')}`,
+  arriendo.ok &&
+    JSON.stringify(arriendo.cuerpo.pendientes) === JSON.stringify(pendientesEsperadas) &&
+    JSON.stringify(arriendo.cuerpo.proximas) === JSON.stringify(siguientes),
+  JSON.stringify(arriendo.cuerpo),
+);
+
+// L3: un regalo de diciembre sin repetición se guarda con su fecha futura y no queda pendiente.
+const anioDeDiciembre = hoy < `${hoy.slice(0, 4)}-12-20` ? hoy.slice(0, 4) : String(Number(hoy.slice(0, 4)) + 1);
+const regalo = await registro.guardarMovimiento({
+  ...base,
+  montoCentavos: 18000000n,
+  fecha: `${anioDeDiciembre}-12-20`,
+  descripcion: 'Regalos de Navidad',
+});
+paso(
+  `un regalo del 20 de diciembre de ${anioDeDiciembre} sin repetición (L3): 201, se guarda con su fecha futura y no queda pendiente`,
+  regalo.ok &&
+    regalo.estado === 201 &&
+    typeof regalo.cuerpo.movimiento_id === 'string' &&
+    regalo.cuerpo.recurrente_id === null &&
+    regalo.cuerpo.pendientes.length === 0 &&
+    regalo.cuerpo.proximas.length === 0,
+  JSON.stringify(regalo.cuerpo),
+);
+const futuraQueSeRepite = await registro.guardarMovimiento({
+  ...base,
+  montoCentavos: 9000000n,
+  fecha: `${anioDeDiciembre}-12-20`,
+  periodicidad: 'mensual',
+});
+paso(
+  'una fecha futura que se repite guarda solo la repetición: sin movimiento y con esa fecha en las próximas',
+  futuraQueSeRepite.ok &&
+    futuraQueSeRepite.cuerpo.movimiento_id === null &&
+    typeof futuraQueSeRepite.cuerpo.recurrente_id === 'string' &&
+    futuraQueSeRepite.cuerpo.proximas[0] === `${anioDeDiciembre}-12-20`,
+  JSON.stringify(futuraQueSeRepite.cuerpo),
+);
+
+// Errores de campo, todos a la vez (E14-PPN 3.1).
+const vacio = await registro.guardarMovimiento({ ...base, montoCentavos: 0n, categoriaId: 999999, fecha: '2026-02-30' });
+paso(
+  'cero, categoría que no existe y fecha que no existe: 422 con los tres códigos a la vez',
+  !vacio.ok &&
+    vacio.estado === 422 &&
+    vacio.codigo === 'datos_invalidos' &&
+    vacio.campos.monto_centavos === 'monto_no_positivo' &&
+    vacio.campos.categoria_id === 'categoria_invalida' &&
+    vacio.campos.fecha === 'fecha_invalida',
+  JSON.stringify(vacio.campos),
+);
+const tipoCruzado = await registro.guardarMovimiento({ ...base, montoCentavos: 100n, categoriaId: otrosIngresos?.id ?? 25 });
+paso(
+  'una categoría de ingreso en un gasto: 422 categoria_invalida',
+  !tipoCruzado.ok && tipoCruzado.estado === 422 && tipoCruzado.campos.categoria_id === 'categoria_invalida',
+  JSON.stringify(tipoCruzado.campos),
+);
+
+// Una categoría oculta por la persona (RN-011): el API la deja de ofrecer y no guarda en ella. No hay ruta para ocultar
+// (PN-05 no existe todavía), así que solo se prueba con CONTENEDOR_POSTGRES, el contenedor de PostgreSQL local.
+const contenedor = process.env.CONTENEDOR_POSTGRES;
+if (contenedor) {
+  const sql = `INSERT INTO ocultamiento_categoria (persona_id, categoria_id) SELECT persona_id, 3 FROM perfil_adulto WHERE correo = '${correo}'`;
+  execFileSync(
+    'docker',
+    ['exec', contenedor, 'psql', '-U', process.env.POSTGRES_USER ?? 'alcanzamos', '-d', process.env.POSTGRES_DB ?? 'alcanzamos', '-v', 'ON_ERROR_STOP=1', '-c', sql],
+    { stdio: 'pipe' },
+  );
+  const sinOculta = await registro.obtenerCategorias();
+  paso(
+    'la categoría que la persona ocultó (3, «Ropa y calzado») ya no sale en las categorías',
+    sinOculta.ok && !sinOculta.cuerpo.gasto.some((c) => c.id === 3) && sinOculta.cuerpo.gasto.length > 0,
+  );
+  const oculta = await registro.guardarMovimiento({ ...base, montoCentavos: 100n, categoriaId: 3 });
+  paso(
+    'guardar en la categoría oculta: 422 categoria_invalida y no se guarda nada',
+    !oculta.ok && oculta.estado === 422 && oculta.campos.categoria_id === 'categoria_invalida',
+    JSON.stringify(oculta.campos),
+  );
+} else {
+  console.log('OMITE categoría oculta: falta CONTENEDOR_POSTGRES (no hay ruta del API para ocultar una categoría)');
+}
+
+// 15. Sin conexión: una dirección que nadie escucha.
 process.env.EXPO_PUBLIC_URL_API = 'http://127.0.0.1:9';
 const sinRed = await pedir('GET', '/api/v1/cuentas/estado');
 paso('sin conexión: estado 0 sin_conexion', !sinRed.ok && sinRed.estado === 0 && sinRed.codigo === SIN_CONEXION);
