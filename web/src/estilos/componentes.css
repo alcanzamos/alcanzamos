@@ -354,3 +354,93 @@
   align-items: center;
   gap: var(--espacio-2);
 }
+
+/* Campo de monto y de fecha: los números en Figtree con cifras tabulares (D-123) */
+.campo__caja--cifra input {
+  font-family: var(--tipografia-cifra-font-family), sans-serif;
+  font-weight: var(--tipografia-cifra-font-weight);
+  font-size: var(--tipografia-cifra-font-size);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Chips de elección única (E14-SDD, Chip de categoría): el botón de radio nativo está oculto y .chip__texto es el chip */
+.grupo {
+  display: grid;
+  gap: var(--espacio-1);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espacio-2);
+}
+
+.chips--fila {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
+.chip {
+  position: relative;
+  flex: none;
+  cursor: pointer;
+}
+
+.chip input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.chip__texto {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--espacio-1);
+  min-height: var(--tamano-tactil-minimo);
+  padding: 0 var(--espacio-4);
+  border: var(--ancho-borde-fino) solid var(--color-borde-campo);
+  border-radius: var(--radio-total);
+  background: var(--color-fondo-superficie);
+  color: var(--color-texto-principal);
+  font-family: var(--tipografia-cuerpo-font-family), sans-serif;
+  font-size: var(--tipografia-cuerpo-font-size);
+}
+
+.chip__texto .icono {
+  display: none;
+  width: var(--tamano-icono);
+  height: var(--tamano-icono);
+}
+
+.chip input:checked + .chip__texto {
+  border-color: var(--color-accion-primaria-fondo);
+  background: var(--color-accion-primaria-fondo);
+  color: var(--color-accion-primaria-texto);
+}
+
+.chip input:checked + .chip__texto .icono {
+  display: inline-block;
+}
+
+.chip input:focus-visible + .chip__texto {
+  outline: var(--ancho-borde-grueso) solid var(--color-borde-foco);
+  outline-offset: var(--espacio-1);
+}
+
+/* Próximas fechas: una lista sin viñetas dentro de la tarjeta */
+.lista-de-fechas {
+  display: grid;
+  gap: var(--espacio-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

@@ -6,11 +6,14 @@ export type PropiedadesDeCampo = {
   id: string;
   etiqueta: string;
   valor: string;
-  alCambiar: (valor: string) => void;
+  /** Sin él el campo es de solo lectura. */
+  alCambiar?: (valor: string) => void;
   autocompletar: string;
   ayuda?: string;
   error?: string;
   tipo?: "text" | "email" | "password";
+  /** Los números del campo en Figtree (D-123): una fecha. */
+  cifra?: boolean;
 };
 
 // Campo de texto de E14-SDD 5.3: etiqueta siempre visible, ayuda y error ligados con aria-describedby.
@@ -24,6 +27,7 @@ export function CampoDeTexto({
   ayuda,
   error,
   tipo = "text",
+  cifra,
   accion,
 }: PropiedadesDeCampo & { accion?: ReactNode }) {
   const descripcion =
@@ -35,16 +39,19 @@ export function CampoDeTexto({
       <label htmlFor={id} className="campo__etiqueta">
         {etiqueta}
       </label>
-      <div className={`campo__caja${error ? " campo__caja--error" : ""}`}>
+      <div
+        className={`campo__caja${error ? " campo__caja--error" : ""}${cifra ? " campo__caja--cifra" : ""}`}
+      >
         <input
           id={id}
           name={id}
           type={tipo}
           value={valor}
+          readOnly={!alCambiar}
           autoComplete={autocompletar}
           aria-invalid={error ? true : undefined}
           aria-describedby={descripcion}
-          onChange={(evento) => alCambiar(evento.target.value)}
+          onChange={(evento) => alCambiar?.(evento.target.value)}
         />
         {accion}
       </div>

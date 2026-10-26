@@ -8,6 +8,7 @@ import { Privacidad } from "./pantallas/Privacidad";
 import { Recuperar } from "./pantallas/Recuperar";
 import { RecuperarAcceso } from "./pantallas/RecuperarAcceso";
 import { RevisaTuCorreo } from "./pantallas/RevisaTuCorreo";
+import { SeRepite } from "./pantallas/SeRepite";
 import { SeguridadDeLaCuenta } from "./pantallas/SeguridadDeLaCuenta";
 import { Verificar } from "./pantallas/Verificar";
 
@@ -27,6 +28,7 @@ const pantallas: Record<string, () => ReactElement> = {
   "/recuperar": Recuperar,
   "/cuenta/seguridad": SeguridadDeLaCuenta,
   "/cuenta/contrasena": CambiarContrasena,
+  "/registrar/se-repite": SeRepite,
 };
 
 // Rutas de la app. `/` y toda ruta que no existe llevan a `/entrar`: no hay una pantalla de «no encontrada» en E14.
