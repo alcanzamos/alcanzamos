@@ -170,12 +170,15 @@ func TestLaFechaDeHoyEsLaDeColombia(t *testing.T) {
 	if codigo, resp, _ := llamar(h, "POST", "/api/v1/movimientos", cuerpo("")); codigo != 201 {
 		t.Errorf("el 26 es hoy en Colombia: %d %s", codigo, resp)
 	}
-	manana := strings.Replace(cuerpo(""), "2026-10-26", "2026-10-27", 1)
-	if codigo, resp, _ := llamar(h, "POST", "/api/v1/movimientos", manana); codigo != 422 || !strings.Contains(resp, `"fecha":"fecha_futura"`) {
-		t.Errorf("el 27 todavía no llegó: %d %s", codigo, resp)
+	// El 27 todavía no llegó: con repetición solo se guarda la repetición; sin ella, el movimiento con su fecha.
+	manana := strings.Replace(cuerpo(`,"repeticion":{"periodicidad":"mensual"}`), "2026-10-26", "2026-10-27", 1)
+	if codigo, resp, _ := llamar(h, "POST", "/api/v1/movimientos", manana); codigo != 201 || len(repo.guardados) != 2 || repo.guardados[1].ConMovimiento {
+		t.Errorf("con repetición, el 27 es futuro y no lleva movimiento: %d %s", codigo, resp)
 	}
-	if len(repo.guardados) != 1 {
-		t.Errorf("solo se guarda el del 26: %d", len(repo.guardados))
+	sinRepetir := strings.Replace(cuerpo(""), "2026-10-26", "2026-10-27", 1)
+	if codigo, resp, _ := llamar(h, "POST", "/api/v1/movimientos", sinRepetir); codigo != 201 || len(repo.guardados) != 3 ||
+		!repo.guardados[2].ConMovimiento || repo.guardados[2].Fecha.Format(time.DateOnly) != "2026-10-27" {
+		t.Errorf("sin repetición, el movimiento del 27 se guarda con su fecha: %d %s", codigo, resp)
 	}
 }
 
@@ -198,7 +201,6 @@ func TestLosErroresDeValidacionDicenElCampoYElCodigo(t *testing.T) {
 		{"fecha que no existe", strings.Replace(cuerpo(""), "2026-10-26", "2026-02-30", 1), "fecha", "fecha_invalida"},
 		{"fecha con hora", strings.Replace(cuerpo(""), "2026-10-26", "2026-10-26T10:00:00Z", 1), "fecha", "fecha_invalida"},
 		{"fecha de hace siglos", strings.Replace(cuerpo(""), "2026-10-26", "0001-01-01", 1), "fecha", "fecha_invalida"},
-		{"fecha futura sin repetición", strings.Replace(cuerpo(""), "2026-10-26", "2026-10-27", 1), "fecha", "fecha_futura"},
 		{"categoría ausente", strings.Replace(cuerpo(""), `"categoria_id":4,`, "", 1), "categoria_id", "categoria_requerida"},
 		{"categoría cero", strings.Replace(cuerpo(""), `"categoria_id":4`, `"categoria_id":0`, 1), "categoria_id", "categoria_invalida"},
 		{"categoría fuera de smallint", strings.Replace(cuerpo(""), `"categoria_id":4`, `"categoria_id":40000`, 1), "categoria_id", "categoria_invalida"},

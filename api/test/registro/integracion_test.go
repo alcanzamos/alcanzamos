@@ -322,6 +322,28 @@ func TestUnaFechaProgramadaDeHoyQueNoEsLaEscritaQuedaPendienteEnLaBase(t *testin
 	}
 }
 
+// RF-057 y E14-PPN 9: un gasto que no se repite se registra con una fecha que todavía no llegó («Regalos de Navidad»,
+// 20 de diciembre, registrado el 2 de noviembre). Se guarda con su fecha y no queda nada pendiente: D-091 es solo de los
+// recurrentes.
+func TestUnGastoSinRepeticionDeUnaFechaFuturaSeGuardaConSuFecha(t *testing.T) {
+	formas(t, func(t *testing.T, android bool) {
+		s := nuevoServidor(t)
+		s.reloj.T = time.Date(2026, 11, 2, 15, 0, 0, 0, time.UTC) // 10:00 del 2 de noviembre en Colombia
+		c, persona := s.nuevaCuenta("laura@ejemplo.test", android, true)
+		res := s.crear(c, cuerpoDe("gasto", "50000000", "2026-12-20", "16", `,"descripcion":"Regalos de Navidad"`))
+		if res.MovimientoID == nil || res.RecurrenteID != nil || len(res.Proximas) != 0 || len(res.Pendientes) != 0 {
+			t.Fatalf("respuesta: %+v", res)
+		}
+		if n := s.contar(`SELECT count(*) FROM movimiento WHERE persona_id = $1::uuid AND fecha = '2026-12-20' AND monto = 50000000
+			AND categoria_id = 16 AND recurrente_id IS NULL AND fecha_programada IS NULL`, persona); n != 1 {
+			t.Errorf("se guarda el gasto del 20 de diciembre con su fecha: %d", n)
+		}
+		if n := s.contar(`SELECT count(*) FROM movimiento_recurrente`); n != 0 {
+			t.Errorf("no se crea ninguna repetición: %d", n)
+		}
+	})
+}
+
 func TestSinRepeticionGuardaUnSoloMovimiento(t *testing.T) {
 	formas(t, func(t *testing.T, android bool) {
 		s := nuevoServidor(t)
@@ -541,7 +563,6 @@ func TestLaValidacionLlegaPorHTTPYNoGuardaNada(t *testing.T) {
 		`{"campos":{"medio":"medio_invalido"},"error":"datos_invalidos"}`:             strings.Replace(cuerpoDe("gasto", "100", "2026-10-26", "1", ""), "transferencia", "tarjeta", 1),
 		`{"campos":{"monto_centavos":"monto_no_positivo"},"error":"datos_invalidos"}`: cuerpoDe("gasto", "0", "2026-10-26", "1", ""),
 		`{"campos":{"monto_centavos":"monto_invalido"},"error":"datos_invalidos"}`:    cuerpoDe("gasto", "12.5", "2026-10-26", "1", ""),
-		`{"campos":{"fecha":"fecha_futura"},"error":"datos_invalidos"}`:               cuerpoDe("gasto", "100", "2026-10-27", "1", ""),
 		`{"campos":{"descripcion":"descripcion_larga"},"error":"datos_invalidos"}`:    cuerpoDe("gasto", "100", "2026-10-26", "1", `,"descripcion":"`+strings.Repeat("a", 281)+`"`),
 		`{"campos":{"repeticion":"periodicidad_invalida"},"error":"datos_invalidos"}`: cuerpoDe("gasto", "100", "2026-10-26", "1", `,"repeticion":{"periodicidad":"diaria"}`),
 	}

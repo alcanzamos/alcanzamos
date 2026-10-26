@@ -45,7 +45,6 @@ const (
 	MontoNoPositivo         = "monto_no_positivo"
 	FechaRequerida          = "fecha_requerida"
 	FechaInvalida           = "fecha_invalida"
-	FechaFutura             = "fecha_futura" // un movimiento que no se repite no puede ser de una fecha que no ha llegado
 	CategoriaRequerida      = "categoria_requerida"
 	CategoriaInvalida       = "categoria_invalida" // no existe o es del otro tipo
 	MedioRequerido          = "medio_requerido"
@@ -262,11 +261,12 @@ func validar(sol Solicitud, hoy time.Time) (Guardado, error) {
 		campos["fecha"] = FechaRequerida
 	case err != nil || fecha.Year() < anioMinimo:
 		campos["fecha"] = FechaInvalida
-	case fecha.After(hoy) && sol.Repeticion == nil:
-		campos["fecha"] = FechaFutura
 	default:
 		g.Fecha = fecha
-		g.ConMovimiento = !fecha.After(hoy) // una fecha futura solo guarda la repetición: nunca un movimiento futuro (D-091)
+		// Sin repetición, el movimiento se guarda con su fecha, también si todavía no llegó (RF-057: «Regalos de Navidad»
+		// del 20 de diciembre en E14-PPN 9). Con repetición y una fecha futura solo se guarda la repetición: esa fecha
+		// queda pendiente hasta que la persona la confirme (D-091, que es solo de los recurrentes).
+		g.ConMovimiento = sol.Repeticion == nil || !fecha.After(hoy)
 	}
 
 	if len(campos) > 0 {

@@ -438,7 +438,7 @@ Cuerpo (un campo que no esté en el contrato, como `persona_id` o `hogar_id`, da
 
 - **Montos en centavos, enteros (D-082, EXA-001).** `monto_centavos` es un entero de `int64` mayor que cero; el API nunca usa `float64` para dinero (se lee como texto del JSON y se convierte con `strconv.ParseInt`). `12345678901` es $123.456.789,01 y vuelve igual.
 - **«Hoy» es el de Colombia** (UTC−5 fijo, sin horario de verano), calculado con el `Reloj` (`fechas.HoyEnColombia`).
-- **Sin repetición:** una fila de `movimiento`; la fecha no puede ser futura (`fecha_futura`): «registrado» significa que pasó de verdad (D-091).
+- **Sin repetición:** una fila de `movimiento` con la fecha escrita, también si todavía no llegó (RF-057: «Regalos de Navidad» del 20 de diciembre, E14-PPN 9). No queda nada pendiente: D-091 es solo de los recurrentes.
 - **Con repetición y fecha de hoy o pasada (D-164):** en una transacción, un `movimiento_recurrente` (`inicio` = `fecha`, `monto_habitual` = el monto, `creado_en` = ahora) y el `movimiento` de esa fecha, enlazado con `recurrente_id` y `fecha_programada = fecha` (su fecha confirmada).
 - **Con repetición y fecha futura:** solo el `movimiento_recurrente`; esa fecha queda pendiente y aparece en `proximas`. **Nunca se guarda un movimiento con fecha futura.**
 - **Las fechas intermedias son historia (E15 5.2, D-164 «E15 como está»).** `pendientes` solo trae fechas desde el día en que se creó la repetición (`f ≥ máx(inicio, creado_en)`), sin confirmadas ni omitidas. El arriendo del 15 de agosto, mensual, escrito el 26 de octubre de 2026, guarda el movimiento del 15 de agosto; el 15 de septiembre y el 15 de octubre **no** quedan pendientes (`pendientes: []`) y `proximas` es el 15 de noviembre, el 15 de diciembre y el 15 de enero de 2027. Una fecha programada de hoy que no es la escrita sí queda pendiente (el lunes 19 de octubre, semanal, escrito el lunes 26: `pendientes: ["2026-10-26"]`).
@@ -451,7 +451,7 @@ Cuerpo (un campo que no esté en el contrato, como `persona_id` o `hogar_id`, da
 |---|---|
 | `tipo` | `tipo_requerido` («Falta elegir si es un gasto o un ingreso.»), `tipo_invalido` |
 | `monto_centavos` | `monto_requerido` («Falta el monto.»), `monto_no_positivo` (cero o negativo: «El monto debe ser mayor que $0.»), `monto_invalido` (no es un entero que quepa en `int64`: decimal, texto, notación científica) |
-| `fecha` | `fecha_requerida` («Falta la fecha.»), `fecha_invalida` (no es `AAAA-MM-DD` ni una fecha real), `fecha_futura` (sin repetición) |
+| `fecha` | `fecha_requerida` («Falta la fecha.»), `fecha_invalida` (no es `AAAA-MM-DD` ni una fecha real) |
 | `categoria_id` | `categoria_requerida`, `categoria_invalida` (no existe o es del otro tipo; la llave `(categoria_id, tipo)` de E13 lo hace cumplir, también para la repetición) |
 | `medio` | `medio_requerido` («Falta elegir el medio de pago.»), `medio_invalido` (incluye `tarjeta`) |
 | `descripcion` | `descripcion_larga` |
