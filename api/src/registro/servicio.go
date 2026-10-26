@@ -195,6 +195,29 @@ func (s *Servicio) Registrar(ctx context.Context, persona string, sol Solicitud)
 	return res, nil
 }
 
+// Proximas son las fechas de «Próximas fechas» de PN-03 antes de guardar (D-165): hasta tres, después de hoy en
+// Colombia, de una repetición con esa periodicidad que empieza en `inicio`. No toca la base. ErrValidacion con los
+// campos `periodicidad` e `inicio` que fallen, a la vez.
+func (s *Servicio) Proximas(periodicidad, inicio string) ([]string, error) {
+	campos := map[string]string{}
+	p, codigo := leerPeriodicidad(periodicidad)
+	if codigo != "" {
+		campos["periodicidad"] = codigo
+	}
+	desde, codigo := leerFecha(inicio)
+	if codigo != "" {
+		campos["inicio"] = codigo
+	}
+	if len(campos) > 0 {
+		return nil, &ErrValidacion{Campos: campos}
+	}
+	proximas, err := fechas.Proximas(p, desde, fechas.HoyEnColombia(s.reloj.Ahora()), ProximasQueSeMuestran)
+	if err != nil {
+		return nil, err
+	}
+	return enTexto(proximas), nil
+}
+
 func enTexto(lista []time.Time) []string {
 	textos := make([]string, len(lista))
 	for i, f := range lista {
@@ -247,23 +270,16 @@ func validar(sol Solicitud, hoy time.Time) (Guardado, error) {
 	}
 
 	if sol.Repeticion != nil {
-		switch p := fechas.Periodicidad(sol.Repeticion.Periodicidad); {
-		case p == "":
-			campos["repeticion"] = PeriodicidadRequerida
-		case !p.Valida():
-			campos["repeticion"] = PeriodicidadDesconocida
-		default:
+		if p, codigo := leerPeriodicidad(sol.Repeticion.Periodicidad); codigo != "" {
+			campos["repeticion"] = codigo
+		} else {
 			g.Periodicidad = p
 		}
 	}
 
-	fecha, err := time.Parse(formatoDeFecha, sol.Fecha)
-	switch {
-	case sol.Fecha == "":
-		campos["fecha"] = FechaRequerida
-	case err != nil || fecha.Year() < anioMinimo:
-		campos["fecha"] = FechaInvalida
-	default:
+	if fecha, codigo := leerFecha(sol.Fecha); codigo != "" {
+		campos["fecha"] = codigo
+	} else {
 		g.Fecha = fecha
 		// Sin repetición, el movimiento se guarda con su fecha, también si todavía no llegó (RF-057: «Regalos de Navidad»
 		// del 20 de diciembre en E14-PPN 9). Con repetición y una fecha futura solo se guarda la repetición: esa fecha
@@ -275,6 +291,30 @@ func validar(sol Solicitud, hoy time.Time) (Guardado, error) {
 		return Guardado{}, &ErrValidacion{Campos: campos}
 	}
 	return g, nil
+}
+
+// leerPeriodicidad valida la periodicidad de una repetición; la comparten el POST y las próximas fechas.
+func leerPeriodicidad(texto string) (fechas.Periodicidad, string) {
+	switch p := fechas.Periodicidad(texto); {
+	case p == "":
+		return "", PeriodicidadRequerida
+	case !p.Valida():
+		return "", PeriodicidadDesconocida
+	default:
+		return p, ""
+	}
+}
+
+// leerFecha valida una fecha AAAA-MM-DD, con el año mínimo; la comparten el POST y las próximas fechas.
+func leerFecha(texto string) (time.Time, string) {
+	fecha, err := time.Parse(formatoDeFecha, texto)
+	switch {
+	case texto == "":
+		return time.Time{}, FechaRequerida
+	case err != nil || fecha.Year() < anioMinimo:
+		return time.Time{}, FechaInvalida
+	}
+	return fecha, ""
 }
 
 // leerMonto lee los centavos del JSON sin pasar por punto flotante (D-082): solo un entero positivo que quepa en int64.
