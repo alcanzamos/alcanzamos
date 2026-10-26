@@ -333,3 +333,94 @@ func TestCategoriasPorTipo(t *testing.T) {
 		t.Errorf("vacío: %s", resp)
 	}
 }
+
+const rutaProximas = "/api/v1/repeticiones/proximas"
+
+func proximas(t *testing.T, ahora, periodicidad, inicio string) (int, string, http.Header) {
+	t.Helper()
+	return llamar(api(t, &repoFalso{}, ahora), "GET", rutaProximas+"?periodicidad="+periodicidad+"&inicio="+inicio, "")
+}
+
+// L6 (US-51): las tres próximas fechas de PN-03 salen del API (D-165), con `fechas.Proximas`, y no guardan nada.
+func TestProximasDelArriendoDelQuinceDeAgosto(t *testing.T) {
+	repo := &repoFalso{}
+	codigo, resp, cab := llamar(api(t, repo, hoy), "GET", rutaProximas+"?periodicidad=mensual&inicio=2026-08-15", "")
+	const quiere = `{"proximas":["2026-11-15","2026-12-15","2027-01-15"]}`
+	if codigo != 200 || resp != quiere {
+		t.Fatalf("%d %s, se esperaba %s", codigo, resp, quiere)
+	}
+	if cab.Get("Cache-Control") != "no-store" {
+		t.Errorf("Cache-Control: %q", cab.Get("Cache-Control"))
+	}
+	if len(repo.guardados) != 0 {
+		t.Errorf("no debe guardar nada: %+v", repo.guardados)
+	}
+}
+
+func TestProximasDeUnInicioFuturoEmpiezaEnElInicio(t *testing.T) {
+	codigo, resp, _ := proximas(t, hoy, "mensual", "2026-11-01")
+	const quiere = `{"proximas":["2026-11-01","2026-12-01","2027-01-01"]}`
+	if codigo != 200 || resp != quiere {
+		t.Fatalf("%d %s, se esperaba %s", codigo, resp, quiere)
+	}
+}
+
+func TestProximasPorPeriodicidad(t *testing.T) {
+	for _, c := range []struct{ nombre, ahora, periodicidad, inicio, quiere string }{
+		// E14-PRR 2.4: el salario quincenal desde el 1 de octubre, a 2 de noviembre.
+		{"quincenal de PN-03", "2026-11-02T15:00:00Z", "quincenal", "2026-10-01", `["2026-11-16","2026-12-01","2026-12-16"]`},
+		// FP-09: la quincena del 15 cae el 28 de febrero.
+		{"quincenal con febrero", "2027-01-20T15:00:00Z", "quincenal", "2026-10-15", `["2027-01-30","2027-02-15","2027-02-28"]`},
+		{"semestral de PN-03", "2026-11-02T15:00:00Z", "semestral", "2026-12-20", `["2026-12-20","2027-06-20","2027-12-20"]`},
+		// FP-04: el 30 de junio, semestral, cae el 30 de diciembre.
+		{"semestral desde el 30 de junio", hoy, "semestral", "2026-06-30", `["2026-12-30","2027-06-30","2027-12-30"]`},
+		{"semanal", hoy, "semanal", "2026-10-05", `["2026-11-02","2026-11-09","2026-11-16"]`},
+		{"anual", hoy, "anual", "2026-01-31", `["2027-01-31","2028-01-31","2029-01-31"]`},
+		// 22:00 del 26 en Colombia es ya el 27 en UTC: hoy sigue siendo el 26 y esa fecha no cuenta.
+		{"hoy es el de Colombia", "2026-10-27T03:00:00Z", "mensual", "2026-10-26", `["2026-11-26","2026-12-26","2027-01-26"]`},
+	} {
+		t.Run(c.nombre, func(t *testing.T) {
+			codigo, resp, _ := proximas(t, c.ahora, c.periodicidad, c.inicio)
+			if quiere := `{"proximas":` + c.quiere + `}`; codigo != 200 || resp != quiere {
+				t.Errorf("%d %s, se esperaba %s", codigo, resp, quiere)
+			}
+		})
+	}
+}
+
+func TestProximasDaElCampoYElCodigoDeCadaError(t *testing.T) {
+	for _, c := range []struct{ nombre, consulta, campos string }{
+		{"sin periodicidad", "inicio=2026-08-15", `{"periodicidad":"periodicidad_requerida"}`},
+		{"periodicidad vacía", "periodicidad=&inicio=2026-08-15", `{"periodicidad":"periodicidad_requerida"}`},
+		{"periodicidad desconocida", "periodicidad=diaria&inicio=2026-08-15", `{"periodicidad":"periodicidad_invalida"}`},
+		{"periodicidad en mayúscula", "periodicidad=Mensual&inicio=2026-08-15", `{"periodicidad":"periodicidad_invalida"}`},
+		{"sin inicio", "periodicidad=mensual", `{"inicio":"fecha_requerida"}`},
+		{"inicio que no es una fecha", "periodicidad=mensual&inicio=15/08/2026", `{"inicio":"fecha_invalida"}`},
+		{"inicio inexistente", "periodicidad=mensual&inicio=2026-02-30", `{"inicio":"fecha_invalida"}`},
+		{"inicio anterior a 1900", "periodicidad=mensual&inicio=1899-12-31", `{"inicio":"fecha_invalida"}`},
+		{"los dos a la vez", "", `{"inicio":"fecha_requerida","periodicidad":"periodicidad_requerida"}`},
+	} {
+		t.Run(c.nombre, func(t *testing.T) {
+			codigo, resp, _ := llamar(api(t, &repoFalso{}, hoy), "GET", rutaProximas+"?"+c.consulta, "")
+			if quiere := `{"campos":` + c.campos + `,"error":"datos_invalidos"}`; codigo != 422 || resp != quiere {
+				t.Errorf("%d %s, se esperaba %s", codigo, resp, quiere)
+			}
+		})
+	}
+}
+
+func TestProximasDeLaFechaMinimaFunciona(t *testing.T) {
+	codigo, resp, _ := proximas(t, hoy, "semanal", "1900-01-01")
+	const quiere = `{"proximas":["2026-11-02","2026-11-09","2026-11-16"]}`
+	if codigo != 200 || resp != quiere {
+		t.Fatalf("%d %s, se esperaba %s", codigo, resp, quiere)
+	}
+}
+
+func TestLaValidacionDelServicioSeLeeComoDatosInvalidos(t *testing.T) {
+	_, err := registro.NuevoServicio(&repoFalso{}, &relojtest.Fijo{}).Proximas("", "")
+	var invalido *registro.ErrValidacion
+	if !errors.As(err, &invalido) || err.Error() != "datos inválidos" || len(invalido.Campos) != 2 {
+		t.Errorf("error: %v", err)
+	}
+}
