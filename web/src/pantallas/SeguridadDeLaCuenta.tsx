@@ -115,6 +115,7 @@ export function SeguridadDeLaCuenta() {
           )}
         </>
       )}
+      <BotonEnlace href="/registrar">{textos.registro.abrir}</BotonEnlace>
       <Boton variante="texto" alTocar={() => void salir()}>
         {textos.acciones.cerrarSesion}
       </Boton>

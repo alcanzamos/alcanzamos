@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { App } from "../src/App";
 import { json, simularApi } from "./ayudas";
@@ -35,6 +35,19 @@ describe("App · rutas", () => {
     irA("/cuenta/seguridad");
     expect(
       screen.getByRole("heading", { level: 1, name: "Seguridad de la cuenta" }),
+    ).toBeInTheDocument();
+  });
+
+  it("/registrar muestra el formulario y /registrar/se-repite, PN-03", () => {
+    simularApi(() => json(200, { gasto: [], ingreso: [] }));
+    irA("/registrar");
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Registrar" }),
+    ).toBeInTheDocument();
+    cleanup();
+    irA("/registrar/se-repite");
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Se repite" }),
     ).toBeInTheDocument();
   });
 

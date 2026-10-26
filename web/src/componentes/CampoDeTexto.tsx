@@ -11,9 +11,14 @@ export type PropiedadesDeCampo = {
   autocompletar: string;
   ayuda?: string;
   error?: string;
-  tipo?: "text" | "email" | "password";
-  /** Los números del campo en Figtree (D-123): una fecha. */
+  tipo?: "text" | "email" | "password" | "date";
+  /** El teclado numérico con coma, para un monto. */
+  modo?: "decimal";
+  maxLength?: number;
+  min?: string;
+  /** Los números del campo en Figtree (D-123): un monto o una fecha. */
   cifra?: boolean;
+  alSalir?: () => void;
 };
 
 // Campo de texto de E14-SDD 5.3: etiqueta siempre visible, ayuda y error ligados con aria-describedby.
@@ -27,7 +32,11 @@ export function CampoDeTexto({
   ayuda,
   error,
   tipo = "text",
+  modo,
+  maxLength,
+  min,
   cifra,
+  alSalir,
   accion,
 }: PropiedadesDeCampo & { accion?: ReactNode }) {
   const descripcion =
@@ -47,11 +56,15 @@ export function CampoDeTexto({
           name={id}
           type={tipo}
           value={valor}
+          inputMode={modo}
+          maxLength={maxLength}
+          min={min}
           readOnly={!alCambiar}
           autoComplete={autocompletar}
           aria-invalid={error ? true : undefined}
           aria-describedby={descripcion}
           onChange={(evento) => alCambiar?.(evento.target.value)}
+          onBlur={alSalir}
         />
         {accion}
       </div>

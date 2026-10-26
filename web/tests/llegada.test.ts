@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { avisoDeLlegada, irConAviso } from "../src/llegada";
+import { avisoDeLlegada, irConAviso, irConMensaje } from "../src/llegada";
 import { avisos } from "../src/textos";
 
 describe("aviso de llegada", () => {
@@ -26,5 +26,30 @@ describe("aviso de llegada", () => {
     expect(avisoDeLlegada()).toBeNull();
     window.history.replaceState("texto", "", "/");
     expect(avisoDeLlegada()).toBeNull();
+  });
+
+  it("un mensaje con datos viaja entero en el historial", () => {
+    const aviso = {
+      tipo: "informacion",
+      titulo: "Listo, registramos tu gasto de $45.000.",
+    } as const;
+    irConMensaje("/cuenta/seguridad", aviso);
+    expect(window.location.pathname).toBe("/cuenta/seguridad");
+    expect(avisoDeLlegada()).toEqual(aviso);
+    const conMensaje = { ...aviso, mensaje: "Más" };
+    irConMensaje("/cuenta/seguridad", conMensaje);
+    expect(avisoDeLlegada()).toEqual(conMensaje);
+  });
+
+  it("ignora un mensaje del historial que no tiene la forma de un aviso", () => {
+    for (const aviso of [
+      "texto",
+      { tipo: "otro", titulo: "x" },
+      { tipo: "logro" },
+      { tipo: "logro", titulo: "x", mensaje: 3 },
+    ]) {
+      window.history.replaceState({ aviso }, "", "/");
+      expect(avisoDeLlegada()).toBeNull();
+    }
   });
 });
