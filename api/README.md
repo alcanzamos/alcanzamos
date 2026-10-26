@@ -80,7 +80,7 @@ Toda ruta de `/api/` se registra con `Enrutador.Registrar(nivel, patron, manejad
 | `publica` | nada | crear la cuenta, verificar el correo con el enlace, iniciar sesión y recuperar el acceso (pedir el enlace y elegir la contraseña con él) |
 | `sin_verificar` | una sesión, aunque sea la **limitada** de una cuenta con el correo sin verificar (o la sesión de mentira de D-141) | PN-59: revisar el estado, reenviar, cambiar el correo; cerrar sesión |
 | `sin_autorizacion` | cuenta con el correo **verificado**, aunque no haya autorizado lo necesario | las acciones de PN-64: ver las finalidades, autorizar y «No autorizo» ([Autorización](#autorización-us-50)) |
-| `requiere_autorizacion` | cuenta verificada y con las finalidades necesarias de su etapa **autorizadas** (`ReglaDeFinalidades`) | el ingreso anterior de PN-71, el cambio de contraseña de PN-73 y todo lo demás |
+| `requiere_autorizacion` | cuenta verificada y con las finalidades necesarias de su etapa **autorizadas** (`ReglaDeFinalidades`) | el ingreso anterior de PN-71, el cambio de contraseña de PN-73, las categorías y guardar movimientos ([Registro](#registro-de-movimientos-us-51)) y todo lo demás |
 
 | Sujeto → | sin sesión | limitada o de mentira | verificada sin autorizar | autorizada |
 |---|---|---|---|---|
@@ -382,6 +382,83 @@ Cuerpo `{"finalidades":["cuenta_y_acceso","funciones_financieras","avisos"],"ver
 
 Las rutas por debajo de `requiere_autorizacion` son solo las del ingreso (crear la cuenta y verificar el correo, entrar, recuperar el acceso, cerrar sesión y las tres de arriba); hoy la única que escribe datos de la persona más allá de eso, el cambio de contraseña (PN-73), exige autorización, igual que PN-71. `TestSoloLasRutasDelIngresoNoExigenAutorizacion` (`test/app`) falla si aparece una ruta nueva por debajo de `requiere_autorizacion` que no esté en esa lista a propósito. `TestSinAutorizarLasRutasProtegidasDan403YAutorizandoPasan` prueba `403 autorizacion_pendiente` sin autorizar y que, al autorizar en la misma sesión, pasan.
 
+## Registro de movimientos (US-51)
+
+El formulario de registro (E14-PPN 3.1) y PN-03 usan estas dos rutas, las dos `requiere_autorizacion`: escriben y leen datos financieros de la persona, así que sin autorizar dan `403 autorizacion_pendiente`. Código en `src/registro` (`Servicio` y `Handler`), `src/fechas` (las fechas de una repetición, E15 5.2) y `pg.Movimientos`. **El API no manda textos de interfaz:** manda ids, claves del catálogo y códigos de error, y cada app pone el texto de E14 (`diseno/textos`). Alcance de D-164: solo «Efectivo» y «Transferencia» (sin «Tarjeta» ni «Cuotas»), «Solo mío» (`hogar_id` nulo) y sin lenguaje natural.
+
+| Ruta | Nivel | Qué hace |
+|---|---|---|
+| `GET /api/v1/categorias` | `requiere_autorizacion` | Las categorías visibles de la persona, por tipo |
+| `POST /api/v1/movimientos` | `requiere_autorizacion` | Guarda un gasto o un ingreso, con o sin repetición |
+
+### Categorías
+
+`200` con `Cache-Control: no-store`:
+
+```json
+{
+  "gasto": [{ "id": 1, "nombre": "Alimentación", "general": false }, …, { "id": 16, "nombre": "Otros gastos", "general": true }, { "id": 26, "nombre": "Ayuda a la familia", "general": false }],
+  "ingreso": [{ "id": 17, "nombre": "Salario", "general": false }, …, { "id": 25, "nombre": "Otros ingresos", "general": true }]
+}
+```
+
+- **`id` es lo que las apps usan** (es estable entre ambientes, `0002_catalogo.sql`) para elegir el texto y el ícono de E14; `nombre` es la clave del catálogo de E09 (`ClaveDeCategoria` de E12: nombre y tipo), no el texto de la pantalla. Los nombres están en español en la base porque el catálogo es dato de E09, pero la fuente de los textos de interfaz es `diseno/textos/es.json` (E17-ECO 4.13, D-160): una app que mostrara `nombre` directamente duplicaría esa fuente.
+- Una persona adulta ve todas menos las que ocultó (`ocultamiento_categoria`, RN-011: las generales nunca se ocultan). Una persona menor ve solo las `apta_para_menores`. Ordenadas por `id`. `general` marca «Otros gastos» y «Otros ingresos», la categoría de reserva (RF-005).
+
+### Guardar un movimiento
+
+Cuerpo (un campo que no esté en el contrato, como `persona_id` o `hogar_id`, da `400 solicitud_invalida`: la dueña de la fila es siempre la persona de la sesión):
+
+```json
+{
+  "tipo": "gasto",
+  "monto_centavos": 65000000,
+  "fecha": "2026-08-15",
+  "categoria_id": 4,
+  "medio": "transferencia",
+  "descripcion": "Arriendo",
+  "repeticion": { "periodicidad": "mensual" }
+}
+```
+
+`descripcion` y `repeticion` son opcionales. `periodicidad`: `semanal`, `quincenal`, `mensual`, `semestral` o `anual` (D-084). Respuesta `201` con `Cache-Control: no-store`; las fechas van como `AAAA-MM-DD`:
+
+```json
+{ "movimiento_id": "…", "recurrente_id": "…", "proximas": ["2026-11-15", "2026-12-15", "2027-01-15"], "pendientes": [] }
+```
+
+| Campo | Cuándo |
+|---|---|
+| `movimiento_id` | El `movimiento` guardado; `null` si solo se guardó la repetición (fecha futura) |
+| `recurrente_id` | El `movimiento_recurrente`; `null` si no se repite |
+| `proximas` | Hasta tres fechas programadas **posteriores a hoy** (PN-03, «Próximas fechas desde Hoy»); `[]` sin repetición |
+| `pendientes` | Fechas de la repetición que ya llegaron y están por confirmar (`FechasPendientes` de E15 5.2, con `f ≤ hoy`); `[]` sin repetición |
+
+**Reglas.**
+
+- **Montos en centavos, enteros (D-082, EXA-001).** `monto_centavos` es un entero de `int64` mayor que cero; el API nunca usa `float64` para dinero (se lee como texto del JSON y se convierte con `strconv.ParseInt`). `12345678901` es $123.456.789,01 y vuelve igual.
+- **«Hoy» es el de Colombia** (UTC−5 fijo, sin horario de verano), calculado con el `Reloj` (`fechas.HoyEnColombia`).
+- **Sin repetición:** una fila de `movimiento`; la fecha no puede ser futura (`fecha_futura`): «registrado» significa que pasó de verdad (D-091).
+- **Con repetición y fecha de hoy o pasada (D-164):** en una transacción, un `movimiento_recurrente` (`inicio` = `fecha`, `monto_habitual` = el monto, `creado_en` = ahora) y el `movimiento` de esa fecha, enlazado con `recurrente_id` y `fecha_programada = fecha` (su fecha confirmada).
+- **Con repetición y fecha futura:** solo el `movimiento_recurrente`; esa fecha queda pendiente y aparece en `proximas`. **Nunca se guarda un movimiento con fecha futura.**
+- **Las fechas intermedias son historia (E15 5.2, D-164 «E15 como está»).** `pendientes` solo trae fechas desde el día en que se creó la repetición (`f ≥ máx(inicio, creado_en)`), sin confirmadas ni omitidas. El arriendo del 15 de agosto, mensual, escrito el 26 de octubre de 2026, guarda el movimiento del 15 de agosto; el 15 de septiembre y el 15 de octubre **no** quedan pendientes (`pendientes: []`) y `proximas` es el 15 de noviembre, el 15 de diciembre y el 15 de enero de 2027. Una fecha programada de hoy que no es la escrita sí queda pendiente (el lunes 19 de octubre, semanal, escrito el lunes 26: `pendientes: ["2026-10-26"]`).
+- **Fechas de la repetición (`src/fechas`, código puro):** semanal cada 7 días desde `inicio`; quincenal `base` y `base + 15` (con `base` el día de `inicio`, menos 15 si pasa de 15); mensual el día de `inicio`; semestral solo si `(mes − mes de inicio) mod 6 = 0`; anual solo en el mes de `inicio`. Un día que no existe en el mes (el 31, el 30 de febrero) cae el último día. Las pruebas son los casos FP-01 a FP-16 de E15.
+- `medio` es `efectivo` o `transferencia`; `tarjeta` da `422 medio_invalido` (D-164; llega con las tarjetas en I07). `descripcion` admite hasta 280 caracteres (no bytes); se recorta y, vacía, no se guarda. La fecha no puede ser anterior al año 1900.
+
+**Errores.** `422 {"error":"datos_invalidos","campos":{"<campo>":"<código>"}}` con **todos** los campos inválidos a la vez (E14-PPN 3.1 los muestra juntos); no se guarda nada. `400 solicitud_invalida` si el cuerpo no es JSON, un campo trae un tipo que no es el suyo o sobra un campo.
+
+| Campo | Códigos |
+|---|---|
+| `tipo` | `tipo_requerido` («Falta elegir si es un gasto o un ingreso.»), `tipo_invalido` |
+| `monto_centavos` | `monto_requerido` («Falta el monto.»), `monto_no_positivo` (cero o negativo: «El monto debe ser mayor que $0.»), `monto_invalido` (no es un entero que quepa en `int64`: decimal, texto, notación científica) |
+| `fecha` | `fecha_requerida` («Falta la fecha.»), `fecha_invalida` (no es `AAAA-MM-DD` ni una fecha real), `fecha_futura` (sin repetición) |
+| `categoria_id` | `categoria_requerida`, `categoria_invalida` (no existe o es del otro tipo; la llave `(categoria_id, tipo)` de E13 lo hace cumplir, también para la repetición) |
+| `medio` | `medio_requerido` («Falta elegir el medio de pago.»), `medio_invalido` (incluye `tarjeta`) |
+| `descripcion` | `descripcion_larga` |
+| `repeticion` | `periodicidad_requerida` («Falta elegir cada cuánto se repite.»), `periodicidad_invalida` |
+
+Pruebas: `test/fechas` (E15 5.2), `test/registro/handler_test.go` (contrato y validación con un repositorio falso) y `test/registro/integracion_test.go` (de punta a punta contra PostgreSQL, en web con cookie y en Android con Bearer, incluido el caso del arriendo).
+
 ## Gaps de la US-49
 
 - **Origen detrás de un proxy:** el límite por origen usa la dirección de la conexión. Detrás de Azure Container Apps todos los pedidos llegarían con la dirección de su entrada y el límite se volvería de todos juntos. Es la fila 17 del primer despliegue (D-143 (4)): se confiará solo en la dirección que agregue esa entrada. No se lee `X-Forwarded-For` mientras tanto.
@@ -435,7 +512,7 @@ docker compose -f ../infra/local/compose.yaml --env-file ../infra/local/.env.exa
 
 Las pruebas viven en `test/` y miden `src/` con `-coverpkg=./src/...`. Las dos listas de paquetes son explícitas (E17-ECO 5.5) y se comparan por ruta completa relativa a `src/` (`cmd/api` es ese paquete; `cmd` solo no lo es). El pipeline `api` (`.azure-pipelines/api.yml`) falla si:
 
-- el grupo **núcleo y seguridad** (`nucleo` cuando exista, `seguridad`, `argon2id`, `sesion`, `servidor`, `autenticacion`, `cuenta`, D-151, y `autorizacion`, US-50) queda bajo **90 %**;
+- el grupo **núcleo y seguridad** (`nucleo` cuando exista, `seguridad`, `argon2id`, `sesion`, `servidor`, `autenticacion`, `cuenta`, D-151, `autorizacion`, US-50, y `fechas` y `registro`, US-51) queda bajo **90 %**;
 - el grupo **resto del API** (`app`, `bd`, `cmd/api`, `config`, `correo`, `pg`, `reloj`, `tareas` y `web`) queda bajo **75 %**;
 - algún grupo queda bajo la base de `test/cobertura-base.json` (sin bajar respecto de `main`). Un PR que sube la cobertura puede subir la base (valores con un decimal, redondeados hacia abajo); **nunca bajarla**;
 - aparece un paquete de `src/` que **no está en ninguna de las dos listas**. Se busca en el perfil de cobertura y también en un recorrido de las carpetas de `src/` con archivos `.go` (tercer argumento de `medir`), así que un paquete sin pruebas tampoco pasa. Hay que clasificarlo en E17-ECO 5.5 y en `cobertura.py`. Un paquete nuevo de seguridad no cae al 75 % sin que nadie lo note. `nucleo` puede no existir todavía: su ausencia no falla.
