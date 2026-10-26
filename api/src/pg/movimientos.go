@@ -20,14 +20,18 @@ type Movimientos struct{ pool *pgxpool.Pool }
 // NuevoMovimientos crea el repositorio sobre un pool.
 func NuevoMovimientos(pool *pgxpool.Pool) *Movimientos { return &Movimientos{pool: pool} }
 
-// Categorias devuelve las categorías que la persona no ocultó, por tipo y id. Una persona menor solo ve las aptas para
-// menores (`apta_para_menores`); una adulta, todas.
+// visible es la regla de qué categorías ve una persona, la misma para el catálogo y para guardar: una persona menor solo
+// ve las aptas para menores (`apta_para_menores`, E09: «Bebidas alcohólicas y tabaco» queda oculta siempre); una adulta,
+// todas; nadie ve las que ocultó. Espera `c` (categoria) y `p` (persona) en la consulta.
+const visible = `(p.etapa = 'adulta' OR c.apta_para_menores)
+		   AND NOT EXISTS (SELECT 1 FROM ocultamiento_categoria o WHERE o.persona_id = p.id AND o.categoria_id = c.id)`
+
+// Categorias devuelve las categorías que la persona ve (regla `visible`), por tipo y id.
 func (m *Movimientos) Categorias(ctx context.Context, persona string) ([]registro.Categoria, error) {
 	filas, err := m.pool.Query(ctx,
 		`SELECT c.id, c.nombre, c.general, c.tipo
 		 FROM categoria c JOIN persona p ON p.id = $1::uuid
-		 WHERE (p.etapa = 'adulta' OR c.apta_para_menores)
-		   AND NOT EXISTS (SELECT 1 FROM ocultamiento_categoria o WHERE o.persona_id = p.id AND o.categoria_id = c.id)
+		 WHERE `+visible+`
 		 ORDER BY c.tipo, c.id`, persona)
 	if err != nil {
 		return nil, fmt.Errorf("consultar las categorías: %w", err)
@@ -44,7 +48,8 @@ func (m *Movimientos) Categorias(ctx context.Context, persona string) ([]registr
 
 // Guardar inserta en una transacción la repetición (si la hay) y el movimiento (si hay que guardarlo). El movimiento de
 // una repetición queda enlazado a ella con `recurrente_id` y `fecha_programada = fecha`: es su fecha confirmada. La
-// llave compuesta (categoría, tipo) de E13 rechaza una categoría de otro tipo.
+// llave compuesta (categoría, tipo) de E13 rechaza una categoría de otro tipo; antes, una categoría que la persona no ve
+// (regla `visible`, la del catálogo) da ErrCategoriaInvalida sin guardar nada.
 func (m *Movimientos) Guardar(ctx context.Context, g registro.Guardado, ahora time.Time) (registro.Creados, error) {
 	var creados registro.Creados
 	tx, err := m.pool.Begin(ctx)
@@ -52,6 +57,19 @@ func (m *Movimientos) Guardar(ctx context.Context, g registro.Guardado, ahora ti
 		return creados, fmt.Errorf("abrir la transacción: %w", err)
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck // sin efecto tras el commit
+
+	// Si la persona no existe (la cuenta se borró entre la sesión y este pedido) no es un problema de la categoría: se
+	// sigue y la llave de `persona` lo rechaza como un fallo, no como un error de validación.
+	var existe, puedeVerla bool
+	if err := tx.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM persona WHERE id = $1::uuid),
+		        EXISTS (SELECT 1 FROM categoria c JOIN persona p ON p.id = $1::uuid WHERE c.id = $2 AND `+visible+`)`,
+		g.Persona, g.CategoriaID).Scan(&existe, &puedeVerla); err != nil {
+		return registro.Creados{}, fmt.Errorf("revisar la categoría: %w", err)
+	}
+	if existe && !puedeVerla {
+		return registro.Creados{}, registro.ErrCategoriaInvalida
+	}
 
 	var recurrente *string
 	if g.Periodicidad != "" {

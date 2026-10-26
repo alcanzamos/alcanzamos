@@ -452,7 +452,7 @@ Cuerpo (un campo que no esté en el contrato, como `persona_id` o `hogar_id`, da
 | `tipo` | `tipo_requerido` («Falta elegir si es un gasto o un ingreso.»), `tipo_invalido` |
 | `monto_centavos` | `monto_requerido` («Falta el monto.»), `monto_no_positivo` (cero o negativo: «El monto debe ser mayor que $0.»), `monto_invalido` (no es un entero que quepa en `int64`: decimal, texto, notación científica) |
 | `fecha` | `fecha_requerida` («Falta la fecha.»), `fecha_invalida` (no es `AAAA-MM-DD` ni una fecha real) |
-| `categoria_id` | `categoria_requerida`, `categoria_invalida` (no existe o es del otro tipo; la llave `(categoria_id, tipo)` de E13 lo hace cumplir, también para la repetición) |
+| `categoria_id` | `categoria_requerida`, `categoria_invalida` (no existe, es del otro tipo —la llave `(categoria_id, tipo)` de E13 lo hace cumplir, también para la repetición— o la persona no la ve: el POST aplica la misma regla que `GET /api/v1/categorias`, así que una persona menor no guarda en «Bebidas alcohólicas y tabaco» (E09) y nadie guarda en una categoría que ocultó; no se guarda nada, tampoco la repetición) |
 | `medio` | `medio_requerido` («Falta elegir el medio de pago.»), `medio_invalido` (incluye `tarjeta`) |
 | `descripcion` | `descripcion_larga` |
 | `repeticion` | `periodicidad_requerida` («Falta elegir cada cuánto se repite.»), `periodicidad_invalida` |

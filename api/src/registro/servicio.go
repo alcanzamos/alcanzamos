@@ -46,7 +46,7 @@ const (
 	FechaRequerida          = "fecha_requerida"
 	FechaInvalida           = "fecha_invalida"
 	CategoriaRequerida      = "categoria_requerida"
-	CategoriaInvalida       = "categoria_invalida" // no existe o es del otro tipo
+	CategoriaInvalida       = "categoria_invalida" // no existe, es del otro tipo o la persona no la ve (menor u oculta)
 	MedioRequerido          = "medio_requerido"
 	MedioInvalido           = "medio_invalido"
 	DescripcionLarga        = "descripcion_larga"
@@ -54,8 +54,9 @@ const (
 	PeriodicidadDesconocida = "periodicidad_invalida"
 )
 
-// ErrCategoriaInvalida lo devuelve el repositorio cuando la categoría no existe o no es del tipo del movimiento.
-var ErrCategoriaInvalida = errors.New("categoría inexistente o de otro tipo")
+// ErrCategoriaInvalida lo devuelve el repositorio cuando la categoría no existe, no es del tipo del movimiento o la
+// persona no la ve (la misma regla del catálogo: no apta para un menor, u oculta por ella).
+var ErrCategoriaInvalida = errors.New("categoría inexistente, de otro tipo o que la persona no ve")
 
 // ErrValidacion reúne todos los campos inválidos de una solicitud, para mostrarlos a la vez (E14-PPN 3.1).
 type ErrValidacion struct{ Campos map[string]string }
@@ -112,13 +113,13 @@ type Repositorio interface {
 	// Categorias devuelve las categorías que la persona puede usar y no ocultó, por tipo y id.
 	Categorias(ctx context.Context, persona string) ([]Categoria, error)
 	// Guardar inserta en una transacción lo que dice `g`, con `creado_en = ahora`. ErrCategoriaInvalida si la
-	// categoría no existe o es de otro tipo.
+	// categoría no existe, es de otro tipo o la persona no la ve (no apta para un menor, u oculta por ella).
 	Guardar(ctx context.Context, g Guardado, ahora time.Time) (Creados, error)
 }
 
 // Resultado es la respuesta 201. Las fechas van como AAAA-MM-DD.
 type Resultado struct {
-	MovimientoID *string  `json:"movimiento_id"` // null si solo se guardó la repetición (fecha futura)
+	MovimientoID *string  `json:"movimiento_id"` // null si solo se guardó la repetición (repetición con fecha futura)
 	RecurrenteID *string  `json:"recurrente_id"` // null si no se repite
 	Proximas     []string `json:"proximas"`      // hasta tres fechas programadas después de hoy
 	Pendientes   []string `json:"pendientes"`    // fechas por confirmar que ya llegaron (E15 5.2)
@@ -153,7 +154,8 @@ func (s *Servicio) Categorias(ctx context.Context, persona string) (Catalogo, er
 // Registrar guarda lo que la persona escribió en el formulario (CU-02, CU-06). Sin repetición guarda un movimiento. Con
 // repetición (D-164), de una fecha de hoy o pasada guarda la repetición y el movimiento de esa fecha, enlazado como
 // su fecha confirmada; de una fecha futura guarda solo la repetición y esa fecha queda pendiente (D-091). Las fechas
-// intermedias son historia (E15 5.2): no quedan pendientes. Nunca se guarda una fecha futura. «Hoy» es el de Colombia.
+// intermedias son historia (E15 5.2): no quedan pendientes. Sin repetición, el movimiento se guarda con su fecha aunque sea
+// futura (RF-057). «Hoy» es el de Colombia.
 func (s *Servicio) Registrar(ctx context.Context, persona string, sol Solicitud) (Resultado, error) {
 	ahora := s.reloj.Ahora()
 	hoy := fechas.HoyEnColombia(ahora)

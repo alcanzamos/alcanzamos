@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -498,27 +499,7 @@ func TestCategoriasVisiblesParaUnaPersonaAdulta(t *testing.T) {
 func TestUnaPersonaMenorNoVeLasCategoriasNoAptas(t *testing.T) {
 	s := nuevoServidor(t)
 	repo := pg.NuevoMovimientos(s.pool)
-	ctx := context.Background()
-	tx, err := s.pool.Begin(ctx) // la base exige el perfil y el nacimiento en la misma transacción que la persona
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer tx.Rollback(ctx) //nolint:errcheck // sin efecto tras el commit
-	var menor string
-	if err := tx.QueryRow(ctx, `INSERT INTO persona (nombre, etapa) VALUES ('Mateo', 'menor') RETURNING id::text`).Scan(&menor); err != nil {
-		t.Fatal(err)
-	}
-	for _, sql := range []string{
-		`INSERT INTO perfil_menor (persona_id, nombre_de_usuario) VALUES ($1::uuid, 'mateo.prueba')`,
-		`INSERT INTO nacimiento_menor (persona_id, valor_cifrado, version_clave) VALUES ($1::uuid, decode(repeat('ab', 38), 'hex'), 1)`,
-	} {
-		if _, err := tx.Exec(ctx, sql, menor); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := tx.Commit(ctx); err != nil {
-		t.Fatal(err)
-	}
+	menor := s.nuevoMenor()
 	categorias, err := repo.Categorias(context.Background(), menor)
 	if err != nil {
 		t.Fatal(err)
@@ -586,4 +567,93 @@ func TestUnIngresoEnEfectivoYUnaDescripcionLargaSeGuardan(t *testing.T) {
 	if err := s.pool.QueryRow(context.Background(), `SELECT descripcion FROM movimiento WHERE id = $1::uuid`, *res.MovimientoID).Scan(&guardada); err != nil || guardada != descripcion {
 		t.Errorf("descripción: %v (%d caracteres)", err, len([]rune(guardada)))
 	}
+}
+
+// nuevoMenor crea una persona menor por SQL (las cuentas de menores llegan en I11): la base exige el perfil y el
+// nacimiento en la misma transacción que la persona.
+func (s *servidorDePrueba) nuevoMenor() string {
+	s.t.Helper()
+	ctx := context.Background()
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck // sin efecto tras el commit
+	var menor string
+	if err := tx.QueryRow(ctx, `INSERT INTO persona (nombre, etapa) VALUES ('Mateo', 'menor') RETURNING id::text`).Scan(&menor); err != nil {
+		s.t.Fatal(err)
+	}
+	for _, sql := range []string{
+		`INSERT INTO perfil_menor (persona_id, nombre_de_usuario) VALUES ($1::uuid, 'mateo.prueba')`,
+		`INSERT INTO nacimiento_menor (persona_id, valor_cifrado, version_clave) VALUES ($1::uuid, decode(repeat('ab', 38), 'hex'), 1)`,
+	} {
+		if _, err := tx.Exec(ctx, sql, menor); err != nil {
+			s.t.Fatal(err)
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		s.t.Fatal(err)
+	}
+	return menor
+}
+
+// E09: «Bebidas alcohólicas y tabaco» (2) queda oculta siempre para un menor. Guardar aplica la misma regla que el
+// catálogo: con ella, sin repetición y con repetición (pasada y futura), da ErrCategoriaInvalida y no guarda nada. Va
+// contra el repositorio porque un menor todavía no puede iniciar sesión (I11); el servicio traduce el error a 422
+// categoria_invalida (lo prueba TestUnaCategoriaOcultaPorLaPersonaEsUn422YNoGuardaNada por HTTP).
+func TestUnMenorNoGuardaEnUnaCategoriaQueNoPuedeVer(t *testing.T) {
+	s := nuevoServidor(t)
+	repo := pg.NuevoMovimientos(s.pool)
+	menor := s.nuevoMenor()
+	base := registro.Guardado{Persona: menor, Tipo: "gasto", Monto: 1500000, CategoriaID: 2, Medio: "efectivo"}
+	casos := map[string]registro.Guardado{}
+	sin := base
+	sin.Fecha, sin.ConMovimiento = time.Date(2026, 10, 25, 0, 0, 0, 0, time.UTC), true
+	casos["sin repetición"] = sin
+	con := sin
+	con.Periodicidad = "mensual"
+	casos["con repetición"] = con
+	futura := base
+	futura.Fecha, futura.Periodicidad = time.Date(2026, 11, 25, 0, 0, 0, 0, time.UTC), "mensual"
+	casos["con repetición futura"] = futura
+	for nombre, g := range casos {
+		if _, err := repo.Guardar(context.Background(), g, s.reloj.T); !errors.Is(err, registro.ErrCategoriaInvalida) {
+			t.Errorf("%s: se esperaba ErrCategoriaInvalida, llegó %v", nombre, err)
+		}
+	}
+	if n := s.contar(`SELECT count(*) FROM movimiento`) + s.contar(`SELECT count(*) FROM movimiento_recurrente`); n != 0 {
+		t.Errorf("no queda nada guardado: %d filas", n)
+	}
+	// Una categoría apta (Alimentación) sí se guarda: la regla no rechaza todo lo del menor.
+	apta := sin
+	apta.CategoriaID = 1
+	if _, err := repo.Guardar(context.Background(), apta, s.reloj.T); err != nil {
+		t.Errorf("Alimentación es apta para un menor: %v", err)
+	}
+}
+
+// Una categoría que la persona ocultó no se puede usar para guardar: 422 categoria_invalida, sin nada guardado, sin
+// repetición y con repetición. La misma categoría la sigue usando otra persona que no la ocultó.
+func TestUnaCategoriaOcultaPorLaPersonaEsUn422YNoGuardaNada(t *testing.T) {
+	formas(t, func(t *testing.T, android bool) {
+		s := nuevoServidor(t)
+		c, persona := s.nuevaCuenta("laura@ejemplo.test", android, true)
+		if _, err := s.pool.Exec(context.Background(), `INSERT INTO ocultamiento_categoria (persona_id, categoria_id) VALUES ($1::uuid, 3)`, persona); err != nil {
+			t.Fatal(err)
+		}
+		for nombre, cuerpo := range map[string]string{
+			"sin repetición":        cuerpoDe("gasto", "100", "2026-10-25", "3", ""),
+			"con repetición":        cuerpoDe("gasto", "100", "2026-10-25", "3", `,"repeticion":{"periodicidad":"mensual"}`),
+			"con repetición futura": cuerpoDe("gasto", "100", "2026-11-25", "3", `,"repeticion":{"periodicidad":"mensual"}`),
+		} {
+			if r := c.llamar("POST", rutaMovimientos, cuerpo); r.Codigo != 422 || r.Cuerpo != `{"campos":{"categoria_id":"categoria_invalida"},"error":"datos_invalidos"}` {
+				t.Errorf("%s: %d %s", nombre, r.Codigo, r.Cuerpo)
+			}
+		}
+		if n := s.contar(`SELECT count(*) FROM movimiento`) + s.contar(`SELECT count(*) FROM movimiento_recurrente`); n != 0 {
+			t.Errorf("no queda nada guardado: %d filas", n)
+		}
+		otra, _ := s.nuevaCuenta("otra@ejemplo.test", android, true)
+		s.crear(otra, cuerpoDe("gasto", "100", "2026-10-25", "3", ""))
+	})
 }
