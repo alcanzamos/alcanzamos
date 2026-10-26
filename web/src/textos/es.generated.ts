@@ -437,18 +437,6 @@ export const textos = {
       casilla: "Autorizo mostrar el costo de un gasto en horas de vida.",
     },
   },
-  recuperar: {
-    // E14-PCP 4.5 (PN-62)
-    titulo: "Elige tu contraseña nueva",
-    // E14-PCP 4.5 (PN-62)
-    pedirOtro: "Pedir otro enlace",
-  },
-  textosDeRepeticion: {
-    // E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62
-    vacia: "Falta repetir la contraseña.",
-    // E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62
-    distinta: "Falta que las dos contraseñas sean iguales.",
-  },
   periodicidad: {
     // E14-PRR 4.3 (PN-03), fila 1 (barra)
     titulo: "Se repite",
@@ -500,6 +488,18 @@ export const textos = {
       // E14-PRR 4.3 (PN-03), errores de campo
       sinPeriodicidad: "Falta elegir cada cuánto se repite.",
     },
+  },
+  recuperar: {
+    // E14-PCP 4.5 (PN-62)
+    titulo: "Elige tu contraseña nueva",
+    // E14-PCP 4.5 (PN-62)
+    pedirOtro: "Pedir otro enlace",
+  },
+  textosDeRepeticion: {
+    // E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62
+    vacia: "Falta repetir la contraseña.",
+    // E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62
+    distinta: "Falta que las dos contraseñas sean iguales.",
   },
   registro: {
     // E14-PPN 3.1, fila 1 (barra)

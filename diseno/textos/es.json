@@ -719,64 +719,6 @@
           "e14": "E14-PCP 4.7 (PN-64), fila 7"
         }
       }
-    }
-  },
-  "solo_web": {
-    "erroresDeCampo": {
-      "crearCuenta": {
-        "mayor_de_edad_requerido": {
-          "texto": "Falta marcar que eres mayor de edad.",
-          "e14": "E14-PCP 4.1 (PN-58)"
-        }
-      }
-    },
-    "pagina": {
-      "atras": {
-        "texto": "Atrás",
-        "e14": "E14-PCP 4.4 (PN-61); E14-PCP 4.6 (PN-63); E14-PCP 4.7 (PN-64); E14-PCP 4.9 (PN-66); E14-PCP 4.10 (PN-67); E14-PCP 4.11 (PN-68); E14-PCP 4.12 (PN-69); E14-PCP 4.13 (PN-70); E14-PCP 4.14 (PN-71); E14-PCP 4.15 (PN-73); E14-PCP 4.16"
-      },
-      "titulo_del_documento": {
-        "texto": "{titulo} · Alcanzamos",
-        "e14": "E14-PCP 1.19 (título de la pestaña del navegador, aprobado en D-163)"
-      }
-    },
-    "campos": {
-      "contrasenaNueva": {
-        "etiqueta": {
-          "texto": "Contraseña nueva",
-          "e14": "E14-PCP 4.5 (PN-62); E14-PCP 4.15 (PN-73)"
-        },
-        "repeticion": {
-          "texto": "Repite la contraseña nueva",
-          "e14": "E14-PCP 4.5 (PN-62)"
-        }
-      },
-      "mayorDeEdad": {
-        "etiqueta": {
-          "texto": "Soy mayor de edad",
-          "e14": "E14-PCP 4.1 (PN-58); E14-PCP 4.8 (PN-65); E14-PCP 4.16"
-        }
-      }
-    },
-    "recuperar": {
-      "titulo": {
-        "texto": "Elige tu contraseña nueva",
-        "e14": "E14-PCP 4.5 (PN-62)"
-      },
-      "pedirOtro": {
-        "texto": "Pedir otro enlace",
-        "e14": "E14-PCP 4.5 (PN-62)"
-      }
-    },
-    "textosDeRepeticion": {
-      "vacia": {
-        "texto": "Falta repetir la contraseña.",
-        "e14": "E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62"
-      },
-      "distinta": {
-        "texto": "Falta que las dos contraseñas sean iguales.",
-        "e14": "E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62"
-      }
     },
     "periodicidad": {
       "titulo": {
@@ -862,16 +804,64 @@
       "listo": {
         "texto": "Listo",
         "e14": "E14-PRR 4.3 (PN-03), fila 8"
-      },
-      "errores": {
-        "sinFecha": {
-          "texto": "Falta la fecha en que empieza.",
-          "e14": "E14-PRR 4.3 (PN-03), errores de campo"
-        },
-        "sinPeriodicidad": {
-          "texto": "Falta elegir cada cuánto se repite.",
-          "e14": "E14-PRR 4.3 (PN-03), errores de campo"
+      }
+    }
+  },
+  "solo_web": {
+    "erroresDeCampo": {
+      "crearCuenta": {
+        "mayor_de_edad_requerido": {
+          "texto": "Falta marcar que eres mayor de edad.",
+          "e14": "E14-PCP 4.1 (PN-58)"
         }
+      }
+    },
+    "pagina": {
+      "atras": {
+        "texto": "Atrás",
+        "e14": "E14-PCP 4.4 (PN-61); E14-PCP 4.6 (PN-63); E14-PCP 4.7 (PN-64); E14-PCP 4.9 (PN-66); E14-PCP 4.10 (PN-67); E14-PCP 4.11 (PN-68); E14-PCP 4.12 (PN-69); E14-PCP 4.13 (PN-70); E14-PCP 4.14 (PN-71); E14-PCP 4.15 (PN-73); E14-PCP 4.16"
+      },
+      "titulo_del_documento": {
+        "texto": "{titulo} · Alcanzamos",
+        "e14": "E14-PCP 1.19 (título de la pestaña del navegador, aprobado en D-163)"
+      }
+    },
+    "campos": {
+      "contrasenaNueva": {
+        "etiqueta": {
+          "texto": "Contraseña nueva",
+          "e14": "E14-PCP 4.5 (PN-62); E14-PCP 4.15 (PN-73)"
+        },
+        "repeticion": {
+          "texto": "Repite la contraseña nueva",
+          "e14": "E14-PCP 4.5 (PN-62)"
+        }
+      },
+      "mayorDeEdad": {
+        "etiqueta": {
+          "texto": "Soy mayor de edad",
+          "e14": "E14-PCP 4.1 (PN-58); E14-PCP 4.8 (PN-65); E14-PCP 4.16"
+        }
+      }
+    },
+    "recuperar": {
+      "titulo": {
+        "texto": "Elige tu contraseña nueva",
+        "e14": "E14-PCP 4.5 (PN-62)"
+      },
+      "pedirOtro": {
+        "texto": "Pedir otro enlace",
+        "e14": "E14-PCP 4.5 (PN-62)"
+      }
+    },
+    "textosDeRepeticion": {
+      "vacia": {
+        "texto": "Falta repetir la contraseña.",
+        "e14": "E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62"
+      },
+      "distinta": {
+        "texto": "Falta que las dos contraseñas sean iguales.",
+        "e14": "E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62"
       }
     },
     "registro": {
@@ -1151,6 +1141,18 @@
         "c26": {
           "texto": "Ayuda a la familia",
           "e14": "E14-PPN 3.1, fila 9: categoría del catálogo de E09 (02-catalogo-de-categorias.md, gasto), id 26 del API"
+        }
+      }
+    },
+    "periodicidad": {
+      "errores": {
+        "sinFecha": {
+          "texto": "Falta la fecha en que empieza.",
+          "e14": "E14-PRR 4.3 (PN-03), errores de campo"
+        },
+        "sinPeriodicidad": {
+          "texto": "Falta elegir cada cuánto se repite.",
+          "e14": "E14-PRR 4.3 (PN-03), errores de campo"
         }
       }
     }

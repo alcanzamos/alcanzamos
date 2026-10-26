@@ -46,3 +46,10 @@ export function diaEnPalabras(iso: string): string | null {
   if (fecha.getUTCMonth() !== mes - 1 || fecha.getUTCDate() !== dia) return null;
   return `${dia} de ${MESES[mes - 1]} de ${anio}`;
 }
+
+/** «AAAA-MM-DD» del día de hoy en Colombia (UTC−5 todo el año, sin horario de verano), como lo calcula el API. */
+export const hoyEnColombia = (ahora: Date = new Date()): string =>
+  new Date(ahora.getTime() + DIFERENCIA_CON_BOGOTA_MS).toISOString().slice(0, 10);
+
+/** Una fecha real que el API acepta para un movimiento: «AAAA-MM-DD» desde el año 1900. */
+export const esFechaDeMovimiento = (iso: string): boolean => diaEnPalabras(iso) !== null && iso >= '1900-01-01';
