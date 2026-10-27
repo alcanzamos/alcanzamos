@@ -6,7 +6,10 @@ import {
   fechaEnPalabras,
   fechaLocalEnPalabras,
   hoyEnColombia,
+  mesAnterior,
+  mesEnPalabras,
   MESES,
+  relativoDelDia,
 } from '../src/fechas';
 import { fijarHoy } from './ayudas/reloj';
 
@@ -109,5 +112,29 @@ describe('aIso y desdeIso (la fecha del selector y la del API)', () => {
     const fecha = desdeIso('2026-08-15');
     expect([fecha.getFullYear(), fecha.getMonth(), fecha.getDate()]).toEqual([2026, 7, 15]);
     expect(aIso(desdeIso('2027-01-31'))).toBe('2027-01-31');
+  });
+});
+
+describe('relativoDelDia, mesEnPalabras y mesAnterior (PN-01)', () => {
+  it('relativoDelDia: «hoy», «ayer» (también al cruzar el mes y el año) y nada más', () => {
+    expect(relativoDelDia('2026-11-02', '2026-11-02')).toBe('hoy');
+    expect(relativoDelDia('2026-11-01', '2026-11-02')).toBe('ayer');
+    expect(relativoDelDia('2026-12-31', '2027-01-01')).toBe('ayer');
+    expect(relativoDelDia('2026-10-31', '2026-11-02')).toBeNull();
+    expect(relativoDelDia('2026-11-03', '2026-11-02')).toBeNull();
+  });
+
+  it('mesEnPalabras: «Noviembre», «Noviembre de 2026» y null si no es AAAA-MM', () => {
+    expect(mesEnPalabras('2026-11')).toBe('Noviembre');
+    expect(mesEnPalabras('2026-01', true)).toBe('Enero de 2026');
+    expect(mesEnPalabras('2026-13')).toBeNull();
+    expect(mesEnPalabras('2026-00')).toBeNull();
+    expect(mesEnPalabras('noviembre')).toBeNull();
+  });
+
+  it('mesAnterior: el mes de antes, con el cero y cruzando el año', () => {
+    expect(mesAnterior('2026-11')).toBe('2026-10');
+    expect(mesAnterior('2026-10')).toBe('2026-09');
+    expect(mesAnterior('2027-01')).toBe('2026-12');
   });
 });

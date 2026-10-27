@@ -126,6 +126,11 @@ export const avisos = {
     titulo: a.correoBorrado.titulo,
     mensaje: a.correoBorrado.mensaje,
   },
+  errorAlCargarMovimientos: {
+    tipo: 'informacion',
+    titulo: a.errorAlCargarMovimientos.titulo,
+    mensaje: a.errorAlCargarMovimientos.mensaje,
+  },
 } satisfies Record<string, DatosDeAviso>;
 
 /**

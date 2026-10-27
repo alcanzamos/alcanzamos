@@ -3,7 +3,8 @@
 // teléfono no necesita: `expo-secure-store` se reemplaza por un almacén en memoria (no hay Keystore en Node) y los
 // imports sin extensión se resuelven como `.ts` (Node quita los tipos solo, sin compilar nada).
 //
-// Desde la US-51 también prueba el registro (categorías, un gasto en efectivo, el arriendo, PN-03) con la sesión ya autorizada.
+// Desde la US-51 también prueba el registro (categorías, un gasto en efectivo, el arriendo, PN-03) con la sesión ya autorizada
+// y, desde la US-52, la lista de movimientos de PN-01 con sus filtros.
 // Uso (el API, PostgreSQL y Mailpit ya arriba; ver README, «Probar en el celular»):
 //   EXPO_PUBLIC_URL_API=http://127.0.0.1:18090 URL_MAILPIT=http://127.0.0.1:58025 npm run integracion:api
 // Las autorizaciones se dan por el API (GET y POST /api/v1/autorizaciones), no por SQL. Datos sintéticos; nada sale del equipo.
@@ -45,6 +46,7 @@ const cuentas = await import('../src/api/cuentas.ts');
 const acceso = await import('../src/api/acceso.ts');
 const autorizaciones = await import('../src/api/autorizaciones.ts');
 const registro = await import('../src/api/registro.ts');
+const movimientos = await import('../src/api/movimientos.ts');
 const { hoyEnColombia } = await import('../src/fechas.ts');
 
 let fallas = 0;
@@ -55,9 +57,14 @@ const paso = (nombre, condicion, detalle = '') => {
 const token = () => almacen.datos.get('sesion') ?? null;
 
 // Lo que hace la persona para dejar una cuenta nueva verificada: el enlace del correo se abre en el navegador (D-155).
+// El correo sale de un trabajador aparte: puede tardar un instante en llegar a Mailpit, así que se espera un poco.
 async function verificarCuenta(correoDeLaCuenta) {
-  const lista = await (await fetch(`${URL_MAILPIT}/api/v1/messages`)).json();
-  const mensaje = lista.messages.find((m) => m.To.some((p) => p.Address === correoDeLaCuenta));
+  let mensaje;
+  for (let i = 0; i < 20 && !mensaje; i++) {
+    const lista = await (await fetch(`${URL_MAILPIT}/api/v1/messages`)).json();
+    mensaje = lista.messages.find((m) => m.To.some((p) => p.Address === correoDeLaCuenta));
+    if (!mensaje) await new Promise((r) => setTimeout(r, 250));
+  }
   const texto = (await (await fetch(`${URL_MAILPIT}/api/v1/message/${mensaje.ID}`)).json()).Text;
   const [, enlaceDelCorreo] = /\/verificar\?t=([A-Za-z0-9_-]+)/.exec(texto);
   return fetch(`${URL_API}/api/v1/cuentas/verificacion`, {
@@ -490,6 +497,63 @@ if (contenedor) {
 } else {
   console.log('OMITE categoría oculta: falta CONTENEDOR_POSTGRES (no hay ruta del API para ocultar una categoría)');
 }
+
+// 14b. PN-01 (US-52): la lista del mes y sus filtros contra el API de verdad, con lo que se registró arriba. Los montos de
+// 64 bits llegan como texto y la suma del resumen es exacta aunque pase de 2^63 − 1 (D-082).
+const mesDeHoy = hoy.slice(0, 7);
+const deLaLista = await movimientos.listarMovimientos(null, null);
+const delMes = deLaLista.ok ? deLaLista.cuerpo.movimientos : [];
+paso(
+  `PN-01 sin filtros: 200, el periodo es el mes de hoy del servidor (${mesDeHoy}), sin suma y con los meses de más reciente a más antiguo`,
+  deLaLista.ok &&
+    deLaLista.cuerpo.periodo_actual === mesDeHoy &&
+    deLaLista.cuerpo.periodo === mesDeHoy &&
+    deLaLista.cuerpo.resumen.total_centavos === null &&
+    deLaLista.cuerpo.resumen.movimientos === delMes.length &&
+    deLaLista.cuerpo.meses.includes(mesDeHoy) &&
+    deLaLista.cuerpo.meses.includes('2026-08') &&
+    deLaLista.cuerpo.meses.every((mes, i, todos) => i === 0 || todos[i - 1] > mes),
+  deLaLista.ok ? JSON.stringify({ meses: deLaLista.cuerpo.meses, resumen: deLaLista.cuerpo.resumen }) : JSON.stringify(deLaLista),
+);
+paso(
+  'PN-01: los montos llegan como texto, con todos sus dígitos (4500000 y 9223372036854775807)',
+  delMes.every((m) => typeof m.monto_centavos === 'string') &&
+    delMes.some((m) => m.monto_centavos === '4500000') &&
+    delMes.some((m) => m.monto_centavos === '9223372036854775807'),
+);
+const deCategoria = await movimientos.listarMovimientos(mesDeHoy, 16);
+const sumaEsperada = delMes.filter((m) => m.categoria_id === 16).reduce((suma, m) => suma + BigInt(m.monto_centavos), 0n);
+paso(
+  `PN-01 con una categoría: la suma exacta del resumen (${sumaEsperada}) pasa de 2^63 − 1 y no pierde un centavo`,
+  deCategoria.ok &&
+    sumaEsperada > 9223372036854775807n &&
+    deCategoria.cuerpo.resumen.total_centavos === String(sumaEsperada) &&
+    deCategoria.cuerpo.movimientos.every((m) => m.categoria_id === 16) &&
+    deCategoria.cuerpo.categorias.some((c) => c.categoria_id === 16 && c.oculta === false),
+  deCategoria.ok ? JSON.stringify(deCategoria.cuerpo.resumen) : JSON.stringify(deCategoria),
+);
+const deAgosto = await movimientos.listarMovimientos('2026-08', 4);
+paso(
+  'PN-01 con otro periodo y una categoría: el arriendo del 15 de agosto, de una repetición mensual, de $1.200.000',
+  deAgosto.ok &&
+    deAgosto.cuerpo.periodo === '2026-08' &&
+    deAgosto.cuerpo.resumen.movimientos === 1 &&
+    deAgosto.cuerpo.resumen.total_centavos === '120000000' &&
+    deAgosto.cuerpo.movimientos[0]?.fecha === '2026-08-15' &&
+    deAgosto.cuerpo.movimientos[0]?.descripcion === 'Arriendo' &&
+    deAgosto.cuerpo.movimientos[0]?.compartido === false &&
+    deAgosto.cuerpo.movimientos[0]?.recurrente?.periodicidad === 'mensual',
+  deAgosto.ok ? JSON.stringify(deAgosto.cuerpo.movimientos) : JSON.stringify(deAgosto),
+);
+const filtroMalo = await movimientos.listarMovimientos('2026-13', 40000);
+paso(
+  'PN-01: un periodo y una categoría que no valen dan 422 con los dos códigos a la vez',
+  !filtroMalo.ok &&
+    filtroMalo.estado === 422 &&
+    filtroMalo.campos.periodo === 'periodo_invalido' &&
+    filtroMalo.campos.categoria === 'categoria_invalida',
+  JSON.stringify(filtroMalo),
+);
 
 // 15. Sin conexión: una dirección que nadie escucha.
 process.env.EXPO_PUBLIC_URL_API = 'http://127.0.0.1:9';

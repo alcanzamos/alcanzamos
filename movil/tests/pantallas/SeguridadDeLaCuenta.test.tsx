@@ -1,6 +1,5 @@
 import { CommonActions } from '@react-navigation/native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { cambiarBorrador, useBorrador } from '../../src/borradorDeRegistro';
 import { SeguridadDeLaCuenta } from '../../src/pantallas/SeguridadDeLaCuenta';
 import type { DatosDeAviso } from '../../src/textos';
 import { instalarFetchFalso, respuestaJson } from '../ayudas/fetchFalso';
@@ -168,27 +167,14 @@ describe('PN-71 · Seguridad de la cuenta (E14-PCP 4.14)', () => {
     });
   });
 
-  describe('«Registrar un movimiento» (US-51, D-164: botón provisional hasta que exista PN-01)', () => {
-    it('abre el formulario con un borrador vacío', async () => {
+  describe('«Movimientos» (US-52, D-164: la entrada a PN-01 donde estaba el botón provisional)', () => {
+    it('abre PN-01 y ya no hay un botón para registrar', async () => {
       instalarFetchFalso(respuestaJson(200, { ingreso_anterior: null }));
-      cambiarBorrador({ monto: '45.000', periodicidad: 'mensual' });
-      let monto = '';
-      function Espia() {
-        monto = useBorrador().monto;
-        return null;
-      }
-      const navegacion = navegacionFalsa();
-      await render(
-        <>
-          <SeguridadDeLaCuenta {...propiedades('SeguridadDeLaCuenta', navegacion)} />
-          <Espia />
-        </>,
-      );
+      const navegacion = await mostrar();
       await screen.findByText('Este es tu primer ingreso.');
-      expect(monto).toBe('45.000');
-      await fireEvent.press(screen.getByRole('button', { name: 'Registrar un movimiento' }));
-      expect(navegacion.navigate).toHaveBeenCalledWith('FormularioDeRegistro');
-      expect(monto).toBe('');
+      expect(screen.queryByRole('button', { name: 'Registrar un movimiento' })).not.toBeOnTheScreen();
+      await fireEvent.press(screen.getByRole('button', { name: 'Movimientos' }));
+      expect(navegacion.navigate).toHaveBeenCalledWith('ListaDeMovimientos');
     });
 
     it('el aviso de después de guardar llega arriba como mensaje de estado, que TalkBack anuncia', async () => {

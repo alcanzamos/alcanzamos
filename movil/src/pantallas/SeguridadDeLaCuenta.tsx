@@ -6,7 +6,6 @@ import { cerrarSesion } from '../api/cuentas';
 import { Aviso } from '../componentes/Aviso';
 import { Boton, BotonDeTexto } from '../componentes/Boton';
 import { cifras } from '../componentes/Cifras';
-import { reiniciarBorrador } from '../borradorDeRegistro';
 import { Pantalla } from '../componentes/Pantalla';
 import { Texto } from '../componentes/Texto';
 import { fechaEnPalabras } from '../fechas';
@@ -22,6 +21,7 @@ type Estado = { fase: 'cargando' } | { fase: 'error'; aviso: DatosDeAviso } | { 
 
 // PN-71 · Seguridad de la cuenta: el ingreso anterior, nunca el de ahora (E14-PCP 4.14, RF-062). Es la pantalla de inicio
 // provisional de quien entra con autorización, hasta que haya un Inicio. La fecha va en palabras y en la hora de Colombia.
+// «Movimientos» es su entrada a PN-01 (E14-SDD 5.9), que ya trae «Registrar» (D-164): aquí no hay botón para registrar.
 export function SeguridadDeLaCuenta({ navigation, route }: NativeStackScreenProps<Rutas, 'SeguridadDeLaCuenta'>) {
   const [estado, setEstado] = useState<Estado>({ fase: 'cargando' });
   const [intento, setIntento] = useState(0);
@@ -99,14 +99,8 @@ export function SeguridadDeLaCuenta({ navigation, route }: NativeStackScreenProp
           )}
         </>
       )}
-      <Boton
-        alTocar={() => {
-          // Provisional hasta que exista PN-01 (D-164): cada entrada al formulario empieza vacía.
-          reiniciarBorrador();
-          navigation.navigate('FormularioDeRegistro');
-        }}
-      >
-        {textos.registro.abrir}
+      <Boton variante="secundario" alTocar={() => navigation.navigate('ListaDeMovimientos')}>
+        {textos.movimientos.titulo}
       </Boton>
       <BotonDeTexto alTocar={() => void salir()}>{textos.acciones.cerrarSesion}</BotonDeTexto>
     </Pantalla>

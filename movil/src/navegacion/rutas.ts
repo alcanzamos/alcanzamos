@@ -22,7 +22,13 @@ export type Rutas = {
    * datos de la persona («Listo, registramos tu gasto de $45.000.»): solo vive en la memoria, nunca se guarda.
    */
   SeguridadDeLaCuenta: { llegada?: Llegada; aviso?: DatosDeAviso } | undefined;
-  /** PN-01 · Registrar (E14-PPN 3.1); su entrada desde PN-71 es provisional hasta que exista PN-01 (D-164). */
+  /**
+   * PN-01 · Movimientos (E14-PRR 4.1), destino de «Movimientos» de PN-71. Los filtros viven en la ruta (`periodo`
+   * «AAAA-MM» y `categoria`), así sobreviven a abrir un movimiento. `aviso` es el mensaje de estado de después de
+   * guardar («Listo, registramos tu gasto de $45.000.»): solo vive en la memoria, nunca se guarda.
+   */
+  ListaDeMovimientos: { periodo?: string; categoria?: number; aviso?: DatosDeAviso } | undefined;
+  /** Formulario de registro (E14-PPN 3.1); se abre desde «Registrar» de PN-01 y vuelve a PN-01 al guardar (D-164). */
   FormularioDeRegistro: undefined;
   /** PN-03: se apila sobre Registrar; su Atrás vuelve al formulario sin cambiar nada. */
   SeRepite: undefined;

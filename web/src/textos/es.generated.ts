@@ -677,22 +677,10 @@ export const textos = {
       sinFecha: "Falta la fecha en que empieza.",
     },
   },
-  recuperar: {
-    // E14-PCP 4.5 (PN-62)
-    titulo: "Elige tu contraseña nueva",
-    // E14-PCP 4.5 (PN-62)
-    pedirOtro: "Pedir otro enlace",
-  },
-  textosDeRepeticion: {
-    // E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62
-    vacia: "Falta repetir la contraseña.",
-    // E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62
-    distinta: "Falta que las dos contraseñas sean iguales.",
-  },
   movimientos: {
     // E14-PRR 4.1 (PN-01), fila 2
     titulo: "Movimientos",
-    // E14-PRR 4.1 (PN-01), fila 10 (en la web, «Registrar» arriba de la navegación lateral)
+    // E14-PRR 4.1 (PN-01), fila 10 (Botón Registrar fijo en Android; en la web, «Registrar» arriba de la navegación lateral)
     registrar: "Registrar",
     // E14-PRR 4.1 (PN-01), fila 3
     periodo: "Periodo",
@@ -723,8 +711,6 @@ export const textos = {
       compartido: "Compartido con el hogar",
     },
     vacio: {
-      // E14-PRR 4.1 (PN-01), variante web
-      elegir: "Elige un movimiento para verlo.",
       // E14-PRR 4.1 (PN-01), estado «Sin resultados con el filtro»
       sinResultados: "No hay movimientos con este filtro.",
       // E14-PRR 4.1 (PN-01), estado «Sin resultados con el filtro»
@@ -735,6 +721,8 @@ export const textos = {
       sinMovimientos: "Todavía no hay movimientos",
       // E14-PRR 4.1 (PN-01), estado «Sin ningún movimiento»
       registraElPrimero: "Registra el primero y aquí lo verás.",
+      // E14-PRR 4.1 (PN-01), variante web
+      elegir: "Elige un movimiento para verlo.",
     },
     detalle: {
       // E14-PRR 4.2 (PN-02), fila 1 (barra)
@@ -782,6 +770,18 @@ export const textos = {
       // E14-PRR 4.2 (PN-02), estado «Ya no existe»
       irAMovimientos: "Ir a Movimientos",
     },
+  },
+  recuperar: {
+    // E14-PCP 4.5 (PN-62)
+    titulo: "Elige tu contraseña nueva",
+    // E14-PCP 4.5 (PN-62)
+    pedirOtro: "Pedir otro enlace",
+  },
+  textosDeRepeticion: {
+    // E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62
+    vacia: "Falta repetir la contraseña.",
+    // E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62
+    distinta: "Falta que las dos contraseñas sean iguales.",
   },
 } as const;
 

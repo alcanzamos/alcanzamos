@@ -8,6 +8,8 @@ export function navegacionFalsa() {
     replace: jest.fn(),
     goBack: jest.fn(),
     dispatch: jest.fn(),
+    popTo: jest.fn(),
+    setParams: jest.fn(),
     setOptions: jest.fn(),
   };
 }
