@@ -12,23 +12,29 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/src/fechas"
 )
 
-// Aporte es el tipo de un movimiento ligado a una meta en vez de a una categoría (RN-013). Se lista, se corrige y se
-// borra como los demás; crearlo es de las metas.
+// Aporte es el tipo de un movimiento ligado a una meta en vez de a una categoría (RN-013); con `sentido` `salida` es un
+// retiro. Se lista y se ve en el detalle; corregirlo y borrarlo es de las metas (D-170), y crearlo también.
 const Aporte = "aporte"
 
 const formatoDePeriodo = "2006-01"
 
 // Códigos de error de campo de la lista y de la corrección (422 `datos_invalidos`).
 const (
-	PeriodoInvalido   = "periodo_invalido"
-	FechaNoEditable   = "fecha_no_editable"   // la fecha de un recurrente no se cambia (D-168)
-	TipoNoEditable    = "tipo_no_editable"    // un aporte y la fecha de un recurrente conservan su tipo
-	CategoriaNoAplica = "categoria_no_aplica" // un aporte no lleva categoría (CU-08 2c)
+	PeriodoInvalido = "periodo_invalido"
+	FechaNoEditable = "fecha_no_editable" // la fecha de un recurrente no se cambia (D-168)
+	TipoNoEditable  = "tipo_no_editable"  // la fecha de un recurrente conserva su tipo
 )
 
 // ErrNoEncontrado lo devuelve el repositorio cuando el movimiento no existe o no es de la persona: el API no distingue
 // los dos casos, para no revelar que existe.
 var ErrNoEncontrado = errors.New("movimiento inexistente o de otra persona")
+
+// ErrNoEditable lo devuelve el servicio al corregir o borrar un aporte o un retiro de una meta (D-170): el API los
+// rechaza hasta la historia de metas, que resuelve la contradicción entre E14-PMH (D-084, punto 5) y E14-PRR PN-02.
+var ErrNoEditable = errors.New("un aporte o un retiro de una meta no se corrige ni se borra todavía")
+
+// esDeMeta dice si el movimiento es un aporte o un retiro de una meta.
+func esDeMeta(m Movimiento) bool { return m.Tipo == Aporte || m.Meta != nil }
 
 var idDeMovimiento = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
@@ -169,12 +175,15 @@ func (s *Servicio) Obtener(ctx context.Context, persona, id string) (Movimiento,
 
 // Corregir reemplaza monto, fecha, categoría, medio y descripción de un movimiento de la persona, con las mismas
 // validaciones que el POST (CU-08). **D-168:** en una fecha confirmada de una repetición la fecha no cambia y el cambio
-// es solo de esa fila: la repetición no se toca. Un aporte conserva su tipo y no lleva categoría; su avance en la meta
-// se calcula de sus movimientos, así que no hay nada más que recalcular. La descripción omitida se borra: es un reemplazo.
+// es solo de esa fila: la repetición no se toca. Un aporte o un retiro de una meta no se corrige: ErrNoEditable (D-170),
+// después del 404 de lo ajeno. La descripción omitida se borra: es un reemplazo.
 func (s *Servicio) Corregir(ctx context.Context, persona, id string, sol SolicitudDeCorreccion) (Movimiento, error) {
 	actual, err := s.Obtener(ctx, persona, id)
 	if err != nil {
 		return Movimiento{}, err
+	}
+	if esDeMeta(actual) {
+		return Movimiento{}, ErrNoEditable
 	}
 	g, campos, err := validarCorreccion(sol, actual)
 	if err != nil {
@@ -183,10 +192,7 @@ func (s *Servicio) Corregir(ctx context.Context, persona, id string, sol Solicit
 	if len(campos) > 0 {
 		return Movimiento{}, &ErrValidacion{Campos: campos}
 	}
-	c := Correccion{Tipo: g.Tipo, Monto: g.Monto, Medio: g.Medio, Descripcion: g.Descripcion}
-	if actual.Tipo != Aporte {
-		c.CategoriaID = &g.CategoriaID
-	}
+	c := Correccion{Tipo: g.Tipo, Monto: g.Monto, Medio: g.Medio, Descripcion: g.Descripcion, CategoriaID: &g.CategoriaID}
 	if actual.Recurrente == nil {
 		c.Fecha = &g.Fecha
 	}
@@ -201,17 +207,21 @@ func (s *Servicio) Corregir(ctx context.Context, persona, id string, sol Solicit
 
 // Borrar quita un movimiento de la persona. Si era una fecha confirmada de una repetición, esa fecha vuelve a quedar
 // pendiente (D-168, D-091): no se omite, no se crea ninguna `ocurrencia_omitida` y E15 5.2 la vuelve a calcular. La
-// restricción única (recurrente, fecha programada) permite confirmarla otra vez.
+// restricción única (recurrente, fecha programada) permite confirmarla otra vez. Un aporte o un retiro de una meta no se
+// borra: ErrNoEditable (D-170), después del 404 de lo ajeno.
 func (s *Servicio) Borrar(ctx context.Context, persona, id string) error {
-	if !idDeMovimiento.MatchString(id) {
-		return ErrNoEncontrado
+	actual, err := s.Obtener(ctx, persona, id)
+	if err != nil {
+		return err
+	}
+	if esDeMeta(actual) {
+		return ErrNoEditable
 	}
 	return s.repo.Borrar(ctx, persona, id)
 }
 
 // validarCorreccion aplica a la corrección las reglas del POST con `validar` y suma las propias de lo que se corrige.
-// Para `validar`, un aporte se presenta como un gasto con una categoría cualquiera y una fecha omitida como la actual:
-// solo interesan sus errores de monto, medio, descripción y fecha. Lo devuelto sirve de `Correccion` solo en esos campos.
+// Una fecha omitida en un recurrente vale como la actual (D-168).
 func validarCorreccion(sol SolicitudDeCorreccion, actual Movimiento) (Guardado, map[string]string, error) {
 	fija := actual.Recurrente != nil
 	prueba := Solicitud{Tipo: sol.Tipo, MontoCentavos: sol.MontoCentavos, CategoriaID: sol.CategoriaID, Medio: sol.Medio, Descripcion: sol.Descripcion}
@@ -220,11 +230,6 @@ func validarCorreccion(sol SolicitudDeCorreccion, actual Movimiento) (Guardado, 
 	} else if fija {
 		prueba.Fecha = actual.Fecha
 	}
-	if actual.Tipo == Aporte {
-		prueba.Tipo = Gasto
-		uno := 1
-		prueba.CategoriaID = &uno
-	}
 	campos := map[string]string{}
 	g, err := validar(prueba, time.Time{})
 	if invalido := (*ErrValidacion)(nil); errors.As(err, &invalido) {
@@ -232,19 +237,11 @@ func validarCorreccion(sol SolicitudDeCorreccion, actual Movimiento) (Guardado, 
 	} else if err != nil {
 		return Guardado{}, nil, err
 	}
-	if sol.Tipo != "" && sol.Tipo != actual.Tipo && (fija || actual.Tipo == Aporte) {
+	if sol.Tipo != "" && sol.Tipo != actual.Tipo && fija {
 		campos["tipo"] = TipoNoEditable
-	} else if actual.Tipo == Aporte && sol.Tipo == "" {
-		campos["tipo"] = TipoRequerido
-	}
-	if actual.Tipo == Aporte && sol.CategoriaID != nil {
-		campos["categoria_id"] = CategoriaNoAplica
 	}
 	if fija && sol.Fecha != nil && *sol.Fecha != actual.Fecha {
 		campos["fecha"] = FechaNoEditable
-	}
-	if actual.Tipo == Aporte {
-		g.Tipo = Aporte
 	}
 	return g, campos, nil
 }
