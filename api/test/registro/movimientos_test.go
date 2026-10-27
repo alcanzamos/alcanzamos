@@ -22,7 +22,7 @@ func repoConMovimientos() *repoFalso {
 	return &repoFalso{movimientos: map[string]registro.Movimiento{
 		idSuelto: {ID: idSuelto, Tipo: "gasto", MontoCentavos: 4500000, Fecha: "2026-10-25", CategoriaID: categoria(1), Medio: "efectivo"},
 		idRecurrente: {ID: idRecurrente, Tipo: "ingreso", MontoCentavos: 120000000, Fecha: "2026-10-26", CategoriaID: categoria(17), Medio: "transferencia",
-			Recurrente: &registro.DeRecurrente{RecurrenteID: "r-1", FechaProgramada: "2026-10-26", Periodicidad: "quincenal"}},
+			Recurrente: &registro.DeRecurrente{RecurrenteID: "r-1", FechaProgramada: "2026-10-26", Periodicidad: "quincenal", VuelveAPendiente: true}},
 		idAporte: {ID: idAporte, Tipo: "aporte", MontoCentavos: 10000000, Fecha: "2026-10-20", Medio: "transferencia",
 			Meta: &registro.MetaDeAporte{ID: "m-1", Nombre: "Arriendo de enero"}},
 	}}
@@ -91,7 +91,7 @@ func TestDetalleEntregaElMovimientoConSuRepeticion(t *testing.T) {
 	codigo, resp, cabeceras := llamar(api(t, repoConMovimientos(), hoy), "GET", "/api/v1/movimientos/"+idRecurrente, "")
 	const quiere = `{"id":"` + idRecurrente + `","tipo":"ingreso","monto_centavos":120000000,"fecha":"2026-10-26","categoria_id":17,"medio":"transferencia",` +
 		`"descripcion":null,"compartido":false,"meta":null,"sentido":null,` +
-		`"recurrente":{"recurrente_id":"r-1","fecha_programada":"2026-10-26","periodicidad":"quincenal"}}`
+		`"recurrente":{"recurrente_id":"r-1","fecha_programada":"2026-10-26","periodicidad":"quincenal","vuelve_a_pendiente":true}}`
 	if codigo != 200 || resp != quiere || cabeceras.Get("Cache-Control") != "no-store" {
 		t.Errorf("%d %s", codigo, resp)
 	}

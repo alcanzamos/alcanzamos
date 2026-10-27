@@ -58,6 +58,9 @@ type DeRecurrente struct {
 	RecurrenteID    string `json:"recurrente_id"`
 	FechaProgramada string `json:"fecha_programada"`
 	Periodicidad    string `json:"periodicidad"`
+	// VuelveAPendiente: al borrar el movimiento, su fecha vuelve a «Por confirmar» (D-169, E15 5.2). La hoja de borrar
+	// de PN-02 muestra «Esta fecha volverá a quedar por confirmar.» solo si es true.
+	VuelveAPendiente bool `json:"vuelve_a_pendiente"`
 }
 
 // CategoriaDelPeriodo es una categoría con movimientos en el periodo, para los chips y «Ver todas» de PN-01. Incluye las

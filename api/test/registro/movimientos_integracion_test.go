@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -32,9 +33,10 @@ type movimientoVisto struct {
 	} `json:"meta"`
 	Sentido    *string `json:"sentido"`
 	Recurrente *struct {
-		RecurrenteID    string `json:"recurrente_id"`
-		FechaProgramada string `json:"fecha_programada"`
-		Periodicidad    string `json:"periodicidad"`
+		RecurrenteID     string `json:"recurrente_id"`
+		FechaProgramada  string `json:"fecha_programada"`
+		Periodicidad     string `json:"periodicidad"`
+		VuelveAPendiente *bool  `json:"vuelve_a_pendiente"`
 	} `json:"recurrente"`
 }
 
@@ -429,6 +431,64 @@ func TestD168BorrarUnaFechaDeUnRecurrenteLaDevuelveAPendiente(t *testing.T) {
 			t.Errorf("confirmada otra vez: %v", p)
 		}
 	})
+}
+
+// D-169: el API dice, en la lista y en el detalle, si al borrar la fecha vuelve a pendiente. El arriendo del dueño (inicio
+// 2026-08-15, mensual, creado el 2026-10-26) es historia y no vuelve; una repetición creada hoy con la fecha de hoy sí.
+// En los dos casos el booleano coincide con lo que dice E15 5.2 (`fechas.PorConfirmar`) después de borrar.
+func TestD169VuelveAPendienteCoincideConLoQueDiceE15DespuesDeBorrar(t *testing.T) {
+	casos := []struct {
+		nombre, fecha, periodicidad string
+		vuelve                      bool
+		pendientes                  string
+	}{
+		{"el arriendo de agosto creado en octubre es historia", "2026-08-15", "mensual", false, ""},
+		{"la fecha de hoy en una repetición creada hoy", "2026-10-26", "mensual", true, "2026-10-26"},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			formas(t, func(t *testing.T, android bool) {
+				s := nuevoServidor(t)
+				c, _ := s.nuevaCuenta("laura@ejemplo.test", android, true)
+				res := s.crear(c, cuerpoDe("gasto", "180000000", caso.fecha, "1", `,"repeticion":{"periodicidad":"`+caso.periodicidad+`"}`))
+				id := *res.MovimientoID
+
+				d := s.detalle(c, id)
+				if d.Recurrente == nil || d.Recurrente.VuelveAPendiente == nil || *d.Recurrente.VuelveAPendiente != caso.vuelve {
+					t.Fatalf("detalle: vuelve_a_pendiente debe ser %v: %+v", caso.vuelve, d.Recurrente)
+				}
+				l := s.lista(c, "?periodo="+caso.fecha[:7])
+				if len(l.Movimientos) != 1 || l.Movimientos[0].Recurrente == nil || l.Movimientos[0].Recurrente.VuelveAPendiente == nil ||
+					*l.Movimientos[0].Recurrente.VuelveAPendiente != caso.vuelve {
+					t.Fatalf("lista: vuelve_a_pendiente debe ser %v: %+v", caso.vuelve, l.Movimientos)
+				}
+
+				if r := c.llamar("DELETE", rutaMovimientos+"/"+id, ""); r.Codigo != 204 {
+					t.Fatalf("borrar: %d %s", r.Codigo, r.Cuerpo)
+				}
+				pendientes := s.pendientesDe(*res.RecurrenteID)
+				if strings.Join(pendientes, ",") != caso.pendientes {
+					t.Errorf("después de borrar, E15 5.2 deja pendientes %v, no %q", pendientes, caso.pendientes)
+				}
+				if enPendientes := slices.Contains(pendientes, caso.fecha); enPendientes != caso.vuelve {
+					t.Errorf("consistencia: vuelve_a_pendiente=%v pero la fecha en PorConfirmar es %v", caso.vuelve, enPendientes)
+				}
+				if n := s.contar(`SELECT count(*) FROM ocurrencia_omitida`); n != 0 {
+					t.Errorf("no se omite: %d", n)
+				}
+			})
+		})
+	}
+}
+
+// Un movimiento suelto no trae `recurrente`, y por tanto tampoco `vuelve_a_pendiente`.
+func TestD169UnMovimientoSueltoNoTraeVuelveAPendiente(t *testing.T) {
+	s := nuevoServidor(t)
+	c, _ := s.nuevaCuenta("laura@ejemplo.test", false, true)
+	id := s.registrar(c, "gasto", "4500000", "2026-10-25", "1", "")
+	if r := c.llamar("GET", rutaMovimientos+"/"+id, ""); r.Codigo != 200 || !strings.Contains(r.Cuerpo, `"recurrente":null`) || strings.Contains(r.Cuerpo, "vuelve_a_pendiente") {
+		t.Errorf("%d %s", r.Codigo, r.Cuerpo)
+	}
 }
 
 // SEG-002 y NC-E16-40 (RNF-003, NM-05): PN-01 muestra el aporte «Arriendo de enero», de $100.000, con la marca «Compartido

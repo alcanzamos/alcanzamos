@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/alcanzamos/alcanzamos/api/src/fechas"
 	"github.com/alcanzamos/alcanzamos/api/src/registro"
 )
 
@@ -16,7 +17,7 @@ import (
 const (
 	columnasDeMovimiento = `m.id::text, m.tipo, m.monto, to_char(m.fecha, 'YYYY-MM-DD'), m.categoria_id, m.medio, m.descripcion,
 		m.hogar_id IS NOT NULL, m.meta_id::text, t.nombre, m.sentido,
-		m.recurrente_id::text, to_char(m.fecha_programada, 'YYYY-MM-DD'), r.periodicidad`
+		m.recurrente_id::text, m.fecha_programada, r.periodicidad, r.creado_en`
 	desdeMovimiento = `FROM movimiento m
 		LEFT JOIN meta t ON t.id = m.meta_id
 		LEFT JOIN movimiento_recurrente r ON r.id = m.recurrente_id`
@@ -24,19 +25,21 @@ const (
 
 func leerMovimiento(f pgx.Row) (registro.Movimiento, error) {
 	var (
-		m                                    registro.Movimiento
-		meta, nombreMeta                     *string
-		recurrente, programada, periodicidad *string
+		m                        registro.Movimiento
+		meta, nombreMeta         *string
+		recurrente, periodicidad *string
+		programada, creadaEl     *time.Time
 	)
 	if err := f.Scan(&m.ID, &m.Tipo, &m.MontoCentavos, &m.Fecha, &m.CategoriaID, &m.Medio, &m.Descripcion, &m.Compartido,
-		&meta, &nombreMeta, &m.Sentido, &recurrente, &programada, &periodicidad); err != nil {
+		&meta, &nombreMeta, &m.Sentido, &recurrente, &programada, &periodicidad, &creadaEl); err != nil {
 		return m, err
 	}
 	if meta != nil && nombreMeta != nil {
 		m.Meta = &registro.MetaDeAporte{ID: *meta, Nombre: *nombreMeta}
 	}
-	if recurrente != nil && programada != nil && periodicidad != nil {
-		m.Recurrente = &registro.DeRecurrente{RecurrenteID: *recurrente, FechaProgramada: *programada, Periodicidad: *periodicidad}
+	if recurrente != nil && programada != nil && periodicidad != nil && creadaEl != nil {
+		m.Recurrente = &registro.DeRecurrente{RecurrenteID: *recurrente, FechaProgramada: programada.Format(time.DateOnly), Periodicidad: *periodicidad,
+			VuelveAPendiente: fechas.VuelveAPendiente(*programada, fechas.HoyEnColombia(*creadaEl))}
 	}
 	return m, nil
 }

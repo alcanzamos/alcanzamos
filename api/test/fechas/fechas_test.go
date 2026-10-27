@@ -243,3 +243,29 @@ func TestPeriodicidadValida(t *testing.T) {
 		}
 	}
 }
+
+// D-169: VuelveAPendiente y Pendientes comparten la regla: la fecha del mismo día en que se creó la repetición no es
+// historia; la anterior sí.
+func TestVuelveAPendienteEsLaMismaReglaQuePendientes(t *testing.T) {
+	creado := d(2026, 10, 26)
+	for _, c := range []struct {
+		f      time.Time
+		vuelve bool
+	}{
+		{d(2026, 8, 15), false},
+		{d(2026, 10, 25), false},
+		{d(2026, 10, 26), true},
+		{d(2026, 11, 15), true},
+	} {
+		if got := fechas.VuelveAPendiente(c.f, creado); got != c.vuelve {
+			t.Errorf("%s creada el 2026-10-26: %v, se esperaba %v", c.f.Format(time.DateOnly), got, c.vuelve)
+		}
+		pend, err := fechas.Pendientes(fechas.Mensual, d(2026, 8, 15), d(c.f.Year(), c.f.Month(), 1), nil, nil, creado, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if slices.ContainsFunc(pend, c.f.Equal) && c.f.Day() == 15 && !c.vuelve {
+			t.Errorf("Pendientes ofrece la historia %s", c.f.Format(time.DateOnly))
+		}
+	}
+}
