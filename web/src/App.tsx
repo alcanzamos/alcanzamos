@@ -1,4 +1,5 @@
 import { useEffect, type ReactElement } from "react";
+import { reiniciarBorrador, RUTAS_DEL_BORRADOR } from "./borradorDeRegistro";
 import { navegar, useUbicacion } from "./enrutador";
 import { Autorizacion } from "./pantallas/Autorizacion";
 import { CambiarContrasena } from "./pantallas/CambiarContrasena";
@@ -37,5 +38,9 @@ const pantallas: Record<string, () => ReactElement> = {
 export function App() {
   const { ruta } = useUbicacion();
   const Pantalla = pantallas[ruta];
+  const conBorrador = RUTAS_DEL_BORRADOR.includes(ruta);
+  useEffect(() => {
+    if (!conBorrador) reiniciarBorrador();
+  }, [conBorrador]);
   return Pantalla ? <Pantalla /> : <Redirigir a="/entrar" />;
 }
