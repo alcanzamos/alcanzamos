@@ -91,7 +91,8 @@ func (h *Handler) proximas(w http.ResponseWriter, r *http.Request) {
 }
 
 // responder escribe lo común de las rutas de un movimiento: `422 datos_invalidos`, `404 no_encontrado` (el movimiento no
-// existe o es de otra persona: el mismo código para los dos) o un fallo. Devuelve true si ya respondió.
+// existe o es de otra persona: el mismo código para los dos), `409 movimiento_no_editable` (un aporte o un retiro de una
+// meta no se corrige ni se borra, D-170) o un fallo. Devuelve true si ya respondió.
 func (h *Handler) responder(w http.ResponseWriter, r *http.Request, que string, err error) bool {
 	var invalido *ErrValidacion
 	switch {
@@ -101,6 +102,8 @@ func (h *Handler) responder(w http.ResponseWriter, r *http.Request, que string, 
 		servidor.EscribirJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": "datos_invalidos", "campos": invalido.Campos})
 	case errors.Is(err, ErrNoEncontrado):
 		servidor.EscribirError(w, http.StatusNotFound, "no_encontrado")
+	case errors.Is(err, ErrNoEditable):
+		servidor.EscribirError(w, http.StatusConflict, "movimiento_no_editable")
 	default:
 		h.fallar(w, r, que, err)
 	}
@@ -134,7 +137,7 @@ func (h *Handler) detalle(w http.ResponseWriter, r *http.Request) {
 // corregir atiende PUT /api/v1/movimientos/{id}: reemplaza los campos de «Corregir» y responde `200` con el movimiento
 // guardado. Es PUT y no PATCH porque el formulario manda siempre todos los campos, ya llenos (E14-PRR PN-02), y así
 // valen las mismas reglas del POST sin tener que distinguir «no cambia» de «se borra». `422 datos_invalidos` con todos
-// los campos inválidos; `404` si no es de la persona; `400 solicitud_invalida` con un campo fuera del contrato.
+// los campos inválidos; `404` si no es de la persona; `409 movimiento_no_editable` con un aporte o un retiro (D-170); `400 solicitud_invalida` con un campo fuera del contrato.
 func (h *Handler) corregir(w http.ResponseWriter, r *http.Request) {
 	var sol SolicitudDeCorreccion
 	if !servidor.LeerJSON(w, r, &sol) {
@@ -150,7 +153,7 @@ func (h *Handler) corregir(w http.ResponseWriter, r *http.Request) {
 	servidor.EscribirJSON(w, http.StatusOK, m)
 }
 
-// borrar atiende DELETE /api/v1/movimientos/{id}: `204`; `404` si no es de la persona.
+// borrar atiende DELETE /api/v1/movimientos/{id}: `204`; `404` si no es de la persona; `409 movimiento_no_editable` con un aporte o un retiro (D-170).
 func (h *Handler) borrar(w http.ResponseWriter, r *http.Request) {
 	sujeto, _ := servidor.SujetoDe(r.Context())
 	if h.responder(w, r, "no se pudo borrar el movimiento", h.servicio.Borrar(r.Context(), sujeto.Persona, r.PathValue("id"))) {
