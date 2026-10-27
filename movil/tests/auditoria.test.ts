@@ -243,26 +243,14 @@ describe("revisar", () => {
 describe("auditoria-excepciones.json", () => {
   const real = excepcionesReales as Excepcion[];
 
-  it("tiene la forma válida y las excepciones de node-forge y zod", () => {
+  it("tiene la forma válida y la excepción de zod", () => {
     expect(validarExcepciones(real)).toEqual([]);
     expect(real.map((e) => [e.ghsa, e.paquete, e.rutas])).toEqual([
-      [
-        "GHSA-86w9-cpqp-85rv",
-        "node-forge",
-        [
-          "expo > @expo/cli > @expo/code-signing-certificates > node-forge",
-          "expo > @expo/cli > node-forge",
-          // D-156: `datetimepicker` declara `expo` como dependencia par opcional y `npm audit` lo lista por esa vía
-          "@react-native-community/datetimepicker > expo > @expo/cli > @expo/code-signing-certificates > node-forge",
-          "@react-native-community/datetimepicker > expo > @expo/cli > node-forge",
-        ],
-      ],
       [
         "GHSA-mrhx-c7xc-m3w5",
         "zod",
         [
           "expo > @expo/cli > zod",
-          "@react-native-community/datetimepicker > expo > @expo/cli > zod",
         ],
       ],
     ]);
