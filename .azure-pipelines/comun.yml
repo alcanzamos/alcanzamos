@@ -85,13 +85,25 @@ steps:
     condition: eq(variables['Build.Reason'], 'PullRequest')
     displayName: Firmas del registro (npm audit signatures)
 
+  # D-167: el título se pide a la API de GitHub. Sin token, GitHub permite 60 pedidos por hora por IP y los agentes de
+  # Azure comparten IP: a veces responde 403. Con el token de solo lectura (variable secreta GITHUB_TOKEN_PR del
+  # pipeline, permiso «Pull requests: Read-only» sobre este repositorio) el límite sube a 5.000 por hora. El token entra
+  # por la variable de entorno y va a curl por su entrada estándar (--config -), nunca en la línea de comandos. Si la
+  # variable no existe, Azure deja el texto «$(GITHUB_TOKEN_PR)» sin reemplazar: entonces se pide sin token, como antes.
   - script: |
       set -eu
-      titulo=$(curl -fsSL "https://api.github.com/repos/alcanzamos/alcanzamos/pulls/$(System.PullRequest.PullRequestNumber)" \
+      url="https://api.github.com/repos/alcanzamos/alcanzamos/pulls/$(System.PullRequest.PullRequestNumber)"
+      case "${TOKEN_GITHUB:-}" in
+        ""|'$('*) cabecera="" ;;
+        *) cabecera="header = \"Authorization: Bearer ${TOKEN_GITHUB}\"" ;;
+      esac
+      titulo=$(printf '%s\n' "$cabecera" | curl -fsSL --config - "$url" \
         | python3 -c 'import json,sys; print(json.load(sys.stdin)["title"])')
       echo "Título del PR: $titulo"
       printf '%s\n' "$titulo" | .azure-pipelines/commitlint/node_modules/.bin/commitlint \
         --config .azure-pipelines/commitlint/commitlint.config.mjs
+    env:
+      TOKEN_GITHUB: $(GITHUB_TOKEN_PR)
     condition: eq(variables['Build.Reason'], 'PullRequest')
     displayName: El título del PR sigue Conventional Commits (commitlint)
 
