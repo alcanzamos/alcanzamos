@@ -114,9 +114,18 @@ func Pendientes(p Periodicidad, inicio, periodo time.Time, confirmadas, omitidas
 	}
 	return slices.DeleteFunc(programadas, func(f time.Time) bool {
 		return slices.ContainsFunc(confirmadas, f.Equal) || slices.ContainsFunc(omitidas, f.Equal) ||
-			f.Before(creadoEl) || (detenidoEn != nil && !f.Before(*detenidoEn))
+			EsHistoria(f, creadoEl) || (detenidoEn != nil && !f.Before(*detenidoEn))
 	}), nil
 }
+
+// EsHistoria dice si la fecha programada `f` es anterior al día en que se creó la repetición (`creadoEl`, en hora de
+// Colombia): E15 5.2 no la deja pendiente. Es la regla única de Pendientes y de VuelveAPendiente (D-169).
+func EsHistoria(f, creadoEl time.Time) bool { return f.Before(creadoEl) }
+
+// VuelveAPendiente dice si, al borrar el movimiento que confirmó la fecha programada `f`, E15 5.2 la vuelve a dejar
+// pendiente: sí si no es historia (D-169). Usa EsHistoria, la misma condición de Pendientes y de PorConfirmar, para que
+// no se separen.
+func VuelveAPendiente(f, creadoEl time.Time) bool { return !EsHistoria(f, creadoEl) }
 
 // PorConfirmar son las fechas pendientes que ya llegaron (f ≤ hoy): las de «Por confirmar» (E14-PRR). Aplica
 // Pendientes mes por mes, desde el de max(inicio, creadoEl) hasta el de hoy.

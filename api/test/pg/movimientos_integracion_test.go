@@ -27,6 +27,39 @@ func TestMovimientosConLaBaseCaidaFallan(t *testing.T) {
 	}
 }
 
+// Con la base caída, o sin una tabla que la lectura necesita, listar, leer, corregir y borrar fallan con un error de
+// infraestructura: nunca con «no encontrado», que es una respuesta de negocio (404).
+func TestMovimientosConsultarYCambiarConLaBaseCaidaFallan(t *testing.T) {
+	const persona, id = "0192f3c4-0000-7000-8000-0000000000aa", "0192f3c4-0000-7000-8000-000000000001"
+	ctx := context.Background()
+	uno := 1
+	correccion := registro.Correccion{Tipo: "gasto", Monto: 100, CategoriaID: &uno, Medio: "efectivo"}
+
+	caida := pgtest.Nueva(t)
+	caida.Close()
+	repo := pg.NuevoMovimientos(caida)
+	errores := map[string]error{}
+	_, errores["Listar"] = repo.Listar(ctx, persona, ahora, nil)
+	_, errores["Obtener"] = repo.Obtener(ctx, persona, id)
+	errores["Corregir con categoría"] = repo.Corregir(ctx, persona, id, correccion)
+	correccion.CategoriaID = nil
+	errores["Corregir sin categoría"] = repo.Corregir(ctx, persona, id, correccion)
+	errores["Borrar"] = repo.Borrar(ctx, persona, id)
+	for nombre, err := range errores {
+		if err == nil || errors.Is(err, registro.ErrNoEncontrado) || errors.Is(err, registro.ErrCategoriaInvalida) {
+			t.Errorf("%s con la base caída: %v", nombre, err)
+		}
+	}
+
+	incompleta := pgtest.Nueva(t)
+	if _, err := incompleta.Exec(ctx, `DROP TABLE ocultamiento_categoria`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pg.NuevoMovimientos(incompleta).Listar(ctx, persona, ahora, nil); err == nil {
+		t.Error("Listar sin la tabla de ocultamientos debe fallar")
+	}
+}
+
 // Un fallo que no es de la categoría (aquí, la persona no existe) no se confunde con una categoría inválida, y la
 // transacción no deja la repetición sin su movimiento.
 func TestGuardarDistingueUnaCategoriaInvalidaDeOtroFallo(t *testing.T) {
