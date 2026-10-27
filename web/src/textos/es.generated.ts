@@ -499,8 +499,6 @@ export const textos = {
       etiqueta: "Categoría",
       // E14-PPN 3.1, fila 9
       verTodas: "Ver todas",
-      // E14-PRR 4.2 (PN-02), «Categoría oculta al corregir»: la palabra junto al ícono (E14-PRR 1.9, D-170)
-      oculta: "Oculta",
     },
     medio: {
       // E14-PPN 3.1, fila 10
@@ -720,6 +718,8 @@ export const textos = {
       // E14-PRR 4.1 (PN-01), «Cómo se arma cada fila», Marca de propiedad; E14-PRR 2.2, fila 7 (SEG-002, NC-E16-40)
       compartido: "Compartido con el hogar",
     },
+    // E14-PRR 4.2 (PN-02), «Categoría oculta al corregir»: la palabra junto al ícono (E14-PRR 1.9, D-170)
+    oculta: "Oculta",
     vacio: {
       // E14-PRR 4.1 (PN-01), variante web
       elegir: "Elige un movimiento para verlo.",

@@ -8,7 +8,7 @@ export const MarcaDeOculta = () => (
     {" "}
     <span className="oculta">
       <IconoOcultar />
-      <span>{textos.registro.categoria.oculta}</span>
+      <span>{textos.movimientos.oculta}</span>
     </span>
   </>
 );

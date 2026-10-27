@@ -767,10 +767,6 @@
         "verTodas": {
           "texto": "Ver todas",
           "e14": "E14-PPN 3.1, fila 9"
-        },
-        "oculta": {
-          "texto": "Oculta",
-          "e14": "E14-PRR 4.2 (PN-02), «Categoría oculta al corregir»: la palabra junto al ícono (E14-PRR 1.9, D-170)"
         }
       },
       "medio": {
@@ -1277,6 +1273,10 @@
           "texto": "Compartido con el hogar",
           "e14": "E14-PRR 4.1 (PN-01), «Cómo se arma cada fila», Marca de propiedad; E14-PRR 2.2, fila 7 (SEG-002, NC-E16-40)"
         }
+      },
+      "oculta": {
+        "texto": "Oculta",
+        "e14": "E14-PRR 4.2 (PN-02), «Categoría oculta al corregir»: la palabra junto al ícono (E14-PRR 1.9, D-170)"
       },
       "vacio": {
         "elegir": {
