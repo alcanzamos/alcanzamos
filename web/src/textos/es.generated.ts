@@ -449,6 +449,210 @@ export const textos = {
     // E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62
     distinta: "Falta que las dos contraseñas sean iguales.",
   },
+  periodicidad: {
+    // E14-PRR 4.3 (PN-03), fila 1 (barra)
+    titulo: "Se repite",
+    // E14-PRR 4.3 (PN-03), fila 2
+    intro: "Lo registras una vez. En cada fecha te pedimos confirmarlo con un toque.",
+    // E14-PRR 4.3 (PN-03), fila 3
+    etiqueta: "Cada cuánto",
+    opciones: {
+      // E14-PRR 4.3 (PN-03), fila 3; fila 12a de E14-PPN 3.1
+      no_se_repite: "No se repite",
+      // E14-PRR 4.3 (PN-03), fila 3
+      semanal: "Cada semana",
+      // E14-PRR 4.3 (PN-03), fila 3
+      quincenal: "Cada quincena",
+      // E14-PRR 4.3 (PN-03), fila 3
+      mensual: "Cada mes",
+      // E14-PRR 4.3 (PN-03), fila 3
+      semestral: "Cada semestre",
+      // E14-PRR 4.3 (PN-03), fila 3
+      anual: "Cada año",
+    },
+    explicaciones: {
+      // E14-PRR 4.3 (PN-03), texto de la fila 4
+      no_se_repite: "Se cuenta solo en su fecha.",
+      // E14-PRR 4.3 (PN-03), texto de la fila 4
+      semanal: "Cada 7 días, desde la fecha en que empieza.",
+      // E14-PRR 4.3 (PN-03), texto de la fila 4
+      quincenal: "Dos fechas al mes, separadas por 15 días. Si el mes es más corto, usamos su último día.",
+      // E14-PRR 4.3 (PN-03), texto de la fila 4
+      mensual: "El mismo día de cada mes. Si el mes es más corto, usamos su último día.",
+      // E14-PRR 4.3 (PN-03), texto de la fila 4
+      semestral: "El mismo día, cada seis meses.",
+      // E14-PRR 4.3 (PN-03), texto de la fila 4
+      anual: "El mismo día y el mismo mes, cada año.",
+    },
+    // E14-PRR 4.3 (PN-03), fila 5
+    empiezaEl: "Empieza el",
+    // E14-PRR 4.3 (PN-03), fila 6
+    proximas: "Próximas fechas",
+    // E14-PRR 4.3 (PN-03), estado «Sin fechas próximas»
+    sinProximas: "No hay fechas próximas.",
+    // E14-PRR 4.3 (PN-03), fila 7
+    aclaracion: "El monto es el mismo en cada fecha. Al confirmar una fecha puedes escribir otro monto, sin cambiar las demás.",
+    // E14-PRR 4.3 (PN-03), fila 8
+    listo: "Listo",
+    errores: {
+      // E14-PRR 4.3 (PN-03), errores de campo
+      sinFecha: "Falta la fecha en que empieza.",
+      // E14-PRR 4.3 (PN-03), errores de campo
+      sinPeriodicidad: "Falta elegir cada cuánto se repite.",
+    },
+  },
+  registro: {
+    // E14-PPN 3.1, fila 1 (barra)
+    titulo: "Registrar",
+    // E14-PRR 4.7 (PN-72), fila 6; es el botón provisional de PN-71 mientras no exista PN-01 (D-164)
+    abrir: "Registrar un movimiento",
+    // E14-PPN 3.1: «Sin el cuadro, el botón dice «Guardar»» (D-164)
+    guardar: "Guardar",
+    tipo: {
+      // E14-PPN 3.1, fila 6
+      etiqueta: "Tipo",
+      // E14-PPN 3.1, fila 6
+      gasto: "Gasto",
+      // E14-PPN 3.1, fila 6
+      ingreso: "Ingreso",
+    },
+    monto: {
+      // E14-PPN 3.1, fila 7
+      etiqueta: "Monto",
+    },
+    fecha: {
+      // E14-PPN 3.1, fila 8
+      etiqueta: "Fecha",
+      // E14-PPN 3.1, fila 8 (valor inicial)
+      hoy: "Hoy",
+    },
+    categoria: {
+      // E14-PPN 3.1, fila 9
+      etiqueta: "Categoría",
+      // E14-PPN 3.1, fila 9
+      verTodas: "Ver todas",
+    },
+    medio: {
+      // E14-PPN 3.1, fila 10
+      etiqueta: "Medio de pago",
+      // E14-PPN 3.1, fila 10 (sin «Tarjeta» en la US-51, D-164)
+      efectivo: "Efectivo",
+      // E14-PPN 3.1, fila 10 (sin «Tarjeta» en la US-51, D-164)
+      transferencia: "Transferencia",
+    },
+    quien: {
+      // E14-PPN 3.1, fila 11
+      etiqueta: "De quién es",
+      // E14-PPN 3.1, fila 11 (llega seleccionado; sin «Compartido con el hogar» en la US-51, D-164)
+      soloMio: "Solo mío",
+    },
+    descripcion: {
+      // E14-PPN 3.1, fila 12
+      etiqueta: "Descripción (opcional)",
+      // E14-PPN 3.1, fila 12
+      ayuda: "No escribas datos de salud, religión ni de otras personas.",
+    },
+    seRepite: {
+      // E14-PPN 3.1, fila 12a
+      etiqueta: "Se repite",
+      // E14-PPN 3.1, fila 12a
+      cambiar: "Cambiar",
+      // E14-PRR 4.3 (PN-03): «Al volver al formulario, la fila «Se repite» dice la periodicidad: «Se repite: Cada quincena»»
+      conPeriodicidad: "Se repite: {periodicidad}",
+    },
+    errores: {
+      // E14-PPN 3.1, errores de campo
+      montoVacio: "Falta el monto.",
+      // E14-PPN 3.1, errores de campo
+      montoDecimales: "El monto puede tener hasta dos decimales.",
+      // E14-PPN 3.1, errores de campo: plantilla «¿Quisiste decir {valor con punto de miles} o {valor con coma decimal}?» (D-084)
+      montoAmbiguo: "¿Quisiste decir {miles} o {decimal}?",
+      // E14-PPN 3.1, errores de campo
+      montoCero: "El monto debe ser mayor que $0.",
+      // E14-PPN 3.1, errores de campo
+      tipo: "Falta elegir si es un gasto o un ingreso.",
+      // E14-PPN 3.1, errores de campo
+      fecha: "Falta la fecha.",
+      // E14-PPN 3.1, errores de campo
+      medio: "Falta elegir el medio de pago.",
+      // E14-PPN 1.11 / D-165, aprobado por el dueño: errores de campo del Monto, monto con letras u otros símbolos
+      montoIlegible: "Escribe el monto con números, por ejemplo $45.000.",
+      // E14-PPN 1.11 / D-165, aprobado por el dueño: errores de campo del Monto, monto que no cabe en centavos de 64 bits
+      montoGrande: "El monto es demasiado grande. Revisa que no sobren ceros.",
+      // E14-PPN 1.11 / D-165, aprobado por el dueño: errores de campo de la Categoría, mientras no exista el motor de reglas que la sugiere
+      categoria: "Falta elegir la categoría.",
+    },
+    avisos: {
+      // E14-PPN 3.1, nota «Tras guardar» (E14-SDD 5.5 para el monto)
+      registramosGasto: "Listo, registramos tu gasto de {monto}.",
+      // E14-PPN 1.11 / D-165, aprobado por el dueño: avisos del registro; con el del gasto de E14-PPN 3.1 «Listo, registramos tu gasto de $45.000.»
+      registramosIngreso: "Listo, registramos tu ingreso de {monto}.",
+      // E14-PPN 1.11 / D-165, aprobado por el dueño: avisos del registro, repetición con una fecha futura (solo se guarda la repetición, D-091; {fecha} en palabras)
+      quedaPorConfirmarGasto: "Listo. Tu gasto de {monto} queda por confirmar el {fecha}.",
+      // E14-PPN 1.11 / D-165, aprobado por el dueño: avisos del registro, repetición con una fecha futura (solo se guarda la repetición, D-091; {fecha} en palabras)
+      quedaPorConfirmarIngreso: "Listo. Tu ingreso de {monto} queda por confirmar el {fecha}.",
+      // E14-PPN 1.11 / D-165, aprobado por el dueño: avisos del registro, error al guardar un gasto; el del ingreso es el de E14-PRR 4.4 (PN-04)
+      errorAlGuardarGasto: "No pudimos guardar tu gasto.",
+      // E14-PRR 4.4 (PN-04), estado «Error de guardado»
+      errorAlGuardarIngreso: "No pudimos guardar tu ingreso.",
+      // E14-PPN 1.11 / D-165, aprobado por el dueño: error al guardar un gasto; es también el de E14-PRR 4.4 (PN-04), estado «Error de guardado»
+      errorAlGuardarMensaje: "Lo que escribiste sigue ahí. Intenta de nuevo.",
+    },
+    categorias: {
+      // E14-PPN 3.1, fila 9: categoría del catálogo de E09 (02-catalogo-de-categorias.md, gasto), id 1 del API
+      c1: "Alimentación",
+      // E14-PPN 3.1, fila 9: categoría del catálogo de E09 (02-catalogo-de-categorias.md, gasto), id 2 del API
+      c2: "Bebidas alcohólicas y tabaco",
+      // E14-PPN 3.1, fila 9: categoría del catálogo de E09 (02-catalogo-de-categorias.md, gasto), id 3 del API
+      c3: "Ropa y calzado",
+      // E14-PPN 3.1, fila 9: categoría del catálogo de E09 (02-catalogo-de-categorias.md, gasto), id 4 del API
+      c4: "Arriendo o cuota de vivienda",
+      // E14-PPN 3.1, fila 9: categoría del catálogo de E09 (02-catalogo-de-categorias.md, gasto), id 5 del API
+      c5: "Servicios públicos",
+      // E14-PPN 3.1, fila 9: categoría del catálogo de E09 (02-catalogo-de-categorias.md, gasto), id 6 del API
+      c6: "Hogar y mantenimiento",
+      // E14-PPN 3.1, fila 9: categoría del catálogo de E09 (02-catalogo-de-categorias.md, gasto), id 7 del API
+      c7: "Salud",
+      // E14-PPN 3.1, fila 9: categoría del catálogo de E09 (02-catalogo-de-categorias.md, gasto), id 8 del API
+      c8: "Transporte",
+      // E14-PPN 3.1, fila 9: categoría del catálogo de E09 (02-catalogo-de-categorias.md, gasto), id 9 del API
+      c9: "Comunicaciones",
+      // E14-PPN 3.1, fila 9: categoría del catálogo de E09 (02-catalogo-de-categorias.md, gasto), id 10 del API
+      c10: "Suscripciones",
+      // E14-PPN 3.1, fila 9: categoría del catálogo de E09 (02-catalogo-de-categorias.md, gasto), id 11 del API
+      c11: "Recreación y cultura",
+      // E14-PPN 3.1, fila 9: categoría del catálogo de E09 (02-catalogo-de-categorias.md, gasto), id 12 del API
+      c12: "Educación",
+      // E14-PPN 3.1, fila 9: categoría del catálogo de E09 (02-catalogo-de-categorias.md, gasto), id 13 del API
+      c13: "Restaurantes y hoteles",
+      // E14-PPN 3.1, fila 9: categoría del catálogo de E09 (02-catalogo-de-categorias.md, gasto), id 14 del API
+      c14: "Pagos de deudas",
+      // E14-PPN 3.1, fila 9: categoría del catálogo de E09 (02-catalogo-de-categorias.md, gasto), id 15 del API
+      c15: "Mesada",
+      // E14-PPN 3.1, fila 9: categoría del catálogo de E09 (02-catalogo-de-categorias.md, gasto), id 16 del API
+      c16: "Otros gastos",
+      // E14-PPN 3.1, fila 9: categoría del catálogo de E09 (02-catalogo-de-categorias.md, ingreso), id 17 del API
+      c17: "Salario",
+      // E14-PPN 3.1, fila 9: categoría del catálogo de E09 (02-catalogo-de-categorias.md, ingreso), id 18 del API
+      c18: "Trabajo independiente o ventas",
+      // E14-PPN 3.1, fila 9: categoría del catálogo de E09 (02-catalogo-de-categorias.md, ingreso), id 19 del API
+      c19: "Remesas o giros familiares",
+      // E14-PPN 3.1, fila 9: categoría del catálogo de E09 (02-catalogo-de-categorias.md, ingreso), id 20 del API
+      c20: "Ayudas y subsidios",
+      // E14-PPN 3.1, fila 9: categoría del catálogo de E09 (02-catalogo-de-categorias.md, ingreso), id 21 del API
+      c21: "Mesada",
+      // E14-PPN 3.1, fila 9: categoría del catálogo de E09 (02-catalogo-de-categorias.md, ingreso), id 22 del API
+      c22: "Prima de servicios",
+      // E14-PPN 3.1, fila 9: categoría del catálogo de E09 (02-catalogo-de-categorias.md, ingreso), id 23 del API
+      c23: "Intereses de cesantías",
+      // E14-PPN 3.1, fila 9: categoría del catálogo de E09 (02-catalogo-de-categorias.md, ingreso), id 24 del API
+      c24: "Retiro de cesantías",
+      // E14-PPN 3.1, fila 9: categoría del catálogo de E09 (02-catalogo-de-categorias.md, ingreso), id 25 del API
+      c25: "Otros ingresos",
+      // E14-PPN 3.1, fila 9: categoría del catálogo de E09 (02-catalogo-de-categorias.md, gasto), id 26 del API
+      c26: "Ayuda a la familia",
+    },
+  },
 } as const;
 
 // Ayudas de los textos con datos y de los plurales (US-59, D-160). Esta es la única copia: el generador

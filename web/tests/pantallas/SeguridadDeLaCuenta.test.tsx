@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { irConAviso } from "../../src/llegada";
+import { irConAviso, irConMensaje } from "../../src/llegada";
 import { SeguridadDeLaCuenta } from "../../src/pantallas/SeguridadDeLaCuenta";
 import { json, porTexto, simularApi } from "../ayudas";
 
@@ -28,6 +28,33 @@ describe("PN-71 · Seguridad de la cuenta", () => {
     expect(
       screen.getByRole("link", { name: "Cambiar mi contraseña" }),
     ).toHaveAttribute("href", "/cuenta/contrasena");
+  });
+
+  // D-164 (S3): el botón provisional de entrada al formulario, con el texto de E14-PRR PN-72.
+  it("trae el botón provisional «Registrar un movimiento», que lleva a /registrar", async () => {
+    simularApi(() => json(200, { ingreso_anterior: null }));
+    render(<SeguridadDeLaCuenta />);
+    await screen.findByText("Este es tu primer ingreso.");
+    const boton = screen.getByRole("link", { name: "Registrar un movimiento" });
+    expect(boton).toHaveAttribute("href", "/registrar");
+    expect(boton).toHaveClass("boton--secundario");
+    fireEvent.click(boton);
+    expect(window.location.pathname).toBe("/registrar");
+  });
+
+  it("anuncia como mensaje de estado el aviso con que vuelve el formulario", async () => {
+    simularApi(() => json(200, { ingreso_anterior: null }));
+    irConMensaje("/cuenta/seguridad", {
+      tipo: "informacion",
+      titulo: "Listo, registramos tu gasto de $45.000.",
+    });
+    render(<SeguridadDeLaCuenta />);
+    const estado = await screen.findByRole("status");
+    await waitFor(() =>
+      expect(estado).toHaveTextContent(
+        "Listo, registramos tu gasto de $45.000.",
+      ),
+    );
   });
 
   // E14-PCP 4.16 T2

@@ -16,9 +16,28 @@ export type Llegada = keyof typeof porLlegada;
 export const irConAviso = (destino: string, llegada: Llegada) =>
   navegar(destino, true, { llegada });
 
+/** Como `irConAviso`, con un aviso que lleva datos de la persona («Listo, registramos tu gasto de $45.000.»). */
+export const irConMensaje = (destino: string, aviso: DatosDeAviso) =>
+  navegar(destino, true, { aviso });
+
+const TIPOS_DE_AVISO = ["informacion", "atencion", "logro"];
+
+function esAviso(valor: unknown): valor is DatosDeAviso {
+  if (typeof valor !== "object" || valor === null) return false;
+  const { tipo, titulo, mensaje } = valor as Record<string, unknown>;
+  return (
+    typeof tipo === "string" &&
+    TIPOS_DE_AVISO.includes(tipo) &&
+    typeof titulo === "string" &&
+    (mensaje === undefined || typeof mensaje === "string")
+  );
+}
+
 export function avisoDeLlegada(): DatosDeAviso | null {
   const estado: unknown = window.history.state;
   if (typeof estado !== "object" || estado === null) return null;
+  const { aviso } = estado as { aviso?: unknown };
+  if (esAviso(aviso)) return aviso;
   const llegada = (estado as { llegada?: unknown }).llegada;
   return typeof llegada === "string" && llegada in porLlegada
     ? porLlegada[llegada as Llegada]

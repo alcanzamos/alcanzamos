@@ -38,7 +38,7 @@ function camposDe(cuerpo: Cuerpo): Record<string, string> {
 export async function pedir<T = Cuerpo>(
   metodo: "GET" | "POST" | "DELETE",
   ruta: string,
-  cuerpo?: Cuerpo,
+  cuerpo?: Cuerpo | string,
 ): Promise<Respuesta<T>> {
   let respuesta: Response;
   try {
@@ -49,7 +49,13 @@ export async function pedir<T = Cuerpo>(
         Accept: "application/json",
         ...(cuerpo ? { "Content-Type": "application/json" } : {}),
       },
-      body: cuerpo ? JSON.stringify(cuerpo) : undefined,
+      // Un cuerpo en texto ya es JSON: lo arma quien lleva un entero que no cabe exacto en un `number` (los centavos).
+      body:
+        typeof cuerpo === "string"
+          ? cuerpo
+          : cuerpo
+            ? JSON.stringify(cuerpo)
+            : undefined,
     });
   } catch {
     return { ok: false, estado: 0, codigo: SIN_CONEXION, campos: {} };
