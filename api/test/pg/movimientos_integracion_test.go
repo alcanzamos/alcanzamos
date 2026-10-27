@@ -77,3 +77,16 @@ func TestGuardarDistingueUnaCategoriaInvalidaDeOtroFallo(t *testing.T) {
 		t.Errorf("no queda nada guardado: %d %v", n, err)
 	}
 }
+
+// El servicio ya da el 404 de lo ajeno antes de corregir o borrar (D-170); el repositorio sigue sin tocar una fila que
+// no es de la persona o ya no existe, por si desaparece entre la lectura y el cambio.
+func TestCorregirYBorrarUnMovimientoInexistenteDanNoEncontrado(t *testing.T) {
+	repo := pg.NuevoMovimientos(pgtest.Nueva(t))
+	persona, id := "0192f3c4-0000-7000-8000-0000000000aa", "0192f3c4-0000-7000-8000-0000000000bb"
+	if err := repo.Corregir(context.Background(), persona, id, registro.Correccion{Tipo: "gasto", Monto: 100, Medio: "efectivo"}); !errors.Is(err, registro.ErrNoEncontrado) {
+		t.Errorf("corregir: %v", err)
+	}
+	if err := repo.Borrar(context.Background(), persona, id); !errors.Is(err, registro.ErrNoEncontrado) {
+		t.Errorf("borrar: %v", err)
+	}
+}
