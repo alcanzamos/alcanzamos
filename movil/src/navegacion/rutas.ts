@@ -28,8 +28,6 @@ export type Rutas = {
   SeRepite: undefined;
   /** PN-73. */
   CambiarContrasena: undefined;
-  /** PN-03: se apila sobre el formulario de registro (PN-01, US-51); su Atrás vuelve a él sin cambiar nada. */
-  SeRepite: undefined;
   /** PN-61. Su Atrás vuelve a PN-60. */
   RecuperarAcceso: undefined;
 };
