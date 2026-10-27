@@ -142,6 +142,38 @@ export const textos = {
       // E14-PRR 4.1 (PN-01), estado «Error de carga»
       mensaje: "Tus datos están a salvo. Intenta de nuevo.",
     },
+    cambiosGuardados: {
+      // E14-PRR 4.2 (PN-02), «Tras guardar»
+      titulo: "Listo, guardamos los cambios.",
+    },
+    movimientoNoExiste: {
+      // E14-PRR 4.2 (PN-02), estado «Ya no existe»
+      titulo: "Ese movimiento ya no está.",
+    },
+    errorAlGuardarCambios: {
+      // E14-PRR 4.2 (PN-02), estado «Error de guardado»
+      titulo: "No pudimos guardar los cambios.",
+      // E14-PRR 4.2 (PN-02), estado «Error de guardado»
+      mensaje: "Tu movimiento sigue igual. Intenta de nuevo.",
+    },
+    errorAlBorrar: {
+      // E14-PRR 4.2 (PN-02), estado «Error al borrar»
+      titulo: "No pudimos borrar el movimiento.",
+      // E14-PRR 4.2 (PN-02), estado «Error al borrar»
+      mensaje: "Sigue en tu lista. Intenta de nuevo.",
+    },
+    borramosGasto: {
+      // E14-PRR 4.2 (PN-02), «Tras borrar»
+      titulo: "Listo, borramos el gasto de {monto}.",
+    },
+    borramosIngreso: {
+      // E14-PRR 4.2 (PN-02), «Tras borrar»: forma del ingreso; propuesto, pendiente de aprobación del dueño
+      titulo: "Listo, borramos el ingreso de {monto}.",
+    },
+    borramosAporte: {
+      // E14-PRR 4.2 (PN-02), «Tras borrar»: forma del aporte a una meta; propuesto, pendiente de aprobación del dueño
+      titulo: "Listo, borramos el aporte de {monto}.",
+    },
     menorDeEdad: {
       // E14-PCP 4.8, PN-65: «Menos de 18 años» (D-090). Sin el botón «Ya tengo un usuario: iniciar sesión» hasta I11 (D-137).
       titulo: "Esta cuenta la crea una persona adulta.",
@@ -679,6 +711,52 @@ export const textos = {
       sinMovimientos: "Todavía no hay movimientos",
       // E14-PRR 4.1 (PN-01), estado «Sin ningún movimiento»
       registraElPrimero: "Registra el primero y aquí lo verás.",
+    },
+    detalle: {
+      // E14-PRR 4.2 (PN-02), fila 1 (barra)
+      titulo: "Movimiento",
+      // E14-PRR 4.2 (PN-02), fila 2
+      gastoEn: "Gasto en {categoria}",
+      // E14-PRR 4.2 (PN-02), fila 2: forma del ingreso; propuesto, pendiente de aprobación del dueño
+      ingresoEn: "Ingreso en {categoria}",
+      // E14-PRR 4.2 (PN-02), «Un aporte a una meta»: el detalle muestra la meta en lugar de la categoría; E14 no da la frase; propuesto, pendiente de aprobación del dueño
+      aporteA: "Aporte a «{meta}»",
+      // E14-PRR 4.2 (PN-02), fila 3
+      fecha: "Fecha",
+      // E14-PRR 4.2 (PN-02), fila 3
+      descripcion: "Descripción",
+      // E14-PRR 4.2 (PN-02), fila 5
+      corregir: "Corregir",
+      // E14-PRR 4.2 (PN-02), fila 6
+      borrar: "Borrar este movimiento",
+      // E14-PRR 4.2 (PN-02), «Corregir», fila 1 (barra)
+      corregirTitulo: "Corregir movimiento",
+      // E14-PRR 4.2 (PN-02), «Corregir», fila 9
+      guardarCambios: "Guardar los cambios",
+      // E14-PRR 4.2 (PN-02), «Corregir», fila 10; «Borrar», fila 5
+      ahoraNo: "Ahora no",
+      // E14-PRR 4.2 (PN-02), «Una fecha de un recurrente» (D-168); E14-PRR 4.1, hoja «Cambiar el monto»
+      soloEstaFecha: "Este cambio es solo para esta fecha. Las demás siguen igual.",
+      // E14-PRR 4.2 (PN-02), «Una fecha de un recurrente» (D-168, D-169): solo si la fecha vuelve a pendiente
+      volveraPorConfirmar: "Esta fecha volverá a quedar por confirmar.",
+    },
+    borrar: {
+      // E14-PRR 4.2 (PN-02), «Borrar», fila 1
+      titulo: "¿Borrar este movimiento?",
+      // E14-PRR 4.2 (PN-02), «Borrar», fila 2: «Gasto de $45.000 en Alimentación, Ayer.»
+      gasto: "Gasto de {monto} en {categoria}, {dia}.",
+      // E14-PRR 4.2 (PN-02), «Borrar», fila 2: forma del ingreso; propuesto, pendiente de aprobación del dueño
+      ingreso: "Ingreso de {monto} en {categoria}, {dia}.",
+      // E14-PRR 4.2 (PN-02), «Borrar», fila 2: forma del aporte a una meta; propuesto, pendiente de aprobación del dueño
+      aporte: "Aporte de {monto} a «{meta}», {dia}.",
+      // E14-PRR 4.2 (PN-02), «Borrar», fila 3
+      quePasa: "Se quita de tu lista y calculamos el mes de nuevo.",
+      // E14-PRR 4.2 (PN-02), «Un aporte a una meta» (CU-08 2c)
+      avance: "El avance de «{meta}» baja {monto}. El avance nunca queda por debajo de cero.",
+      // E14-PRR 4.2 (PN-02), «Borrar», fila 4
+      confirmar: "Borrar el movimiento",
+      // E14-PRR 4.2 (PN-02), estado «Ya no existe»
+      irAMovimientos: "Ir a Movimientos",
     },
   },
   arranque: {

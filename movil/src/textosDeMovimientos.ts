@@ -1,11 +1,12 @@
 import type { Movimiento } from './api/movimientos';
 import type { Medio } from './api/registro';
+import { formatearPesos } from './dinero';
 import { diaEnPalabras, relativoDelDia } from './fechas';
-import { nombresDeCategoria } from './textos';
+import { nombresDeCategoria, type DatosDeAviso } from './textos';
 import { formatear, textos } from './textos/es.generated';
 
-// Los textos de PN-01 que se arman con datos del movimiento (E14-PRR 4.1). El texto sale de es.json y las fechas, de
-// las funciones comunes de `fechas.ts`; el monto lo pone quien dibuja la fila.
+// Los textos de PN-01 y PN-02 que se arman con datos del movimiento (E14-PRR 4.1 y 4.2). El texto sale de es.json; el
+// monto, de `formatearPesos`, y las fechas, de las funciones comunes de `fechas.ts`.
 const mv = textos.movimientos;
 
 export const nombreDeCategoria = (id: number | null) => nombresDeCategoria[`c${id}`] ?? '';
@@ -14,6 +15,9 @@ export const mediosEnPalabras: Record<Medio, string> = {
   efectivo: textos.registro.medio.efectivo,
   transferencia: textos.registro.medio.transferencia,
 };
+
+const montoDe = (m: Movimiento) => formatearPesos(BigInt(m.monto_centavos));
+const metaDe = (m: Movimiento) => m.meta?.nombre ?? '';
 
 /** El tipo de una fila en palabras: un retiro de una meta es un aporte con sentido de salida. */
 function tipoEnPalabras(m: Movimiento): string {
@@ -24,17 +28,49 @@ function tipoEnPalabras(m: Movimiento): string {
 
 /** Las dos líneas de una fila de PN-01 (E14-PRR 4.1, «Cómo se arma cada fila»): un aporte lleva su meta, no categoría. */
 export function textosDeFila(m: Movimiento) {
-  const nombre = m.tipo === 'aporte' ? (m.meta?.nombre ?? '') : nombreDeCategoria(m.categoria_id);
+  const nombre = m.tipo === 'aporte' ? metaDe(m) : nombreDeCategoria(m.categoria_id);
   return {
     principal: m.descripcion ? formatear(mv.fila.conDescripcion, { nombre, descripcion: m.descripcion }) : nombre,
     apoyo: formatear(mv.fila.apoyo, { tipo: tipoEnPalabras(m), medio: mediosEnPalabras[m.medio] }),
   };
 }
 
+const relativo = (fecha: string, hoy: string) => {
+  const dia = relativoDelDia(fecha, hoy);
+  if (dia === null) return null;
+  return dia === 'hoy' ? textos.registro.fecha.hoy : mv.dia.ayer;
+};
+
 /** «Hoy, 2 de noviembre de 2026», «Ayer, 1 de noviembre de 2026» o «5 de octubre de 2026». */
 export function tituloDelDia(fecha: string, hoy: string): string {
   const enPalabras = diaEnPalabras(fecha) ?? fecha;
-  const dia = relativoDelDia(fecha, hoy);
-  if (dia === null) return enPalabras;
-  return formatear(mv.dia.conFecha, { dia: dia === 'hoy' ? textos.registro.fecha.hoy : mv.dia.ayer, fecha: enPalabras });
+  const dia = relativo(fecha, hoy);
+  return dia ? formatear(mv.dia.conFecha, { dia, fecha: enPalabras }) : enPalabras;
+}
+
+/** El resumen bajo el monto de PN-02: «Gasto en Alimentación». */
+export function resumenDelDetalle(m: Movimiento): string {
+  if (m.tipo === 'aporte') return formatear(mv.detalle.aporteA, { meta: metaDe(m) });
+  const categoria = nombreDeCategoria(m.categoria_id);
+  return formatear(m.tipo === 'gasto' ? mv.detalle.gastoEn : mv.detalle.ingresoEn, { categoria });
+}
+
+/** «Gasto de $45.000 en Alimentación, Ayer.»: lo que se borra, en la hoja de PN-02. */
+export function queSeBorra(m: Movimiento, hoy: string): string {
+  const monto = montoDe(m);
+  const dia = relativo(m.fecha, hoy) ?? diaEnPalabras(m.fecha) ?? m.fecha;
+  if (m.tipo === 'aporte') return formatear(mv.borrar.aporte, { monto, meta: metaDe(m), dia });
+  const categoria = nombreDeCategoria(m.categoria_id);
+  return formatear(m.tipo === 'gasto' ? mv.borrar.gasto : mv.borrar.ingreso, { monto, categoria, dia });
+}
+
+/** «El avance de «Arriendo de enero» baja $100.000…»: solo el aporte que entró a una meta (CU-08 2c). */
+export const avanceQueBaja = (m: Movimiento): string | null =>
+  m.tipo === 'aporte' && m.sentido === 'entrada' ? formatear(mv.borrar.avance, { meta: metaDe(m), monto: montoDe(m) }) : null;
+
+/** El aviso de después de borrar (E14-PRR 4.2, «Tras borrar»); el monto sigue la regla de E14-SDD 5.5. */
+export function avisoDeBorrado(m: Movimiento): DatosDeAviso {
+  const t = textos.avisos;
+  const titulo = { gasto: t.borramosGasto.titulo, ingreso: t.borramosIngreso.titulo, aporte: t.borramosAporte.titulo }[m.tipo];
+  return { tipo: 'informacion', titulo: formatear(titulo, { monto: montoDe(m) }) };
 }

@@ -1,3 +1,4 @@
+import type { Movimiento } from '../api/movimientos';
 import type { DatosDeAviso } from '../textos';
 import type { Llegada } from './llegada';
 
@@ -28,6 +29,13 @@ export type Rutas = {
    * guardar («Listo, registramos tu gasto de $45.000.»): solo vive en la memoria, nunca se guarda.
    */
   ListaDeMovimientos: { periodo?: string; categoria?: number; aviso?: DatosDeAviso } | undefined;
+  /**
+   * PN-02 · Detalle de un movimiento (E14-PRR 4.2); se abre desde una fila de PN-01 con el movimiento que ya trae.
+   * `noExiste`: el API contestó 404 al corregirlo o borrarlo («Ese movimiento ya no está.»).
+   */
+  DetalleDeMovimiento: { movimiento: Movimiento; noExiste?: boolean };
+  /** «Corregir» de PN-02: los mismos campos del registro, llenos; su Atrás vuelve a PN-02 sin guardar. */
+  CorregirMovimiento: { movimiento: Movimiento };
   /** Formulario de registro (E14-PPN 3.1); se abre desde «Registrar» de PN-01 y vuelve a PN-01 al guardar (D-164). */
   FormularioDeRegistro: undefined;
   /** PN-03: se apila sobre Registrar; su Atrás vuelve al formulario sin cambiar nada. */

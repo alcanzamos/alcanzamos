@@ -67,7 +67,7 @@ const sinRespuesta = (codigo: string): Respuesta<never> => ({
  * Un `401 sin_sesion` es que el token ya no sirve: se borra del Keystore.
  */
 export async function pedir<T = Cuerpo>(
-  metodo: 'GET' | 'POST' | 'DELETE',
+  metodo: 'GET' | 'POST' | 'PUT' | 'DELETE',
   ruta: string,
   cuerpo?: Cuerpo | string,
 ): Promise<Respuesta<T>> {

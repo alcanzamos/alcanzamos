@@ -112,3 +112,17 @@ describe('validación del formulario (E14-PPN 3.1, errores de campo)', () => {
     jest.useRealTimers();
   });
 });
+
+describe('un aporte que se corrige (PN-02): sin categoría', () => {
+  it('con `conCategoria` en falso no pide categoría y la solicitud la lleva en null', () => {
+    expect(validarRegistro(lleno, null, hoy, false)).toMatchObject({ solicitud: { categoriaId: null, montoCentavos: 4500000n } });
+  });
+
+  it('con `conCategoria` (lo normal) sigue pidiéndola', () => {
+    expect(validarRegistro(lleno, null, hoy)).toEqual({ errores: { categoria: 'Falta elegir la categoría.' } });
+  });
+
+  it('sin categoría, los demás errores salen igual', () => {
+    expect(validarRegistro({ ...lleno, monto: '' }, null, hoy, false)).toEqual({ errores: { monto: 'Falta el monto.' } });
+  });
+});

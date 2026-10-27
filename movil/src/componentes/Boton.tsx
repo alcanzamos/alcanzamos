@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text } from 'react-native';
 import { estiloDeTipografia } from '../fuentes';
 import { tokens } from '../tokens/tokens.generated';
 
-type Variante = 'primario' | 'secundario' | 'texto';
+type Variante = 'primario' | 'secundario' | 'texto' | 'destructivo';
 
 // Botón de E14-SDD 5.2 y botón de texto de 48 dp (tipografía.etiqueta). Alto mínimo `tamano.tactil-minimo`.
 // Deshabilitado sigue siendo tocable para el lector de pantalla (`accessibilityState.disabled`) y no hace nada.
@@ -63,6 +63,14 @@ function coloresDe(variante: Variante, deshabilitado: boolean) {
       presionado: accion.primaria['fondo-presionado'],
       borde: 'transparent',
       texto: accion.primaria.texto,
+    };
+  }
+  if (variante === 'destructivo') {
+    return {
+      fondo: accion.destructiva.fondo,
+      presionado: accion.destructiva['fondo-presionado'],
+      borde: 'transparent',
+      texto: accion.destructiva.texto,
     };
   }
   if (variante === 'secundario') {

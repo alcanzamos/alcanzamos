@@ -42,3 +42,45 @@ export const arriendoDeEnero = movimiento({
   sentido: 'entrada',
   fecha: '2026-10-30',
 });
+
+// ——— El API de mentira de PN-01 y PN-02 ———
+export const BASE = 'http://api.prueba:18090';
+export type Pedido = { metodo: string; ruta: string; cuerpo?: string };
+
+const catalogo = {
+  gasto: [
+    { id: 1, nombre: 'x', general: false },
+    { id: 4, nombre: 'x', general: false },
+    { id: 8, nombre: 'x', general: false },
+    { id: 16, nombre: 'x', general: true },
+  ],
+  ingreso: [{ id: 17, nombre: 'x', general: false }],
+};
+
+/**
+ * PN-71, las categorías, la lista, `PUT` y `DELETE`. `lista` es lo que contesta la lista (una función, si cambia con cada
+ * pedido); `corregir` y `borrar` son lo que contestan el `PUT` y el `DELETE` (por defecto `200` y `204`). Devuelve los
+ * pedidos, en orden, para revisarlos.
+ */
+export function apiFalsa(
+  respuestaJson: (estado: number, cuerpo?: unknown) => Response,
+  opciones: {
+    lista?: Listado | (() => Listado);
+    corregir?: () => Response | Promise<Response>;
+    borrar?: () => Response | Promise<Response>;
+  } = {},
+) {
+  const pedidos: Pedido[] = [];
+  const lista = opciones.lista ?? listado();
+  global.fetch = jest.fn(async (url: string, init: RequestInit) => {
+    const ruta = url.replace(BASE, '');
+    const metodo = String(init.method);
+    pedidos.push({ metodo, ruta, cuerpo: init.body as string | undefined });
+    if (ruta.startsWith('/api/v1/cuenta/seguridad')) return respuestaJson(200, { ingreso_anterior: null });
+    if (ruta === '/api/v1/categorias') return respuestaJson(200, catalogo);
+    if (metodo === 'PUT') return opciones.corregir ? opciones.corregir() : respuestaJson(200, {});
+    if (metodo === 'DELETE') return opciones.borrar ? opciones.borrar() : respuestaJson(204);
+    return respuestaJson(200, typeof lista === 'function' ? lista() : lista);
+  }) as unknown as typeof fetch;
+  return pedidos;
+}
