@@ -1,4 +1,6 @@
 import {
+  aIso,
+  desdeIso,
   diaEnPalabras,
   esFechaDeMovimiento,
   fechaEnPalabras,
@@ -97,5 +99,15 @@ describe('esFechaDeMovimiento', () => {
     expect(esFechaDeMovimiento('2026-02-30')).toBe(false);
     expect(esFechaDeMovimiento('1899-12-31')).toBe(false);
     expect(esFechaDeMovimiento('0002-10-26')).toBe(false);
+  });
+});
+
+describe('aIso y desdeIso (la fecha del selector y la del API)', () => {
+  it('pasan una fecha del calendario local a AAAA-MM-DD y de vuelta, con ceros', () => {
+    expect(aIso(new Date(2026, 0, 5))).toBe('2026-01-05');
+    expect(aIso(new Date(2026, 11, 20))).toBe('2026-12-20');
+    const fecha = desdeIso('2026-08-15');
+    expect([fecha.getFullYear(), fecha.getMonth(), fecha.getDate()]).toEqual([2026, 7, 15]);
+    expect(aIso(desdeIso('2027-01-31'))).toBe('2027-01-31');
   });
 });

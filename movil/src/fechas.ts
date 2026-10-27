@@ -53,3 +53,15 @@ export const hoyEnColombia = (ahora: Date = new Date()): string =>
 
 /** Una fecha real que el API acepta para un movimiento: «AAAA-MM-DD» desde el año 1900. */
 export const esFechaDeMovimiento = (iso: string): boolean => diaEnPalabras(iso) !== null && iso >= '1900-01-01';
+
+const dosDigitos = (n: number) => String(n).padStart(2, '0');
+
+/** «AAAA-MM-DD» de una fecha del calendario local (la que eligió la persona en el selector). */
+export const aIso = (fecha: Date): string =>
+  `${fecha.getFullYear()}-${dosDigitos(fecha.getMonth() + 1)}-${dosDigitos(fecha.getDate())}`;
+
+/** La fecha del calendario local de un «AAAA-MM-DD» (para abrir el selector en ella). */
+export const desdeIso = (iso: string): Date => {
+  const [anio = 0, mes = 1, dia = 1] = iso.split('-').map(Number);
+  return new Date(anio, mes - 1, dia);
+};

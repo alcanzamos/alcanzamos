@@ -6,6 +6,7 @@ import { cerrarSesion } from '../api/cuentas';
 import { Aviso } from '../componentes/Aviso';
 import { Boton, BotonDeTexto } from '../componentes/Boton';
 import { cifras } from '../componentes/Cifras';
+import { reiniciarBorrador } from '../borradorDeRegistro';
 import { Pantalla } from '../componentes/Pantalla';
 import { Texto } from '../componentes/Texto';
 import { fechaEnPalabras } from '../fechas';
@@ -25,7 +26,7 @@ export function SeguridadDeLaCuenta({ navigation, route }: NativeStackScreenProp
   const [estado, setEstado] = useState<Estado>({ fase: 'cargando' });
   const [intento, setIntento] = useState(0);
   const [sinConexion, setSinConexion] = useState(false);
-  const llegada = avisoDeLlegada(route.params?.llegada);
+  const llegada = route.params?.aviso ?? avisoDeLlegada(route.params?.llegada);
 
   useEffect(() => {
     let vigente = true;
@@ -98,6 +99,15 @@ export function SeguridadDeLaCuenta({ navigation, route }: NativeStackScreenProp
           )}
         </>
       )}
+      <Boton
+        alTocar={() => {
+          // Provisional hasta que exista PN-01 (D-164): cada entrada al formulario empieza vacía.
+          reiniciarBorrador();
+          navigation.navigate('FormularioDeRegistro');
+        }}
+      >
+        {textos.registro.abrir}
+      </Boton>
       <BotonDeTexto alTocar={() => void salir()}>{textos.acciones.cerrarSesion}</BotonDeTexto>
     </Pantalla>
   );

@@ -1,5 +1,15 @@
 import { SIN_CONEXION, SIN_CONFIGURACION } from '../src/api/cliente';
-import { avisoDeFallo, avisos, resumenPorConfirmar, textoDeErrorDeCampo, textosDeEdad } from '../src/textos';
+import {
+  avisoDeFallo,
+  avisoDeRegistro,
+  avisoErrorAlGuardarMovimiento,
+  avisos,
+  nombresDeCategoria,
+  resumenPorConfirmar,
+  textoDeErrorDeCampo,
+  textosDeEdad,
+  textosDeErrorDeRegistro,
+} from '../src/textos';
 
 const fallo = (estado: number, codigo: string) => ({ ok: false as const, estado, codigo, campos: {} });
 
@@ -131,5 +141,54 @@ describe('recuento de PN-72 (US-59, S4, D-093, D-163)', () => {
 
   it('sin nada por confirmar falla: E14 no tiene texto para total 0 y PN-72 no muestra la tarjeta', () => {
     expect(() => resumenPorConfirmar(0, 0)).toThrow(/no hay nada por confirmar/);
+  });
+});
+
+describe('avisos del registro (E14-PPN 3.1 y 1.11, D-165)', () => {
+  it('gasto e ingreso registrados, con el monto de E14-SDD 5.5', () => {
+    expect(avisoDeRegistro('gasto', '2026-10-26', true, 4500000n)).toEqual({
+      tipo: 'informacion',
+      titulo: 'Listo, registramos tu gasto de $45.000.',
+    });
+    expect(avisoDeRegistro('ingreso', '2026-10-26', true, 12345678n).titulo).toBe(
+      'Listo, registramos tu ingreso de $123.456,78.',
+    );
+  });
+
+  it('con la repetición sola (fecha futura): «queda por confirmar el {fecha}», en palabras', () => {
+    expect(avisoDeRegistro('gasto', '2026-12-20', false, 9000000n).titulo).toBe(
+      'Listo. Tu gasto de $90.000 queda por confirmar el 20 de diciembre de 2026.',
+    );
+    expect(avisoDeRegistro('ingreso', '2027-01-05', false, 9000000n).titulo).toBe(
+      'Listo. Tu ingreso de $90.000 queda por confirmar el 5 de enero de 2027.',
+    );
+  });
+
+  it('una fecha que no se puede escribir en palabras se deja como llegó', () => {
+    expect(avisoDeRegistro('gasto', 'pronto', false, 100n).titulo).toBe(
+      'Listo. Tu gasto de $1 queda por confirmar el pronto.',
+    );
+  });
+
+  it('el error al guardar dice gasto o ingreso y que lo escrito sigue ahí', () => {
+    expect(avisoErrorAlGuardarMovimiento('gasto')).toEqual({
+      tipo: 'informacion',
+      titulo: 'No pudimos guardar tu gasto.',
+      mensaje: 'Lo que escribiste sigue ahí. Intenta de nuevo.',
+    });
+    expect(avisoErrorAlGuardarMovimiento('ingreso').titulo).toBe('No pudimos guardar tu ingreso.');
+  });
+
+  it('cada código de campo del API tiene su texto de E14 y uno desconocido no tiene ninguno', () => {
+    expect(textosDeErrorDeRegistro.categoria_requerida).toBe('Falta elegir la categoría.');
+    expect(textosDeErrorDeRegistro.periodicidad_requerida).toBe('Falta elegir cada cuánto se repite.');
+    expect(textosDeErrorDeRegistro.categoria_invalida).toBeUndefined();
+    expect(Object.keys(textosDeErrorDeRegistro)).toHaveLength(9);
+  });
+
+  it('las 26 categorías del catálogo de E09 tienen su texto por id', () => {
+    expect(Object.keys(nombresDeCategoria)).toHaveLength(26);
+    expect(nombresDeCategoria.c16).toBe('Otros gastos');
+    expect(nombresDeCategoria.c25).toBe('Otros ingresos');
   });
 });

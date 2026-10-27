@@ -720,150 +720,6 @@
         }
       }
     },
-    "periodicidad": {
-      "titulo": {
-        "texto": "Se repite",
-        "e14": "E14-PRR 4.3 (PN-03), fila 1 (barra)"
-      },
-      "intro": {
-        "texto": "Lo registras una vez. En cada fecha te pedimos confirmarlo con un toque.",
-        "e14": "E14-PRR 4.3 (PN-03), fila 2"
-      },
-      "etiqueta": {
-        "texto": "Cada cuánto",
-        "e14": "E14-PRR 4.3 (PN-03), fila 3"
-      },
-      "opciones": {
-        "no_se_repite": {
-          "texto": "No se repite",
-          "e14": "E14-PRR 4.3 (PN-03), fila 3; fila 12a de E14-PPN 3.1"
-        },
-        "semanal": {
-          "texto": "Cada semana",
-          "e14": "E14-PRR 4.3 (PN-03), fila 3"
-        },
-        "quincenal": {
-          "texto": "Cada quincena",
-          "e14": "E14-PRR 4.3 (PN-03), fila 3"
-        },
-        "mensual": {
-          "texto": "Cada mes",
-          "e14": "E14-PRR 4.3 (PN-03), fila 3"
-        },
-        "semestral": {
-          "texto": "Cada semestre",
-          "e14": "E14-PRR 4.3 (PN-03), fila 3"
-        },
-        "anual": {
-          "texto": "Cada año",
-          "e14": "E14-PRR 4.3 (PN-03), fila 3"
-        }
-      },
-      "explicaciones": {
-        "no_se_repite": {
-          "texto": "Se cuenta solo en su fecha.",
-          "e14": "E14-PRR 4.3 (PN-03), texto de la fila 4"
-        },
-        "semanal": {
-          "texto": "Cada 7 días, desde la fecha en que empieza.",
-          "e14": "E14-PRR 4.3 (PN-03), texto de la fila 4"
-        },
-        "quincenal": {
-          "texto": "Dos fechas al mes, separadas por 15 días. Si el mes es más corto, usamos su último día.",
-          "e14": "E14-PRR 4.3 (PN-03), texto de la fila 4"
-        },
-        "mensual": {
-          "texto": "El mismo día de cada mes. Si el mes es más corto, usamos su último día.",
-          "e14": "E14-PRR 4.3 (PN-03), texto de la fila 4"
-        },
-        "semestral": {
-          "texto": "El mismo día, cada seis meses.",
-          "e14": "E14-PRR 4.3 (PN-03), texto de la fila 4"
-        },
-        "anual": {
-          "texto": "El mismo día y el mismo mes, cada año.",
-          "e14": "E14-PRR 4.3 (PN-03), texto de la fila 4"
-        }
-      },
-      "empiezaEl": {
-        "texto": "Empieza el",
-        "e14": "E14-PRR 4.3 (PN-03), fila 5"
-      },
-      "proximas": {
-        "texto": "Próximas fechas",
-        "e14": "E14-PRR 4.3 (PN-03), fila 6"
-      },
-      "sinProximas": {
-        "texto": "No hay fechas próximas.",
-        "e14": "E14-PRR 4.3 (PN-03), estado «Sin fechas próximas»"
-      },
-      "aclaracion": {
-        "texto": "El monto es el mismo en cada fecha. Al confirmar una fecha puedes escribir otro monto, sin cambiar las demás.",
-        "e14": "E14-PRR 4.3 (PN-03), fila 7"
-      },
-      "listo": {
-        "texto": "Listo",
-        "e14": "E14-PRR 4.3 (PN-03), fila 8"
-      }
-    }
-  },
-  "solo_web": {
-    "erroresDeCampo": {
-      "crearCuenta": {
-        "mayor_de_edad_requerido": {
-          "texto": "Falta marcar que eres mayor de edad.",
-          "e14": "E14-PCP 4.1 (PN-58)"
-        }
-      }
-    },
-    "pagina": {
-      "atras": {
-        "texto": "Atrás",
-        "e14": "E14-PCP 4.4 (PN-61); E14-PCP 4.6 (PN-63); E14-PCP 4.7 (PN-64); E14-PCP 4.9 (PN-66); E14-PCP 4.10 (PN-67); E14-PCP 4.11 (PN-68); E14-PCP 4.12 (PN-69); E14-PCP 4.13 (PN-70); E14-PCP 4.14 (PN-71); E14-PCP 4.15 (PN-73); E14-PCP 4.16"
-      },
-      "titulo_del_documento": {
-        "texto": "{titulo} · Alcanzamos",
-        "e14": "E14-PCP 1.19 (título de la pestaña del navegador, aprobado en D-163)"
-      }
-    },
-    "campos": {
-      "contrasenaNueva": {
-        "etiqueta": {
-          "texto": "Contraseña nueva",
-          "e14": "E14-PCP 4.5 (PN-62); E14-PCP 4.15 (PN-73)"
-        },
-        "repeticion": {
-          "texto": "Repite la contraseña nueva",
-          "e14": "E14-PCP 4.5 (PN-62)"
-        }
-      },
-      "mayorDeEdad": {
-        "etiqueta": {
-          "texto": "Soy mayor de edad",
-          "e14": "E14-PCP 4.1 (PN-58); E14-PCP 4.8 (PN-65); E14-PCP 4.16"
-        }
-      }
-    },
-    "recuperar": {
-      "titulo": {
-        "texto": "Elige tu contraseña nueva",
-        "e14": "E14-PCP 4.5 (PN-62)"
-      },
-      "pedirOtro": {
-        "texto": "Pedir otro enlace",
-        "e14": "E14-PCP 4.5 (PN-62)"
-      }
-    },
-    "textosDeRepeticion": {
-      "vacia": {
-        "texto": "Falta repetir la contraseña.",
-        "e14": "E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62"
-      },
-      "distinta": {
-        "texto": "Falta que las dos contraseñas sean iguales.",
-        "e14": "E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62"
-      }
-    },
     "registro": {
       "titulo": {
         "texto": "Registrar",
@@ -1145,13 +1001,159 @@
       }
     },
     "periodicidad": {
+      "titulo": {
+        "texto": "Se repite",
+        "e14": "E14-PRR 4.3 (PN-03), fila 1 (barra)"
+      },
+      "intro": {
+        "texto": "Lo registras una vez. En cada fecha te pedimos confirmarlo con un toque.",
+        "e14": "E14-PRR 4.3 (PN-03), fila 2"
+      },
+      "etiqueta": {
+        "texto": "Cada cuánto",
+        "e14": "E14-PRR 4.3 (PN-03), fila 3"
+      },
+      "opciones": {
+        "no_se_repite": {
+          "texto": "No se repite",
+          "e14": "E14-PRR 4.3 (PN-03), fila 3; fila 12a de E14-PPN 3.1"
+        },
+        "semanal": {
+          "texto": "Cada semana",
+          "e14": "E14-PRR 4.3 (PN-03), fila 3"
+        },
+        "quincenal": {
+          "texto": "Cada quincena",
+          "e14": "E14-PRR 4.3 (PN-03), fila 3"
+        },
+        "mensual": {
+          "texto": "Cada mes",
+          "e14": "E14-PRR 4.3 (PN-03), fila 3"
+        },
+        "semestral": {
+          "texto": "Cada semestre",
+          "e14": "E14-PRR 4.3 (PN-03), fila 3"
+        },
+        "anual": {
+          "texto": "Cada año",
+          "e14": "E14-PRR 4.3 (PN-03), fila 3"
+        }
+      },
+      "explicaciones": {
+        "no_se_repite": {
+          "texto": "Se cuenta solo en su fecha.",
+          "e14": "E14-PRR 4.3 (PN-03), texto de la fila 4"
+        },
+        "semanal": {
+          "texto": "Cada 7 días, desde la fecha en que empieza.",
+          "e14": "E14-PRR 4.3 (PN-03), texto de la fila 4"
+        },
+        "quincenal": {
+          "texto": "Dos fechas al mes, separadas por 15 días. Si el mes es más corto, usamos su último día.",
+          "e14": "E14-PRR 4.3 (PN-03), texto de la fila 4"
+        },
+        "mensual": {
+          "texto": "El mismo día de cada mes. Si el mes es más corto, usamos su último día.",
+          "e14": "E14-PRR 4.3 (PN-03), texto de la fila 4"
+        },
+        "semestral": {
+          "texto": "El mismo día, cada seis meses.",
+          "e14": "E14-PRR 4.3 (PN-03), texto de la fila 4"
+        },
+        "anual": {
+          "texto": "El mismo día y el mismo mes, cada año.",
+          "e14": "E14-PRR 4.3 (PN-03), texto de la fila 4"
+        }
+      },
+      "empiezaEl": {
+        "texto": "Empieza el",
+        "e14": "E14-PRR 4.3 (PN-03), fila 5"
+      },
+      "proximas": {
+        "texto": "Próximas fechas",
+        "e14": "E14-PRR 4.3 (PN-03), fila 6"
+      },
+      "sinProximas": {
+        "texto": "No hay fechas próximas.",
+        "e14": "E14-PRR 4.3 (PN-03), estado «Sin fechas próximas»"
+      },
+      "aclaracion": {
+        "texto": "El monto es el mismo en cada fecha. Al confirmar una fecha puedes escribir otro monto, sin cambiar las demás.",
+        "e14": "E14-PRR 4.3 (PN-03), fila 7"
+      },
+      "listo": {
+        "texto": "Listo",
+        "e14": "E14-PRR 4.3 (PN-03), fila 8"
+      },
+      "errores": {
+        "sinPeriodicidad": {
+          "texto": "Falta elegir cada cuánto se repite.",
+          "e14": "E14-PRR 4.3 (PN-03), errores de campo"
+        }
+      }
+    }
+  },
+  "solo_web": {
+    "erroresDeCampo": {
+      "crearCuenta": {
+        "mayor_de_edad_requerido": {
+          "texto": "Falta marcar que eres mayor de edad.",
+          "e14": "E14-PCP 4.1 (PN-58)"
+        }
+      }
+    },
+    "pagina": {
+      "atras": {
+        "texto": "Atrás",
+        "e14": "E14-PCP 4.4 (PN-61); E14-PCP 4.6 (PN-63); E14-PCP 4.7 (PN-64); E14-PCP 4.9 (PN-66); E14-PCP 4.10 (PN-67); E14-PCP 4.11 (PN-68); E14-PCP 4.12 (PN-69); E14-PCP 4.13 (PN-70); E14-PCP 4.14 (PN-71); E14-PCP 4.15 (PN-73); E14-PCP 4.16"
+      },
+      "titulo_del_documento": {
+        "texto": "{titulo} · Alcanzamos",
+        "e14": "E14-PCP 1.19 (título de la pestaña del navegador, aprobado en D-163)"
+      }
+    },
+    "campos": {
+      "contrasenaNueva": {
+        "etiqueta": {
+          "texto": "Contraseña nueva",
+          "e14": "E14-PCP 4.5 (PN-62); E14-PCP 4.15 (PN-73)"
+        },
+        "repeticion": {
+          "texto": "Repite la contraseña nueva",
+          "e14": "E14-PCP 4.5 (PN-62)"
+        }
+      },
+      "mayorDeEdad": {
+        "etiqueta": {
+          "texto": "Soy mayor de edad",
+          "e14": "E14-PCP 4.1 (PN-58); E14-PCP 4.8 (PN-65); E14-PCP 4.16"
+        }
+      }
+    },
+    "recuperar": {
+      "titulo": {
+        "texto": "Elige tu contraseña nueva",
+        "e14": "E14-PCP 4.5 (PN-62)"
+      },
+      "pedirOtro": {
+        "texto": "Pedir otro enlace",
+        "e14": "E14-PCP 4.5 (PN-62)"
+      }
+    },
+    "textosDeRepeticion": {
+      "vacia": {
+        "texto": "Falta repetir la contraseña.",
+        "e14": "E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62"
+      },
+      "distinta": {
+        "texto": "Falta que las dos contraseñas sean iguales.",
+        "e14": "E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62"
+      }
+    },
+    "periodicidad": {
       "errores": {
         "sinFecha": {
           "texto": "Falta la fecha en que empieza.",
-          "e14": "E14-PRR 4.3 (PN-03), errores de campo"
-        },
-        "sinPeriodicidad": {
-          "texto": "Falta elegir cada cuánto se repite.",
           "e14": "E14-PRR 4.3 (PN-03), errores de campo"
         }
       }

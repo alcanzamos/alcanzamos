@@ -71,4 +71,13 @@ describe('CampoDeFecha (PN-65, E14-PCP 4.8)', () => {
     await fireEvent(screen.getByRole('button'), 'blur');
     expect(JSON.stringify(screen.toJSON())).not.toContain(tokens.color.borde.foco);
   });
+
+  it('con `texto` dice eso en lugar de la fecha en palabras («Hoy», E14-PPN 3.1) y abre el selector en su fecha', async () => {
+    const fecha = new Date(2026, 9, 26);
+    await render(<CampoDeFecha {...propiedades} etiqueta="Fecha" valor={fecha} texto="Hoy" />);
+    expect(screen.getByRole('button', { name: 'Fecha, Hoy' })).toBeOnTheScreen();
+    expect(screen.queryByText('26 de octubre de 2026')).not.toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button'));
+    expect(abrir.mock.calls[0][0].value).toBe(fecha);
+  });
 });

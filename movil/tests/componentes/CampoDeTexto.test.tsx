@@ -86,4 +86,33 @@ describe('CampoDeTexto (E14-SDD 5.3)', () => {
     );
     expect(screen.getByRole('button', { name: 'Acción' })).toBeOnTheScreen();
   });
+
+  it('con `cifra` el valor va en Figtree con cifras tabulares y sin ss02 (D-123)', async () => {
+    await render(<CampoDeTexto {...propiedades} valor="$45.000" cifra />);
+    expect(screen.getByLabelText('Correo electrónico')).toHaveStyle({
+      fontFamily: 'Figtree-SemiBold',
+      fontVariant: ['tabular-nums'],
+    });
+    expect(JSON.stringify(screen.toJSON())).not.toMatch(/stylistic|ss02/);
+  });
+
+  it('sin `cifra` el valor sigue en Atkinson', async () => {
+    await render(<CampoDeTexto {...propiedades} />);
+    expect(screen.getByLabelText('Correo electrónico')).toHaveStyle({ fontFamily: 'AtkinsonHyperlegibleNext-Regular' });
+  });
+
+  it('`maxLength` limita lo que se escribe y `alSalir` avisa cuando se pierde el foco', async () => {
+    const alSalir = jest.fn();
+    await render(<CampoDeTexto {...propiedades} maxLength={280} alSalir={alSalir} />);
+    expect(screen.getByLabelText('Correo electrónico').props.maxLength).toBe(280);
+    await fireEvent(screen.getByLabelText('Correo electrónico'), 'focus');
+    expect(alSalir).not.toHaveBeenCalled();
+    await fireEvent(screen.getByLabelText('Correo electrónico'), 'blur');
+    expect(alSalir).toHaveBeenCalledTimes(1);
+  });
+
+  it('perder el foco sin `alSalir` no falla', async () => {
+    await render(<CampoDeTexto {...propiedades} />);
+    await expect(fireEvent(screen.getByLabelText('Correo electrónico'), 'blur')).resolves.not.toThrow();
+  });
 });
