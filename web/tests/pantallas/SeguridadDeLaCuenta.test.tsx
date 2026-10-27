@@ -30,16 +30,20 @@ describe("PN-71 · Seguridad de la cuenta", () => {
     ).toHaveAttribute("href", "/cuenta/contrasena");
   });
 
-  // D-164 (S3): el botón provisional de entrada al formulario, con el texto de E14-PRR PN-72.
-  it("trae el botón provisional «Registrar un movimiento», que lleva a /registrar", async () => {
+  // D-164: el botón provisional «Registrar un movimiento» se quitó; PN-01 es la entrada al formulario y PN-71 solo lleva
+  // a PN-01 (el destino «Movimientos» de la navegación, E14-SDD 5.9).
+  it("ya no trae «Registrar un movimiento»: solo el enlace a PN-01, que lleva a /movimientos", async () => {
     simularApi(() => json(200, { ingreso_anterior: null }));
     render(<SeguridadDeLaCuenta />);
     await screen.findByText("Este es tu primer ingreso.");
-    const boton = screen.getByRole("link", { name: "Registrar un movimiento" });
-    expect(boton).toHaveAttribute("href", "/registrar");
-    expect(boton).toHaveClass("boton--secundario");
-    fireEvent.click(boton);
-    expect(window.location.pathname).toBe("/registrar");
+    expect(
+      screen.queryByRole("link", { name: "Registrar un movimiento" }),
+    ).toBeNull();
+    expect(screen.queryByRole("link", { name: "Registrar" })).toBeNull();
+    const enlace = screen.getByRole("link", { name: "Movimientos" });
+    expect(enlace).toHaveAttribute("href", "/movimientos");
+    fireEvent.click(enlace);
+    expect(window.location.pathname).toBe("/movimientos");
   });
 
   it("anuncia como mensaje de estado el aviso con que vuelve el formulario", async () => {

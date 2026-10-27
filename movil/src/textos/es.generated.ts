@@ -432,8 +432,6 @@ export const textos = {
   registro: {
     // E14-PPN 3.1, fila 1 (barra)
     titulo: "Registrar",
-    // E14-PRR 4.7 (PN-72), fila 6; es el botón provisional de PN-71 mientras no exista PN-01 (D-164)
-    abrir: "Registrar un movimiento",
     // E14-PPN 3.1: «Sin el cuadro, el botón dice «Guardar»» (D-164)
     guardar: "Guardar",
     tipo: {
@@ -580,6 +578,8 @@ export const textos = {
       // E14-PPN 3.1, fila 9: categoría del catálogo de E09 (02-catalogo-de-categorias.md, gasto), id 26 del API
       c26: "Ayuda a la familia",
     },
+    // E14-PRR 4.7 (PN-72), fila 6; es el botón provisional de PN-71 mientras no exista PN-01 (D-164)
+    abrir: "Registrar un movimiento",
   },
   periodicidad: {
     // E14-PRR 4.3 (PN-03), fila 1 (barra)

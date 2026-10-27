@@ -71,7 +71,7 @@ describe("PN-01 · Formulario de registro (E14-PPN 3.1, D-164)", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Atrás" })).toHaveAttribute(
       "href",
-      "/cuenta/seguridad",
+      "/movimientos",
     );
     const etiquetas = [
       ...document.querySelectorAll("legend, label.campo__etiqueta"),
@@ -293,7 +293,7 @@ describe("PN-01 · Formulario de registro (E14-PPN 3.1, D-164)", () => {
   });
 
   describe("guardar", () => {
-    it("un gasto en efectivo: manda centavos enteros y vuelve a PN-71 con «Listo, registramos tu gasto de $45.000.»", async () => {
+    it("un gasto en efectivo: manda centavos enteros y vuelve a PN-01 con «Listo, registramos tu gasto de $45.000.»", async () => {
       const pedidos = api();
       await abrir();
       escribirMonto("45.000");
@@ -301,7 +301,7 @@ describe("PN-01 · Formulario de registro (E14-PPN 3.1, D-164)", () => {
       elegir("Efectivo");
       guardar();
       await waitFor(() =>
-        expect(window.location.pathname).toBe("/cuenta/seguridad"),
+        expect(window.location.pathname).toBe("/movimientos"),
       );
       expect(guardados(pedidos)).toEqual([
         {
@@ -333,7 +333,7 @@ describe("PN-01 · Formulario de registro (E14-PPN 3.1, D-164)", () => {
       });
       guardar();
       await waitFor(() =>
-        expect(window.location.pathname).toBe("/cuenta/seguridad"),
+        expect(window.location.pathname).toBe("/movimientos"),
       );
       expect(guardados(pedidos)[0]?.cuerpo).toMatchObject({
         monto_centavos: 12345678,
@@ -355,7 +355,7 @@ describe("PN-01 · Formulario de registro (E14-PPN 3.1, D-164)", () => {
       elegir("Salario");
       guardar();
       await waitFor(() =>
-        expect(window.location.pathname).toBe("/cuenta/seguridad"),
+        expect(window.location.pathname).toBe("/movimientos"),
       );
       expect(guardados(pedidos)[0]?.cuerpo).toMatchObject({
         tipo: "ingreso",
@@ -379,7 +379,7 @@ describe("PN-01 · Formulario de registro (E14-PPN 3.1, D-164)", () => {
       elegir("Efectivo");
       guardar();
       await waitFor(() =>
-        expect(window.location.pathname).toBe("/cuenta/seguridad"),
+        expect(window.location.pathname).toBe("/movimientos"),
       );
       expect(guardados(pedidos)[0]?.cuerpo).toMatchObject({
         fecha: "2026-12-20",
@@ -398,7 +398,7 @@ describe("PN-01 · Formulario de registro (E14-PPN 3.1, D-164)", () => {
       elegir("Efectivo");
       guardar();
       await waitFor(() =>
-        expect(window.location.pathname).toBe("/cuenta/seguridad"),
+        expect(window.location.pathname).toBe("/movimientos"),
       );
       document.body.innerHTML = "";
       render(<Registrar />);
@@ -424,7 +424,7 @@ describe("PN-01 · Formulario de registro (E14-PPN 3.1, D-164)", () => {
       expect(guardados(pedidos)).toHaveLength(1);
       salir(json(201, creado));
       await waitFor(() =>
-        expect(window.location.pathname).toBe("/cuenta/seguridad"),
+        expect(window.location.pathname).toBe("/movimientos"),
       );
     });
   });
@@ -444,7 +444,7 @@ describe("PN-01 · Formulario de registro (E14-PPN 3.1, D-164)", () => {
       expect(screen.queryByText("No se repite")).not.toBeInTheDocument();
       guardar();
       await waitFor(() =>
-        expect(window.location.pathname).toBe("/cuenta/seguridad"),
+        expect(window.location.pathname).toBe("/movimientos"),
       );
       expect(guardados(pedidos)[0]?.cuerpo).toMatchObject({
         fecha: "2026-08-15",
@@ -475,7 +475,7 @@ describe("PN-01 · Formulario de registro (E14-PPN 3.1, D-164)", () => {
       await abrir();
       guardar();
       await waitFor(() =>
-        expect(window.location.pathname).toBe("/cuenta/seguridad"),
+        expect(window.location.pathname).toBe("/movimientos"),
       );
       expect(avisoDeLlegada()?.titulo).toBe(
         "Listo. Tu ingreso de $1.200.000 queda por confirmar el 20 de diciembre de 2026.",
@@ -494,7 +494,7 @@ describe("PN-01 · Formulario de registro (E14-PPN 3.1, D-164)", () => {
       await abrir();
       guardar();
       await waitFor(() =>
-        expect(window.location.pathname).toBe("/cuenta/seguridad"),
+        expect(window.location.pathname).toBe("/movimientos"),
       );
       expect(avisoDeLlegada()?.titulo).toBe(
         "Listo. Tu gasto de $90.000 queda por confirmar el 1 de noviembre de 2026.",

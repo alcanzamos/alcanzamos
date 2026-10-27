@@ -14,9 +14,15 @@ export const SIN_CONEXION = "sin_conexion";
 
 type Cuerpo = Record<string, unknown>;
 
+// Los montos en centavos son enteros de hasta 64 bits: un `number` no los guarda exactos (D-082). Los campos
+// `*_centavos` se leen como texto y la pantalla los pasa a `bigint`.
+const CENTAVOS = /("[a-z_]+_centavos"\s*:\s*)(-?\d+)/g;
+
 async function leerJson(respuesta: Response): Promise<Cuerpo> {
   try {
-    const cuerpo: unknown = await respuesta.json();
+    const cuerpo: unknown = JSON.parse(
+      (await respuesta.text()).replace(CENTAVOS, '$1"$2"'),
+    );
     return typeof cuerpo === "object" && cuerpo !== null
       ? (cuerpo as Cuerpo)
       : {};
@@ -36,7 +42,7 @@ function camposDe(cuerpo: Cuerpo): Record<string, string> {
 }
 
 export async function pedir<T = Cuerpo>(
-  metodo: "GET" | "POST" | "DELETE",
+  metodo: "GET" | "POST" | "PUT" | "DELETE",
   ruta: string,
   cuerpo?: Cuerpo | string,
 ): Promise<Respuesta<T>> {

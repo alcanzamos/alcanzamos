@@ -136,6 +136,12 @@ export const textos = {
       // E14-PCP 4.7 (PN-64), estado «No autorizo» (llega a PN-60)
       mensaje: "Sin tu autorización no creamos la cuenta. Puedes empezar de nuevo cuando quieras.",
     },
+    errorAlCargarMovimientos: {
+      // E14-PRR 4.1 (PN-01), estado «Error de carga»
+      titulo: "No pudimos cargar tus movimientos.",
+      // E14-PRR 4.1 (PN-01), estado «Error de carga»
+      mensaje: "Tus datos están a salvo. Intenta de nuevo.",
+    },
   },
   correo: {
     // E14-PCP 4.1 (errores de campo de PN-58): el campo del correo es el mismo en PN-58, en «Cambiar el correo» de PN-59 (4.16 T3) y en PN-61.
@@ -440,8 +446,6 @@ export const textos = {
   registro: {
     // E14-PPN 3.1, fila 1 (barra)
     titulo: "Registrar",
-    // E14-PRR 4.7 (PN-72), fila 6; es el botón provisional de PN-71 mientras no exista PN-01 (D-164)
-    abrir: "Registrar un movimiento",
     // E14-PPN 3.1: «Sin el cuadro, el botón dice «Guardar»» (D-164)
     guardar: "Guardar",
     tipo: {
@@ -652,6 +656,52 @@ export const textos = {
     vacia: "Falta repetir la contraseña.",
     // E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62
     distinta: "Falta que las dos contraseñas sean iguales.",
+  },
+  movimientos: {
+    // E14-PRR 4.1 (PN-01), fila 2
+    titulo: "Movimientos",
+    // E14-PRR 4.1 (PN-01), fila 10 (en la web, «Registrar» arriba de la navegación lateral)
+    registrar: "Registrar",
+    // E14-PRR 4.1 (PN-01), fila 3
+    periodo: "Periodo",
+    // E14-PRR 4.1 (PN-01), fila 3
+    otroMes: "Otro mes",
+    // E14-PRR 4.1 (PN-01), fila 4
+    todas: "Todas",
+    // E14-PRR 4.1 (PN-01), fila 5: «10 movimientos»; la forma singular «1 movimiento» es propuesta; propuesto, pendiente de aprobación del dueño
+    resumen: { one: "{n} movimiento", other: "{n} movimientos" },
+    // E14-PRR 4.1 (PN-01), fila 5: «Alimentación: 2 movimientos, $120.000» (plantilla sacada del ejemplo)
+    resumenDeCategoria: "{categoria}: {movimientos}, {total}",
+    dia: {
+      // E14-PRR 4.1 (PN-01), filas 6 y 8; PN-02, hoja de borrar, fila 2
+      ayer: "Ayer",
+      // E14-PRR 4.1 (PN-01), filas 6 y 8: «Hoy, 2 de noviembre de 2026» y «Ayer, 1 de noviembre de 2026» (plantilla sacada del ejemplo)
+      conFecha: "{dia}, {fecha}",
+    },
+    fila: {
+      // E14-PRR 4.1 (PN-01), «Cómo se arma cada fila»: «Gasto · Efectivo»
+      apoyo: "{tipo} · {medio}",
+      // E14-PRR 4.1 (PN-01), «Cómo se arma cada fila»: la categoría y «· Mercado»
+      conDescripcion: "{nombre} · {descripcion}",
+      // E14-PRR 4.1 (PN-01), «Cómo se arma cada fila»: «Aporte a una meta · Transferencia»
+      aporte: "Aporte a una meta",
+      // E14-PRR 4.1 (PN-01), «Aportes y retiros» (CU-07 3a): E14 no da el texto de la fila de un retiro; propuesto, pendiente de aprobación del dueño
+      retiro: "Retiro de una meta",
+      // E14-PRR 4.1 (PN-01), «Cómo se arma cada fila», Marca de propiedad; E14-PRR 2.2, fila 7 (SEG-002, NC-E16-40)
+      compartido: "Compartido con el hogar",
+    },
+    vacio: {
+      // E14-PRR 4.1 (PN-01), estado «Sin resultados con el filtro»
+      sinResultados: "No hay movimientos con este filtro.",
+      // E14-PRR 4.1 (PN-01), estado «Sin resultados con el filtro»
+      cambiarFiltro: "Cambia el periodo o la categoría.",
+      // E14-PRR 4.1 (PN-01), estado «Sin resultados con el filtro»
+      quitarFiltros: "Quitar los filtros",
+      // E14-PRR 4.1 (PN-01), estado «Sin ningún movimiento»
+      sinMovimientos: "Todavía no hay movimientos",
+      // E14-PRR 4.1 (PN-01), estado «Sin ningún movimiento»
+      registraElPrimero: "Registra el primero y aquí lo verás.",
+    },
   },
 } as const;
 

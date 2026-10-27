@@ -41,6 +41,7 @@ function api(
 ) {
   return simularApi(page, {
     "GET /api/v1/cuenta/seguridad": responder(200, { ingreso_anterior: null }),
+    "GET /api/v1/movimientos": responder(200, sinMovimientos),
     "GET /api/v1/categorias": responder(200, catalogo),
     "GET /api/v1/repeticiones/proximas": (ruta) => {
       const { searchParams, search } = new URL(ruta.request().url());
@@ -55,23 +56,33 @@ function api(
   });
 }
 
+// PN-01 sin ningún movimiento: la entrada al formulario es su «Registrar» (D-164).
+const sinMovimientos = {
+  periodo_actual: "2026-10",
+  periodo: "2026-10",
+  resumen: { movimientos: 0, total_centavos: null },
+  meses: [],
+  categorias: [],
+  movimientos: [],
+};
+
 const guardados = (pedidos: { metodo: string; cuerpo: unknown }[]) =>
   pedidos.filter((p) => p.metodo === "POST").map((p) => p.cuerpo);
 
 test.describe("PN-01 · Formulario de registro (US-51)", () => {
   // USA-004 (registrar un gasto en efectivo en menos de 20 s) no se cronometra aquí: lo mide una persona con la app.
-  // Lo que sí se puede fijar es cuántas interacciones cuesta: son cinco desde PN-71, con «Hoy»: la categoría
+  // Lo que sí se puede fijar es cuántas interacciones cuesta: son cinco desde PN-01, con «Hoy»: la categoría
   // cuenta porque todavía no existe el motor de reglas que la sugiere (D-165).
-  test("un gasto en efectivo: desde PN-71, cinco interacciones, y vuelve con «Listo, registramos tu gasto de $45.000.»", async ({
+  test("un gasto en efectivo: desde PN-01, cinco interacciones, y vuelve a PN-01 con «Listo, registramos tu gasto de $45.000.»", async ({
     page,
   }) => {
     await hoyEs26DeOctubre(page);
     const pedidos = await api(page);
-    await page.goto("/cuenta/seguridad");
-    await page.getByText("Este es tu primer ingreso.").waitFor();
+    await page.goto("/movimientos");
+    await page.getByText("Todavía no hay movimientos").waitFor();
     let interacciones = 0;
 
-    await page.getByRole("link", { name: "Registrar un movimiento" }).click();
+    await page.getByRole("link", { name: "Registrar", exact: true }).click();
     interacciones++; // 1. abrir el formulario
     await expect(
       page.getByRole("heading", { level: 1, name: "Registrar" }),
@@ -98,7 +109,7 @@ test.describe("PN-01 · Formulario de registro (US-51)", () => {
     await page.getByRole("button", { name: "Guardar" }).click();
     interacciones++; // 5. guardar
 
-    await expect(page).toHaveURL(/\/cuenta\/seguridad$/);
+    await expect(page).toHaveURL(/\/movimientos$/);
     await expect(
       page.getByRole("status").filter({
         hasText: "Listo, registramos tu gasto de $45.000.",
@@ -231,7 +242,7 @@ test.describe("PN-01 · Formulario de registro (US-51)", () => {
 });
 
 test.describe("PN-03 · Se repite (US-51)", () => {
-  test("el arriendo del 15 de agosto, mensual, escrito el 26 de octubre: «Se repite: Cada mes» y vuelve a PN-71", async ({
+  test("el arriendo del 15 de agosto, mensual, escrito el 26 de octubre: «Se repite: Cada mes» y vuelve a PN-01", async ({
     page,
   }) => {
     await hoyEs26DeOctubre(page);
@@ -296,7 +307,7 @@ test.describe("PN-03 · Se repite (US-51)", () => {
     ).toBeChecked();
 
     await page.getByRole("button", { name: "Guardar" }).click();
-    await expect(page).toHaveURL(/\/cuenta\/seguridad$/);
+    await expect(page).toHaveURL(/\/movimientos$/);
     await expect(
       page.getByRole("status").filter({
         hasText: "Listo, registramos tu gasto de $650.000.",
@@ -399,7 +410,7 @@ test.describe("PN-03 · Se repite (US-51)", () => {
 });
 
 test.describe("Borrador del registro (L10)", () => {
-  test("escribir un monto, volver a PN-71, cerrar sesión y entrar con otra cuenta: el formulario abre vacío", async ({
+  test("escribir un monto, volver a PN-01 y a PN-71, cerrar sesión y entrar con otra cuenta: el formulario abre vacío", async ({
     page,
   }) => {
     await hoyEs26DeOctubre(page);
@@ -408,14 +419,19 @@ test.describe("Borrador del registro (L10)", () => {
         ingreso_anterior: null,
       }),
       "GET /api/v1/categorias": responder(200, catalogo),
+      "GET /api/v1/movimientos": responder(200, sinMovimientos),
       "DELETE /api/v1/sesiones/actual": responder(204),
       "POST /api/v1/sesiones": responder(200, { estado: "activa" }),
     });
     await page.goto("/cuenta/seguridad");
-    await page.getByRole("link", { name: "Registrar un movimiento" }).click();
+    await page.getByRole("link", { name: "Movimientos" }).click();
+    await page.getByRole("link", { name: "Registrar", exact: true }).click();
     await page.getByLabel("Monto").fill("45.000");
     await page.getByRole("radio", { name: "Otros gastos" }).check();
     await page.getByRole("link", { name: "Atrás" }).click();
+    await expect(page).toHaveURL(/\/movimientos$/);
+    // De PN-01 a PN-71 por el historial: el borrador ya se vació al salir del formulario.
+    for (let i = 0; i < 3; i++) await page.goBack();
     await expect(page).toHaveURL(/\/cuenta\/seguridad$/);
 
     await page.getByRole("button", { name: "Cerrar sesión" }).click();
@@ -426,7 +442,8 @@ test.describe("Borrador del registro (L10)", () => {
       .fill("OtraContrasena-2026");
     await page.getByRole("button", { name: "Iniciar sesión" }).click();
     await expect(page).toHaveURL(/\/cuenta\/seguridad$/);
-    await page.getByRole("link", { name: "Registrar un movimiento" }).click();
+    await page.getByRole("link", { name: "Movimientos" }).click();
+    await page.getByRole("link", { name: "Registrar", exact: true }).click();
 
     await expect(page.getByLabel("Monto")).toHaveValue("");
     await expect(
@@ -450,8 +467,8 @@ test.describe("Borrador del registro (L10)", () => {
   }) => {
     await hoyEs26DeOctubre(page);
     await api(page);
-    await page.goto("/cuenta/seguridad");
-    await page.getByRole("link", { name: "Registrar un movimiento" }).click();
+    await page.goto("/movimientos");
+    await page.getByRole("link", { name: "Registrar", exact: true }).click();
     await page.getByLabel("Monto").fill("45.000");
     await page.getByRole("link", { name: "Cambiar" }).click();
     await expect(page).toHaveURL(/\/registrar\/se-repite$/);

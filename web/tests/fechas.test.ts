@@ -4,6 +4,9 @@ import {
   esFechaDeMovimiento,
   fechaEnPalabras,
   hoyEnColombia,
+  mesAnterior,
+  mesEnPalabras,
+  relativoDelDia,
 } from "../src/fechas";
 
 describe("fechaEnPalabras", () => {
@@ -94,5 +97,37 @@ describe("esFechaDeMovimiento", () => {
     expect(esFechaDeMovimiento("2026-02-30")).toBe(false);
     expect(esFechaDeMovimiento("1899-12-31")).toBe(false);
     expect(esFechaDeMovimiento("0002-10-26")).toBe(false);
+  });
+});
+
+describe("relativoDelDia (los títulos de día de PN-01)", () => {
+  it("hoy, ayer y cualquier otro día, también al cambiar de mes y de año", () => {
+    expect(relativoDelDia("2026-11-02", "2026-11-02")).toBe("hoy");
+    expect(relativoDelDia("2026-11-01", "2026-11-02")).toBe("ayer");
+    expect(relativoDelDia("2026-10-31", "2026-11-01")).toBe("ayer");
+    expect(relativoDelDia("2026-12-31", "2027-01-01")).toBe("ayer");
+    expect(relativoDelDia("2026-10-31", "2026-11-02")).toBeNull();
+    expect(relativoDelDia("2026-11-03", "2026-11-02")).toBeNull();
+  });
+});
+
+describe("mesEnPalabras y mesAnterior (los chips de periodo de PN-01)", () => {
+  it("escribe el mes con mayúscula y, si se pide, con el año", () => {
+    expect(mesEnPalabras("2026-11")).toBe("Noviembre");
+    expect(mesEnPalabras("2026-12", true)).toBe("Diciembre de 2026");
+    expect(mesEnPalabras("2026-01", true)).toBe("Enero de 2026");
+  });
+
+  it.each(["", "2026", "2026-13", "2026-00", "2026-1", "2026-11-02"])(
+    "«%s» no es un periodo",
+    (periodo) => {
+      expect(mesEnPalabras(periodo)).toBeNull();
+    },
+  );
+
+  it("el mes anterior pasa de enero al diciembre del año anterior", () => {
+    expect(mesAnterior("2026-11")).toBe("2026-10");
+    expect(mesAnterior("2026-10")).toBe("2026-09");
+    expect(mesAnterior("2026-01")).toBe("2025-12");
   });
 });
