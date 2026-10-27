@@ -65,3 +65,25 @@ export const desdeIso = (iso: string): Date => {
   const [anio = 0, mes = 1, dia = 1] = iso.split('-').map(Number);
   return new Date(anio, mes - 1, dia);
 };
+
+/** «Hoy» o «Ayer» de un día «AAAA-MM-DD» respecto de `hoy`; `null` para cualquier otro. */
+export function relativoDelDia(iso: string, hoy: string): 'hoy' | 'ayer' | null {
+  if (iso === hoy) return 'hoy';
+  const ayer = new Date(Date.parse(`${hoy}T00:00:00Z`) - 24 * 60 * 60 * 1000);
+  return iso === ayer.toISOString().slice(0, 10) ? 'ayer' : null;
+}
+
+/** «Noviembre» o, con el año, «Noviembre de 2026» a partir de «AAAA-MM»; `null` si no lo es. */
+export function mesEnPalabras(periodo: string, conAnio = false): string | null {
+  const partes = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(periodo);
+  if (!partes) return null;
+  const nombre = MESES[Number(partes[2]) - 1] ?? '';
+  const mes = nombre.charAt(0).toUpperCase() + nombre.slice(1);
+  return conAnio ? `${mes} de ${partes[1]}` : mes;
+}
+
+/** El mes anterior a «AAAA-MM» (el chip «Octubre» de PN-01 cuando el mes de hoy es noviembre). */
+export function mesAnterior(periodo: string): string {
+  const [anio = 0, mes = 1] = periodo.split('-').map(Number);
+  return mes === 1 ? `${anio - 1}-12` : `${anio}-${String(mes - 1).padStart(2, '0')}`;
+}

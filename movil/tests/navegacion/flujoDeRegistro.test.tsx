@@ -30,7 +30,9 @@ const catalogo = {
   ingreso: [{ id: 17, nombre: 'x', general: false }],
 };
 const creado = { movimiento_id: 'm1', recurrente_id: null, proximas: [], pendientes: [] };
+const lista = { periodo_actual: '2026-10', periodo: '2026-10', resumen: { movimientos: 0, total_centavos: null }, meses: [], categorias: [], movimientos: [] };
 const PN71 = 'Este es tu primer ingreso.';
+const PN01 = 'Todavía no hay movimientos';
 
 type Pedido = { metodo: string; ruta: string; cuerpo?: string };
 // El API de mentira con las cuatro rutas del flujo; `proximas` es lo que contesta el endpoint de L6.
@@ -40,6 +42,7 @@ function api(proximas: string[] = []) {
     const ruta = url.replace(BASE, '');
     pedidos.push({ metodo: String(init.method), ruta, cuerpo: init.body as string | undefined });
     if (ruta.startsWith('/api/v1/cuenta/seguridad')) return respuestaJson(200, { ingreso_anterior: null });
+    if (ruta.startsWith('/api/v1/movimientos?')) return respuestaJson(200, lista);
     if (ruta === '/api/v1/categorias') return respuestaJson(200, catalogo);
     if (ruta.startsWith('/api/v1/repeticiones/proximas')) return respuestaJson(200, { proximas });
     return respuestaJson(201, creado);
@@ -48,7 +51,7 @@ function api(proximas: string[] = []) {
 }
 const guardados = (pedidos: Pedido[]) => pedidos.filter((p) => p.metodo === 'POST');
 
-describe('flujo de registrar un movimiento en Android (PN-71 → Registrar → PN-03)', () => {
+describe('flujo de registrar un movimiento en Android (PN-71 → PN-01 → Registrar → PN-03)', () => {
   beforeEach(() => {
     suscripciones.clear();
     jest.spyOn(BackHandler, 'addEventListener').mockImplementation((_evento, alTocar) => {
@@ -64,32 +67,37 @@ describe('flujo de registrar un movimiento en Android (PN-71 → Registrar → P
   });
   afterEach(() => jest.useRealTimers());
 
-  async function abrirElFormulario() {
+  async function abrirPN01() {
     await render(<Navegacion />);
     await screen.findByText(PN71);
-    await fireEvent.press(screen.getByRole('button', { name: 'Registrar un movimiento' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Movimientos' }));
+    await screen.findByText(PN01);
+  }
+
+  async function abrirElFormulario() {
+    await abrirPN01();
+    await fireEvent.press(screen.getByRole('button', { name: 'Registrar' }));
     await screen.findByLabelText('Monto');
   }
 
   // USA-004 (D-165, punto 2): sin categoría sugerida (no hay motor de reglas), un gasto en efectivo cuesta CINCO
-  // interacciones desde PN-71: abrir, monto, categoría, «Efectivo» y «Guardar». «Gasto» y «Hoy» ya vienen elegidos.
-  it('USA-004: un gasto en efectivo desde PN-71 cuesta cinco interacciones y vuelve con «Listo, registramos tu gasto de $45.000.»', async () => {
+  // interacciones desde PN-01 (D-164): «Registrar», monto, categoría, «Efectivo» y «Guardar». «Gasto» y «Hoy» ya vienen elegidos.
+  it('USA-004: un gasto en efectivo desde PN-01 cuesta cinco interacciones y vuelve a PN-01 con «Listo, registramos tu gasto de $45.000.»', async () => {
     const pedidos = api();
     let interacciones = 0;
     const tocar = async (accion: () => Promise<unknown> | unknown) => {
       interacciones++;
       await accion();
     };
-    await render(<Navegacion />);
-    await screen.findByText(PN71);
-    await tocar(() => fireEvent.press(screen.getByRole('button', { name: 'Registrar un movimiento' })));
+    await abrirPN01();
+    await tocar(() => fireEvent.press(screen.getByRole('button', { name: 'Registrar' })));
     await tocar(async () => fireEvent.changeText(await screen.findByLabelText('Monto'), '45.000'));
     await tocar(() => fireEvent.press(screen.getByRole('radio', { name: 'Otros gastos' })));
     await tocar(() => fireEvent.press(screen.getByRole('radio', { name: 'Efectivo' })));
     await tocar(() => fireEvent.press(screen.getByRole('button', { name: 'Guardar' })));
     expect(await screen.findByText('Listo, registramos tu gasto de $45.000.')).toBeOnTheScreen();
     expect(interacciones).toBe(5);
-    expect(screen.getByText(PN71)).toBeOnTheScreen();
+    expect(screen.getByText(PN01)).toBeOnTheScreen();
     expect(screen.queryByLabelText('Monto')).not.toBeOnTheScreen();
     expect(JSON.parse(guardados(pedidos)[0]!.cuerpo!)).toEqual({
       monto_centavos: 4500000,
@@ -102,21 +110,21 @@ describe('flujo de registrar un movimiento en Android (PN-71 → Registrar → P
     expect(JSON.stringify(screen.toJSON())).toContain('"accessibilityLiveRegion":"polite"');
   });
 
-  it('Atrás en Registrar vuelve a PN-71 sin guardar nada', async () => {
+  it('Atrás en Registrar vuelve a PN-01 sin guardar nada', async () => {
     const pedidos = api();
     await abrirElFormulario();
     await fireEvent.changeText(screen.getByLabelText('Monto'), '45.000');
     await tocarAtras(true);
     await waitFor(() => expect(screen.queryByLabelText('Monto')).not.toBeOnTheScreen());
-    expect(screen.getByText(PN71)).toBeOnTheScreen();
+    expect(screen.getByText(PN01)).toBeOnTheScreen();
     expect(guardados(pedidos)).toEqual([]);
     expect(screen.queryByText(/Listo, registramos/)).not.toBeOnTheScreen();
-    // Al volver a entrar, el formulario empieza vacío.
-    await fireEvent.press(screen.getByRole('button', { name: 'Registrar un movimiento' }));
+    // Al volver a entrar, el formulario empieza vacío (D-164, L10).
+    await fireEvent.press(screen.getByRole('button', { name: 'Registrar' }));
     expect((await screen.findByLabelText('Monto')).props.value).toBe('');
   });
 
-  it('después de guardar, el Atrás no vuelve al formulario: sale de la app', async () => {
+  it('después de guardar, el Atrás no vuelve al formulario: va a PN-01, luego a PN-71 y sale de la app', async () => {
     api();
     await abrirElFormulario();
     await fireEvent.changeText(screen.getByLabelText('Monto'), '45.000');
@@ -124,8 +132,17 @@ describe('flujo de registrar un movimiento en Android (PN-71 → Registrar → P
     await fireEvent.press(screen.getByRole('radio', { name: 'Efectivo' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
     await screen.findByText('Listo, registramos tu gasto de $45.000.');
-    await tocarAtras(false);
+    await tocarAtras(true);
+    await screen.findByText(PN71);
     expect(screen.queryByLabelText('Monto')).not.toBeOnTheScreen();
+    await tocarAtras(false);
+  });
+
+  it('Atrás en PN-01 vuelve a PN-71', async () => {
+    api();
+    await abrirPN01();
+    await tocarAtras(true);
+    await screen.findByText(PN71);
   });
 
   it('PN-03: el Atrás vuelve al formulario sin cambiar nada y «Listo» deja «Se repite: Cada mes»', async () => {

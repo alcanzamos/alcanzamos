@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, type TextInputInstance } from 'react-native';
+import { StyleSheet, View, type TextInputInstance } from 'react-native';
 import { guardarMovimiento, obtenerCategorias, type CatalogoDeCategorias, type Medio } from '../api/registro';
 import { cambiarBorrador, reiniciarBorrador, useBorrador } from '../borradorDeRegistro';
 import { Aviso } from '../componentes/Aviso';
@@ -8,15 +8,12 @@ import { Boton, BotonDeTexto } from '../componentes/Boton';
 import { CampoDeFecha } from '../componentes/CampoDeFecha';
 import { CampoDeTexto } from '../componentes/CampoDeTexto';
 import { ChipsDeEleccion } from '../componentes/ChipsDeEleccion';
-import { HojaInferior } from '../componentes/HojaInferior';
-import { IconoCheck } from '../componentes/Iconos';
+import { HojaDeElecciones } from '../componentes/HojaDeElecciones';
 import { Pantalla } from '../componentes/Pantalla';
 import { Texto } from '../componentes/Texto';
 import { formatearPesos, leerMonto } from '../dinero';
 import { aIso, desdeIso, diaEnPalabras, hoyEnColombia } from '../fechas';
-import { estiloDeTipografia } from '../fuentes';
 import { seguirPorAccesoNegado } from '../navegacion/accesoNegado';
-import { reemplazarPila } from '../navegacion/llegada';
 import type { Rutas } from '../navegacion/rutas';
 import {
   avisoDeFallo,
@@ -41,9 +38,9 @@ const LARGO_DE_LA_DESCRIPCION = 280;
 const SOLO_MIO = 'solo_mio';
 const r = textos.registro;
 
-// PN-01 · Formulario de registro, variante Android (E14-PPN 3.1, D-164). Mismo flujo, textos y errores del API que la web.
+// Formulario de registro, variante Android (E14-PPN 3.1, D-164). Mismo flujo, textos y errores del API que la web.
 // Sin el cuadro de lenguaje natural, el aviso de faltante, «Tarjeta», «Cuotas», PN-04, PN-05 ni «Compartido con el
-// hogar»: esas filas no se dibujan (README de movil). Al guardar vuelve a PN-71 con el aviso como mensaje de estado.
+// hogar»: esas filas no se dibujan (README de movil). Al guardar vuelve a PN-01 con el aviso como mensaje de estado.
 export function Registrar({ navigation }: NativeStackScreenProps<Rutas, 'FormularioDeRegistro'>) {
   const borrador = useBorrador();
   const [catalogo, setCatalogo] = useState<Catalogo>({ fase: 'cargando' });
@@ -54,7 +51,6 @@ export function Registrar({ navigation }: NativeStackScreenProps<Rutas, 'Formula
   const [enviando, setEnviando] = useState(false);
   const campoDeMonto = useRef<TextInputInstance>(null);
   const campoDeDescripcion = useRef<TextInputInstance>(null);
-  const { height } = useWindowDimensions();
 
   useEffect(() => {
     let vigente = true;
@@ -110,8 +106,8 @@ export function Registrar({ navigation }: NativeStackScreenProps<Rutas, 'Formula
         respuesta.cuerpo.movimiento_id !== null,
         solicitud.montoCentavos,
       );
-      // PN-71 queda como la única pantalla de la pila: el Atrás no vuelve al formulario.
-      reemplazarPila(navigation, 'SeguridadDeLaCuenta', { aviso });
+      // Vuelve a PN-01 (D-164) con el aviso y el formulario sale de la pila: el Atrás no vuelve a él.
+      navigation.popTo('ListaDeMovimientos', { aviso }, { merge: true });
       return;
     }
     if (seguirPorAccesoNegado(navigation, respuesta)) return;
@@ -209,24 +205,13 @@ export function Registrar({ navigation }: NativeStackScreenProps<Rutas, 'Formula
         error={errores.categoria}
       />
       <BotonDeTexto alTocar={() => setVerTodas(true)}>{r.categoria.verTodas}</BotonDeTexto>
-      <HojaInferior visible={verTodas} alCerrar={() => setVerTodas(false)}>
-        <ScrollView style={{ maxHeight: height * 0.6 }}>
-          <View accessibilityRole="radiogroup">
-            {categorias.map((c) => (
-              <Pressable
-                key={c.id}
-                accessibilityRole="radio"
-                accessibilityState={{ checked: c.id === categoriaId }}
-                onPress={() => elegirCategoria(c.id)}
-                style={estilos.filaDeLista}
-              >
-                <Text style={estilos.textoDeFila}>{c.nombre}</Text>
-                {c.id === categoriaId && <IconoCheck color={tokens.color.texto.marca} />}
-              </Pressable>
-            ))}
-          </View>
-        </ScrollView>
-      </HojaInferior>
+      <HojaDeElecciones
+        visible={verTodas}
+        alCerrar={() => setVerTodas(false)}
+        opciones={categorias.map((c) => ({ valor: c.id, etiqueta: c.nombre }))}
+        valor={categoriaId}
+        alElegir={elegirCategoria}
+      />
       <ChipsDeEleccion
         etiqueta={r.medio.etiqueta}
         opciones={medios}
@@ -275,5 +260,4 @@ const estilos = StyleSheet.create({
     minHeight: tokens.tamano['tactil-minimo'],
   },
   columna: { flex: 1 },
-  textoDeFila: { ...estiloDeTipografia('cuerpo'), flex: 1, color: tokens.color.texto.principal },
 });

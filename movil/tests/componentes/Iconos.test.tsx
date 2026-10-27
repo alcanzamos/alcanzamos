@@ -3,6 +3,7 @@ import {
   IconoAtencion,
   IconoCalendario,
   IconoCheck,
+  IconoCompartido,
   IconoInformacion,
   IconoLogro,
   IconoOcultar,
@@ -20,6 +21,7 @@ describe('Iconos (E14-SDD 5.1)', () => {
     ['Calendario', IconoCalendario],
     ['Check', IconoCheck],
     ['Propio', IconoPropio],
+    ['Compartido', IconoCompartido],
   ])('el ícono %s se dibuja y el lector de pantalla lo salta', async (_nombre, Icono) => {
     await render(<Icono color="red" />);
     expect(screen.toJSON()).not.toBeNull();

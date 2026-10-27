@@ -5,9 +5,10 @@ export function respuestaJson(estado: number, cuerpo?: unknown): Response {
   return {
     ok: estado >= 200 && estado < 300,
     status: estado,
-    json: async () => {
+    // El cliente lee el texto y lo pasa por JSON.parse (los `*_centavos` de 64 bits no pasan por un `number`).
+    text: async () => {
       if (cuerpo === undefined) throw new Error('sin cuerpo');
-      return cuerpo;
+      return typeof cuerpo === 'string' ? cuerpo : JSON.stringify(cuerpo);
     },
   } as Response;
 }

@@ -60,6 +60,8 @@ const nombresDe = (etiqueta: string) => {
   return within(grupo).getAllByRole('radio').map((c) => c.props.accessibilityState.checked);
 };
 const aviso = (navegacion: ReturnType<typeof navegacionFalsa>) => navegacion.dispatch.mock.calls[0][0].payload.routes[0];
+// Después de guardar vuelve a PN-01 con `popTo`: el formulario sale de la pila y el aviso va como parámetro.
+const avisoDeVuelta = (navegacion: ReturnType<typeof navegacionFalsa>) => navegacion.popTo.mock.calls[0][1].aviso;
 
 describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => {
   beforeEach(() => {
@@ -311,7 +313,7 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
       await elegir('Efectivo');
     }
 
-    it('un gasto en efectivo: manda centavos enteros y vuelve a PN-71 con «Listo, registramos tu gasto de $45.000.» como mensaje de estado', async () => {
+    it('un gasto en efectivo: manda centavos enteros y vuelve a PN-01 con «Listo, registramos tu gasto de $45.000.» como mensaje de estado', async () => {
       const pedidos = api();
       const navegacion = await abrir();
       await llenar();
@@ -325,11 +327,12 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
         categoria_id: 16,
         medio: 'efectivo',
       });
-      // PN-71 queda como la única pantalla de la pila: el Atrás no vuelve al formulario.
-      expect(aviso(navegacion)).toEqual({
-        name: 'SeguridadDeLaCuenta',
-        params: { aviso: { tipo: 'informacion', titulo: 'Listo, registramos tu gasto de $45.000.' } },
-      });
+      // Vuelve a PN-01 con los filtros que tenía (`merge`): el formulario sale de la pila, el Atrás no vuelve a él.
+      expect(navegacion.popTo).toHaveBeenCalledWith(
+        'ListaDeMovimientos',
+        { aviso: { tipo: 'informacion', titulo: 'Listo, registramos tu gasto de $45.000.' } },
+        { merge: true },
+      );
     });
 
     it('con centavos y descripción: «Listo, registramos tu gasto de $123.456,78.»', async () => {
@@ -339,7 +342,7 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
       await fireEvent.changeText(screen.getByLabelText('Descripción (opcional)'), '  Mercado  ');
       await guardar();
       expect(enviado(pedidos)).toMatchObject({ monto_centavos: 12345678, descripcion: 'Mercado' });
-      expect(aviso(navegacion).params.aviso.titulo).toBe('Listo, registramos tu gasto de $123.456,78.');
+      expect(avisoDeVuelta(navegacion).titulo).toBe('Listo, registramos tu gasto de $123.456,78.');
     });
 
     it('un ingreso usa las categorías de ingreso y su aviso de E14-PPN 1.11', async () => {
@@ -356,7 +359,7 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
         medio: 'transferencia',
         monto_centavos: 150000000,
       });
-      expect(aviso(navegacion).params.aviso.titulo).toBe('Listo, registramos tu ingreso de $1.500.000.');
+      expect(avisoDeVuelta(navegacion).titulo).toBe('Listo, registramos tu ingreso de $1.500.000.');
     });
 
     it('un monto de 64 bits viaja con todos sus dígitos', async () => {
@@ -412,7 +415,7 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
       await elegir('Transferencia');
       await guardar();
       expect(enviado(pedidos)).toMatchObject({ repeticion: { periodicidad: 'mensual' } });
-      expect(aviso(navegacion).params.aviso.titulo).toBe('Listo, registramos tu gasto de $1.200.000.');
+      expect(avisoDeVuelta(navegacion).titulo).toBe('Listo, registramos tu gasto de $1.200.000.');
     });
 
     // S4 (D-164, D-165): el arriendo del 15 de agosto, mensual, escrito el 26 de octubre.
@@ -431,7 +434,7 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
         categoria_id: 4,
         repeticion: { periodicidad: 'mensual' },
       });
-      expect(aviso(navegacion).params.aviso.titulo).toBe('Listo, registramos tu gasto de $1.200.000.');
+      expect(avisoDeVuelta(navegacion).titulo).toBe('Listo, registramos tu gasto de $1.200.000.');
     });
 
     it('con un gasto de fecha futura que se repite solo se guarda la repetición: «queda por confirmar el {fecha}»', async () => {
@@ -442,7 +445,7 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
       await elegir('Otros gastos');
       await elegir('Efectivo');
       await guardar();
-      expect(aviso(navegacion).params.aviso.titulo).toBe(
+      expect(avisoDeVuelta(navegacion).titulo).toBe(
         'Listo. Tu gasto de $90.000 queda por confirmar el 20 de diciembre de 2026.',
       );
     });
@@ -455,7 +458,7 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
       await elegir('Salario');
       await elegir('Transferencia');
       await guardar();
-      expect(aviso(navegacion).params.aviso.titulo).toBe(
+      expect(avisoDeVuelta(navegacion).titulo).toBe(
         'Listo. Tu ingreso de $2.000.000 queda por confirmar el 20 de diciembre de 2026.',
       );
     });
@@ -485,7 +488,7 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
       api(() => respuestaJson(422, { error: 'datos_invalidos', campos }));
       const navegacion = await llenarYGuardar();
       expect(await screen.findByText(texto)).toBeOnTheScreen();
-      expect(navegacion.dispatch).not.toHaveBeenCalled();
+      expect(navegacion.popTo).not.toHaveBeenCalled();
       expect(screen.queryByText('No pudimos guardar tu gasto.')).not.toBeOnTheScreen();
     });
 
@@ -529,14 +532,14 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
       falla = false;
       await fireEvent.press(screen.getByRole('button', { name: 'Intentar de nuevo' }));
       expect(guardados(pedidos)).toHaveLength(2);
-      expect(aviso(navegacion).params.aviso.titulo).toBe('Listo, registramos tu ingreso de $1.500.000.');
+      expect(avisoDeVuelta(navegacion).titulo).toBe('Listo, registramos tu ingreso de $1.500.000.');
     });
 
-    it('un 500 con un gasto dice «No pudimos guardar tu gasto.» y no vuelve a PN-71', async () => {
+    it('un 500 con un gasto dice «No pudimos guardar tu gasto.» y no vuelve a PN-01', async () => {
       api(() => respuestaJson(500, { error: 'interno' }));
       const navegacion = await llenarYGuardar();
       expect(await screen.findByText('No pudimos guardar tu gasto.')).toBeOnTheScreen();
-      expect(navegacion.dispatch).not.toHaveBeenCalled();
+      expect(navegacion.popTo).not.toHaveBeenCalled();
     });
 
     it('sin conexión y demasiados intentos (429) dicen el aviso de siempre', async () => {
