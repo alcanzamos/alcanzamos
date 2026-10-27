@@ -216,6 +216,8 @@ npm run test:coverage   # con el umbral de 50 % de líneas
 npm run typecheck       # incluye las pruebas
 ```
 
+**Límite por prueba: 15 s** (`testTimeout` de la configuración de Jest; el de Jest por omisión es 5 s). La primera prueba de cada archivo carga los módulos y la pantalla en frío: sola tarda unos 2,4 s, y con la máquina cargada (otros `npm ci`, Playwright, el agente de Azure) pasaba los 5 s y fallaba al azar. Pasó en los #37, #41 y #60; el resumen de Jest la nombró en el #60: la primera de `tests/pantallas/Registrar.test.tsx`. Una prueba que de verdad se cuelga sigue fallando a los 15 s.
+
 Las pruebas de la lógica de `scripts/` (`auditoria-logica.mjs`, `licencias-logica.mjs` y `bundle-logica.mjs`) también van en `tests/` y cuentan en Jest y en la cobertura. Los `.mjs` pasan por `babel-jest` (clave `transform` de la configuración de Jest) porque el preset de Expo solo transforma `.js`, `.ts` y `.tsx`.
 
 **Pruebas de los textos (US-59, D-160, regla 4.13 de E17-ECO, paso 51).** `tests/textos/` reemplaza a la antigua comparación con `diseno/textos/es.json`, que ya no hace falta porque hay un solo archivo:

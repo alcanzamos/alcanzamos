@@ -542,25 +542,29 @@ func TestSEG002ElAporteArriendoDeEneroLlegaCompartidoConSuMeta(t *testing.T) {
 			}
 		}
 
-		// Corregir un aporte: monto, fecha, medio y descripción; sigue compartido, de su meta y sin categoría.
-		const corregido = `{"tipo":"aporte","monto_centavos":9000000,"fecha":"2026-10-24","medio":"efectivo","descripcion":"Menos este mes"}`
-		if r := laura.llamar("PUT", rutaMovimientos+"/"+aporte, corregido); r.Codigo != 200 {
-			t.Fatalf("corregir el aporte: %d %s", r.Codigo, r.Cuerpo)
+		// D-170: el aporte y un retiro de la misma meta no se corrigen ni se borran; no cambia nada.
+		var retiro string
+		if err := s.pool.QueryRow(ctx, `INSERT INTO movimiento (persona_id, hogar_id, tipo, monto, fecha, medio, meta_id, sentido, creado_en)
+			 VALUES ($1::uuid, $2::uuid, 'aporte', 2000000, '2026-10-26', 'transferencia', $3::uuid, 'salida', $4) RETURNING id::text`,
+			persona, hogar, meta, s.reloj.T.Add(-time.Hour)).Scan(&retiro); err != nil {
+			t.Fatal(err)
 		}
-		if d := s.detalle(laura, aporte); d.MontoCentavos != 9000000 || d.Fecha != "2026-10-24" || d.Medio != "efectivo" || !d.Compartido || d.CategoriaID != nil || d.Meta == nil || d.Meta.Nombre != "Arriendo de enero" {
-			t.Errorf("aporte corregido: %+v", d)
+		for _, id := range []string{aporte, retiro} {
+			for _, p := range [][2]string{
+				{"PUT", `{"tipo":"aporte","monto_centavos":9000000,"fecha":"2026-10-24","medio":"efectivo","descripcion":"Menos este mes"}`},
+				{"PUT", `{"tipo":"gasto","monto_centavos":9000000,"fecha":"2026-10-24","categoria_id":1,"medio":"efectivo"}`},
+				{"DELETE", ""},
+			} {
+				if r := laura.llamar(p[0], rutaMovimientos+"/"+id, p[1]); r.Codigo != 409 || r.Cuerpo != `{"error":"movimiento_no_editable"}` {
+					t.Errorf("%s de %s: %d %s", p[0], id, r.Codigo, r.Cuerpo)
+				}
+			}
 		}
-		if r := laura.llamar("PUT", rutaMovimientos+"/"+aporte, `{"tipo":"gasto","monto_centavos":9000000,"fecha":"2026-10-24","categoria_id":1,"medio":"efectivo"}`); r.Codigo != 422 ||
-			r.Cuerpo != `{"campos":{"categoria_id":"categoria_no_aplica","tipo":"tipo_no_editable"},"error":"datos_invalidos"}` {
-			t.Errorf("un aporte no cambia de tipo ni lleva categoría: %d %s", r.Codigo, r.Cuerpo)
+		if r := laura.llamar("GET", rutaMovimientos+"/"+aporte, ""); r.Codigo != 200 || r.Cuerpo != quiere {
+			t.Errorf("el aporte no cambió: %d %s", r.Codigo, r.Cuerpo)
 		}
-
-		// Borrar el aporte: la meta sigue y su avance, que se calcula de sus aportes, baja solo.
-		if r := laura.llamar("DELETE", rutaMovimientos+"/"+aporte, ""); r.Codigo != 204 {
-			t.Fatalf("borrar el aporte: %d %s", r.Codigo, r.Cuerpo)
-		}
-		if n := s.contar(`SELECT count(*) FROM meta WHERE id = $1::uuid`, meta) + 10*s.contar(`SELECT count(*) FROM movimiento WHERE meta_id = $1::uuid`, meta); n != 1 {
-			t.Errorf("la meta sigue y sin aportes: %d", n)
+		if n := s.contar(`SELECT count(*) FROM movimiento WHERE meta_id = $1::uuid`, meta); n != 2 {
+			t.Errorf("la meta sigue con su aporte y su retiro: %d", n)
 		}
 	})
 }

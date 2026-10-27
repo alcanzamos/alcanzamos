@@ -13,18 +13,23 @@ const (
 	idSuelto     = "0192f3c4-0000-7000-8000-000000000001"
 	idRecurrente = "0192f3c4-0000-7000-8000-000000000002"
 	idAporte     = "0192f3c4-0000-7000-8000-000000000003"
+	idRetiro     = "0192f3c4-0000-7000-8000-000000000004"
 )
+
+var entrada, salida = "entrada", "salida"
 
 func categoria(n int) *int { return &n }
 
-// repoConMovimientos tiene un movimiento suelto, la fecha de una repetición (D-168) y un aporte a una meta.
+// repoConMovimientos tiene un movimiento suelto, la fecha de una repetición (D-168) un aporte y un retiro de una meta.
 func repoConMovimientos() *repoFalso {
 	return &repoFalso{movimientos: map[string]registro.Movimiento{
 		idSuelto: {ID: idSuelto, Tipo: "gasto", MontoCentavos: 4500000, Fecha: "2026-10-25", CategoriaID: categoria(1), Medio: "efectivo"},
 		idRecurrente: {ID: idRecurrente, Tipo: "ingreso", MontoCentavos: 120000000, Fecha: "2026-10-26", CategoriaID: categoria(17), Medio: "transferencia",
 			Recurrente: &registro.DeRecurrente{RecurrenteID: "r-1", FechaProgramada: "2026-10-26", Periodicidad: "quincenal", VuelveAPendiente: true}},
 		idAporte: {ID: idAporte, Tipo: "aporte", MontoCentavos: 10000000, Fecha: "2026-10-20", Medio: "transferencia",
-			Meta: &registro.MetaDeAporte{ID: "m-1", Nombre: "Arriendo de enero"}},
+			Meta: &registro.MetaDeAporte{ID: "m-1", Nombre: "Arriendo de enero"}, Sentido: &entrada},
+		idRetiro: {ID: idRetiro, Tipo: "aporte", MontoCentavos: 2000000, Fecha: "2026-10-21", Medio: "transferencia",
+			Meta: &registro.MetaDeAporte{ID: "m-1", Nombre: "Arriendo de enero"}, Sentido: &salida},
 	}}
 }
 
@@ -184,22 +189,27 @@ func TestD168LaFechaDeUnRecurrenteNoCambiaYLoDemasSi(t *testing.T) {
 	}
 }
 
-func TestCorregirUnAporteConservaSuTipoYNoLlevaCategoria(t *testing.T) {
+// D-170: un aporte y un retiro de una meta se listan y se ven, pero el API no los corrige ni los borra, sin tocar nada.
+func TestCorregirYBorrarUnAporteOUnRetiroSeRechazaConConflicto(t *testing.T) {
 	repo := repoConMovimientos()
 	h := api(t, repo, hoy)
-	ruta := "/api/v1/movimientos/" + idAporte
-	if codigo, resp, _ := llamar(h, "PUT", ruta, `{"tipo":"aporte","monto_centavos":9000000,"fecha":"2026-10-21","medio":"efectivo"}`); codigo != 200 {
-		t.Fatalf("%d %s", codigo, resp)
+	const quiere = `{"error":"movimiento_no_editable"}`
+	for _, id := range []string{idAporte, idRetiro} {
+		ruta := "/api/v1/movimientos/" + id
+		for _, cuerpo := range []string{`{"tipo":"aporte","monto_centavos":9000000,"fecha":"2026-10-21","medio":"efectivo"}`, cuerpoDeCorreccion("")} {
+			if codigo, resp, _ := llamar(h, "PUT", ruta, cuerpo); codigo != 409 || resp != quiere {
+				t.Errorf("PUT %s: %d %s", id, codigo, resp)
+			}
+		}
+		if codigo, resp, _ := llamar(h, "DELETE", ruta, ""); codigo != 409 || resp != quiere {
+			t.Errorf("DELETE %s: %d %s", id, codigo, resp)
+		}
+		if codigo, _, _ := llamar(h, "GET", ruta, ""); codigo != 200 {
+			t.Errorf("el detalle sigue: %d", codigo)
+		}
 	}
-	if c := repo.corregidos[0]; c.Tipo != "aporte" || c.CategoriaID != nil || c.Monto != 9000000 || c.Fecha == nil {
-		t.Errorf("aporte: %+v", c)
-	}
-	const quiere = `{"campos":{"categoria_id":"categoria_no_aplica","tipo":"tipo_no_editable"},"error":"datos_invalidos"}`
-	if codigo, resp, _ := llamar(h, "PUT", ruta, `{"tipo":"gasto","monto_centavos":1,"fecha":"2026-10-21","categoria_id":4,"medio":"efectivo"}`); codigo != 422 || resp != quiere {
-		t.Errorf("%d %s", codigo, resp)
-	}
-	if codigo, resp, _ := llamar(h, "PUT", ruta, `{"monto_centavos":1,"fecha":"2026-10-21","medio":"efectivo"}`); codigo != 422 || resp != `{"campos":{"tipo":"tipo_requerido"},"error":"datos_invalidos"}` {
-		t.Errorf("%d %s", codigo, resp)
+	if len(repo.corregidos) != 0 || len(repo.borrados) != 0 {
+		t.Errorf("lo rechazado no cambia nada: %+v %v", repo.corregidos, repo.borrados)
 	}
 }
 

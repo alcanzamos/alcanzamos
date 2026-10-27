@@ -13,6 +13,14 @@ El equipo del dueño tiene contenedores y volúmenes de otros proyectos. El 2026
 - **Antes de borrar, mirar:** listar con un filtro (`docker ps -a --filter label=com.docker.compose.project=<nombre>`) y borrar solo lo listado.
 - Si algo ajeno queda afectado, parar, no recrearlo y avisar al dueño con los nombres exactos.
 
+## Procesos: solo los propios, por PID
+
+El 2026-10-27 un verificador detuvo su API con `pkill -f 'go run ./src/cmd/api'`. Ese patrón también habría matado el API de otro agente o del dueño.
+
+- **Prohibido** detener procesos por patrón o por nombre: `pkill`, `killall`, `kill $(pgrep …)`.
+- **Solo se detiene lo que la tarea arrancó,** por el PID que guardó al arrancarlo (`proceso & echo $! > pid`; después `kill "$(cat pid)"`).
+- Si no se sabe el PID, no se mata nada: se avisa.
+
 ## Fuera de este repositorio
 
 No se lee ni se modifica nada fuera del repositorio sin permiso explícito del dueño para esa ruta.
