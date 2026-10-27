@@ -177,7 +177,7 @@ npm 12.2.1 pide Node `^22.22.2 || ^24.15.0 || >=26`. Con un gestor de versiones 
 
 ### Revisión de antigüedad del lockfile (D-158)
 
-`npm run antiguedad` (`scripts/antiguedad.mjs`, lógica en `scripts/antiguedad-logica.mjs`, pruebas en `tests/antiguedad.test.ts`) tapa el hueco de `npm ci`. Corre en el pipeline **antes** de `npm ci` y no usa dependencias, así que funciona sin `node_modules`. Compara cada versión de `package-lock.json` con su fecha de publicación en el registro (el campo `time` del documento del paquete) y falla:
+`npm run antiguedad` (`scripts/antiguedad.mjs`, lógica en `scripts/antiguedad-logica.mjs`, pruebas en `tests/antiguedad.test.ts`) tapa el hueco de `npm ci`. Corre en el pipeline **antes** de `npm ci` y no usa dependencias, así que funciona sin `node_modules`. Sin argumentos revisa `web/`; con una carpeta (`node web/scripts/antiguedad.mjs <carpeta>`) revisa el `.npmrc`, el lockfile y las excepciones de esa carpeta: así lo usa `comun.yml` para `.azure-pipelines/commitlint/` hasta la unificación pendiente (D-160). Como `comun` usa el script, un cambio en `scripts/antiguedad.mjs` o `antiguedad-logica.mjs` también corre `comun` (no filtra por ruta; casos en `.azure-pipelines/pruebas/filtros.py`). Compara cada versión de `package-lock.json` con su fecha de publicación en el registro (el campo `time` del documento del paquete) y falla:
 
 - con una versión publicada hace menos de `min-release-age` días (se lee de `.npmrc`) que no tenga una excepción vigente;
 - si no puede obtener la fecha de un paquete o el registro no la tiene para esa versión (tres intentos por paquete; no la da por buena);
