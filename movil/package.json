@@ -79,6 +79,7 @@
     "testMatch": [
       "<rootDir>/tests/**/*.test.{ts,tsx}"
     ],
+    "testTimeout": 15000,
     "collectCoverageFrom": [
       "src/**/*.{ts,tsx}",
       "!src/tokens/**",
