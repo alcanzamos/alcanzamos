@@ -431,6 +431,20 @@
   display: inline-block;
 }
 
+/* La marca «Oculta» (D-170): su ícono se ve siempre, con el chip elegido o no */
+.oculta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--espacio-1);
+}
+
+.chip__texto .oculta .icono,
+.lista-de-categorias .oculta .icono {
+  display: inline-block;
+  width: var(--tamano-icono);
+  height: var(--tamano-icono);
+}
+
 .chip input:focus-visible + .chip__texto {
   outline: var(--ancho-borde-grueso) solid var(--color-borde-foco);
   outline-offset: var(--espacio-1);

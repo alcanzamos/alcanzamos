@@ -477,16 +477,47 @@ describe("PN-02 · Detalle de un movimiento (E14-PRR 4.2)", () => {
     await abrir("/movimientos?movimiento=r1");
     const detalle = await screen.findByRole("region", { name: "Movimiento" });
     expect(detalle).toHaveTextContent("Se repiteCada quincena");
-    expect(detalle).toHaveTextContent("Ingreso en Salario");
+    expect(detalle).toHaveTextContent("Ingreso por Salario");
     expect(within(detalle).queryByRole("link", { name: /repite/i })).toBeNull();
   });
 
-  it("el aporte muestra su meta en lugar de la categoría y la Marca «Compartido con el hogar»", async () => {
+  it("el aporte muestra su meta en lugar de la categoría y la Marca «Compartido con el hogar», sin «Corregir» ni «Borrar» (D-170)", async () => {
     api();
     await abrir("/movimientos?movimiento=m4");
     const detalle = await screen.findByRole("region", { name: "Movimiento" });
     expect(detalle).toHaveTextContent("Aporte a «Arriendo de enero»");
     expect(detalle).toHaveTextContent("De quién esCompartido con el hogar");
+    expect(
+      within(detalle).queryByRole("button", { name: "Corregir" }),
+    ).toBeNull();
+    expect(
+      within(detalle).queryByRole("button", { name: "Borrar este movimiento" }),
+    ).toBeNull();
+  });
+
+  it("el retiro de una meta dice «Retiro de «meta»» y tampoco lleva «Corregir» ni «Borrar» (D-170)", async () => {
+    api();
+    alListar = () =>
+      json(200, lista([{ ...arriendoDeEnero, sentido: "salida" }]));
+    await abrir("/movimientos?movimiento=m4");
+    const detalle = await screen.findByRole("region", { name: "Movimiento" });
+    expect(detalle).toHaveTextContent("Retiro de «Arriendo de enero»");
+    expect(fila(/Arriendo de enero/)).toHaveTextContent(
+      "Retiro de una meta · Transferencia",
+    );
+    expect(
+      within(detalle).queryByRole("button", { name: "Corregir" }),
+    ).toBeNull();
+    expect(
+      within(detalle).queryByRole("button", { name: "Borrar este movimiento" }),
+    ).toBeNull();
+  });
+
+  it("un solo movimiento dice «1 movimiento»", async () => {
+    api();
+    alListar = () => json(200, lista([transporte]));
+    await abrir();
+    expect(screen.getByText(porTexto("1 movimiento"))).toBeInTheDocument();
   });
 
   it("un movimiento que ya no está (la dirección trae un id que la lista no tiene) lo dice y vuelve a la lista", async () => {
@@ -638,30 +669,59 @@ describe("PN-02 · Corregir (E14-PRR 4.2, D-168)", () => {
     });
   });
 
-  it("un aporte no ofrece Tipo ni Categoría, conserva «Compartido con el hogar» y manda su tipo", async () => {
-    const pedidos = api();
-    await corregir("/movimientos?movimiento=m4");
-    expect(formulario().queryByRole("group", { name: "Tipo" })).toBeNull();
-    expect(formulario().queryByRole("group", { name: "Categoría" })).toBeNull();
-    expect(
-      formulario().queryByRole("button", { name: "Ver todas" }),
-    ).toBeNull();
-    expect(
-      formulario().getByRole("radio", { name: "Compartido con el hogar" }),
-    ).toBeChecked();
-    expect(
-      formulario().getByRole("radio", { name: "Transferencia" }),
-    ).toBeChecked();
-    fireEvent.change(screen.getByLabelText("Monto"), {
-      target: { value: "90.000" },
+  // D-170: «Suscripciones» (10) no está en el catálogo de la persona porque la ocultó; «Ropa y calzado» (3) tampoco.
+  describe("categoría oculta (D-170)", () => {
+    const deSuscripciones = () => {
+      api();
+      alListar = () => json(200, lista([musica], { periodo: "2026-10" }));
+      return corregir("/movimientos?periodo=2026-10&movimiento=m2");
+    };
+
+    it("la incluye ya elegida, con el ícono y la palabra «Oculta», y las demás ocultas no aparecen", async () => {
+      await deSuscripciones();
+      const chip = formulario().getByRole("radio", {
+        name: "Suscripciones Oculta",
+      });
+      expect(chip).toBeChecked();
+      expect(
+        chip.closest("label")?.querySelector(".oculta svg"),
+      ).not.toBeNull();
+      expect(formulario().getAllByText("Oculta")).toHaveLength(1);
+      expect(
+        formulario().queryByRole("radio", { name: /Ropa y calzado/ }),
+      ).toBeNull();
+      expect(
+        formulario().getByRole("radio", { name: "Alimentación" }),
+      ).not.toBeChecked();
     });
-    guardarCambios();
-    await screen.findByText("Listo, guardamos los cambios.");
-    expect(puts(pedidos)[0]?.cuerpo).toEqual({
-      monto_centavos: 9000000,
-      tipo: "aporte",
-      fecha: "2026-11-01",
-      medio: "transferencia",
+
+    it("«Ver todas» la lista con su marca y guardar sin cambiarla manda su categoría", async () => {
+      const pedidos = api();
+      alListar = () => json(200, lista([musica], { periodo: "2026-10" }));
+      await corregir("/movimientos?periodo=2026-10&movimiento=m2");
+      fireEvent.click(formulario().getByRole("button", { name: "Ver todas" }));
+      expect(
+        formulario().getByRole("button", { name: "Suscripciones Oculta" }),
+      ).toHaveAttribute("aria-pressed", "true");
+      guardarCambios();
+      await screen.findByText("Listo, guardamos los cambios.");
+      expect(puts(pedidos)[0]?.cuerpo).toMatchObject({ categoria_id: 10 });
+    });
+
+    it("al cambiar de Tipo deja de ofrecerse, y al volver al del movimiento vuelve", async () => {
+      await deSuscripciones();
+      fireEvent.click(formulario().getByRole("radio", { name: "Ingreso" }));
+      expect(formulario().queryByText("Oculta")).toBeNull();
+      fireEvent.click(formulario().getByRole("radio", { name: "Gasto" }));
+      expect(
+        formulario().getByRole("radio", { name: "Suscripciones Oculta" }),
+      ).toBeInTheDocument();
+    });
+
+    it("una categoría visible no lleva la marca «Oculta»", async () => {
+      api();
+      await corregir("/movimientos?movimiento=m9");
+      expect(formulario().queryByText("Oculta")).toBeNull();
     });
   });
 
@@ -807,30 +867,6 @@ describe("PN-02 · Borrar (E14-PRR 4.2, D-168, D-169)", () => {
     expect(pedidos.filter((p) => p.metodo === "DELETE")).toHaveLength(1);
   });
 
-  it("un aporte agrega que el avance de la meta baja y su aviso dice «aporte»", async () => {
-    api();
-    const hoja = await abrirHoja("/movimientos?movimiento=m4");
-    expect(hoja).toHaveTextContent(
-      "Aporte de $100.000 a «Arriendo de enero», Ayer.",
-    );
-    expect(hoja).toHaveTextContent(
-      "El avance de «Arriendo de enero» baja $100.000. El avance nunca queda por debajo de cero.",
-    );
-    confirmar();
-    await screen.findByText(porTexto("Listo, borramos el aporte de $100.000."));
-  });
-
-  it("un retiro de una meta no dice que el avance baja", async () => {
-    api();
-    alListar = () =>
-      json(200, lista([{ ...arriendoDeEnero, sentido: "salida" }]));
-    const hoja = await abrirHoja("/movimientos?movimiento=m4");
-    expect(hoja).not.toHaveTextContent("avance");
-    expect(fila(/Arriendo de enero/)).toHaveTextContent(
-      "Retiro de una meta · Transferencia",
-    );
-  });
-
   it("un ingreso dice «ingreso» en la hoja y en el aviso", async () => {
     api();
     alListar = () =>
@@ -846,7 +882,7 @@ describe("PN-02 · Borrar (E14-PRR 4.2, D-168, D-169)", () => {
         ]),
       );
     const hoja = await abrirHoja("/movimientos?movimiento=i1");
-    expect(hoja).toHaveTextContent("Ingreso de $1.200.000 en Salario, Hoy.");
+    expect(hoja).toHaveTextContent("Ingreso de $1.200.000 por Salario, Hoy.");
     confirmar();
     await screen.findByText(
       porTexto("Listo, borramos el ingreso de $1.200.000."),
