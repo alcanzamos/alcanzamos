@@ -5,6 +5,15 @@ import { navegar } from "../src/enrutador";
 import { json, simularApi } from "./ayudas";
 
 // L10: el borrador del formulario solo se conserva en el viaje a PN-03 y de vuelta; en cualquier otra pantalla se vacía.
+// D-164: el formulario se abre desde «Registrar» de PN-01 y vuelve a PN-01.
+const sinMovimientos = {
+  periodo_actual: "2026-10",
+  periodo: "2026-10",
+  resumen: { movimientos: 0, total_centavos: null },
+  meses: [],
+  categorias: [],
+  movimientos: [],
+};
 const catalogo = {
   gasto: [
     { id: 1, nombre: "x", general: false },
@@ -20,6 +29,8 @@ beforeEach(() => {
     if (p.ruta.startsWith("/api/v1/repeticiones"))
       return json(200, { proximas: [] });
     if (p.ruta === "/api/v1/categorias") return json(200, catalogo);
+    if (p.ruta.startsWith("/api/v1/movimientos"))
+      return json(200, sinMovimientos);
     if (p.metodo === "DELETE") return json(204);
     return json(200, { ingreso_anterior: null });
   });
@@ -29,23 +40,21 @@ const monto = () => screen.findByLabelText<HTMLInputElement>("Monto");
 const escribir = async (valor: string) =>
   fireEvent.change(await monto(), { target: { value: valor } });
 const ir = (ruta: string) => navegar(ruta);
-const abrirDesdePN71 = async () => {
-  fireEvent.click(
-    await screen.findByRole("link", { name: "Registrar un movimiento" }),
-  );
+const abrirDesdePN01 = async () => {
+  fireEvent.click(await screen.findByRole("link", { name: "Registrar" }));
   await monto();
 };
 
 describe("Borrador del registro · cuándo se conserva y cuándo se vacía (L10)", () => {
-  it("abrir el formulario desde PN-71 empieza vacío aunque la persona haya escrito y vuelto", async () => {
-    window.history.replaceState(null, "", "/cuenta/seguridad");
+  it("abrir el formulario desde PN-01 empieza vacío aunque la persona haya escrito y vuelto", async () => {
+    window.history.replaceState(null, "", "/movimientos");
     render(<App />);
-    await abrirDesdePN71();
+    await abrirDesdePN01();
     await escribir("45.000");
     fireEvent.click(await screen.findByRole("radio", { name: "Alimentación" }));
     fireEvent.click(screen.getByRole("radio", { name: "Efectivo" }));
     fireEvent.click(screen.getByRole("link", { name: "Atrás" }));
-    await abrirDesdePN71();
+    await abrirDesdePN01();
     expect((await monto()).value).toBe("");
     expect(
       screen.getByRole("radio", { name: "Alimentación" }),
@@ -55,9 +64,9 @@ describe("Borrador del registro · cuándo se conserva y cuándo se vacía (L10)
   });
 
   it("el viaje a PN-03 y de vuelta conserva el monto, la categoría y la repetición", async () => {
-    window.history.replaceState(null, "", "/cuenta/seguridad");
+    window.history.replaceState(null, "", "/movimientos");
     render(<App />);
-    await abrirDesdePN71();
+    await abrirDesdePN01();
     await escribir("45.000");
     fireEvent.click(await screen.findByRole("radio", { name: "Alimentación" }));
     fireEvent.click(screen.getByRole("link", { name: "Cambiar" }));
@@ -78,9 +87,9 @@ describe("Borrador del registro · cuándo se conserva y cuándo se vacía (L10)
   });
 
   it("cerrar la sesión en PN-71 lo vacía: la siguiente persona abre el formulario sin nada", async () => {
-    window.history.replaceState(null, "", "/cuenta/seguridad");
+    window.history.replaceState(null, "", "/movimientos");
     render(<App />);
-    await abrirDesdePN71();
+    await abrirDesdePN01();
     await escribir("45.000");
     ir("/cuenta/seguridad");
     fireEvent.click(

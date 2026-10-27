@@ -76,3 +76,12 @@ export const IconoPropio = () => (
     <path d="M6.5 18.5c1.2-2.4 3.2-3.5 5.5-3.5s4.3 1.1 5.5 3.5" />
   </Icono>
 );
+
+// Compartido, de la Marca de propiedad (E14-SDD 5.16): dos personas.
+export const IconoCompartido = () => (
+  <Icono>
+    <circle cx="9" cy="9" r="3" />
+    <circle cx="17" cy="10" r="2.5" />
+    <path d="M3.5 19c.9-2.8 2.9-4 5.5-4s4.6 1.2 5.5 4M15 15.3c.7-.2 1.4-.3 2-.3 2 0 3.3 1 4 3.5" />
+  </Icono>
+);

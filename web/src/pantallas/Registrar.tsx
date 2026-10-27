@@ -61,8 +61,9 @@ const LARGO_DE_LA_DESCRIPCION = 280;
 const SOLO_MIO = "solo_mio";
 const r = textos.registro;
 
-// PN-01 · Formulario de registro, variante web (E14-PPN 3.1, D-164). Sin el cuadro de lenguaje natural, el aviso de
-// faltante, «Tarjeta», «Cuotas», PN-04, PN-05 ni «Compartido con el hogar»: esas filas no se dibujan (README de web).
+// Formulario de registro, variante web (E14-PPN 3.1, D-164): se llega desde «Registrar» de PN-01 y vuelve a PN-01. Sin
+// el cuadro de lenguaje natural, el aviso de faltante, «Tarjeta», «Cuotas», PN-04, PN-05 ni «Compartido con el hogar»:
+// esas filas no se dibujan (README de web).
 export function Registrar() {
   const borrador = useBorrador();
   const [catalogo, setCatalogo] = useState<Catalogo>({ fase: "cargando" });
@@ -127,7 +128,7 @@ export function Registrar() {
     if (respuesta.ok) {
       reiniciarBorrador();
       irConMensaje(
-        "/cuenta/seguridad",
+        "/movimientos",
         avisoDeRegistro(
           solicitud.tipo,
           solicitud.fecha,
@@ -166,7 +167,7 @@ export function Registrar() {
 
   if (catalogo.fase !== "listo")
     return (
-      <Pagina titulo={r.titulo} atras="/cuenta/seguridad">
+      <Pagina titulo={r.titulo} atras="/movimientos">
         {catalogo.fase === "error" && (
           <>
             <Aviso {...catalogo.aviso} />
@@ -196,7 +197,7 @@ export function Registrar() {
   };
 
   return (
-    <Pagina titulo={r.titulo} atras="/cuenta/seguridad">
+    <Pagina titulo={r.titulo} atras="/movimientos">
       <form className="formulario" noValidate onSubmit={enviar}>
         {aviso && <Aviso {...aviso} />}
         <ChipsDeEleccion

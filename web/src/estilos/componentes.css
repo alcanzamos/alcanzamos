@@ -502,3 +502,33 @@
   padding: 0;
   list-style: none;
 }
+
+/* PN-01 (E14-PRR 4.1): la lista de movimientos, una tarjeta por día */
+.lista-de-filas {
+  margin: 0;
+  list-style: none;
+}
+
+/* Fila de lista con valor (5.15): el texto a la izquierda y el monto a la derecha */
+.fila-de-lista {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espacio-3);
+  min-height: var(--tamano-tactil-minimo);
+}
+
+.fila-de-lista .fila {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Marca de propiedad (5.16): ícono y texto juntos */
+.marca {
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-1);
+  margin: 0;
+  color: var(--color-texto-secundario);
+  font-size: var(--tipografia-pequeno-font-size);
+}

@@ -20,7 +20,8 @@ type Estado =
   | { fase: "listo"; ingreso: string | null };
 
 // PN-71 · Seguridad de la cuenta: el ingreso anterior, nunca el de ahora (E14-PCP 4.14, RF-062).
-// Es la pantalla de inicio provisional de quien entra con autorización, hasta que haya un Inicio.
+// Es la pantalla de inicio provisional de quien entra con autorización, hasta que haya un Inicio. «Movimientos» es su
+// entrada a PN-01 (E14-SDD 5.9), que ya trae «Registrar» (D-164): aquí no hay botón para registrar.
 export function SeguridadDeLaCuenta() {
   const [estado, setEstado] = useState<Estado>({ fase: "cargando" });
   const [intento, setIntento] = useState(0);
@@ -115,7 +116,7 @@ export function SeguridadDeLaCuenta() {
           )}
         </>
       )}
-      <BotonEnlace href="/registrar">{textos.registro.abrir}</BotonEnlace>
+      <BotonEnlace href="/movimientos">{textos.movimientos.titulo}</BotonEnlace>
       <Boton variante="texto" alTocar={() => void salir()}>
         {textos.acciones.cerrarSesion}
       </Boton>

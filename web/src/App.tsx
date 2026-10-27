@@ -5,6 +5,7 @@ import { Autorizacion } from "./pantallas/Autorizacion";
 import { CambiarContrasena } from "./pantallas/CambiarContrasena";
 import { CrearCuenta } from "./pantallas/CrearCuenta";
 import { Entrar } from "./pantallas/Entrar";
+import { Movimientos } from "./pantallas/Movimientos";
 import { Privacidad } from "./pantallas/Privacidad";
 import { Recuperar } from "./pantallas/Recuperar";
 import { Registrar } from "./pantallas/Registrar";
@@ -30,6 +31,7 @@ const pantallas: Record<string, () => ReactElement> = {
   "/recuperar": Recuperar,
   "/cuenta/seguridad": SeguridadDeLaCuenta,
   "/cuenta/contrasena": CambiarContrasena,
+  "/movimientos": Movimientos,
   "/registrar": Registrar,
   "/registrar/se-repite": SeRepite,
 };
