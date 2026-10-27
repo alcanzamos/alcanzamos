@@ -1,9 +1,12 @@
 import { cifras } from "./Cifras";
 import { IconoAtencion, IconoCheck } from "./Iconos";
+import { MarcaDeOculta } from "./MarcaDeOculta";
 
 export type OpcionDeChip<V extends string | number> = {
   valor: V;
   etiqueta: string;
+  /** Una categoría que la persona ocultó: lleva el ícono y la palabra «Oculta», no solo color (D-170). */
+  oculta?: boolean;
 };
 
 // Chips de categoría de E14-SDD (elección única): un grupo de botones de radio con etiqueta y, si hace falta, su error.
@@ -47,6 +50,7 @@ export function ChipsDeEleccion<V extends string | number>({
             <span className="chip__texto">
               <IconoCheck />
               {cifras(opcion.etiqueta)}
+              {opcion.oculta && <MarcaDeOculta />}
             </span>
           </label>
         ))}

@@ -1,5 +1,6 @@
 import { useEffect, useState, type SyntheticEvent } from "react";
 import { seguirPorAccesoNegado } from "../accesoNegado";
+import { corregirMovimiento, type Movimiento } from "../api/movimientos";
 import {
   guardarMovimiento,
   obtenerCategorias,
@@ -8,14 +9,18 @@ import {
 } from "../api/registro";
 import { Aviso } from "../componentes/Aviso";
 import { Boton } from "../componentes/Boton";
+import { IconoInformacion } from "../componentes/Iconos";
+import { MarcaDeOculta } from "../componentes/MarcaDeOculta";
 import { ChipsDeEleccion } from "../componentes/ChipsDeEleccion";
 import { cifras } from "../componentes/Cifras";
 import { CampoDeTexto } from "../componentes/CampoDeTexto";
 import { Pagina } from "../componentes/Pagina";
 import {
+  borradorDeMovimiento,
   cambiarBorrador,
   reiniciarBorrador,
   useBorrador,
+  type Borrador,
 } from "../borradorDeRegistro";
 import { formatearPesos, leerMonto } from "../dinero";
 import { useFocoPendiente } from "../enfoque";
@@ -61,11 +66,32 @@ const LARGO_DE_LA_DESCRIPCION = 280;
 const SOLO_MIO = "solo_mio";
 const r = textos.registro;
 
-// Formulario de registro, variante web (E14-PPN 3.1, D-164): se llega desde «Registrar» de PN-01 y vuelve a PN-01. Sin
-// el cuadro de lenguaje natural, el aviso de faltante, «Tarjeta», «Cuotas», PN-04, PN-05 ni «Compartido con el hogar»:
-// esas filas no se dibujan (README de web).
-export function Registrar() {
-  const borrador = useBorrador();
+/** «Corregir» de PN-02: los mismos campos, ya llenos (E14-PRR 4.2). `alTerminar(null)` es que el movimiento ya no existe. */
+export type Correccion = {
+  movimiento: Movimiento;
+  alTerminar: (aviso: DatosDeAviso | null) => void;
+  alCancelar: () => void;
+};
+
+// Formulario de registro, variante web (E14-PPN 3.1, D-164). Sin el cuadro de lenguaje natural, el aviso de
+// faltante, «Tarjeta», «Cuotas», PN-04, PN-05 ni «Compartido con el hogar»: esas filas no se dibujan (README de web).
+// Con `corregir` es «Corregir» de PN-02 (E14-PRR 4.2): lleva su propio estado, no el borrador, y no ofrece lo que el
+// API no deja cambiar. Una fecha de un recurrente no lleva Fecha (D-168). Si el movimiento tiene una categoría que la
+// persona ocultó después, el formulario la incluye ya elegida, con el ícono y la palabra «Oculta» (D-170).
+export function FormularioDeMovimiento({
+  corregir,
+}: {
+  corregir?: Correccion;
+}) {
+  const delBorrador = useBorrador();
+  const [propio, setPropio] = useState<Borrador>(() =>
+    corregir ? borradorDeMovimiento(corregir.movimiento) : delBorrador,
+  );
+  const borrador = corregir ? propio : delBorrador;
+  const cambiar = (cambio: Partial<Borrador>) =>
+    corregir ? setPropio({ ...propio, ...cambio }) : cambiarBorrador(cambio);
+  const original = corregir?.movimiento;
+  const esRecurrente = Boolean(original?.recurrente);
   const [catalogo, setCatalogo] = useState<Catalogo>({ fase: "cargando" });
   const [intento, setIntento] = useState(0);
   const [errores, setErrores] = useState<Errores>({});
@@ -94,13 +120,25 @@ export function Registrar() {
   const hoy = hoyEnColombia();
   const fecha = borrador.fecha ?? hoy;
   // Solo las categorías con texto de E14: el API manda el `id` y el texto sale de es.json.
-  const categorias =
-    catalogo.fase === "listo"
-      ? catalogo.categorias[borrador.tipo].flatMap((c) => {
-          const nombre = nombresDeCategoria[`c${c.id}`];
-          return nombre ? [{ ...c, nombre }] : [];
-        })
-      : [];
+  const delCatalogo =
+    catalogo.fase === "listo" ? catalogo.categorias[borrador.tipo] : [];
+  const categorias: { id: number; nombre: string; oculta: boolean }[] =
+    delCatalogo.flatMap((c) => {
+      const nombre = nombresDeCategoria[`c${c.id}`];
+      return nombre ? [{ id: c.id, nombre, oculta: false }] : [];
+    });
+  // La categoría que el movimiento ya tiene y el catálogo no trae es una que la persona ocultó (RN-011): el API la
+  // acepta en el PUT. Solo es de su mismo tipo: al cambiar de tipo deja de ofrecerse.
+  const actual = original?.categoria_id;
+  const nombreOculta = actual ? nombresDeCategoria[`c${actual}`] : undefined;
+  if (
+    actual &&
+    nombreOculta &&
+    original.tipo === borrador.tipo &&
+    !delCatalogo.some((c) => c.id === actual)
+  )
+    categorias.push({ id: actual, nombre: nombreOculta, oculta: true });
+  categorias.sort((a, b) => a.id - b.id);
   // La categoría es obligatoria hasta que exista el motor de reglas que la sugiere (D-165): sin elegir, no hay ninguna.
   const categoriaId =
     categorias.find((c) => c.id === borrador.categoriaId)?.id ?? null;
@@ -114,7 +152,7 @@ export function Registrar() {
   async function enviar(evento?: SyntheticEvent) {
     evento?.preventDefault();
     if (enviando) return;
-    const revisado = validarRegistro(borrador, categoriaId);
+    const revisado = validarRegistro(borrador, categoriaId, undefined);
     setAviso(null);
     if ("errores" in revisado) {
       mostrar(revisado.errores);
@@ -122,9 +160,15 @@ export function Registrar() {
     }
     setErrores({});
     setEnviando(true);
-    const respuesta = await guardarMovimiento(revisado.solicitud);
-    setEnviando(false);
     const { solicitud } = revisado;
+    const respuesta = original
+      ? await corregirMovimiento(solicitud, original)
+      : await guardarMovimiento(solicitud);
+    setEnviando(false);
+    if (respuesta.ok && corregir) {
+      corregir.alTerminar(avisos.cambiosGuardados);
+      return;
+    }
     if (respuesta.ok) {
       reiniciarBorrador();
       irConMensaje(
@@ -139,6 +183,10 @@ export function Registrar() {
       return;
     }
     if (seguirPorAccesoNegado(respuesta)) return;
+    if (corregir && respuesta.estado === 404) {
+      corregir.alTerminar(null);
+      return;
+    }
     const delCampo: Errores = {};
     let sinTexto = false;
     if (respuesta.codigo === "datos_invalidos") {
@@ -155,35 +203,36 @@ export function Registrar() {
     }
     setErrores({});
     setAviso(
-      avisoDeFallo(respuesta, avisoErrorAlGuardarMovimiento(solicitud.tipo)),
+      avisoDeFallo(
+        respuesta,
+        corregir
+          ? avisos.errorAlGuardarCambios
+          : avisoErrorAlGuardarMovimiento(solicitud.tipo),
+      ),
     );
     pedirFoco("aviso");
   }
 
   function elegirCategoria(id: number) {
-    cambiarBorrador({ categoriaId: id });
+    cambiar({ categoriaId: id });
     setVerTodas(false);
   }
 
   if (catalogo.fase !== "listo")
-    return (
-      <Pagina titulo={r.titulo} atras="/movimientos">
-        {catalogo.fase === "error" && (
-          <>
-            <Aviso {...catalogo.aviso} />
-            <Boton
-              variante="secundario"
-              alTocar={() => {
-                setCatalogo({ fase: "cargando" });
-                setIntento(intento + 1);
-              }}
-            >
-              {textos.acciones.intentarDeNuevo}
-            </Boton>
-          </>
-        )}
-      </Pagina>
-    );
+    return catalogo.fase === "error" ? (
+      <>
+        <Aviso {...catalogo.aviso} />
+        <Boton
+          variante="secundario"
+          alTocar={() => {
+            setCatalogo({ fase: "cargando" });
+            setIntento(intento + 1);
+          }}
+        >
+          {textos.acciones.intentarDeNuevo}
+        </Boton>
+      </>
+    ) : null;
 
   const medios: { valor: Medio; etiqueta: string }[] = [
     { valor: "efectivo", etiqueta: r.medio.efectivo },
@@ -192,14 +241,19 @@ export function Registrar() {
   const palabras = fecha === hoy ? r.fecha.hoy : diaEnPalabras(fecha);
   const alSalirDelMonto = () => {
     const lectura = leerMonto(borrador.monto);
-    if (lectura.ok)
-      cambiarBorrador({ monto: formatearPesos(lectura.centavos) });
+    if (lectura.ok) cambiar({ monto: formatearPesos(lectura.centavos) });
   };
 
   return (
-    <Pagina titulo={r.titulo} atras="/movimientos">
-      <form className="formulario" noValidate onSubmit={enviar}>
-        {aviso && <Aviso {...aviso} />}
+    <form className="formulario" noValidate onSubmit={enviar}>
+      {aviso && <Aviso {...aviso} />}
+      {esRecurrente && (
+        <p className="nota">
+          <IconoInformacion />
+          <span>{textos.movimientos.detalle.soloEstaFecha}</span>
+        </p>
+      )}
+      {!esRecurrente && (
         <ChipsDeEleccion
           id="tipo"
           etiqueta={r.tipo.etiqueta}
@@ -208,20 +262,22 @@ export function Registrar() {
             { valor: "ingreso", etiqueta: r.tipo.ingreso },
           ]}
           valor={borrador.tipo}
-          alElegir={(tipo) => cambiarBorrador({ tipo })}
+          alElegir={(tipo) => cambiar({ tipo })}
           error={errores.tipo}
         />
-        <CampoDeTexto
-          id="monto"
-          etiqueta={r.monto.etiqueta}
-          modo="decimal"
-          cifra
-          autocompletar="off"
-          valor={borrador.monto}
-          alCambiar={(monto) => cambiarBorrador({ monto })}
-          alSalir={alSalirDelMonto}
-          error={errores.monto}
-        />
+      )}
+      <CampoDeTexto
+        id="monto"
+        etiqueta={r.monto.etiqueta}
+        modo="decimal"
+        cifra
+        autocompletar="off"
+        valor={borrador.monto}
+        alCambiar={(monto) => cambiar({ monto })}
+        alSalir={alSalirDelMonto}
+        error={errores.monto}
+      />
+      {!esRecurrente && (
         <CampoDeTexto
           id="fecha"
           etiqueta={r.fecha.etiqueta}
@@ -230,71 +286,82 @@ export function Registrar() {
           cifra
           autocompletar="off"
           valor={fecha}
-          alCambiar={(valor) => cambiarBorrador({ fecha: valor })}
+          alCambiar={(valor) => cambiar({ fecha: valor })}
           ayuda={palabras ?? undefined}
           error={errores.fecha}
         />
-        <div className="grupo">
-          <ChipsDeEleccion
-            id="categoria"
-            etiqueta={r.categoria.etiqueta}
-            enFila
-            opciones={categorias.map((c) => ({
-              valor: c.id,
-              etiqueta: c.nombre,
-            }))}
-            valor={categoriaId}
-            alElegir={elegirCategoria}
-            error={errores.categoria}
-          />
-          <Boton
-            id="ver-todas"
-            variante="texto"
-            expandido={verTodas}
-            alTocar={() => setVerTodas(!verTodas)}
-          >
-            {r.categoria.verTodas}
-          </Boton>
-          {verTodas && (
-            <ul className="lista-de-categorias">
-              {categorias.map((c) => (
-                <li key={c.id}>
-                  <button
-                    type="button"
-                    aria-pressed={c.id === categoriaId}
-                    onClick={() => elegirCategoria(c.id)}
-                  >
-                    {c.nombre}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+      )}
+      <div className="grupo">
         <ChipsDeEleccion
-          id="medio"
-          etiqueta={r.medio.etiqueta}
-          opciones={medios}
-          valor={borrador.medio}
-          alElegir={(medio) => cambiarBorrador({ medio })}
-          error={errores.medio}
+          id="categoria"
+          etiqueta={r.categoria.etiqueta}
+          enFila
+          opciones={categorias.map((c) => ({
+            valor: c.id,
+            etiqueta: c.nombre,
+            oculta: c.oculta,
+          }))}
+          valor={categoriaId}
+          alElegir={elegirCategoria}
+          error={errores.categoria}
         />
-        <ChipsDeEleccion
-          id="quien"
-          etiqueta={r.quien.etiqueta}
-          opciones={[{ valor: SOLO_MIO, etiqueta: r.quien.soloMio }]}
-          valor={SOLO_MIO}
-        />
-        <CampoDeTexto
-          id="descripcion"
-          etiqueta={r.descripcion.etiqueta}
-          ayuda={r.descripcion.ayuda}
-          maxLength={LARGO_DE_LA_DESCRIPCION}
-          autocompletar="off"
-          valor={borrador.descripcion}
-          alCambiar={(descripcion) => cambiarBorrador({ descripcion })}
-          error={errores.descripcion}
-        />
+        <Boton
+          id="ver-todas"
+          variante="texto"
+          expandido={verTodas}
+          alTocar={() => setVerTodas(!verTodas)}
+        >
+          {r.categoria.verTodas}
+        </Boton>
+        {verTodas && (
+          <ul className="lista-de-categorias">
+            {categorias.map((c) => (
+              <li key={c.id}>
+                <button
+                  type="button"
+                  aria-pressed={c.id === categoriaId}
+                  onClick={() => elegirCategoria(c.id)}
+                >
+                  {c.nombre}
+                  {c.oculta && <MarcaDeOculta />}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <ChipsDeEleccion
+        id="medio"
+        etiqueta={r.medio.etiqueta}
+        opciones={medios}
+        valor={borrador.medio}
+        alElegir={(medio) => cambiar({ medio })}
+        error={errores.medio}
+      />
+      <ChipsDeEleccion
+        id="quien"
+        etiqueta={r.quien.etiqueta}
+        opciones={[
+          {
+            valor: SOLO_MIO,
+            etiqueta: original?.compartido
+              ? textos.movimientos.fila.compartido
+              : r.quien.soloMio,
+          },
+        ]}
+        valor={SOLO_MIO}
+      />
+      <CampoDeTexto
+        id="descripcion"
+        etiqueta={r.descripcion.etiqueta}
+        ayuda={r.descripcion.ayuda}
+        maxLength={LARGO_DE_LA_DESCRIPCION}
+        autocompletar="off"
+        valor={borrador.descripcion}
+        alCambiar={(descripcion) => cambiar({ descripcion })}
+        error={errores.descripcion}
+      />
+      {!corregir && (
         <div className="grupo">
           <div className="fila-con-enlace">
             <div className="fila" id="se-repite-valor">
@@ -327,15 +394,27 @@ export function Registrar() {
             </p>
           )}
         </div>
-        <Boton tipo="submit" deshabilitado={enviando}>
-          {r.guardar}
+      )}
+      <Boton tipo="submit" deshabilitado={enviando}>
+        {corregir ? textos.movimientos.detalle.guardarCambios : r.guardar}
+      </Boton>
+      {corregir && (
+        <Boton variante="secundario" alTocar={corregir.alCancelar}>
+          {textos.movimientos.detalle.ahoraNo}
         </Boton>
-        {aviso && (
-          <Boton variante="secundario" alTocar={() => void enviar()}>
-            {textos.acciones.intentarDeNuevo}
-          </Boton>
-        )}
-      </form>
-    </Pagina>
+      )}
+      {aviso && (
+        <Boton variante="secundario" alTocar={() => void enviar()}>
+          {textos.acciones.intentarDeNuevo}
+        </Boton>
+      )}
+    </form>
   );
 }
+
+// El formulario de registro: se llega desde «Registrar» de PN-01 y vuelve a PN-01 al guardar (D-164).
+export const Registrar = () => (
+  <Pagina titulo={r.titulo} atras="/movimientos">
+    <FormularioDeMovimiento />
+  </Pagina>
+);

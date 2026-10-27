@@ -431,6 +431,20 @@
   display: inline-block;
 }
 
+/* La marca «Oculta» (D-170): su ícono se ve siempre, con el chip elegido o no */
+.oculta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--espacio-1);
+}
+
+.chip__texto .oculta .icono,
+.lista-de-categorias .oculta .icono {
+  display: inline-block;
+  width: var(--tamano-icono);
+  height: var(--tamano-icono);
+}
+
 .chip input:focus-visible + .chip__texto {
   outline: var(--ancho-borde-grueso) solid var(--color-borde-foco);
   outline-offset: var(--espacio-1);
@@ -503,22 +517,73 @@
   list-style: none;
 }
 
-/* PN-01 (E14-PRR 4.1): la lista de movimientos, una tarjeta por día */
+/* Botón destructivo (5.2): borrar con confirmación */
+.boton--destructivo {
+  background: var(--color-accion-destructiva-fondo);
+  color: var(--color-accion-destructiva-texto);
+}
+
+.boton--destructivo:active {
+  background: var(--color-accion-destructiva-fondo-presionado);
+}
+
+/* PN-01 y PN-02 en la web (E14-PRR 4.1): la lista a la izquierda y el detalle a la derecha, sin cambiar de página.
+   El corte de 768 px de E14 se escribe en ch (96ch con la letra por defecto): la prueba de estilos no admite px, em ni rem
+   y una consulta de medios no puede usar un token. Por debajo, una pantalla a la vez: la lista o el detalle. */
+.columna--ancha {
+  max-width: none;
+}
+
+.movimientos {
+  display: grid;
+  gap: var(--espacio-6);
+}
+
+.movimientos__lista,
+.movimientos__detalle,
+.detalle {
+  display: grid;
+  gap: var(--espacio-4);
+  align-content: start;
+  min-width: 0;
+}
+
+.panel {
+  gap: var(--espacio-4);
+}
+
+.monto-grande {
+  font-family: var(--tipografia-cifra-grande-font-family), sans-serif;
+  font-weight: var(--tipografia-cifra-grande-font-weight);
+  font-size: var(--tipografia-cifra-grande-font-size);
+  line-height: var(--tipografia-cifra-grande-line-height);
+}
+
+/* Fila de lista navegable con valor (5.20): el texto, el monto y el ícono Siguiente */
 .lista-de-filas {
   margin: 0;
   list-style: none;
 }
 
-/* Fila de lista con valor (5.15): el texto a la izquierda y el monto a la derecha */
-.fila-de-lista {
+.fila-navegable {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--espacio-3);
   min-height: var(--tamano-tactil-minimo);
+  color: var(--color-texto-principal);
+  text-decoration: none;
 }
 
-.fila-de-lista .fila {
+.fila-navegable[aria-current="true"] {
+  background: var(--color-fondo-marca-suave);
+}
+
+.fila-navegable .icono {
+  transform: scaleX(-1);
+}
+
+.fila-navegable .fila {
   flex: 1;
   min-width: 0;
 }
@@ -531,4 +596,21 @@
   margin: 0;
   color: var(--color-texto-secundario);
   font-size: var(--tipografia-pequeno-font-size);
+}
+
+@media (max-width: 95.9ch) {
+  .movimientos--abierto .movimientos__lista,
+  .movimientos:not(.movimientos--abierto) .movimientos__detalle {
+    display: none;
+  }
+}
+
+@media (min-width: 96ch) {
+  .movimientos {
+    grid-template-columns: 5fr 7fr;
+  }
+
+  .detalle__atras {
+    display: none;
+  }
 }

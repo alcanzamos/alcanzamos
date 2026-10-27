@@ -9,10 +9,11 @@ import { Aviso } from "../componentes/Aviso";
 import { Boton, BotonEnlace } from "../componentes/Boton";
 import { ChipsDeEleccion } from "../componentes/ChipsDeEleccion";
 import { cifras } from "../componentes/Cifras";
+import { IconoAtras } from "../componentes/Iconos";
 import { MarcaDePropiedad } from "../componentes/MarcaDePropiedad";
 import { Pagina } from "../componentes/Pagina";
 import { formatearPesos } from "../dinero";
-import { navegar, useUbicacion } from "../enrutador";
+import { alTocarEnlace, navegar, useUbicacion } from "../enrutador";
 import { hoyEnColombia, mesAnterior, mesEnPalabras } from "../fechas";
 import { avisoDeLlegada } from "../llegada";
 import {
@@ -23,6 +24,7 @@ import {
 } from "../textos";
 import { textosDeFila, tituloDelDia } from "../textosDeMovimientos";
 import { formatear, plural, textos } from "../textos/es.generated";
+import { DetalleDeMovimiento } from "./DetalleDeMovimiento";
 
 type Estado =
   | { fase: "cargando" }
@@ -36,11 +38,16 @@ const CHIPS_DE_CATEGORIA = 3;
 
 const nombreDe = (id: number) => nombresDeCategoria[`c${id}`] ?? "";
 
-// Los filtros viven en la dirección: atrás, adelante y recargar los conservan.
-function direccion(periodo: string | null, categoria: number | null) {
+// Los filtros y el movimiento abierto viven en la dirección: atrás, adelante y recargar los conservan.
+function direccion(
+  periodo: string | null,
+  categoria: number | null,
+  movimiento: string | null = null,
+) {
   const consulta = new URLSearchParams();
   if (periodo) consulta.set("periodo", periodo);
   if (categoria) consulta.set("categoria", String(categoria));
+  if (movimiento) consulta.set("movimiento", movimiento);
   return consulta.size > 0 ? `/movimientos?${consulta}` : "/movimientos";
 }
 
@@ -55,16 +62,17 @@ function porDia(movimientos: Movimiento[]) {
   return dias;
 }
 
-// PN-01 · Movimientos: lista y filtros, variante web (E14-PRR 4.1). Es la entrada al formulario de registro («Registrar»,
-// D-164) y a ella se vuelve al guardar. Sin la sección «Por confirmar» (US-60, D-168), sin las «Horas de vida» (RF-054)
-// y sin el contexto «Nuestro hogar»; el detalle de cada fila (PN-02) llega en el PR siguiente de la US-52.
+// PN-01 · Movimientos: lista y filtros, variante web (E14-PRR 4.1). Dos columnas: la lista a la izquierda y el detalle
+// (PN-02) a la derecha, sin cambiar de página. Por debajo de 768 px es una pantalla a la vez, como en Android.
+// Sin la sección «Por confirmar» (US-60, D-168) ni las «Horas de vida» (RF-054). Sin el contexto «Nuestro hogar».
 export function Movimientos() {
   const { parametros } = useUbicacion();
   const periodo = parametros.get("periodo");
   const categoria = Number(parametros.get("categoria")) || null;
+  const abierto = parametros.get("movimiento");
   const [estado, setEstado] = useState<Estado>({ fase: "cargando" });
   const [intento, setIntento] = useState(0);
-  const [aviso] = useState(avisoDeLlegada);
+  const [aviso, setAviso] = useState(avisoDeLlegada);
   const [verMeses, setVerMeses] = useState(false);
   const [verTodas, setVerTodas] = useState(false);
 
@@ -93,35 +101,71 @@ export function Movimientos() {
     setVerTodas(false);
     navegar(destino);
   };
+  // Tras corregir o borrar se vuelve a la lista con el aviso (E14-PRR 4.2); sin aviso, el movimiento ya no existe.
+  const terminar = (nuevo: DatosDeAviso | null) => {
+    if (nuevo) {
+      setAviso(nuevo);
+      navegar(direccion(periodo, categoria), true);
+    }
+    recargar();
+  };
+
   const datos = estado.fase === "listo" ? estado.datos : null;
+  const elegido = datos?.movimientos.find((f) => f.id === abierto);
   const hoy = hoyEnColombia();
 
   return (
-    <Pagina titulo={m.titulo} estado={aviso}>
-      <BotonEnlace href="/registrar" variante="primario">
-        {m.registrar}
-      </BotonEnlace>
-      {estado.fase === "error" && (
-        <>
-          <Aviso {...estado.aviso} />
-          <Boton variante="secundario" alTocar={recargar}>
-            {textos.acciones.intentarDeNuevo}
-          </Boton>
-        </>
-      )}
-      {datos && (
-        <Lista
-          datos={datos}
-          periodoElegido={periodo}
-          categoria={categoria}
-          hoy={hoy}
-          verMeses={verMeses}
-          verTodas={verTodas}
-          alternarMeses={() => setVerMeses(!verMeses)}
-          alternarTodas={() => setVerTodas(!verTodas)}
-          ir={ir}
-        />
-      )}
+    <Pagina titulo={m.titulo} estado={aviso} ancha>
+      <div
+        className={`movimientos${abierto && datos ? " movimientos--abierto" : ""}`}
+      >
+        <div className="movimientos__lista">
+          <BotonEnlace href="/registrar" variante="primario">
+            {m.registrar}
+          </BotonEnlace>
+          {estado.fase === "error" && (
+            <>
+              <Aviso {...estado.aviso} />
+              <Boton variante="secundario" alTocar={recargar}>
+                {textos.acciones.intentarDeNuevo}
+              </Boton>
+            </>
+          )}
+          {datos && (
+            <Lista
+              datos={datos}
+              periodoElegido={periodo}
+              categoria={categoria}
+              abierto={abierto}
+              hoy={hoy}
+              verMeses={verMeses}
+              verTodas={verTodas}
+              alternarMeses={() => setVerMeses(!verMeses)}
+              alternarTodas={() => setVerTodas(!verTodas)}
+              ir={ir}
+            />
+          )}
+        </div>
+        <div className="movimientos__detalle">
+          {elegido ? (
+            <DetalleDeMovimiento
+              key={elegido.id}
+              movimiento={elegido}
+              atras={direccion(periodo, categoria)}
+              alTerminar={terminar}
+            />
+          ) : datos && abierto ? (
+            <>
+              <Aviso {...avisos.movimientoNoExiste} />
+              <BotonEnlace href={direccion(periodo, categoria)}>
+                {textos.movimientos.borrar.irAMovimientos}
+              </BotonEnlace>
+            </>
+          ) : (
+            <p className="ayuda">{m.vacio.elegir}</p>
+          )}
+        </div>
+      </div>
     </Pagina>
   );
 }
@@ -130,6 +174,7 @@ function Lista({
   datos,
   periodoElegido,
   categoria,
+  abierto,
   hoy,
   verMeses,
   verTodas,
@@ -141,6 +186,7 @@ function Lista({
   /** El de la dirección: el chip elegido sigue al toque, sin esperar a que llegue la lista nueva. */
   periodoElegido: string | null;
   categoria: number | null;
+  abierto: string | null;
   hoy: string;
   verMeses: boolean;
   verTodas: boolean;
@@ -245,7 +291,12 @@ function Lista({
           </h2>
           <ul className="tarjeta lista-de-filas">
             {filas.map((fila) => (
-              <Fila key={fila.id} fila={fila} />
+              <Fila
+                key={fila.id}
+                fila={fila}
+                abierto={abierto === fila.id}
+                href={direccion(periodo, categoria, fila.id)}
+              />
             ))}
           </ul>
         </section>
@@ -272,19 +323,35 @@ function Lista({
   );
 }
 
-// Una Fila de lista con valor (E14-SDD 5.15): el texto, la Marca de lo compartido y el monto en Figtree.
-function Fila({ fila }: { fila: Movimiento }) {
+// Una Fila de lista navegable con valor (E14-SDD 5.20): toda la fila abre PN-02.
+function Fila({
+  fila,
+  abierto,
+  href,
+}: {
+  fila: Movimiento;
+  abierto: boolean;
+  href: string;
+}) {
   const { principal, apoyo } = textosDeFila(fila);
   return (
-    <li className="fila-de-lista">
-      <span className="fila">
-        <span className="fila__nombre">{cifras(principal)}</span>
-        <span className="ayuda">{cifras(apoyo)}</span>
-        {fila.compartido && <MarcaDePropiedad compartido />}
-      </span>
-      <span className="cifra">
-        {formatearPesos(BigInt(fila.monto_centavos))}
-      </span>
+    <li>
+      <a
+        href={href}
+        className="fila-navegable"
+        aria-current={abierto ? "true" : undefined}
+        onClick={alTocarEnlace(href)}
+      >
+        <span className="fila">
+          <span className="fila__nombre">{cifras(principal)}</span>
+          <span className="ayuda">{cifras(apoyo)}</span>
+          {fila.compartido && <MarcaDePropiedad compartido />}
+        </span>
+        <span className="cifra">
+          {formatearPesos(BigInt(fila.monto_centavos))}
+        </span>
+        <IconoAtras />
+      </a>
     </li>
   );
 }

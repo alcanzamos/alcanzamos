@@ -1164,6 +1164,50 @@
           "texto": "Tus datos están a salvo. Intenta de nuevo.",
           "e14": "E14-PRR 4.1 (PN-01), estado «Error de carga»"
         }
+      },
+      "cambiosGuardados": {
+        "titulo": {
+          "texto": "Listo, guardamos los cambios.",
+          "e14": "E14-PRR 4.2 (PN-02), «Tras guardar»"
+        }
+      },
+      "movimientoNoExiste": {
+        "titulo": {
+          "texto": "Ese movimiento ya no está.",
+          "e14": "E14-PRR 4.2 (PN-02), estado «Ya no existe»"
+        }
+      },
+      "errorAlGuardarCambios": {
+        "titulo": {
+          "texto": "No pudimos guardar los cambios.",
+          "e14": "E14-PRR 4.2 (PN-02), estado «Error de guardado»"
+        },
+        "mensaje": {
+          "texto": "Tu movimiento sigue igual. Intenta de nuevo.",
+          "e14": "E14-PRR 4.2 (PN-02), estado «Error de guardado»"
+        }
+      },
+      "errorAlBorrar": {
+        "titulo": {
+          "texto": "No pudimos borrar el movimiento.",
+          "e14": "E14-PRR 4.2 (PN-02), estado «Error al borrar»"
+        },
+        "mensaje": {
+          "texto": "Sigue en tu lista. Intenta de nuevo.",
+          "e14": "E14-PRR 4.2 (PN-02), estado «Error al borrar»"
+        }
+      },
+      "borramosGasto": {
+        "titulo": {
+          "texto": "Listo, borramos el gasto de {monto}.",
+          "e14": "E14-PRR 4.2 (PN-02), «Tras borrar»"
+        }
+      },
+      "borramosIngreso": {
+        "titulo": {
+          "texto": "Listo, borramos el ingreso de {monto}.",
+          "e14": "E14-PRR 4.2 (PN-02), «Tras borrar»: aviso tras borrar un ingreso, aprobado en E14-PRR 1.9 (D-170)"
+        }
       }
     },
     "movimientos": {
@@ -1192,7 +1236,7 @@
           "one": "{n} movimiento",
           "other": "{n} movimientos"
         },
-        "e14": "E14-PRR 4.1 (PN-01), fila 5: «10 movimientos»; la forma singular «1 movimiento» es propuesta; propuesto, pendiente de aprobación del dueño"
+        "e14": "E14-PRR 4.1 (PN-01), fila 5: «10 movimientos»; la forma singular «1 movimiento» está aprobada en E14-PRR 1.9 (D-170)"
       },
       "resumenDeCategoria": {
         "texto": "{categoria}: {movimientos}, {total}",
@@ -1223,14 +1267,22 @@
         },
         "retiro": {
           "texto": "Retiro de una meta",
-          "e14": "E14-PRR 4.1 (PN-01), «Aportes y retiros» (CU-07 3a): E14 no da el texto de la fila de un retiro; propuesto, pendiente de aprobación del dueño"
+          "e14": "E14-PRR 4.1 (PN-01), «Aportes y retiros» (CU-07 3a); texto aprobado en E14-PRR 1.9 (D-170)"
         },
         "compartido": {
           "texto": "Compartido con el hogar",
           "e14": "E14-PRR 4.1 (PN-01), «Cómo se arma cada fila», Marca de propiedad; E14-PRR 2.2, fila 7 (SEG-002, NC-E16-40)"
         }
       },
+      "oculta": {
+        "texto": "Oculta",
+        "e14": "E14-PRR 4.2 (PN-02), «Categoría oculta al corregir»: la palabra junto al ícono (E14-PRR 1.9, D-170)"
+      },
       "vacio": {
+        "elegir": {
+          "texto": "Elige un movimiento para verlo.",
+          "e14": "E14-PRR 4.1 (PN-01), variante web"
+        },
         "sinResultados": {
           "texto": "No hay movimientos con este filtro.",
           "e14": "E14-PRR 4.1 (PN-01), estado «Sin resultados con el filtro»"
@@ -1250,6 +1302,90 @@
         "registraElPrimero": {
           "texto": "Registra el primero y aquí lo verás.",
           "e14": "E14-PRR 4.1 (PN-01), estado «Sin ningún movimiento»"
+        }
+      },
+      "detalle": {
+        "titulo": {
+          "texto": "Movimiento",
+          "e14": "E14-PRR 4.2 (PN-02), fila 1 (barra)"
+        },
+        "gastoEn": {
+          "texto": "Gasto en {categoria}",
+          "e14": "E14-PRR 4.2 (PN-02), fila 2"
+        },
+        "ingresoPor": {
+          "texto": "Ingreso por {categoria}",
+          "e14": "E14-PRR 4.2 (PN-02), fila 2: subtítulo del ingreso, aprobado en E14-PRR 1.9 (D-170)"
+        },
+        "aporteA": {
+          "texto": "Aporte a «{meta}»",
+          "e14": "E14-PRR 4.2 (PN-02), «Un aporte a una meta»: subtítulo del aporte, aprobado en E14-PRR 1.9 (D-170)"
+        },
+        "retiroDe": {
+          "texto": "Retiro de «{meta}»",
+          "e14": "E14-PRR 4.2 (PN-02): subtítulo del retiro de una meta, aprobado en E14-PRR 1.9 (D-170)"
+        },
+        "fecha": {
+          "texto": "Fecha",
+          "e14": "E14-PRR 4.2 (PN-02), fila 3"
+        },
+        "descripcion": {
+          "texto": "Descripción",
+          "e14": "E14-PRR 4.2 (PN-02), fila 3"
+        },
+        "corregir": {
+          "texto": "Corregir",
+          "e14": "E14-PRR 4.2 (PN-02), fila 5"
+        },
+        "borrar": {
+          "texto": "Borrar este movimiento",
+          "e14": "E14-PRR 4.2 (PN-02), fila 6"
+        },
+        "corregirTitulo": {
+          "texto": "Corregir movimiento",
+          "e14": "E14-PRR 4.2 (PN-02), «Corregir», fila 1 (barra)"
+        },
+        "guardarCambios": {
+          "texto": "Guardar los cambios",
+          "e14": "E14-PRR 4.2 (PN-02), «Corregir», fila 9"
+        },
+        "ahoraNo": {
+          "texto": "Ahora no",
+          "e14": "E14-PRR 4.2 (PN-02), «Corregir», fila 10; «Borrar», fila 5"
+        },
+        "soloEstaFecha": {
+          "texto": "Este cambio es solo para esta fecha. Las demás siguen igual.",
+          "e14": "E14-PRR 4.2 (PN-02), «Una fecha de un recurrente» (D-168); E14-PRR 4.1, hoja «Cambiar el monto»"
+        },
+        "volveraPorConfirmar": {
+          "texto": "Esta fecha volverá a quedar por confirmar.",
+          "e14": "E14-PRR 4.2 (PN-02), «Una fecha de un recurrente» (D-168, D-169): solo si la fecha vuelve a pendiente"
+        }
+      },
+      "borrar": {
+        "titulo": {
+          "texto": "¿Borrar este movimiento?",
+          "e14": "E14-PRR 4.2 (PN-02), «Borrar», fila 1"
+        },
+        "gasto": {
+          "texto": "Gasto de {monto} en {categoria}, {dia}.",
+          "e14": "E14-PRR 4.2 (PN-02), «Borrar», fila 2: «Gasto de $45.000 en Alimentación, Ayer.»"
+        },
+        "ingreso": {
+          "texto": "Ingreso de {monto} por {categoria}, {dia}.",
+          "e14": "E14-PRR 4.2 (PN-02), «Borrar», fila 2: hoja de borrar un ingreso, aprobada en E14-PRR 1.9 (D-170)"
+        },
+        "quePasa": {
+          "texto": "Se quita de tu lista y calculamos el mes de nuevo.",
+          "e14": "E14-PRR 4.2 (PN-02), «Borrar», fila 3"
+        },
+        "confirmar": {
+          "texto": "Borrar el movimiento",
+          "e14": "E14-PRR 4.2 (PN-02), «Borrar», fila 4"
+        },
+        "irAMovimientos": {
+          "texto": "Ir a Movimientos",
+          "e14": "E14-PRR 4.2 (PN-02), estado «Ya no existe»"
         }
       }
     }

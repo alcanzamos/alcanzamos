@@ -61,9 +61,10 @@ export function validarRegistro(
   if (!monto.ok) errores.monto = textoDelMonto(monto);
   const fecha = b.fecha ?? hoy;
   if (!esFechaDeMovimiento(fecha)) errores.fecha = e.fecha;
-  if (categoriaId === null) errores.categoria = e.categoria;
+  const sinCategoria = categoriaId === null;
+  if (sinCategoria) errores.categoria = e.categoria;
   if (b.medio === null) errores.medio = e.medio;
-  if (!monto.ok || categoriaId === null || b.medio === null || errores.fecha)
+  if (!monto.ok || sinCategoria || b.medio === null || errores.fecha)
     return { errores };
   return {
     solicitud: {
