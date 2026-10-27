@@ -1,7 +1,10 @@
 // Revisa que ninguna versión de package-lock.json se haya publicado hace menos de `min-release-age` días (.npmrc),
 // salvo las de antiguedad-excepciones.json con su fecha vigente (D-158). Corre antes de `npm ci`: npm ci no aplica
 // la edad a lo que ya está en el lockfile. Sin dependencias: lee el lockfile y consulta el registro de npm.
+// Sin argumentos revisa web/; con una carpeta como argumento (`node web/scripts/antiguedad.mjs <carpeta>`) revisa el
+// .npmrc, el package-lock.json y el antiguedad-excepciones.json de esa carpeta (la de commitlint en `comun`).
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   diasDelNpmrc,
@@ -11,8 +14,8 @@ import {
   urlDelPaquete,
 } from "./antiguedad-logica.mjs";
 
-const raiz = fileURLToPath(new URL("../", import.meta.url));
-const leer = (archivo) => readFileSync(`${raiz}${archivo}`, "utf8");
+const raiz = process.argv[2] ?? fileURLToPath(new URL("../", import.meta.url));
+const leer = (archivo) => readFileSync(join(raiz, archivo), "utf8");
 
 const dias = diasDelNpmrc(leer(".npmrc"));
 if (dias === undefined) {
