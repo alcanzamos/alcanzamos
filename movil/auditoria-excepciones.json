@@ -3,9 +3,10 @@
     "ghsa": "GHSA-mrhx-c7xc-m3w5",
     "paquete": "zod",
     "rutas": [
+      "@react-native-community/datetimepicker > expo > @expo/cli > zod",
       "expo > @expo/cli > zod"
     ],
-    "motivo": "zod valida datos con esquemas y lo usa @expo/cli (la herramienta de línea de comandos de Expo: expo start, expo export) para validar la configuración y las opciones de la CLI. El aviso es que zod puede agotar la memoria al validar colecciones enormes con restricciones. Corre en la máquina de desarrollo y en el pipeline, no se empaqueta en la app que se instala (Metro no lo incluye porque ningún archivo de src/ lo importa). No hay corrección compatible: la corrección es zod 4 (a partir de la 4.6.6), un salto mayor que Expo 58 no usa (@expo/cli trae la 3.25.76); la «corrección» que ofrece npm es bajar a expo 44 (consultado el 2026-10-24). Aprobada en D-154. Desde el 2026-10-27 el camino por @react-native-community/datetimepicker ya no se reporta (D-166).",
+    "motivo": "zod valida datos con esquemas y lo usa @expo/cli (la herramienta de línea de comandos de Expo: expo start, expo export) para validar la configuración y las opciones de la CLI. El aviso es que zod puede agotar la memoria al validar colecciones enormes con restricciones. Corre en la máquina de desarrollo y en el pipeline, no se empaqueta en la app que se instala (Metro no lo incluye porque ningún archivo de src/ lo importa). No hay corrección compatible: la corrección es zod 4 (a partir de la 4.6.6), un salto mayor que Expo 58 no usa (@expo/cli trae la 3.25.76); la «corrección» que ofrece npm es bajar a expo 44 (consultado el 2026-10-24). Aprobada en D-154. El 2026-10-27 el camino por @react-native-community/datetimepicker dejó de reportarse (D-166) y volvió esa misma noche: GitHub publicó GHSA-gcqx-w48m-w2h4 (deepmerge 4.3.1, severidad baja, sin corrección), que vuelve a marcar expo como afectado, y el selector de fecha depende de expo. Es el mismo aviso de zod, por expo; solo cambió el camino que informa npm (D-171).",
     "revisado": "2026-10-27",
     "revisar_antes_de": "2026-11-05"
   }
