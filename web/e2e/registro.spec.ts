@@ -397,3 +397,65 @@ test.describe("PN-03 · Se repite (US-51)", () => {
     ]);
   });
 });
+
+test.describe("Borrador del registro (L10)", () => {
+  test("escribir un monto, volver a PN-71, cerrar sesión y entrar con otra cuenta: el formulario abre vacío", async ({
+    page,
+  }) => {
+    await hoyEs26DeOctubre(page);
+    await simularApi(page, {
+      "GET /api/v1/cuenta/seguridad": responder(200, {
+        ingreso_anterior: null,
+      }),
+      "GET /api/v1/categorias": responder(200, catalogo),
+      "DELETE /api/v1/sesiones/actual": responder(204),
+      "POST /api/v1/sesiones": responder(200, { estado: "activa" }),
+    });
+    await page.goto("/cuenta/seguridad");
+    await page.getByRole("link", { name: "Registrar un movimiento" }).click();
+    await page.getByLabel("Monto").fill("45.000");
+    await page.getByRole("radio", { name: "Otros gastos" }).check();
+    await page.getByRole("link", { name: "Atrás" }).click();
+    await expect(page).toHaveURL(/\/cuenta\/seguridad$/);
+
+    await page.getByRole("button", { name: "Cerrar sesión" }).click();
+    await expect(page).toHaveURL(/\/entrar$/);
+    await page.getByLabel("Correo electrónico").fill("otra@correo.co");
+    await page
+      .getByLabel("Contraseña", { exact: true })
+      .fill("OtraContrasena-2026");
+    await page.getByRole("button", { name: "Iniciar sesión" }).click();
+    await expect(page).toHaveURL(/\/cuenta\/seguridad$/);
+    await page.getByRole("link", { name: "Registrar un movimiento" }).click();
+
+    await expect(page.getByLabel("Monto")).toHaveValue("");
+    await expect(
+      page.getByRole("radio", { name: "Otros gastos" }),
+    ).not.toBeChecked();
+    await expect(
+      page.getByRole("radio", { name: "Gasto", exact: true }),
+    ).toBeChecked();
+    await expect(
+      page.getByRole("radio", { name: "Efectivo" }),
+    ).not.toBeChecked();
+    await expect(
+      page.getByRole("radio", { name: "Transferencia" }),
+    ).not.toBeChecked();
+    await expect(page.getByLabel("Fecha")).toHaveValue("2026-10-26");
+    await expect(page.getByText("No se repite")).toBeVisible();
+  });
+
+  test("escribir un monto, ir a PN-03 y volver: el monto sigue ahí", async ({
+    page,
+  }) => {
+    await hoyEs26DeOctubre(page);
+    await api(page);
+    await page.goto("/cuenta/seguridad");
+    await page.getByRole("link", { name: "Registrar un movimiento" }).click();
+    await page.getByLabel("Monto").fill("45.000");
+    await page.getByRole("link", { name: "Cambiar" }).click();
+    await expect(page).toHaveURL(/\/registrar\/se-repite$/);
+    await page.getByRole("button", { name: "Listo" }).click();
+    await expect(page.getByLabel("Monto")).toHaveValue("$45.000");
+  });
+});
