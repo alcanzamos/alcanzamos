@@ -17,7 +17,6 @@ import {
   type DatosDeAviso,
 } from "../textos";
 import {
-  avanceQueBaja,
   avisoDeBorrado,
   mediosEnPalabras,
   queSeBorra,
@@ -74,7 +73,8 @@ export function DetalleDeMovimiento({
     }
   }
 
-  const avance = avanceQueBaja(m);
+  // Un aporte o un retiro se lista y se ve, pero no se corrige ni se borra en la US-52 (D-170).
+  const sePuedeCambiar = m.tipo !== "aporte";
   return (
     <section className="detalle" aria-labelledby="titulo-detalle">
       <div className="barra">
@@ -136,10 +136,19 @@ export function DetalleDeMovimiento({
               </div>
             </section>
           )}
-          <Boton alTocar={() => cambiarModo("corrigiendo")}>{d.corregir}</Boton>
-          <Boton variante="secundario" alTocar={() => cambiarModo("borrando")}>
-            {d.borrar}
-          </Boton>
+          {sePuedeCambiar && (
+            <>
+              <Boton alTocar={() => cambiarModo("corrigiendo")}>
+                {d.corregir}
+              </Boton>
+              <Boton
+                variante="secundario"
+                alTocar={() => cambiarModo("borrando")}
+              >
+                {d.borrar}
+              </Boton>
+            </>
+          )}
           {modo === "borrando" && (
             <section className="tarjeta panel" aria-labelledby="titulo-borrar">
               <h3 id="titulo-borrar" tabIndex={-1} className="titulo-3">
@@ -148,7 +157,6 @@ export function DetalleDeMovimiento({
               {aviso && <Aviso {...aviso} />}
               <p>{cifras(queSeBorra(m, hoy))}</p>
               <p>{b.quePasa}</p>
-              {avance && <p>{cifras(avance)}</p>}
               {m.recurrente?.vuelve_a_pendiente && (
                 <p>{d.volveraPorConfirmar}</p>
               )}
