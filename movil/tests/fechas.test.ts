@@ -1,4 +1,12 @@
-import { diaEnPalabras, fechaEnPalabras, fechaLocalEnPalabras, MESES } from '../src/fechas';
+import {
+  diaEnPalabras,
+  esFechaDeMovimiento,
+  fechaEnPalabras,
+  fechaLocalEnPalabras,
+  hoyEnColombia,
+  MESES,
+} from '../src/fechas';
+import { fijarHoy } from './ayudas/reloj';
 
 describe('fechaLocalEnPalabras (E17-ECO 4.9)', () => {
   it('escribe la fecha en palabras, nunca en números', () => {
@@ -57,4 +65,37 @@ describe('diaEnPalabras', () => {
       expect(diaEnPalabras(entrada)).toBeNull();
     },
   );
+});
+
+describe('hoyEnColombia', () => {
+  // Las mismas fechas que TestHoyEnColombiaEsUTCMenosCinco del API.
+  it.each([
+    ['2026-10-26T04:59:59Z', '2026-10-25'],
+    ['2026-10-26T05:00:00Z', '2026-10-26'],
+    ['2026-10-27T04:59:59Z', '2026-10-26'],
+    ['2026-12-31T23:00:00Z', '2026-12-31'],
+    ['2027-01-01T04:00:00Z', '2026-12-31'],
+  ])('a las %s en Colombia es %s', (utc, hoy) => {
+    expect(hoyEnColombia(new Date(utc))).toBe(hoy);
+  });
+
+  it('sin argumento usa el reloj', () => {
+    fijarHoy(new Date('2026-10-26T15:00:00Z'));
+    expect(hoyEnColombia()).toBe('2026-10-26');
+    jest.useRealTimers();
+  });
+});
+
+describe('esFechaDeMovimiento', () => {
+  it('acepta una fecha real desde 1900, también una futura', () => {
+    expect(esFechaDeMovimiento('2026-12-20')).toBe(true);
+    expect(esFechaDeMovimiento('1900-01-01')).toBe(true);
+  });
+
+  it('rechaza lo que el API rechaza', () => {
+    expect(esFechaDeMovimiento('')).toBe(false);
+    expect(esFechaDeMovimiento('2026-02-30')).toBe(false);
+    expect(esFechaDeMovimiento('1899-12-31')).toBe(false);
+    expect(esFechaDeMovimiento('0002-10-26')).toBe(false);
+  });
 });

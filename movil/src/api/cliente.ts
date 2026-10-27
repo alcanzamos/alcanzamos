@@ -58,13 +58,14 @@ const sinRespuesta = (codigo: string): Respuesta<never> => ({
 });
 
 /**
- * Hace el pedido. Si la respuesta trae un `token` (crear la cuenta e iniciar sesión), lo guarda en el Keystore.
+ * Hace el pedido; un cuerpo que ya es texto JSON se manda tal cual (los centavos de 64 bits no pasan por `JSON.stringify`).
+ * Si la respuesta trae un `token` (crear la cuenta e iniciar sesión), lo guarda en el Keystore.
  * Un `401 sin_sesion` es que el token ya no sirve: se borra del Keystore.
  */
 export async function pedir<T = Cuerpo>(
   metodo: 'GET' | 'POST' | 'DELETE',
   ruta: string,
-  cuerpo?: Cuerpo,
+  cuerpo?: Cuerpo | string,
 ): Promise<Respuesta<T>> {
   const base = urlDelApi();
   if (!base) return sinRespuesta(SIN_CONFIGURACION);
@@ -73,7 +74,7 @@ export async function pedir<T = Cuerpo>(
     respuesta = await fetch(`${base}${ruta}`, {
       method: metodo,
       headers: cabeceras(await leerToken(), cuerpo !== undefined),
-      body: cuerpo ? JSON.stringify(cuerpo) : undefined,
+      body: typeof cuerpo === 'string' || cuerpo === undefined ? cuerpo : JSON.stringify(cuerpo),
     });
   } catch {
     return sinRespuesta(SIN_CONEXION);

@@ -429,6 +429,52 @@ export const textos = {
       casilla: "Autorizo mostrar el costo de un gasto en horas de vida.",
     },
   },
+  periodicidad: {
+    // E14-PRR 4.3 (PN-03), fila 1 (barra)
+    titulo: "Se repite",
+    // E14-PRR 4.3 (PN-03), fila 2
+    intro: "Lo registras una vez. En cada fecha te pedimos confirmarlo con un toque.",
+    // E14-PRR 4.3 (PN-03), fila 3
+    etiqueta: "Cada cuánto",
+    opciones: {
+      // E14-PRR 4.3 (PN-03), fila 3; fila 12a de E14-PPN 3.1
+      no_se_repite: "No se repite",
+      // E14-PRR 4.3 (PN-03), fila 3
+      semanal: "Cada semana",
+      // E14-PRR 4.3 (PN-03), fila 3
+      quincenal: "Cada quincena",
+      // E14-PRR 4.3 (PN-03), fila 3
+      mensual: "Cada mes",
+      // E14-PRR 4.3 (PN-03), fila 3
+      semestral: "Cada semestre",
+      // E14-PRR 4.3 (PN-03), fila 3
+      anual: "Cada año",
+    },
+    explicaciones: {
+      // E14-PRR 4.3 (PN-03), texto de la fila 4
+      no_se_repite: "Se cuenta solo en su fecha.",
+      // E14-PRR 4.3 (PN-03), texto de la fila 4
+      semanal: "Cada 7 días, desde la fecha en que empieza.",
+      // E14-PRR 4.3 (PN-03), texto de la fila 4
+      quincenal: "Dos fechas al mes, separadas por 15 días. Si el mes es más corto, usamos su último día.",
+      // E14-PRR 4.3 (PN-03), texto de la fila 4
+      mensual: "El mismo día de cada mes. Si el mes es más corto, usamos su último día.",
+      // E14-PRR 4.3 (PN-03), texto de la fila 4
+      semestral: "El mismo día, cada seis meses.",
+      // E14-PRR 4.3 (PN-03), texto de la fila 4
+      anual: "El mismo día y el mismo mes, cada año.",
+    },
+    // E14-PRR 4.3 (PN-03), fila 5
+    empiezaEl: "Empieza el",
+    // E14-PRR 4.3 (PN-03), fila 6
+    proximas: "Próximas fechas",
+    // E14-PRR 4.3 (PN-03), estado «Sin fechas próximas»
+    sinProximas: "No hay fechas próximas.",
+    // E14-PRR 4.3 (PN-03), fila 7
+    aclaracion: "El monto es el mismo en cada fecha. Al confirmar una fecha puedes escribir otro monto, sin cambiar las demás.",
+    // E14-PRR 4.3 (PN-03), fila 8
+    listo: "Listo",
+  },
   arranque: {
     // E14-PCP 1.19 (arranque de la app en Android, aprobado en D-163)
     cargando: "Cargando…",

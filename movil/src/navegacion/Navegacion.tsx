@@ -9,6 +9,7 @@ import { Entrar } from '../pantallas/Entrar';
 import { InformacionDePrivacidad } from '../pantallas/InformacionDePrivacidad';
 import { RecuperarAcceso } from '../pantallas/RecuperarAcceso';
 import { RevisaTuCorreo } from '../pantallas/RevisaTuCorreo';
+import { SeRepite } from '../pantallas/SeRepite';
 import { SeguridadDeLaCuenta } from '../pantallas/SeguridadDeLaCuenta';
 import { leerToken } from '../sesion/token';
 import { textos } from '../textos/es.generated';
@@ -38,7 +39,8 @@ async function pantallaInicial(): Promise<keyof Rutas> {
 // no vuelva al formulario, a una sesión limitada ni a una sesión cerrada. PN-63 es la primera de su pila (sin Atrás: el del
 // sistema sale de la app); PN-64 se apila sobre PN-63 (su Atrás vuelve a PN-63), y de PN-64 a PN-71 («Autorizar y continuar»)
 // y a PN-60 («No autorizo») se cambia con `reemplazarPila`: Atrás no vuelve a PN-64 ni a una cuenta borrada. PN-61 se apila sobre PN-60. PN-62 no está: el
-// enlace del correo abre la web (D-155) y la app no recibe enlaces hasta los App Links de I08.
+// enlace del correo abre la web (D-155) y la app no recibe enlaces hasta los App Links de I08. PN-03 se apila sobre el
+// formulario de registro: su Atrás vuelve a él sin cambiar nada (el formulario llega en el PR siguiente de la US-51).
 export function Navegacion() {
   const [inicial, setInicial] = useState<keyof Rutas | null>(null);
   useEffect(() => {
@@ -75,6 +77,7 @@ export function Navegacion() {
           options={conBarra(textos.cambiarContrasena.titulo)}
         />
         <Pila.Screen name="RecuperarAcceso" component={RecuperarAcceso} options={conBarra(textos.recuperarAcceso.titulo)} />
+        <Pila.Screen name="SeRepite" component={SeRepite} options={conBarra(textos.periodicidad.titulo)} />
       </Pila.Navigator>
     </NavigationContainer>
   );

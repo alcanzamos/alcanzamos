@@ -65,6 +65,13 @@ describe('cliente del API', () => {
       expect((pedidos[0]?.init.headers as Record<string, string>)['Content-Type']).toBe('application/json');
     });
 
+    it('un cuerpo que ya es texto JSON se manda tal cual, sin volver a escribirlo', async () => {
+      const { pedidos } = instalarFetchFalso(respuestaJson(201, {}));
+      await pedir('POST', '/api/v1/movimientos', '{"monto_centavos":9223372036854775807}');
+      expect(pedidos[0]?.init.body).toBe('{"monto_centavos":9223372036854775807}');
+      expect((pedidos[0]?.init.headers as Record<string, string>)['Content-Type']).toBe('application/json');
+    });
+
     it('guarda el token del cuerpo solo en SecureStore y no se lo pasa a la pantalla', async () => {
       instalarFetchFalso(respuestaJson(202, { estado: 'verificacion_pendiente', token: 'token-nuevo' }));
       const respuesta = await pedir('POST', '/api/v1/cuentas', { correo: 'a@b.co' });
