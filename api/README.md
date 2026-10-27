@@ -80,7 +80,7 @@ Toda ruta de `/api/` se registra con `Enrutador.Registrar(nivel, patron, manejad
 | `publica` | nada | crear la cuenta, verificar el correo con el enlace, iniciar sesión y recuperar el acceso (pedir el enlace y elegir la contraseña con él) |
 | `sin_verificar` | una sesión, aunque sea la **limitada** de una cuenta con el correo sin verificar (o la sesión de mentira de D-141) | PN-59: revisar el estado, reenviar, cambiar el correo; cerrar sesión |
 | `sin_autorizacion` | cuenta con el correo **verificado**, aunque no haya autorizado lo necesario | las acciones de PN-64: ver las finalidades, autorizar y «No autorizo» ([Autorización](#autorización-us-50)) |
-| `requiere_autorizacion` | cuenta verificada y con las finalidades necesarias de su etapa **autorizadas** (`ReglaDeFinalidades`) | el ingreso anterior de PN-71, el cambio de contraseña de PN-73, las categorías y guardar movimientos ([Registro](#registro-de-movimientos-us-51)) y todo lo demás |
+| `requiere_autorizacion` | cuenta verificada y con las finalidades necesarias de su etapa **autorizadas** (`ReglaDeFinalidades`) | el ingreso anterior de PN-71, el cambio de contraseña de PN-73, las categorías, guardar, consultar, corregir y borrar movimientos ([Registro](#registro-de-movimientos-us-51) y [Movimientos](#movimientos-lista-detalle-corregir-y-borrar-us-52)) y todo lo demás |
 
 | Sujeto → | sin sesión | limitada o de mentira | verificada sin autorizar | autorizada |
 |---|---|---|---|---|
@@ -476,6 +476,81 @@ Es el arriendo del 15 de agosto, mensual, a 26 de octubre de 2026; con `inicio=2
 | `inicio` | `fecha_requerida`, `fecha_invalida` |
 
 Pruebas: `test/registro/handler_test.go` (arriendo, inicio futuro, casos de E15 por periodicidad, cada código) y `test/registro/integracion_test.go` (401, 403, 200 con cookie y con Bearer).
+
+## Movimientos: lista, detalle, corregir y borrar (US-52)
+
+PN-01 (lista y filtros) y PN-02 (detalle, corregir y borrar) usan estas cuatro rutas, todas `requiere_autorizacion` (sin autorizar, `403 autorizacion_pendiente` antes de leer o tocar nada; sin sesión, `401`), iguales en web (cookie) y Android (Bearer). Código en `src/registro` (`movimientos.go`, `Handler`) y `pg.Movimientos` (`movimientos_consulta.go`). Como el resto del registro, **el API no manda textos**: ids, claves y códigos. Solo ve y toca lo suyo: toda consulta lleva `persona_id` de la sesión, y un id ajeno, inexistente o mal formado da el mismo `404 {"error":"no_encontrado"}` (sin revelar que existe).
+
+| Ruta | Qué hace |
+|---|---|
+| `GET /api/v1/movimientos?periodo=AAAA-MM&categoria=<id>` | Los movimientos del mes de la persona y lo que necesitan los filtros de PN-01 |
+| `GET /api/v1/movimientos/{id}` | El detalle de PN-02 |
+| `PUT /api/v1/movimientos/{id}` | Corregir (PN-02 «Corregir») |
+| `DELETE /api/v1/movimientos/{id}` | Borrar (PN-02, hoja «Borrar»): `204` |
+
+### Lista
+
+`periodo` es opcional (por defecto el mes de hoy en Colombia, no el del servidor) y `categoria` también. `200` con `Cache-Control: no-store`; `422 {"error":"datos_invalidos","campos":{…}}` con `periodo` (`periodo_invalido`: no es `AAAA-MM`, o antes de 1900) y `categoria` (`categoria_invalida`: no es un entero entre 1 y 32767), a la vez. Una categoría sin movimientos o que la persona ocultó no es un error: la lista sale vacía o con sus filas.
+
+```json
+{
+  "periodo_actual": "2026-11",
+  "periodo": "2026-11",
+  "categoria_id": 1,
+  "resumen": { "movimientos": 2, "total_centavos": 12000000 },
+  "meses": ["2026-12", "2026-11", "2026-10", "2026-09"],
+  "categorias": [{ "categoria_id": 1, "movimientos": 2, "oculta": false }, { "categoria_id": 4, "movimientos": 2, "oculta": false }, { "categoria_id": 3, "movimientos": 1, "oculta": true }],
+  "movimientos": [
+    { "id": "…", "tipo": "gasto", "monto_centavos": 4500000, "fecha": "2026-11-01", "categoria_id": 1, "medio": "efectivo", "descripcion": "Mercado",
+      "compartido": false, "meta": null, "sentido": null, "recurrente": null }
+  ]
+}
+```
+
+| Campo | Qué es (E14-PRR PN-01) |
+|---|---|
+| `periodo_actual` | El mes de hoy: el que llega seleccionado y el que el cliente usa para «Noviembre» y «Octubre» (el anterior) |
+| `meses` | Los meses con al menos un movimiento de la persona, del más reciente al más antiguo, **sin importar la categoría elegida**: es la lista de «Otro mes». Los de fecha futura cuentan (un gasto sin repetición se guarda con su fecha, RF-057) |
+| `categorias` | Las categorías con movimientos en `periodo`, de más a menos movimientos (y por `id` si empatan), **sin importar la categoría elegida**. Las primeras tres son los chips; la lista completa es «Ver todas» e **incluye las ocultas** (`oculta: true`, `ocultamiento_categoria`), para que ningún movimiento quede sin poder filtrarse (RN-011). Un aporte no tiene categoría y no cuenta aquí: se ve con «Todas» |
+| `resumen` | `movimientos` es la cantidad de filas de la lista. `total_centavos` es la suma **exacta** de sus montos (se calcula con enteros grandes, sin `float64`, y no desborda `int64`), y solo viene con una categoría elegida; sin ella es `null`, porque mezclaría gastos, ingresos y aportes |
+| `movimientos` | Del más reciente al más antiguo: `fecha` descendente y, con la misma fecha, el que se registró después primero (`creado_en` descendente). `[]` si no hay |
+
+Cada movimiento (también el de `GET /api/v1/movimientos/{id}`):
+
+| Campo | Qué es |
+|---|---|
+| `id`, `tipo` | `tipo` es `gasto`, `ingreso` o `aporte` |
+| `monto_centavos`, `fecha` | Entero de centavos (D-082) y `AAAA-MM-DD` |
+| `categoria_id` | `null` en un aporte |
+| `medio`, `descripcion` | `efectivo` o `transferencia` (D-164); `descripcion` puede ser `null` |
+| `compartido` | `true` si `hogar_id` no es nulo: la marca «Compartido con el hogar» (NM-05, SEG-002, NC-E16-40) |
+| `meta` | Solo en un aporte: `{"id":"…","nombre":"Arriendo de enero"}`. La fila de PN-01 muestra este nombre en lugar de la categoría (E14-PRR 2.2, fila 7). Con `sentido` (`entrada` o `salida`, un retiro) |
+| `recurrente` | Solo si es una fecha confirmada de una repetición: `{"recurrente_id":"…","fecha_programada":"2026-10-26","periodicidad":"quincenal"}`. Con él la app muestra la fila «Se repite», quita «Fecha» de «Corregir» y agrega «Esta fecha volverá a quedar por confirmar.» a la hoja de borrar |
+
+**Contexto.** Esta versión lista lo propio (`persona_id` de la sesión), que incluye lo que la persona compartió con su hogar, con `compartido: true` («Mis finanzas»). La vista de un hogar, con lo compartido de todas las personas y «Registrado por», llega con los hogares. Los aportes se listan, se corrigen y se borran aunque todavía no haya cómo crearlos (llegan con las metas): el avance de una meta se calcula de sus aportes, así que no hay nada más que recalcular. No hay paginación: es un mes de una persona.
+
+### Corregir: `PUT`
+
+Es `PUT` y no `PATCH`: «Corregir» abre el formulario con todos los campos ya llenos y los manda todos, así valen exactamente las validaciones del POST sin distinguir «no cambia» de «se borra». Cuerpo, con los mismos nombres y códigos que el POST (`tipo_requerido`, `monto_no_positivo`, `fecha_invalida`, `categoria_invalida`, `medio_invalido`, `descripcion_larga`…, todos a la vez); no lleva `repeticion`, y un campo fuera del contrato (`persona_id`, `hogar_id`…) da `400 solicitud_invalida`:
+
+```json
+{ "tipo": "gasto", "monto_centavos": 4000000, "fecha": "2026-11-01", "categoria_id": 1, "medio": "efectivo", "descripcion": "Mercado" }
+```
+
+`200` con el movimiento ya corregido (la forma de arriba) y `Cache-Control: no-store`. `descripcion` omitida o vacía la borra. `hogar_id`, `recurrente_id` y `fecha_programada` nunca cambian: corregir no cambia de quién es un movimiento ni lo suelta de su repetición.
+
+- **Categoría y tipo.** Debe existir, ser del tipo del movimiento (la llave `(categoria_id, tipo)` de E13: pasar de gasto a ingreso exige una categoría de ingreso) y que la persona la vea, como en el POST. **Excepción:** la categoría que el movimiento ya tiene vale aunque la persona la haya ocultado después: un movimiento conserva su categoría (RN-011).
+- **D-168: una fecha de un recurrente.** «Corregir» no muestra Fecha: el cuerpo la omite. Si llega y es **la misma**, se acepta; si es otra, `422 {"campos":{"fecha":"fecha_no_editable"}}` (también con un valor que no es fecha). Tampoco cambia el tipo (`tipo_no_editable`). **Monto, categoría, medio y descripción cambian solo en esa fila:** `movimiento_recurrente` (`monto_habitual`, `categoria_id`, `medio`) queda como estaba, y las demás fechas siguen igual.
+- **Un aporte** conserva su tipo (`"tipo":"aporte"`, si no `tipo_no_editable`; omitido, `tipo_requerido`) y no lleva categoría (`categoria_no_aplica`); corrige monto, fecha, medio y descripción (E14-PRR PN-02: «Corregir» no ofrece Tipo ni Categoría).
+- Sin Fecha en un movimiento suelto, `fecha_requerida`.
+
+### Borrar: `DELETE`
+
+`204` sin cuerpo y `Cache-Control: no-store`; la segunda vez, `404`. Quita la fila. **D-168 y D-091:** si era una fecha confirmada de una repetición, esa fecha **vuelve a quedar pendiente**: no se omite (no se crea ninguna `ocurrencia_omitida`), la repetición sigue y E15 5.2 (`fechas.PorConfirmar`) la vuelve a calcular; la restricción única `(recurrente_id, fecha_programada)` permite confirmarla otra vez, y entonces nace con la fecha programada (D-094). Para cambiar el día **no** se borra: la persona marca «No pasó» y registra un movimiento aparte.
+
+**Una salvedad de E15 5.2.** Las fechas anteriores al día en que se creó la repetición son historia y no quedan pendientes (D-164). Si la persona borra el movimiento de la primera fecha de una repetición que empezó en el pasado (el arriendo del 15 de agosto, creado el 26 de octubre), esa fecha no vuelve a «Por confirmar»: queda sin movimiento y sin pendiente, y se registra a mano. Con una repetición que empieza hoy o después, o con cualquier fecha confirmada desde el día de su creación, sí vuelve.
+
+Pruebas: `test/registro/movimientos_test.go` (contrato, validación y D-168 con un repositorio falso) y `test/registro/movimientos_integracion_test.go` (de punta a punta contra PostgreSQL, en web y en Android): la lista con orden, filtros, meses y categorías ocultas; el 404 de lo ajeno en las tres rutas; D-168 al corregir y al borrar (con `fechas.PorConfirmar` sobre lo que queda en la base y la restricción única); **SEG-002 con «Arriendo de enero»**: se siembran por SQL un hogar con la persona como miembro, la meta «Arriendo de enero» y un aporte compartido de $100.000, y la lista y el detalle lo traen con `compartido: true` y su `meta`, mientras quien no es del hogar no lo ve (RNF-003); y el 401 y 403 de las cuatro rutas. `test/app/rutas_test.go` lleva el inventario de rutas.
 
 ## Gaps de la US-49
 

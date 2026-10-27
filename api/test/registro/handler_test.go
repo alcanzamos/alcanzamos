@@ -25,6 +25,18 @@ type repoFalso struct {
 	guardados  []registro.Guardado
 	ahoras     []time.Time
 	error      error
+
+	movimientos     map[string]registro.Movimiento
+	listados        []registro.Movimiento
+	pedidos         []pedidoDeLista
+	corregidos      []registro.Correccion
+	borrados        []string
+	errorAlCorregir error
+}
+
+type pedidoDeLista struct {
+	persona, mes string
+	categoria    *int
 }
 
 func (r *repoFalso) Categorias(_ context.Context, p string) ([]registro.Categoria, error) {
@@ -48,6 +60,36 @@ func (r *repoFalso) Guardar(_ context.Context, g registro.Guardado, ahora time.T
 		c.MovimientoID = "m-1"
 	}
 	return c, nil
+}
+
+// Lo de US-52: los movimientos que ya están, por id, y lo que el servicio le pidió al repositorio.
+func (r *repoFalso) Listar(_ context.Context, p string, mes time.Time, categoria *int) (registro.Listado, error) {
+	r.pedidos = append(r.pedidos, pedidoDeLista{p, mes.Format("2006-01"), categoria})
+	return registro.Listado{Movimientos: r.listados}, r.error
+}
+
+func (r *repoFalso) Obtener(_ context.Context, p, id string) (registro.Movimiento, error) {
+	if m, ok := r.movimientos[id]; ok && p == persona {
+		return m, nil
+	}
+	return registro.Movimiento{}, registro.ErrNoEncontrado
+}
+
+func (r *repoFalso) Corregir(_ context.Context, _, id string, c registro.Correccion) error {
+	if _, ok := r.movimientos[id]; !ok {
+		return registro.ErrNoEncontrado
+	}
+	r.corregidos = append(r.corregidos, c)
+	return r.errorAlCorregir
+}
+
+func (r *repoFalso) Borrar(_ context.Context, _, id string) error {
+	if _, ok := r.movimientos[id]; !ok {
+		return registro.ErrNoEncontrado
+	}
+	r.borrados = append(r.borrados, id)
+	delete(r.movimientos, id)
+	return nil
 }
 
 type sesionFalsa struct{}

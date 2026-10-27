@@ -1,7 +1,7 @@
-// Package registro tiene los casos de uso del formulario de registro (US-51, E12 `RegistroServicio`): las categorías
-// que una persona ve, y guardar un gasto o un ingreso en efectivo o por transferencia, con o sin repetición (RF-002,
-// RF-003, RF-006, D-164). El API no manda textos de interfaz: entrega ids, claves del catálogo y códigos de error, y
-// cada app pone el texto de E14.
+// Package registro tiene los casos de uso del registro (US-51 y US-52, E12 `RegistroServicio`): las categorías que una
+// persona ve, guardar un gasto o un ingreso en efectivo o por transferencia, con o sin repetición (RF-002, RF-003,
+// RF-006, D-164), y consultar, corregir y borrar sus movimientos (RF-039, RF-040, D-168). El API no manda
+// textos de interfaz: entrega ids, claves del catálogo y códigos de error, y cada app pone el texto de E14.
 package registro
 
 import (
@@ -115,6 +115,16 @@ type Repositorio interface {
 	// Guardar inserta en una transacción lo que dice `g`, con `creado_en = ahora`. ErrCategoriaInvalida si la
 	// categoría no existe, es de otro tipo o la persona no la ve (no apta para un menor, u oculta por ella).
 	Guardar(ctx context.Context, g Guardado, ahora time.Time) (Creados, error)
+	// Listar devuelve los movimientos de la persona del mes de `mes` (con el filtro de categoría si no es nulo) y los
+	// datos de los filtros de PN-01: `Resumen`, `Meses`, `Categorias` y `Movimientos`, del más reciente al más antiguo.
+	Listar(ctx context.Context, persona string, mes time.Time, categoria *int) (Listado, error)
+	// Obtener devuelve un movimiento de la persona. ErrNoEncontrado si no existe o es de otra persona.
+	Obtener(ctx context.Context, persona, id string) (Movimiento, error)
+	// Corregir reemplaza los campos de un movimiento de la persona. ErrNoEncontrado, o ErrCategoriaInvalida si la
+	// categoría no existe, es del otro tipo o la persona no la ve (la que el movimiento ya tiene sí vale, aunque la oculte).
+	Corregir(ctx context.Context, persona, id string, c Correccion) error
+	// Borrar quita un movimiento de la persona, sin tocar su repetición. ErrNoEncontrado si no existe o es de otra persona.
+	Borrar(ctx context.Context, persona, id string) error
 }
 
 // Resultado es la respuesta 201. Las fechas van como AAAA-MM-DD.

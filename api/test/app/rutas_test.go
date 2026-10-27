@@ -34,6 +34,10 @@ var rutasEsperadas = []servidor.Ruta{
 	{Patron: "POST /api/v1/autorizaciones/rechazo", Nivel: seguridad.SinAutorizacion},
 	{Patron: "GET /api/v1/categorias", Nivel: seguridad.RequiereAutorizacion},
 	{Patron: "POST /api/v1/movimientos", Nivel: seguridad.RequiereAutorizacion},
+	{Patron: "GET /api/v1/movimientos", Nivel: seguridad.RequiereAutorizacion},
+	{Patron: "GET /api/v1/movimientos/{id}", Nivel: seguridad.RequiereAutorizacion},
+	{Patron: "PUT /api/v1/movimientos/{id}", Nivel: seguridad.RequiereAutorizacion},
+	{Patron: "DELETE /api/v1/movimientos/{id}", Nivel: seguridad.RequiereAutorizacion},
 	{Patron: "GET /api/v1/repeticiones/proximas", Nivel: seguridad.RequiereAutorizacion},
 }
 
