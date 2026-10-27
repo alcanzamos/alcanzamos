@@ -121,22 +121,4 @@ describe("API de movimientos (PN-01 y PN-02)", () => {
       medio: "efectivo",
     });
   });
-
-  it("un aporte manda su tipo y no lleva categoría", async () => {
-    simularApi(() => json(200, {}));
-    const aporte: Movimiento = {
-      ...suelto,
-      tipo: "aporte",
-      categoria_id: null,
-      meta: { id: "g1", nombre: "Arriendo de enero" },
-      sentido: "entrada",
-    };
-    await corregirMovimiento({ ...base, categoriaId: null }, aporte);
-    expect(JSON.parse(cuerpoEnviado())).toEqual({
-      monto_centavos: 4000000,
-      tipo: "aporte",
-      fecha: "2026-10-24",
-      medio: "efectivo",
-    });
-  });
 });

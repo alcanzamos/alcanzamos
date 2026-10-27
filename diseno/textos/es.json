@@ -1124,7 +1124,7 @@
           "one": "{n} movimiento",
           "other": "{n} movimientos"
         },
-        "e14": "E14-PRR 4.1 (PN-01), fila 5: «10 movimientos»; la forma singular «1 movimiento» es propuesta; propuesto, pendiente de aprobación del dueño"
+        "e14": "E14-PRR 4.1 (PN-01), fila 5: «10 movimientos»; la forma singular «1 movimiento» está aprobada en E14-PRR 1.9 (D-170)"
       },
       "resumenDeCategoria": {
         "texto": "{categoria}: {movimientos}, {total}",
@@ -1155,7 +1155,7 @@
         },
         "retiro": {
           "texto": "Retiro de una meta",
-          "e14": "E14-PRR 4.1 (PN-01), «Aportes y retiros» (CU-07 3a): E14 no da el texto de la fila de un retiro; propuesto, pendiente de aprobación del dueño"
+          "e14": "E14-PRR 4.1 (PN-01), «Aportes y retiros» (CU-07 3a); texto aprobado en E14-PRR 1.9 (D-170)"
         },
         "compartido": {
           "texto": "Compartido con el hogar",
@@ -1293,17 +1293,15 @@
       "borramosIngreso": {
         "titulo": {
           "texto": "Listo, borramos el ingreso de {monto}.",
-          "e14": "E14-PRR 4.2 (PN-02), «Tras borrar»: forma del ingreso; propuesto, pendiente de aprobación del dueño"
-        }
-      },
-      "borramosAporte": {
-        "titulo": {
-          "texto": "Listo, borramos el aporte de {monto}.",
-          "e14": "E14-PRR 4.2 (PN-02), «Tras borrar»: forma del aporte a una meta; propuesto, pendiente de aprobación del dueño"
+          "e14": "E14-PRR 4.2 (PN-02), «Tras borrar»: aviso tras borrar un ingreso, aprobado en E14-PRR 1.9 (D-170)"
         }
       }
     },
     "movimientos": {
+      "oculta": {
+        "texto": "Oculta",
+        "e14": "E14-PRR 4.2 (PN-02), «Categoría oculta al corregir»: la palabra junto al ícono (E14-PRR 1.9, D-170)"
+      },
       "vacio": {
         "elegir": {
           "texto": "Elige un movimiento para verlo.",
@@ -1319,13 +1317,17 @@
           "texto": "Gasto en {categoria}",
           "e14": "E14-PRR 4.2 (PN-02), fila 2"
         },
-        "ingresoEn": {
-          "texto": "Ingreso en {categoria}",
-          "e14": "E14-PRR 4.2 (PN-02), fila 2: forma del ingreso; propuesto, pendiente de aprobación del dueño"
+        "ingresoPor": {
+          "texto": "Ingreso por {categoria}",
+          "e14": "E14-PRR 4.2 (PN-02), fila 2: subtítulo del ingreso, aprobado en E14-PRR 1.9 (D-170)"
         },
         "aporteA": {
           "texto": "Aporte a «{meta}»",
-          "e14": "E14-PRR 4.2 (PN-02), «Un aporte a una meta»: el detalle muestra la meta en lugar de la categoría; E14 no da la frase; propuesto, pendiente de aprobación del dueño"
+          "e14": "E14-PRR 4.2 (PN-02), «Un aporte a una meta»: subtítulo del aporte, aprobado en E14-PRR 1.9 (D-170)"
+        },
+        "retiroDe": {
+          "texto": "Retiro de «{meta}»",
+          "e14": "E14-PRR 4.2 (PN-02): subtítulo del retiro de una meta, aprobado en E14-PRR 1.9 (D-170)"
         },
         "fecha": {
           "texto": "Fecha",
@@ -1374,20 +1376,12 @@
           "e14": "E14-PRR 4.2 (PN-02), «Borrar», fila 2: «Gasto de $45.000 en Alimentación, Ayer.»"
         },
         "ingreso": {
-          "texto": "Ingreso de {monto} en {categoria}, {dia}.",
-          "e14": "E14-PRR 4.2 (PN-02), «Borrar», fila 2: forma del ingreso; propuesto, pendiente de aprobación del dueño"
-        },
-        "aporte": {
-          "texto": "Aporte de {monto} a «{meta}», {dia}.",
-          "e14": "E14-PRR 4.2 (PN-02), «Borrar», fila 2: forma del aporte a una meta; propuesto, pendiente de aprobación del dueño"
+          "texto": "Ingreso de {monto} por {categoria}, {dia}.",
+          "e14": "E14-PRR 4.2 (PN-02), «Borrar», fila 2: hoja de borrar un ingreso, aprobada en E14-PRR 1.9 (D-170)"
         },
         "quePasa": {
           "texto": "Se quita de tu lista y calculamos el mes de nuevo.",
           "e14": "E14-PRR 4.2 (PN-02), «Borrar», fila 3"
-        },
-        "avance": {
-          "texto": "El avance de «{meta}» baja {monto}. El avance nunca queda por debajo de cero.",
-          "e14": "E14-PRR 4.2 (PN-02), «Un aporte a una meta» (CU-08 2c)"
         },
         "confirmar": {
           "texto": "Borrar el movimiento",

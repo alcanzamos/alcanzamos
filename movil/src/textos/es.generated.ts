@@ -646,7 +646,7 @@ export const textos = {
     otroMes: "Otro mes",
     // E14-PRR 4.1 (PN-01), fila 4
     todas: "Todas",
-    // E14-PRR 4.1 (PN-01), fila 5: «10 movimientos»; la forma singular «1 movimiento» es propuesta; propuesto, pendiente de aprobación del dueño
+    // E14-PRR 4.1 (PN-01), fila 5: «10 movimientos»; la forma singular «1 movimiento» está aprobada en E14-PRR 1.9 (D-170)
     resumen: { one: "{n} movimiento", other: "{n} movimientos" },
     // E14-PRR 4.1 (PN-01), fila 5: «Alimentación: 2 movimientos, $120.000» (plantilla sacada del ejemplo)
     resumenDeCategoria: "{categoria}: {movimientos}, {total}",
@@ -663,7 +663,7 @@ export const textos = {
       conDescripcion: "{nombre} · {descripcion}",
       // E14-PRR 4.1 (PN-01), «Cómo se arma cada fila»: «Aporte a una meta · Transferencia»
       aporte: "Aporte a una meta",
-      // E14-PRR 4.1 (PN-01), «Aportes y retiros» (CU-07 3a): E14 no da el texto de la fila de un retiro; propuesto, pendiente de aprobación del dueño
+      // E14-PRR 4.1 (PN-01), «Aportes y retiros» (CU-07 3a); texto aprobado en E14-PRR 1.9 (D-170)
       retiro: "Retiro de una meta",
       // E14-PRR 4.1 (PN-01), «Cómo se arma cada fila», Marca de propiedad; E14-PRR 2.2, fila 7 (SEG-002, NC-E16-40)
       compartido: "Compartido con el hogar",

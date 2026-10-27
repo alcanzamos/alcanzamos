@@ -21,8 +21,7 @@ export type Solicitud = {
   /** Centavos enteros: un `bigint`, porque el API admite hasta 2^63 − 1 y un `number` no los guarda exactos (D-082). */
   montoCentavos: bigint;
   fecha: string;
-  /** `null` solo en el aporte que se corrige: no lleva categoría (E14-PRR PN-02). */
-  categoriaId: number | null;
+  categoriaId: number;
   medio: Medio;
   descripcion: string;
   /** `null`: no se repite. */
