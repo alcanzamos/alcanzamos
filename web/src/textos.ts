@@ -1,4 +1,5 @@
 import { SIN_CONEXION, type Respuesta } from "./api/cliente";
+import type { Periodicidad } from "./api/registro";
 import { formatear, plural, textos } from "./textos/es.generated";
 
 // Los textos que ve la persona salen de diseno/textos/es.json (D-160), palabra por palabra de E14, y llegan aquí por
@@ -186,3 +187,9 @@ export function resumenPorConfirmar(ingresos: number, gastos: number): string {
     gastos: plural(textos.porConfirmar.gastos, gastos),
   });
 }
+
+export type OpcionDePeriodicidad = "no_se_repite" | Periodicidad;
+export const etiquetasDePeriodicidad: Record<OpcionDePeriodicidad, string> =
+  textos.periodicidad.opciones;
+export const explicacionesDePeriodicidad: Record<OpcionDePeriodicidad, string> =
+  textos.periodicidad.explicaciones;
