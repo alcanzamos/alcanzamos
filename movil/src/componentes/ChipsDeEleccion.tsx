@@ -4,8 +4,10 @@ import { estiloDeTipografia } from '../fuentes';
 import { tokens } from '../tokens/tokens.generated';
 import { cifras } from './Cifras';
 import { IconoAtencion, IconoCheck } from './Iconos';
+import { MarcaDeOculta } from './MarcaDeOculta';
 
-export type OpcionDeChip<V extends string | number> = { valor: V; etiqueta: string };
+/** `oculta`: una categoría que la persona ocultó; lleva el ícono y la palabra «Oculta», no solo color (D-170). */
+export type OpcionDeChip<V extends string | number> = { valor: V; etiqueta: string; oculta?: boolean };
 
 // Chips de categoría de E14-SDD (elección única): un grupo de botones de radio con su etiqueta y, si hace falta, su
 // error en una región viva cortés. Cada chip es toda un área táctil de 48 dp; el elegido lleva fondo de marca y una
@@ -31,6 +33,7 @@ export function ChipsDeEleccion<V extends string | number>({
     <Chip
       key={opcion.valor}
       etiqueta={opcion.etiqueta}
+      oculta={opcion.oculta}
       elegido={valor === opcion.valor}
       alTocar={alElegir && (() => alElegir(opcion.valor))}
     />
@@ -57,7 +60,17 @@ export function ChipsDeEleccion<V extends string | number>({
   );
 }
 
-function Chip({ etiqueta, elegido, alTocar }: { etiqueta: string; elegido: boolean; alTocar?: () => void }) {
+function Chip({
+  etiqueta,
+  oculta = false,
+  elegido,
+  alTocar,
+}: {
+  etiqueta: string;
+  oculta?: boolean;
+  elegido: boolean;
+  alTocar?: () => void;
+}) {
   const [enFoco, setEnFoco] = useState(false);
   const { primaria } = tokens.color.accion;
   return (
@@ -71,6 +84,7 @@ function Chip({ etiqueta, elegido, alTocar }: { etiqueta: string; elegido: boole
     >
       {elegido && <IconoCheck color={primaria.texto} />}
       <Text style={[estilos.textoDelChip, elegido && { color: primaria.texto }]}>{cifras(etiqueta)}</Text>
+      {oculta && <MarcaDeOculta color={elegido ? primaria.texto : tokens.color.texto.secundario} />}
     </Pressable>
   );
 }

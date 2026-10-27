@@ -48,29 +48,25 @@ export function tituloDelDia(fecha: string, hoy: string): string {
   return dia ? formatear(mv.dia.conFecha, { dia, fecha: enPalabras }) : enPalabras;
 }
 
-/** El resumen bajo el monto de PN-02: «Gasto en Alimentación». */
+/** El resumen bajo el monto de PN-02: «Gasto en Alimentación», «Ingreso por Salario» o «Aporte a «Arriendo de enero»». */
 export function resumenDelDetalle(m: Movimiento): string {
-  if (m.tipo === 'aporte') return formatear(mv.detalle.aporteA, { meta: metaDe(m) });
+  if (m.tipo === 'aporte')
+    return formatear(m.sentido === 'salida' ? mv.detalle.retiroDe : mv.detalle.aporteA, { meta: metaDe(m) });
   const categoria = nombreDeCategoria(m.categoria_id);
-  return formatear(m.tipo === 'gasto' ? mv.detalle.gastoEn : mv.detalle.ingresoEn, { categoria });
+  return formatear(m.tipo === 'gasto' ? mv.detalle.gastoEn : mv.detalle.ingresoPor, { categoria });
 }
 
 /** «Gasto de $45.000 en Alimentación, Ayer.»: lo que se borra, en la hoja de PN-02. */
 export function queSeBorra(m: Movimiento, hoy: string): string {
   const monto = montoDe(m);
   const dia = relativo(m.fecha, hoy) ?? diaEnPalabras(m.fecha) ?? m.fecha;
-  if (m.tipo === 'aporte') return formatear(mv.borrar.aporte, { monto, meta: metaDe(m), dia });
   const categoria = nombreDeCategoria(m.categoria_id);
   return formatear(m.tipo === 'gasto' ? mv.borrar.gasto : mv.borrar.ingreso, { monto, categoria, dia });
 }
 
-/** «El avance de «Arriendo de enero» baja $100.000…»: solo el aporte que entró a una meta (CU-08 2c). */
-export const avanceQueBaja = (m: Movimiento): string | null =>
-  m.tipo === 'aporte' && m.sentido === 'entrada' ? formatear(mv.borrar.avance, { meta: metaDe(m), monto: montoDe(m) }) : null;
-
-/** El aviso de después de borrar (E14-PRR 4.2, «Tras borrar»); el monto sigue la regla de E14-SDD 5.5. */
+/** El aviso de después de borrar (E14-PRR 4.2, «Tras borrar»); el monto sigue la regla de E14-SDD 5.5. Un aporte o un retiro no se borra (D-170). */
 export function avisoDeBorrado(m: Movimiento): DatosDeAviso {
   const t = textos.avisos;
-  const titulo = { gasto: t.borramosGasto.titulo, ingreso: t.borramosIngreso.titulo, aporte: t.borramosAporte.titulo }[m.tipo];
+  const titulo = m.tipo === 'ingreso' ? t.borramosIngreso.titulo : t.borramosGasto.titulo;
   return { tipo: 'informacion', titulo: formatear(titulo, { monto: montoDe(m) }) };
 }

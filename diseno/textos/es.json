@@ -1143,6 +1143,10 @@
       }
     },
     "movimientos": {
+      "oculta": {
+        "texto": "Oculta",
+        "e14": "E14-PRR 4.2 (PN-02), «Categoría oculta al corregir»: la palabra junto al ícono (E14-PRR 1.9, D-170)"
+      },
       "titulo": {
         "texto": "Movimientos",
         "e14": "E14-PRR 4.1 (PN-01), fila 2"
@@ -1380,10 +1384,6 @@
       }
     },
     "movimientos": {
-      "oculta": {
-        "texto": "Oculta",
-        "e14": "E14-PRR 4.2 (PN-02), «Categoría oculta al corregir»: la palabra junto al ícono (E14-PRR 1.9, D-170)"
-      },
       "vacio": {
         "elegir": {
           "texto": "Elige un movimiento para verlo.",

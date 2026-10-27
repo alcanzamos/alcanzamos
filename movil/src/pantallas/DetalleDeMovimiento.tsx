@@ -16,7 +16,6 @@ import { seguirPorAccesoNegado } from '../navegacion/accesoNegado';
 import type { Rutas } from '../navegacion/rutas';
 import { avisoDeFallo, avisos, etiquetasDePeriodicidad, type DatosDeAviso } from '../textos';
 import {
-  avanceQueBaja,
   avisoDeBorrado,
   mediosEnPalabras,
   queSeBorra,
@@ -67,7 +66,8 @@ export function DetalleDeMovimiento({ navigation, route }: NativeStackScreenProp
       </Pantalla>
     );
 
-  const avance = avanceQueBaja(m);
+  // Un aporte o un retiro se lista y se ve, pero no se corrige ni se borra en la US-52 (D-170).
+  const sePuedeCambiar = m.tipo !== 'aporte';
   return (
     <Pantalla conBarra>
       <View style={estilos.tarjeta}>
@@ -97,28 +97,31 @@ export function DetalleDeMovimiento({ navigation, route }: NativeStackScreenProp
           </Dato>
         </View>
       )}
-      <Boton alTocar={() => navigation.navigate('CorregirMovimiento', { movimiento: m })}>{d.corregir}</Boton>
-      <Boton variante="secundario" alTocar={() => setVerBorrar(true)}>
-        {d.borrar}
-      </Boton>
-      <HojaInferior visible={verBorrar} alCerrar={() => setVerBorrar(false)}>
-        <Text accessibilityRole="header" style={estilos.tituloDeHoja}>
-          {b.titulo}
-        </Text>
-        {aviso && <Aviso {...aviso} />}
-        <View style={estilos.tarjeta}>
-          <Texto>{queSeBorra(m, hoy)}</Texto>
-        </View>
-        <Texto>{b.quePasa}</Texto>
-        {avance && <Texto>{avance}</Texto>}
-        {m.recurrente?.vuelve_a_pendiente && <Texto>{d.volveraPorConfirmar}</Texto>}
-        <Boton variante="destructivo" deshabilitado={borrando} alTocar={() => void borrar()}>
-          {b.confirmar}
-        </Boton>
-        <Boton variante="secundario" alTocar={() => setVerBorrar(false)}>
-          {d.ahoraNo}
-        </Boton>
-      </HojaInferior>
+      {sePuedeCambiar && (
+        <>
+          <Boton alTocar={() => navigation.navigate('CorregirMovimiento', { movimiento: m })}>{d.corregir}</Boton>
+          <Boton variante="secundario" alTocar={() => setVerBorrar(true)}>
+            {d.borrar}
+          </Boton>
+          <HojaInferior visible={verBorrar} alCerrar={() => setVerBorrar(false)}>
+            <Text accessibilityRole="header" style={estilos.tituloDeHoja}>
+              {b.titulo}
+            </Text>
+            {aviso && <Aviso {...aviso} />}
+            <View style={estilos.tarjeta}>
+              <Texto>{queSeBorra(m, hoy)}</Texto>
+            </View>
+            <Texto>{b.quePasa}</Texto>
+            {m.recurrente?.vuelve_a_pendiente && <Texto>{d.volveraPorConfirmar}</Texto>}
+            <Boton variante="destructivo" deshabilitado={borrando} alTocar={() => void borrar()}>
+              {b.confirmar}
+            </Boton>
+            <Boton variante="secundario" alTocar={() => setVerBorrar(false)}>
+              {d.ahoraNo}
+            </Boton>
+          </HojaInferior>
+        </>
+      )}
     </Pantalla>
   );
 }

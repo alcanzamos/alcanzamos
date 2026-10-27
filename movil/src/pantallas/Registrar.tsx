@@ -43,7 +43,8 @@ const r = textos.registro;
 // Sin el cuadro de lenguaje natural, el aviso de faltante, «Tarjeta», «Cuotas», PN-04, PN-05 ni «Compartido con el
 // hogar»: esas filas no se dibujan (README de movil). Al guardar vuelve a PN-01 con el aviso como mensaje de estado.
 // Con `corregir` es «Corregir» de PN-02 (E14-PRR 4.2): lleva su propio estado, no el borrador, y no ofrece lo que el API
-// no deja cambiar. Una fecha de un recurrente no lleva Fecha ni Tipo (D-168) y un aporte no lleva Tipo ni Categoría.
+// no deja cambiar. Una fecha de un recurrente no lleva Fecha ni Tipo (D-168). Si el movimiento tiene una categoría que la
+// persona ocultó después, el formulario la incluye ya elegida, con el ícono y la palabra «Oculta» (D-170).
 export function FormularioDeMovimiento({
   navigation,
   corregir,
@@ -56,7 +57,6 @@ export function FormularioDeMovimiento({
   const borrador = corregir ? propio : delBorrador;
   const cambiar = (cambio: Partial<Borrador>) =>
     corregir ? setPropio({ ...propio, ...cambio }) : cambiarBorrador(cambio);
-  const esAporte = corregir?.tipo === 'aporte';
   const esRecurrente = Boolean(corregir?.recurrente);
   const [catalogo, setCatalogo] = useState<Catalogo>({ fase: 'cargando' });
   const [intento, setIntento] = useState(0);
@@ -83,13 +83,18 @@ export function FormularioDeMovimiento({
   const hoy = hoyEnColombia();
   const fecha = borrador.fecha ?? hoy;
   // Solo las categorías con texto de E14: el API manda el `id` y el texto sale de es.json.
-  const categorias =
-    catalogo.fase === 'listo'
-      ? catalogo.categorias[borrador.tipo].flatMap((c) => {
-          const nombre = nombresDeCategoria[`c${c.id}`];
-          return nombre ? [{ ...c, nombre }] : [];
-        })
-      : [];
+  const delCatalogo = catalogo.fase === 'listo' ? catalogo.categorias[borrador.tipo] : [];
+  const categorias: { id: number; nombre: string; oculta: boolean }[] = delCatalogo.flatMap((c) => {
+    const nombre = nombresDeCategoria[`c${c.id}`];
+    return nombre ? [{ id: c.id, nombre, oculta: false }] : [];
+  });
+  // La categoría que el movimiento ya tiene y el catálogo no trae es una que la persona ocultó (RN-011): el API la
+  // acepta en el PUT. Solo es de su mismo tipo: al cambiar de tipo deja de ofrecerse.
+  const actual = corregir?.categoria_id;
+  const nombreOculta = actual ? nombresDeCategoria[`c${actual}`] : undefined;
+  if (actual && nombreOculta && corregir.tipo === borrador.tipo && !delCatalogo.some((c) => c.id === actual))
+    categorias.push({ id: actual, nombre: nombreOculta, oculta: true });
+  categorias.sort((a, b) => a.id - b.id);
   // La categoría es obligatoria hasta que exista el motor de reglas que la sugiere (D-165): sin elegir, no hay ninguna.
   const categoriaId = categorias.find((c) => c.id === borrador.categoriaId)?.id ?? null;
 
@@ -102,7 +107,7 @@ export function FormularioDeMovimiento({
 
   async function enviar() {
     if (enviando) return;
-    const revisado = validarRegistro(borrador, categoriaId, undefined, !esAporte);
+    const revisado = validarRegistro(borrador, categoriaId);
     setAviso(null);
     if ('errores' in revisado) {
       mostrar(revisado.errores);
@@ -195,7 +200,7 @@ export function FormularioDeMovimiento({
     <Pantalla conBarra>
       {aviso && <Aviso {...aviso} />}
       {esRecurrente && <Nota>{textos.movimientos.detalle.soloEstaFecha}</Nota>}
-      {!esAporte && !esRecurrente && (
+      {!esRecurrente && (
         <ChipsDeEleccion
           etiqueta={r.tipo.etiqueta}
           opciones={[
@@ -229,26 +234,22 @@ export function FormularioDeMovimiento({
           error={errores.fecha}
         />
       )}
-      {!esAporte && (
-        <>
-          <ChipsDeEleccion
-            etiqueta={r.categoria.etiqueta}
-            enFila
-            opciones={categorias.map((c) => ({ valor: c.id, etiqueta: c.nombre }))}
-            valor={categoriaId}
-            alElegir={elegirCategoria}
-            error={errores.categoria}
-          />
-          <BotonDeTexto alTocar={() => setVerTodas(true)}>{r.categoria.verTodas}</BotonDeTexto>
-          <HojaDeElecciones
-            visible={verTodas}
-            alCerrar={() => setVerTodas(false)}
-            opciones={categorias.map((c) => ({ valor: c.id, etiqueta: c.nombre }))}
-            valor={categoriaId}
-            alElegir={elegirCategoria}
-          />
-        </>
-      )}
+      <ChipsDeEleccion
+        etiqueta={r.categoria.etiqueta}
+        enFila
+        opciones={categorias.map((c) => ({ valor: c.id, etiqueta: c.nombre, oculta: c.oculta }))}
+        valor={categoriaId}
+        alElegir={elegirCategoria}
+        error={errores.categoria}
+      />
+      <BotonDeTexto alTocar={() => setVerTodas(true)}>{r.categoria.verTodas}</BotonDeTexto>
+      <HojaDeElecciones
+        visible={verTodas}
+        alCerrar={() => setVerTodas(false)}
+        opciones={categorias.map((c) => ({ valor: c.id, etiqueta: c.nombre, oculta: c.oculta }))}
+        valor={categoriaId}
+        alElegir={elegirCategoria}
+      />
       <ChipsDeEleccion
         etiqueta={r.medio.etiqueta}
         opciones={medios}

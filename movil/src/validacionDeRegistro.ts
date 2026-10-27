@@ -39,19 +39,18 @@ function textoDelMonto(m: Extract<LecturaDeMonto, { ok: false }>): string {
   }
 }
 
-/** Revisa el formulario con los textos de E14-PPN 3.1 antes de mandarlo; el API vuelve a validar todo. Un aporte que se corrige no lleva categoría (`conCategoria` en falso). */
+/** Revisa el formulario con los textos de E14-PPN 3.1 antes de mandarlo; el API vuelve a validar todo. */
 export function validarRegistro(
   b: Borrador,
   categoriaId: number | null,
   hoy = hoyEnColombia(),
-  conCategoria = true,
 ): { solicitud: Solicitud } | { errores: Errores } {
   const errores: Errores = {};
   const monto = leerMonto(b.monto);
   if (!monto.ok) errores.monto = textoDelMonto(monto);
   const fecha = b.fecha ?? hoy;
   if (!esFechaDeMovimiento(fecha)) errores.fecha = e.fecha;
-  const sinCategoria = conCategoria && categoriaId === null;
+  const sinCategoria = categoriaId === null;
   if (sinCategoria) errores.categoria = e.categoria;
   if (b.medio === null) errores.medio = e.medio;
   if (!monto.ok || sinCategoria || b.medio === null || errores.fecha) return { errores };

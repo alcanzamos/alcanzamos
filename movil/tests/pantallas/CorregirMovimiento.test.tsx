@@ -4,7 +4,7 @@ import type { Movimiento } from '../../src/api/movimientos';
 import { Navegacion } from '../../src/navegacion/Navegacion';
 import { atras, instalarAtras } from '../ayudas/atras';
 import { respuestaJson } from '../ayudas/fetchFalso';
-import { apiFalsa, arriendoDeEnero, BASE, gastoDeAyer, listado, movimiento, type Pedido } from '../ayudas/movimientosFalsos';
+import { apiFalsa, BASE, gastoDeAyer, listado, movimiento, type Pedido } from '../ayudas/movimientosFalsos';
 import { fijarHoy } from '../ayudas/reloj';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
 
@@ -81,24 +81,56 @@ describe('Corregir un movimiento, Android (E14-PRR 4.2)', () => {
       expect(screen.getByLabelText('Descripción (opcional)')).toBeOnTheScreen();
     });
 
-    it('un aporte no ofrece Tipo ni Categoría y sí Monto, Fecha, Medio y Descripción', async () => {
-      api([arriendoDeEnero]);
-      await abrirCorregir('Arriendo de enero');
-      expect(screen.queryByRole('radio', { name: 'Gasto' })).not.toBeOnTheScreen();
-      expect(screen.queryByText('Categoría')).not.toBeOnTheScreen();
-      expect(screen.queryByRole('button', { name: 'Ver todas' })).not.toBeOnTheScreen();
-      expect(screen.getByLabelText('Monto').props.value).toBe('$100.000');
-      expect(screen.getByRole('button', { name: 'Fecha, 30 de octubre de 2026' })).toBeOnTheScreen();
-      expect(screen.getByRole('radio', { name: 'Transferencia' })).toBeOnTheScreen();
-      expect(screen.getByText('Compartido con el hogar')).toBeOnTheScreen();
-    });
-
     it('un ingreso corrige con las categorías de ingreso', async () => {
       api([movimiento({ id: 'i1', tipo: 'ingreso', categoria_id: 17, medio: 'transferencia' })]);
       await abrirCorregir('Salario');
       expect(marcado('Ingreso')).toBe(true);
       expect(marcado('Salario')).toBe(true);
       expect(screen.queryByRole('radio', { name: 'Alimentación' })).not.toBeOnTheScreen();
+    });
+
+    // D-170: «Suscripciones» (10) no está en el catálogo de la persona porque la ocultó; «Ropa y calzado» (3) tampoco.
+    describe('categoría oculta (D-170)', () => {
+      const deSuscripciones = movimiento({ id: 'm-suscripcion', categoria_id: 10, descripcion: null });
+
+      it('la incluye ya elegida, con el ícono y la palabra «Oculta», y las demás ocultas no aparecen', async () => {
+        api([deSuscripciones]);
+        await abrirCorregir('Suscripciones');
+        expect(marcado('Suscripciones Oculta')).toBe(true);
+        expect(screen.getAllByText('Oculta')).toHaveLength(1);
+        expect(JSON.stringify(screen.getByRole('radio', { name: 'Suscripciones Oculta' }))).toContain('RNSVGSvgView');
+        expect(screen.queryByRole('radio', { name: /Ropa y calzado/ })).not.toBeOnTheScreen();
+        expect(marcado('Alimentación')).toBe(false);
+      });
+
+      it('«Ver todas» la lista con su marca y guardar sin cambiarla manda su categoría', async () => {
+        const pedidos = api([deSuscripciones]);
+        await abrirCorregir('Suscripciones');
+        await fireEvent.press(screen.getByRole('button', { name: 'Ver todas' }));
+        // El chip y la fila de la hoja: las dos con su marca.
+        const filas = await screen.findAllByRole('radio', { name: 'Suscripciones Oculta' });
+        expect(filas).toHaveLength(2);
+        expect(screen.getAllByText('Oculta')).toHaveLength(2);
+        await fireEvent.press(filas[1]!);
+        await fireEvent.press(screen.getByRole('button', { name: 'Guardar los cambios' }));
+        await screen.findByText('Listo, guardamos los cambios.');
+        expect(JSON.parse(cuerpoDelPut(pedidos))).toMatchObject({ categoria_id: 10 });
+      });
+
+      it('al cambiar de Tipo deja de ofrecerse, y al volver al del movimiento vuelve', async () => {
+        api([deSuscripciones]);
+        await abrirCorregir('Suscripciones');
+        await fireEvent.press(screen.getByRole('radio', { name: 'Ingreso' }));
+        expect(screen.queryByText('Oculta')).not.toBeOnTheScreen();
+        await fireEvent.press(screen.getByRole('radio', { name: 'Gasto' }));
+        expect(screen.getByRole('radio', { name: 'Suscripciones Oculta' })).toBeOnTheScreen();
+      });
+
+      it('una categoría visible no lleva la marca «Oculta»', async () => {
+        api([gastoDeAyer]);
+        await abrirCorregir();
+        expect(screen.queryByText('Oculta')).not.toBeOnTheScreen();
+      });
     });
 
     it('no toca el borrador del registro: corregir lleva su propio estado', async () => {
@@ -170,19 +202,6 @@ describe('Corregir un movimiento, Android (E14-PRR 4.2)', () => {
       });
     });
 
-    it('un aporte manda su tipo y su fecha, y no lleva categoría', async () => {
-      const pedidos = api([arriendoDeEnero]);
-      await abrirCorregir('Arriendo de enero');
-      await fireEvent.changeText(screen.getByLabelText('Monto'), '90.000');
-      await fireEvent.press(screen.getByRole('button', { name: 'Guardar los cambios' }));
-      await screen.findByText('Listo, guardamos los cambios.');
-      expect(JSON.parse(cuerpoDelPut(pedidos))).toEqual({
-        monto_centavos: 9000000,
-        tipo: 'aporte',
-        fecha: '2026-10-30',
-        medio: 'transferencia',
-      });
-    });
   });
 
   describe('errores', () => {
@@ -193,15 +212,6 @@ describe('Corregir un movimiento, Android (E14-PRR 4.2)', () => {
       await fireEvent.press(screen.getByRole('button', { name: 'Guardar los cambios' }));
       expect(await screen.findByText('Falta el monto.')).toBeOnTheScreen();
       expect(puts(pedidos)).toEqual([]);
-    });
-
-    it('un aporte sin categoría no pide categoría: solo el monto puede fallar', async () => {
-      api([arriendoDeEnero]);
-      await abrirCorregir('Arriendo de enero');
-      await fireEvent.changeText(screen.getByLabelText('Monto'), '0');
-      await fireEvent.press(screen.getByRole('button', { name: 'Guardar los cambios' }));
-      expect(await screen.findByText('El monto debe ser mayor que $0.')).toBeOnTheScreen();
-      expect(screen.queryByText('Falta elegir la categoría.')).not.toBeOnTheScreen();
     });
 
     it('un 422 del API pone su texto en el campo', async () => {

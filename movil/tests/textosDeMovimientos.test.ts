@@ -1,5 +1,4 @@
 import {
-  avanceQueBaja,
   avisoDeBorrado,
   queSeBorra,
   resumenDelDetalle,
@@ -27,31 +26,22 @@ describe('textos de PN-01 y PN-02 que se arman con el movimiento (E14-PRR 4.1 y 
     expect(textosDeFila(retiro).apoyo).toBe('Retiro de una meta · Transferencia');
   });
 
-  it('resumenDelDetalle: «Gasto en …», «Ingreso en …» y «Aporte a «meta»»', () => {
+  it('resumenDelDetalle: «Gasto en …», «Ingreso por …», «Aporte a «meta»» y «Retiro de «meta»» (D-170)', () => {
     expect(resumenDelDetalle(gastoDeAyer)).toBe('Gasto en Alimentación');
-    expect(resumenDelDetalle(ingreso)).toBe('Ingreso en Salario');
+    expect(resumenDelDetalle(ingreso)).toBe('Ingreso por Salario');
     expect(resumenDelDetalle(arriendoDeEnero)).toBe('Aporte a «Arriendo de enero»');
+    expect(resumenDelDetalle(retiro)).toBe('Retiro de «Arriendo de enero»');
   });
 
   it('queSeBorra: el día es «Hoy», «Ayer» o la fecha en palabras', () => {
     expect(queSeBorra(gastoDeAyer, hoy)).toBe('Gasto de $45.000 en Alimentación, Ayer.');
     expect(queSeBorra({ ...gastoDeAyer, fecha: hoy }, hoy)).toBe('Gasto de $45.000 en Alimentación, Hoy.');
     expect(queSeBorra({ ...gastoDeAyer, fecha: '2026-10-05' }, hoy)).toBe('Gasto de $45.000 en Alimentación, 5 de octubre de 2026.');
-    expect(queSeBorra(ingreso, hoy)).toBe('Ingreso de $1.500.000 en Salario, Ayer.');
-    expect(queSeBorra(arriendoDeEnero, hoy)).toBe('Aporte de $100.000 a «Arriendo de enero», 30 de octubre de 2026.');
+    expect(queSeBorra(ingreso, hoy)).toBe('Ingreso de $1.500.000 por Salario, Ayer.');
   });
 
-  it('avanceQueBaja: solo un aporte que entró a la meta', () => {
-    expect(avanceQueBaja(arriendoDeEnero)).toBe(
-      'El avance de «Arriendo de enero» baja $100.000. El avance nunca queda por debajo de cero.',
-    );
-    expect(avanceQueBaja(retiro)).toBeNull();
-    expect(avanceQueBaja(gastoDeAyer)).toBeNull();
-  });
-
-  it('avisoDeBorrado: el gasto, el ingreso y el aporte, con el monto', () => {
+  it('avisoDeBorrado: el gasto y el ingreso, con el monto', () => {
     expect(avisoDeBorrado(gastoDeAyer)).toEqual({ tipo: 'informacion', titulo: 'Listo, borramos el gasto de $45.000.' });
     expect(avisoDeBorrado(ingreso).titulo).toBe('Listo, borramos el ingreso de $1.500.000.');
-    expect(avisoDeBorrado(arriendoDeEnero).titulo).toBe('Listo, borramos el aporte de $100.000.');
   });
 });

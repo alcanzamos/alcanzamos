@@ -101,18 +101,6 @@ describe('API de movimientos: corregir y borrar (US-52)', () => {
     expect(JSON.parse(cuerpoDe(pedidos))).toEqual({ monto_centavos: 4000000, tipo: 'gasto', categoria_id: 1, medio: 'efectivo' });
   });
 
-  it('un aporte manda «aporte» como tipo, su fecha y ninguna categoría', async () => {
-    const { pedidos } = instalarFetchFalso(respuestaJson(200, {}));
-    await corregirMovimiento({ ...solicitud, categoriaId: null }, movimiento({ tipo: 'aporte', categoria_id: null }));
-    expect(JSON.parse(cuerpoDe(pedidos))).toEqual({
-      monto_centavos: 4000000,
-      tipo: 'aporte',
-      fecha: '2026-11-01',
-      medio: 'efectivo',
-      descripcion: 'Mercado',
-    });
-  });
-
   it('un 422 de D-168 llega con su código de campo', async () => {
     instalarFetchFalso(respuestaJson(422, { error: 'datos_invalidos', campos: { fecha: 'fecha_no_editable' } }));
     expect(await corregirMovimiento(solicitud, movimiento())).toMatchObject({

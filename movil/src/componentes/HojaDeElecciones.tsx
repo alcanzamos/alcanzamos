@@ -3,8 +3,10 @@ import { estiloDeTipografia } from '../fuentes';
 import { tokens } from '../tokens/tokens.generated';
 import { HojaInferior } from './HojaInferior';
 import { IconoCheck } from './Iconos';
+import { MarcaDeOculta } from './MarcaDeOculta';
 
-export type Eleccion<V extends string | number> = { valor: V; etiqueta: string };
+/** `oculta`: una categoría que la persona ocultó; lleva el ícono y la palabra «Oculta» (D-170). */
+export type Eleccion<V extends string | number> = { valor: V; etiqueta: string; oculta?: boolean };
 
 // Una Hoja inferior (E14-SDD 5.12) con una lista de elección única: «Ver todas» las categorías y «Otro mes». Cada fila
 // es un `radio` con su estado, de 48 dp, y la elegida lleva una marca de verificación además del estado.
@@ -35,6 +37,7 @@ export function HojaDeElecciones<V extends string | number>({
               style={estilos.fila}
             >
               <Text style={estilos.texto}>{o.etiqueta}</Text>
+              {o.oculta && <MarcaDeOculta color={tokens.color.texto.secundario} />}
               {o.valor === valor && <IconoCheck color={tokens.color.texto.marca} />}
             </Pressable>
           ))}

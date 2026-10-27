@@ -51,14 +51,14 @@ export function listarMovimientos(periodo: string | null, categoria: number | nu
 export const borrarMovimiento = (id: string) => pedir('DELETE', `/api/v1/movimientos/${id}`);
 
 /**
- * «Corregir» manda todos los campos (PUT). La fecha de un recurrente no se manda (D-168); un aporte manda su tipo y no
- * lleva categoría. El cuerpo de la respuesta no se usa: PN-01 vuelve a pedir la lista.
+ * «Corregir» manda todos los campos (PUT). La fecha de un recurrente no se manda (D-168). Un aporte o un retiro no se
+ * corrige en la US-52 (D-170). El cuerpo de la respuesta no se usa: PN-01 vuelve a pedir la lista.
  */
 export function corregirMovimiento(s: Solicitud, original: Movimiento) {
   const resto = JSON.stringify({
-    tipo: original.tipo === 'aporte' ? 'aporte' : s.tipo,
+    tipo: s.tipo,
     ...(original.recurrente ? {} : { fecha: s.fecha }),
-    ...(s.categoriaId === null ? {} : { categoria_id: s.categoriaId }),
+    categoria_id: s.categoriaId,
     medio: s.medio,
     ...(s.descripcion.trim() ? { descripcion: s.descripcion.trim() } : {}),
   });

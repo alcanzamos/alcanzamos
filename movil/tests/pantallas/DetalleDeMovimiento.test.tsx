@@ -31,7 +31,7 @@ async function abrirDetalle(m: Movimiento = gastoDeAyer, textoDeLaFila = 'Alimen
   await screen.findByText(PN71);
   await fireEvent.press(screen.getByRole('button', { name: 'Movimientos' }));
   await fireEvent.press(await screen.findByText(textoDeLaFila, { exact: false }));
-  await screen.findByRole('button', { name: 'Corregir' });
+  await screen.findByText('De quién es');
   return m;
 }
 
@@ -63,12 +63,12 @@ describe('PN-02 · Detalle de un movimiento, Android (E14-PRR 4.2)', () => {
       expect(screen.queryByText('Se repite')).not.toBeOnTheScreen();
     });
 
-    it('un ingreso sin descripción dice «Ingreso en Salario» y no trae la fila Descripción', async () => {
+    it('un ingreso sin descripción dice «Ingreso por Salario» y no trae la fila Descripción', async () => {
       apiFalsa(respuestaJson, {
         lista: listado({ movimientos: [movimiento({ id: 'i1', tipo: 'ingreso', categoria_id: 17, medio: 'transferencia' })] }),
       });
       await abrirDetalle(undefined, 'Salario');
-      expect(screen.getByText('Ingreso en Salario')).toBeOnTheScreen();
+      expect(screen.getByText('Ingreso por Salario')).toBeOnTheScreen();
       expect(screen.queryByText('Descripción')).not.toBeOnTheScreen();
     });
 
@@ -79,12 +79,22 @@ describe('PN-02 · Detalle de un movimiento, Android (E14-PRR 4.2)', () => {
       expect(screen.getByText('Cada quincena')).toBeOnTheScreen();
     });
 
-    it('un aporte muestra su meta en lugar de la categoría y la marca «Compartido con el hogar»', async () => {
+    it('un aporte muestra su meta en lugar de la categoría y la marca «Compartido con el hogar», sin «Corregir» ni «Borrar» (D-170)', async () => {
       apiFalsa(respuestaJson, { lista: listado({ movimientos: [arriendoDeEnero] }) });
       await abrirDetalle(undefined, 'Arriendo de enero');
       expect(screen.getByText('Aporte a «Arriendo de enero»')).toBeOnTheScreen();
       expect(screen.getByText('$100.000', { exact: false })).toBeOnTheScreen();
       expect(screen.getByText('Compartido con el hogar')).toBeOnTheScreen();
+      expect(screen.queryByRole('button', { name: 'Corregir' })).not.toBeOnTheScreen();
+      expect(screen.queryByRole('button', { name: 'Borrar este movimiento' })).not.toBeOnTheScreen();
+    });
+
+    it('un retiro de una meta dice «Retiro de «meta»» y tampoco lleva «Corregir» ni «Borrar» (D-170)', async () => {
+      apiFalsa(respuestaJson, { lista: listado({ movimientos: [{ ...arriendoDeEnero, sentido: 'salida' }] }) });
+      await abrirDetalle(undefined, 'Arriendo de enero');
+      expect(screen.getByText('Retiro de «Arriendo de enero»')).toBeOnTheScreen();
+      expect(screen.queryByRole('button', { name: 'Corregir' })).not.toBeOnTheScreen();
+      expect(screen.queryByRole('button', { name: 'Borrar este movimiento' })).not.toBeOnTheScreen();
     });
 
     it('el Atrás vuelve a PN-01 y de ahí a PN-71', async () => {
@@ -147,35 +157,14 @@ describe('PN-02 · Detalle de un movimiento, Android (E14-PRR 4.2)', () => {
       expect(screen.queryByRole('button', { name: 'Corregir' })).not.toBeOnTheScreen();
     });
 
-    it.each([
-      ['un ingreso', movimiento({ id: 'i1', tipo: 'ingreso', categoria_id: 17, monto_centavos: '150000000', medio: 'transferencia' }), 'Salario', 'Ingreso de $1.500.000 en Salario, Ayer.', 'Listo, borramos el ingreso de $1.500.000.'],
-      ['un aporte', { ...arriendoDeEnero, fecha: '2026-11-02' }, 'Arriendo de enero', 'Aporte de $100.000 a «Arriendo de enero», Hoy.', 'Listo, borramos el aporte de $100.000.'],
-    ])('%s: la hoja y el aviso usan su forma', async (_nombre, m, fila, quitaDeLaLista, aviso) => {
-      apiFalsa(respuestaJson, { lista: listado({ movimientos: [m] }) });
-      await abrirDetalle(m, fila);
+    it('un ingreso: la hoja dice «por {categoría}» y el aviso «Listo, borramos el ingreso de {monto}.» (D-170)', async () => {
+      const ingreso = movimiento({ id: 'i1', tipo: 'ingreso', categoria_id: 17, monto_centavos: '150000000', medio: 'transferencia' });
+      apiFalsa(respuestaJson, { lista: listado({ movimientos: [ingreso] }) });
+      await abrirDetalle(ingreso, 'Salario');
       await abrirLaHoja();
-      expect(await screen.findByText(quitaDeLaLista, { exact: false })).toBeOnTheScreen();
+      expect(await screen.findByText('Ingreso de $1.500.000 por Salario, Ayer.', { exact: false })).toBeOnTheScreen();
       await fireEvent.press(screen.getByRole('button', { name: 'Borrar el movimiento' }));
-      expect(await screen.findByText(aviso)).toBeOnTheScreen();
-    });
-
-    it('un aporte agrega cuánto baja el avance de la meta', async () => {
-      apiFalsa(respuestaJson, { lista: listado({ movimientos: [arriendoDeEnero] }) });
-      await abrirDetalle(undefined, 'Arriendo de enero');
-      await abrirLaHoja();
-      expect(
-        await screen.findByText('El avance de «Arriendo de enero» baja $100.000. El avance nunca queda por debajo de cero.', {
-          exact: false,
-        }),
-      ).toBeOnTheScreen();
-    });
-
-    it('un retiro de una meta no dice cuánto sube o baja el avance', async () => {
-      apiFalsa(respuestaJson, { lista: listado({ movimientos: [{ ...arriendoDeEnero, sentido: 'salida' }] }) });
-      await abrirDetalle(undefined, 'Arriendo de enero');
-      await abrirLaHoja();
-      await screen.findByText('¿Borrar este movimiento?');
-      expect(screen.queryByText(/El avance de/)).not.toBeOnTheScreen();
+      expect(await screen.findByText('Listo, borramos el ingreso de $1.500.000.')).toBeOnTheScreen();
     });
 
     // D-169: la frase solo si de verdad vuelve a pendiente; lo decide el API (`vuelve_a_pendiente`).
