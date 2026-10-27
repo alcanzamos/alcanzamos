@@ -342,6 +342,12 @@
     "revisar_antes_de": "2026-11-01"
   },
   {
+    "paquete": "node-forge",
+    "version": "1.4.2",
+    "motivo": "D-166: corrección de seguridad (GHSA-86w9-cpqp-85rv), publicada el 2026-10-27; cumple 7 días el 2026-11-03. Se instaló una sola vez con --min-release-age-exclude=node-forge, sin cambiar .npmrc. Se quita esta excepción en el primer PR de movil/ desde el 2026-11-03.",
+    "revisar_antes_de": "2026-11-03"
+  },
+  {
     "paquete": "node-releases",
     "version": "2.0.60",
     "motivo": "Transición de D-158: esta versión ya estaba en package-lock.json de main el 2026-10-24, antes de que existiera esta revisión, y se publicó el 2026-10-22; cumple 7 días el 2026-10-29. Se quita en el PR del 2026-11-01 que vacía este archivo (D-159).",

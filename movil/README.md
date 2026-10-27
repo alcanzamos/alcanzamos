@@ -44,7 +44,7 @@ Rama `feat/us-49-movil-componentes` (D-155). Los componentes de E14-SDD 5 en Rea
 
 ### Por qué el selector de fecha aparece en la auditoría
 
-`@react-native-community/datetimepicker` declara `expo` como dependencia par opcional y `npm audit` lo lista como «vulnerable» solo por esa vía (sin aviso propio), así que las dos excepciones de `auditoria-excepciones.json` (`node-forge` y `zod`) suman los caminos que entran por el selector, con los mismos avisos, motivo y fecha de revisión; la comprobación del paquete sigue cubriendo que no entren en la app (D-156).
+`@react-native-community/datetimepicker` declara `expo` como dependencia par opcional y `npm audit` lo lista como «vulnerable» solo por esa vía (sin aviso propio), así que la excepción de `zod` de `auditoria-excepciones.json` sumó el camino que entra por el selector (D-156). Desde el 2026-10-27 ese camino ya no se reporta y la excepción solo lista `expo > @expo/cli > zod` (D-166); la comprobación del paquete sigue cubriendo que no entren en la app.
 
 ## Crear la cuenta y verificar el correo (US-49, A3)
 
@@ -327,6 +327,8 @@ Las excepciones van en `antiguedad-excepciones.json`, una por versión, con `paq
 
 **Transición (D-158):** el archivo arranca con 63 excepciones, las versiones que ya estaban en el lockfile de `main` el 2026-10-24 con menos de 7 días (la mayoría entró con el SDK 58). Todas vencen el 2026-11-01 (D-159): el motivo de cada una dice el día en que esa versión cumple 7 días (entre el 2026-10-25 y el 2026-10-30), y el PR del 2026-11-01 vacía el archivo. Si no se vacía, el pipeline falla desde el 2026-11-02.
 
+**node-forge 1.4.2 (D-166):** el 2026-10-27 se subió `node-forge` a 1.4.2 (corrección de GHSA-86w9-cpqp-85rv, publicada ese día) con `--min-release-age-exclude=node-forge` en la línea de comandos de esa única instalación, sin tocar `.npmrc`, y con una excepción de antigüedad que vence el **2026-11-03**, cuando cumple 7 días. Pasada esa fecha se quita la excepción.
+
 **Riesgo aceptado (D-158):** npm no detecta que un paquete perdió nivel de confianza (por ejemplo, que pasó de publicarse desde un pipeline con procedencia a publicarse sin ella). Se mitiga con la revisión de los cambios del lockfile en cada PR y con `npm audit signatures`.
 
 ### Scripts de instalación (`allowScripts`)
@@ -358,7 +360,7 @@ Versiones fijadas sin `~` ni `^`, verificadas en el registro de npm el 2026-10-2
 
 ### Vulnerabilidades (`npm run auditoria`)
 
-`npm audit --omit=dev --audit-level=high` falla con los avisos de `node-forge` y `zod` (abajo). En vez de silenciarlo para todo el proyecto, `scripts/auditoria.mjs` corre `npm audit --omit=dev --json` y falla con:
+`npm audit --omit=dev --audit-level=high` falla con el aviso de `zod` (abajo). En vez de silenciarlo para todo el proyecto, `scripts/auditoria.mjs` corre `npm audit --omit=dev --json` y falla con:
 
 - todo aviso alto o crítico que no esté en `auditoria-excepciones.json`;
 - toda excepción que ya no se reporta (quedó obsoleta: se quita);
@@ -369,7 +371,7 @@ Cada excepción trae el GHSA, el paquete, las rutas de dependencias (que muestra
 
 ### `node-forge` y `zod` no entran en la app (`npm run comprobar-bundle`)
 
-Las excepciones de `node-forge` y `zod` se apoyan en que ningún archivo de la app los importa. `scripts/comprobar-bundle.mjs` lo comprueba: corre `npx expo export --platform android` en una carpeta temporal fuera del repositorio y busca en el paquete de JavaScript el nombre y cadenas propias de cada paquete, porque Metro no deja las rutas de los módulos (`MARCAS_POR_PAQUETE` en `scripts/bundle-logica.mjs`):
+La excepción de `zod` (y, antes de D-166, la de `node-forge`) se apoya en que ningún archivo de la app los importa; el script sigue comprobando los dos. `scripts/comprobar-bundle.mjs` lo comprueba: corre `npx expo export --platform android` en una carpeta temporal fuera del repositorio y busca en el paquete de JavaScript el nombre y cadenas propias de cada paquete, porque Metro no deja las rutas de los módulos (`MARCAS_POR_PAQUETE` en `scripts/bundle-logica.mjs`):
 
 - `node-forge`: `RSASSA-PKCS1-V1_5` y el prefijo de OID `1.2.840.113549`.
 - `zod`: `ZodError`, `invalid_type`, `too_small` e `invalid_enum_value` (valores de datos, que sobreviven a la minificación y aparecen en el bytecode de Hermes).
@@ -391,18 +393,20 @@ Razón: son herramientas de compilación que no van en la app, y la FSF consider
 
 Falla si: otro paquete tiene una licencia no permitida; cambia la licencia de uno con excepción; cambia su camino; la excepción quedó obsoleta (el paquete ya no está o su licencia ahora es permitida); o pasó la fecha `revisar_antes_de`. En este último caso se revisa en el cierre de la iteración y se renueva la fecha, o se quita la excepción.
 
-## Alertas de `npm audit` (2026-10-23)
+## Alertas de `npm audit` (2026-10-23, actualizado el 2026-10-27)
 
-Con `--omit=dev`, `npm audit` marca 5 alertas altas, por dos avisos:
+El 2026-10-27 `node-forge` pasó a 1.4.2, que corrige GHSA-86w9-cpqp-85rv: ese aviso ya no sale y se quitó su excepción (D-166). Lo que sigue es lo documentado el 2026-10-23 para `zod`; la fila de `node-forge` queda como historia.
+
+Con `--omit=dev`, `npm audit` marcaba 5 alertas altas, por dos avisos:
 
 | Paquete | Aviso | Quién lo trae |
 |---|---|---|
-| `node-forge` 1.4.0 | GHSA-86w9-cpqp-85rv: la verificación de firmas RSA PKCS#1 v1.5 acepta elementos de más | `expo` → `@expo/cli` (y `@expo/code-signing-certificates`) |
+| `node-forge` 1.4.0 (corregido en 1.4.2, D-166) | GHSA-86w9-cpqp-85rv: la verificación de firmas RSA PKCS#1 v1.5 acepta elementos de más | `expo` → `@expo/cli` (y `@expo/code-signing-certificates`) |
 | `zod` 3.25.76 | GHSA-mrhx-c7xc-m3w5: puede agotar la memoria al validar colecciones enormes con restricciones (afecta a `zod` anterior a 4.6.6) | `expo` → `@expo/cli` (como dependencia de desarrollo también por `eslint-plugin-react-hooks`, que la auditoría de producción omite) |
 
-Las otras tres alertas son los paquetes que dependen de `node-forge` o `zod` (`@expo/code-signing-certificates`, `@expo/cli` y `expo`). El aviso de `braces` (GHSA-vfj7-8cjw-p6xm, `micromatch` de las herramientas de Jest y Metro) que se documentó el 2026-10-22 ya no sale: GitHub retiró ese aviso (*withdrawn*), aunque la versión instalada sigue siendo la 3.0.3 (`npm ls braces`). `node-forge` no tiene versión corregida (la última publicada es la 1.4.0, la afectada) y `@expo/cli` es la herramienta de línea de comandos de Expo, no la app que se instala en el celular: ninguno de los archivos de `src/` lo importa. Por eso es una de las dos excepciones de `auditoria-excepciones.json` (aprobada en D-150, con revisión antes del 2026-11-05).
+Las otras tres alertas son los paquetes que dependen de `node-forge` o `zod` (`@expo/code-signing-certificates`, `@expo/cli` y `expo`). El aviso de `braces` (GHSA-vfj7-8cjw-p6xm, `micromatch` de las herramientas de Jest y Metro) que se documentó el 2026-10-22 ya no sale: GitHub retiró ese aviso (*withdrawn*), aunque la versión instalada sigue siendo la 3.0.3 (`npm ls braces`). `@expo/cli` es la herramienta de línea de comandos de Expo, no la app que se instala en el celular: ninguno de los archivos de `src/` lo importa.
 
-`zod` tampoco tiene corrección compatible: la solución es `zod` 4 (4.6.6 o posterior), un salto mayor que Expo 58 no usa (`@expo/cli` 58.1.15 sigue trayendo la 3.25.76), y la «corrección» de npm es bajar a expo 44 (consultado el 2026-10-23). `@expo/cli` lo usa para validar la configuración y las opciones de la CLI, en la máquina de desarrollo y en el pipeline, y ningún archivo de `src/` lo importa. Es la segunda excepción de `auditoria-excepciones.json` (aprobada en D-154, con revisión antes del 2026-11-05). No se fuerza `zod` 4 con `overrides`: puede romper `expo start` y `expo export`.
+`zod` no tiene corrección compatible: la solución es `zod` 4 (4.6.6 o posterior), un salto mayor que Expo 58 no usa (`@expo/cli` 58.1.15 sigue trayendo la 3.25.76), y la «corrección» de npm es bajar a expo 44 (consultado el 2026-10-23). `@expo/cli` lo usa para validar la configuración y las opciones de la CLI, en la máquina de desarrollo y en el pipeline, y ningún archivo de `src/` lo importa. Es la única excepción de `auditoria-excepciones.json` (aprobada en D-154, con revisión antes del 2026-11-05). No se fuerza `zod` 4 con `overrides`: puede romper `expo start` y `expo export`.
 
 - **No se usa `npm audit fix --force`:** bajaría Expo al SDK 44.
 - **Se revisan cada vez que se sube de versión de Expo.**
