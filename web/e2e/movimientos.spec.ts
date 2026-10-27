@@ -40,7 +40,7 @@ const mov = (cambios: Partial<Movimiento>): Movimiento => ({
   ...cambios,
 });
 
-// Los movimientos de noviembre de E14-PRR 2.2 que importan aquí, y los de otros meses (el medio del cobro de
+// Los diez movimientos de noviembre de E14-PRR 2.2 que importan aquí, y los de otros meses (el medio del cobro de
 // octubre no está en el escenario: se le pone «transferencia»).
 const transporte = mov({ id: "m10" });
 const mercado = mov({
@@ -107,9 +107,59 @@ const catalogo = {
   ingreso: [{ id: 17, nombre: "Salario", general: false }],
 };
 
-/** El API simulado: filtra los movimientos como el API (periodo, categoría, meses, categorías y la suma). */
-async function api(page: Page, movimientos: Movimiento[]) {
-  return simularApi(page, {
+// El arriendo del 15 de agosto, mensual, creado el 26 de octubre (D-164, D-169): su fecha es historia y no vuelve a pendiente.
+const arriendoDeAgosto = (vuelve: boolean) =>
+  mov({
+    id: "r1",
+    monto_centavos: "65000000",
+    fecha: "2026-08-15",
+    categoria_id: 4,
+    medio: "transferencia",
+    recurrente: {
+      recurrente_id: "rr",
+      fecha_programada: "2026-08-15",
+      periodicidad: "mensual",
+      vuelve_a_pendiente: vuelve,
+    },
+  });
+
+/** El API simulado: guarda los movimientos en memoria, filtra como el API y aplica «Corregir» y «Borrar». */
+async function api(page: Page, inicial: Movimiento[]) {
+  let movimientos = [...inicial];
+  const cuerpos: { metodo: string; id: string; cuerpo: unknown }[] = [];
+  const porId = Object.fromEntries(
+    inicial.flatMap((m) => [
+      [
+        `PUT /api/v1/movimientos/${m.id}`,
+        (
+          ruta: Parameters<ReturnType<typeof responder>>[0],
+          cuerpo: unknown,
+        ) => {
+          cuerpos.push({ metodo: "PUT", id: m.id, cuerpo });
+          const c = cuerpo as Record<string, unknown>;
+          movimientos = movimientos.map((x) =>
+            x.id === m.id
+              ? {
+                  ...x,
+                  monto_centavos: String(c.monto_centavos),
+                  fecha: typeof c.fecha === "string" ? c.fecha : x.fecha,
+                }
+              : x,
+          );
+          return responder(200, {})(ruta, undefined);
+        },
+      ],
+      [
+        `DELETE /api/v1/movimientos/${m.id}`,
+        (ruta: Parameters<ReturnType<typeof responder>>[0]) => {
+          cuerpos.push({ metodo: "DELETE", id: m.id, cuerpo: undefined });
+          movimientos = movimientos.filter((x) => x.id !== m.id);
+          return responder(204)(ruta, undefined);
+        },
+      ],
+    ]),
+  );
+  const pedidos = await simularApi(page, {
     "GET /api/v1/cuenta/seguridad": responder(200, { ingreso_anterior: null }),
     "GET /api/v1/categorias": responder(200, catalogo),
     "GET /api/v1/movimientos": (ruta) => {
@@ -131,7 +181,7 @@ async function api(page: Page, movimientos: Movimiento[]) {
           delMes.flatMap((m) => (m.categoria_id ? [m.categoria_id] : [])),
         ),
       ]
-        .sort((x, y) => cuantas(y) - cuantas(x) || x - y)
+        .sort((a, b) => cuantas(b) - cuantas(a) || a - b)
         .map((id) => ({
           categoria_id: id,
           movimientos: cuantas(id),
@@ -151,11 +201,13 @@ async function api(page: Page, movimientos: Movimiento[]) {
         movimientos: lista,
       })(ruta, undefined);
     },
+    ...porId,
   });
+  return { pedidos, cuerpos };
 }
 
 const fila = (page: Page, nombre: RegExp) =>
-  page.locator(".lista-de-filas li").filter({ hasText: nombre });
+  page.getByRole("link", { name: nombre });
 
 test.describe("PN-01 · Movimientos: lista y filtros (US-52)", () => {
   test("la lista agrupada por día, con filtros de periodo y de categoría y sin violaciones de axe", async ({
@@ -235,7 +287,7 @@ test.describe("PN-01 · Movimientos: lista y filtros (US-52)", () => {
     page,
   }) => {
     await hoyEs2DeNoviembre(page);
-    const pedidos = await api(page, deNoviembre);
+    const { pedidos } = await api(page, deNoviembre);
     await page.goto("/cuenta/seguridad");
     await page.getByText("Este es tu primer ingreso.").waitFor();
     await expect(
@@ -252,5 +304,240 @@ test.describe("PN-01 · Movimientos: lista y filtros (US-52)", () => {
     await page.getByRole("link", { name: "Atrás" }).click();
     await expect(page).toHaveURL(/\/movimientos$/);
     expect(pedidos.filter((p) => p.metodo === "POST")).toEqual([]);
+  });
+
+  test("web: lista y detalle en dos columnas a 1280 px y una pantalla a la vez a 360 px", async ({
+    page,
+  }) => {
+    await hoyEs2DeNoviembre(page);
+    await api(page, deNoviembre);
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/movimientos");
+    await expect(
+      page.getByText("Elige un movimiento para verlo."),
+    ).toBeVisible();
+    await fila(page, /Mercado/).click();
+    const detalle = page.getByRole("region", { name: "Movimiento" });
+    await expect(detalle).toBeVisible();
+    await expect(fila(page, /Transporte/)).toBeVisible();
+    await expect(detalle.getByRole("link", { name: "Atrás" })).toBeHidden();
+    const [lista, derecha] = await Promise.all([
+      fila(page, /Transporte/).boundingBox(),
+      detalle.boundingBox(),
+    ]);
+    expect(lista?.x).toBeLessThan(derecha?.x ?? 0);
+
+    await page.setViewportSize({ width: 360, height: 740 });
+    await expect(detalle).toBeVisible();
+    await expect(fila(page, /Transporte/)).toBeHidden();
+    await detalle.getByRole("link", { name: "Atrás" }).click();
+    await expect(fila(page, /Transporte/)).toBeVisible();
+    await expect(detalle).toBeHidden();
+  });
+});
+
+test.describe("PN-02 · Detalle, corregir y borrar (US-52)", () => {
+  test("abrir un movimiento, corregir el monto a $40.000 y volver a PN-01 con «Listo, guardamos los cambios.»", async ({
+    page,
+  }) => {
+    await hoyEs2DeNoviembre(page);
+    const { cuerpos } = await api(page, deNoviembre);
+    await page.goto("/movimientos");
+    await fila(page, /Mercado/).click();
+    const detalle = page.getByRole("region", { name: "Movimiento" });
+    await expect(detalle).toContainText("$45.000");
+    await expect(detalle).toContainText("Gasto en Alimentación");
+    await expect(detalle).toContainText("De quién esSolo mío");
+    await sinViolaciones(page);
+
+    await detalle.getByRole("button", { name: "Corregir" }).click();
+    const formulario = page.getByRole("region", {
+      name: "Corregir movimiento",
+    });
+    await expect(formulario.getByLabel("Monto")).toHaveValue("$45.000");
+    await expect(formulario.getByLabel("Fecha")).toHaveValue("2026-11-01");
+    await sinViolaciones(page);
+    await formulario.getByLabel("Monto").fill("40.000");
+    await formulario
+      .getByRole("button", { name: "Guardar los cambios" })
+      .click();
+
+    await expect(
+      page
+        .getByRole("status")
+        .filter({ hasText: "Listo, guardamos los cambios." }),
+    ).toBeVisible();
+    await expect(page).toHaveURL(/\/movimientos\?periodo=2026-11$/);
+    await expect(fila(page, /Mercado/)).toContainText("$40.000");
+    expect(cuerpos).toEqual([
+      {
+        metodo: "PUT",
+        id: "m9",
+        cuerpo: {
+          monto_centavos: 4000000,
+          tipo: "gasto",
+          fecha: "2026-11-01",
+          categoria_id: 1,
+          medio: "efectivo",
+          descripcion: "Mercado",
+        },
+      },
+    ]);
+    await sinViolaciones(page);
+  });
+
+  test("borrar un movimiento: la hoja dice qué se borra y vuelve a PN-01 con «Listo, borramos el gasto de $45.000.»", async ({
+    page,
+  }) => {
+    await hoyEs2DeNoviembre(page);
+    const { cuerpos } = await api(page, deNoviembre);
+    await page.goto("/movimientos?movimiento=m9");
+    await page.getByRole("button", { name: "Borrar este movimiento" }).click();
+    const hoja = page.getByRole("region", { name: "¿Borrar este movimiento?" });
+    await expect(hoja).toContainText("Gasto de $45.000 en Alimentación, Ayer.");
+    await expect(hoja).toContainText(
+      "Se quita de tu lista y calculamos el mes de nuevo.",
+    );
+    await expect(hoja).not.toContainText("por confirmar");
+    await sinViolaciones(page);
+    await hoja.getByRole("button", { name: "Borrar el movimiento" }).click();
+
+    await expect(
+      page
+        .getByRole("status")
+        .filter({ hasText: "Listo, borramos el gasto de $45.000." }),
+    ).toBeVisible();
+    await expect(fila(page, /Mercado/)).toHaveCount(0);
+    await expect(page.getByText("4 movimientos")).toBeVisible();
+    expect(cuerpos).toEqual([
+      { metodo: "DELETE", id: "m9", cuerpo: undefined },
+    ]);
+  });
+
+  test("D-169: borrar una fecha de un recurrente que vuelve a pendiente lo dice; la del arriendo de agosto, no", async ({
+    page,
+  }) => {
+    await hoyEs2DeNoviembre(page);
+    await api(page, [
+      arriendoDeAgosto(false),
+      mov({
+        id: "r2",
+        fecha: "2026-11-01",
+        categoria_id: 17,
+        tipo: "ingreso",
+        monto_centavos: "120000000",
+        recurrente: {
+          recurrente_id: "rq",
+          fecha_programada: "2026-11-01",
+          periodicidad: "quincenal",
+          vuelve_a_pendiente: true,
+        },
+      }),
+    ]);
+    await page.goto("/movimientos?periodo=2026-11&movimiento=r2");
+    await expect(
+      page.getByRole("region", { name: "Movimiento" }),
+    ).toContainText("Se repiteCada quincena");
+    await page.getByRole("button", { name: "Borrar este movimiento" }).click();
+    await expect(
+      page.getByRole("region", { name: "¿Borrar este movimiento?" }),
+    ).toContainText("Esta fecha volverá a quedar por confirmar.");
+
+    await page.goto("/movimientos?periodo=2026-08&movimiento=r1");
+    await page.getByRole("button", { name: "Borrar este movimiento" }).click();
+    const hoja = page.getByRole("region", { name: "¿Borrar este movimiento?" });
+    await expect(hoja).toContainText(
+      "Gasto de $650.000 en Arriendo o cuota de vivienda, 15 de agosto de 2026.",
+    );
+    await expect(hoja).not.toContainText("por confirmar");
+    await sinViolaciones(page);
+    await hoja.getByRole("button", { name: "Borrar el movimiento" }).click();
+    await expect(
+      page
+        .getByRole("status")
+        .filter({ hasText: "Listo, borramos el gasto de $650.000." }),
+    ).toBeVisible();
+  });
+
+  test("D-168: corregir una fecha de un recurrente no muestra Fecha, lleva la frase y no manda la fecha", async ({
+    page,
+  }) => {
+    await hoyEs2DeNoviembre(page);
+    const { cuerpos } = await api(page, [arriendoDeAgosto(false)]);
+    await page.goto("/movimientos?periodo=2026-08&movimiento=r1");
+    await page.getByRole("button", { name: "Corregir" }).click();
+    const formulario = page.getByRole("region", {
+      name: "Corregir movimiento",
+    });
+    await expect(formulario.getByLabel("Fecha")).toHaveCount(0);
+    await expect(formulario.getByRole("group", { name: "Tipo" })).toHaveCount(
+      0,
+    );
+    await expect(
+      formulario.getByText(
+        "Este cambio es solo para esta fecha. Las demás siguen igual.",
+      ),
+    ).toHaveCount(1);
+    await expect(formulario.getByLabel("Monto")).toHaveValue("$650.000");
+    await sinViolaciones(page);
+    await formulario.getByLabel("Monto").fill("600.000");
+    await formulario
+      .getByRole("button", { name: "Guardar los cambios" })
+      .click();
+    await expect(
+      page
+        .getByRole("status")
+        .filter({ hasText: "Listo, guardamos los cambios." }),
+    ).toBeVisible();
+    expect(cuerpos[0]?.cuerpo).toEqual({
+      monto_centavos: 60000000,
+      tipo: "gasto",
+      categoria_id: 4,
+      medio: "transferencia",
+    });
+  });
+
+  test("un aporte: sin Tipo ni Categoría al corregir, y la hoja de borrar dice cuánto baja el avance de la meta", async ({
+    page,
+  }) => {
+    await hoyEs2DeNoviembre(page);
+    await api(page, deNoviembre);
+    await page.goto("/movimientos?movimiento=m4");
+    const detalle = page.getByRole("region", { name: "Movimiento" });
+    await expect(detalle).toContainText("Aporte a «Arriendo de enero»");
+    await expect(detalle).toContainText("De quién esCompartido con el hogar");
+    await detalle.getByRole("button", { name: "Corregir" }).click();
+    const formulario = page.getByRole("region", {
+      name: "Corregir movimiento",
+    });
+    await expect(formulario.getByRole("group", { name: "Tipo" })).toHaveCount(
+      0,
+    );
+    await expect(
+      formulario.getByRole("group", { name: "Categoría" }),
+    ).toHaveCount(0);
+    await formulario.getByRole("button", { name: "Ahora no" }).click();
+    await page.getByRole("button", { name: "Borrar este movimiento" }).click();
+    await expect(
+      page.getByRole("region", { name: "¿Borrar este movimiento?" }),
+    ).toContainText(
+      "El avance de «Arriendo de enero» baja $100.000. El avance nunca queda por debajo de cero.",
+    );
+  });
+
+  test("un error al cargar dice «No pudimos cargar tus movimientos.» y no tiene violaciones de axe", async ({
+    page,
+  }) => {
+    await simularApi(page, {
+      "GET /api/v1/movimientos": responder(500, { error: "interno" }),
+    });
+    await page.goto("/movimientos");
+    await expect(
+      page.getByText("No pudimos cargar tus movimientos."),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Intentar de nuevo" }),
+    ).toBeVisible();
+    await sinViolaciones(page);
   });
 });

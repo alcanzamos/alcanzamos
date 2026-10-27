@@ -1164,6 +1164,56 @@
           "texto": "Tus datos están a salvo. Intenta de nuevo.",
           "e14": "E14-PRR 4.1 (PN-01), estado «Error de carga»"
         }
+      },
+      "cambiosGuardados": {
+        "titulo": {
+          "texto": "Listo, guardamos los cambios.",
+          "e14": "E14-PRR 4.2 (PN-02), «Tras guardar»"
+        }
+      },
+      "movimientoNoExiste": {
+        "titulo": {
+          "texto": "Ese movimiento ya no está.",
+          "e14": "E14-PRR 4.2 (PN-02), estado «Ya no existe»"
+        }
+      },
+      "errorAlGuardarCambios": {
+        "titulo": {
+          "texto": "No pudimos guardar los cambios.",
+          "e14": "E14-PRR 4.2 (PN-02), estado «Error de guardado»"
+        },
+        "mensaje": {
+          "texto": "Tu movimiento sigue igual. Intenta de nuevo.",
+          "e14": "E14-PRR 4.2 (PN-02), estado «Error de guardado»"
+        }
+      },
+      "errorAlBorrar": {
+        "titulo": {
+          "texto": "No pudimos borrar el movimiento.",
+          "e14": "E14-PRR 4.2 (PN-02), estado «Error al borrar»"
+        },
+        "mensaje": {
+          "texto": "Sigue en tu lista. Intenta de nuevo.",
+          "e14": "E14-PRR 4.2 (PN-02), estado «Error al borrar»"
+        }
+      },
+      "borramosGasto": {
+        "titulo": {
+          "texto": "Listo, borramos el gasto de {monto}.",
+          "e14": "E14-PRR 4.2 (PN-02), «Tras borrar»"
+        }
+      },
+      "borramosIngreso": {
+        "titulo": {
+          "texto": "Listo, borramos el ingreso de {monto}.",
+          "e14": "E14-PRR 4.2 (PN-02), «Tras borrar»: forma del ingreso; propuesto, pendiente de aprobación del dueño"
+        }
+      },
+      "borramosAporte": {
+        "titulo": {
+          "texto": "Listo, borramos el aporte de {monto}.",
+          "e14": "E14-PRR 4.2 (PN-02), «Tras borrar»: forma del aporte a una meta; propuesto, pendiente de aprobación del dueño"
+        }
       }
     },
     "movimientos": {
@@ -1231,6 +1281,10 @@
         }
       },
       "vacio": {
+        "elegir": {
+          "texto": "Elige un movimiento para verlo.",
+          "e14": "E14-PRR 4.1 (PN-01), variante web"
+        },
         "sinResultados": {
           "texto": "No hay movimientos con este filtro.",
           "e14": "E14-PRR 4.1 (PN-01), estado «Sin resultados con el filtro»"
@@ -1250,6 +1304,94 @@
         "registraElPrimero": {
           "texto": "Registra el primero y aquí lo verás.",
           "e14": "E14-PRR 4.1 (PN-01), estado «Sin ningún movimiento»"
+        }
+      },
+      "detalle": {
+        "titulo": {
+          "texto": "Movimiento",
+          "e14": "E14-PRR 4.2 (PN-02), fila 1 (barra)"
+        },
+        "gastoEn": {
+          "texto": "Gasto en {categoria}",
+          "e14": "E14-PRR 4.2 (PN-02), fila 2"
+        },
+        "ingresoEn": {
+          "texto": "Ingreso en {categoria}",
+          "e14": "E14-PRR 4.2 (PN-02), fila 2: forma del ingreso; propuesto, pendiente de aprobación del dueño"
+        },
+        "aporteA": {
+          "texto": "Aporte a «{meta}»",
+          "e14": "E14-PRR 4.2 (PN-02), «Un aporte a una meta»: el detalle muestra la meta en lugar de la categoría; E14 no da la frase; propuesto, pendiente de aprobación del dueño"
+        },
+        "fecha": {
+          "texto": "Fecha",
+          "e14": "E14-PRR 4.2 (PN-02), fila 3"
+        },
+        "descripcion": {
+          "texto": "Descripción",
+          "e14": "E14-PRR 4.2 (PN-02), fila 3"
+        },
+        "corregir": {
+          "texto": "Corregir",
+          "e14": "E14-PRR 4.2 (PN-02), fila 5"
+        },
+        "borrar": {
+          "texto": "Borrar este movimiento",
+          "e14": "E14-PRR 4.2 (PN-02), fila 6"
+        },
+        "corregirTitulo": {
+          "texto": "Corregir movimiento",
+          "e14": "E14-PRR 4.2 (PN-02), «Corregir», fila 1 (barra)"
+        },
+        "guardarCambios": {
+          "texto": "Guardar los cambios",
+          "e14": "E14-PRR 4.2 (PN-02), «Corregir», fila 9"
+        },
+        "ahoraNo": {
+          "texto": "Ahora no",
+          "e14": "E14-PRR 4.2 (PN-02), «Corregir», fila 10; «Borrar», fila 5"
+        },
+        "soloEstaFecha": {
+          "texto": "Este cambio es solo para esta fecha. Las demás siguen igual.",
+          "e14": "E14-PRR 4.2 (PN-02), «Una fecha de un recurrente» (D-168); E14-PRR 4.1, hoja «Cambiar el monto»"
+        },
+        "volveraPorConfirmar": {
+          "texto": "Esta fecha volverá a quedar por confirmar.",
+          "e14": "E14-PRR 4.2 (PN-02), «Una fecha de un recurrente» (D-168, D-169): solo si la fecha vuelve a pendiente"
+        }
+      },
+      "borrar": {
+        "titulo": {
+          "texto": "¿Borrar este movimiento?",
+          "e14": "E14-PRR 4.2 (PN-02), «Borrar», fila 1"
+        },
+        "gasto": {
+          "texto": "Gasto de {monto} en {categoria}, {dia}.",
+          "e14": "E14-PRR 4.2 (PN-02), «Borrar», fila 2: «Gasto de $45.000 en Alimentación, Ayer.»"
+        },
+        "ingreso": {
+          "texto": "Ingreso de {monto} en {categoria}, {dia}.",
+          "e14": "E14-PRR 4.2 (PN-02), «Borrar», fila 2: forma del ingreso; propuesto, pendiente de aprobación del dueño"
+        },
+        "aporte": {
+          "texto": "Aporte de {monto} a «{meta}», {dia}.",
+          "e14": "E14-PRR 4.2 (PN-02), «Borrar», fila 2: forma del aporte a una meta; propuesto, pendiente de aprobación del dueño"
+        },
+        "quePasa": {
+          "texto": "Se quita de tu lista y calculamos el mes de nuevo.",
+          "e14": "E14-PRR 4.2 (PN-02), «Borrar», fila 3"
+        },
+        "avance": {
+          "texto": "El avance de «{meta}» baja {monto}. El avance nunca queda por debajo de cero.",
+          "e14": "E14-PRR 4.2 (PN-02), «Un aporte a una meta» (CU-08 2c)"
+        },
+        "confirmar": {
+          "texto": "Borrar el movimiento",
+          "e14": "E14-PRR 4.2 (PN-02), «Borrar», fila 4"
+        },
+        "irAMovimientos": {
+          "texto": "Ir a Movimientos",
+          "e14": "E14-PRR 4.2 (PN-02), estado «Ya no existe»"
         }
       }
     }

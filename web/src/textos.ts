@@ -126,6 +126,24 @@ export const avisos = {
     titulo: a.errorAlCargarMovimientos.titulo,
     mensaje: a.errorAlCargarMovimientos.mensaje,
   },
+  cambiosGuardados: {
+    tipo: "informacion",
+    titulo: a.cambiosGuardados.titulo,
+  },
+  movimientoNoExiste: {
+    tipo: "informacion",
+    titulo: a.movimientoNoExiste.titulo,
+  },
+  errorAlGuardarCambios: {
+    tipo: "informacion",
+    titulo: a.errorAlGuardarCambios.titulo,
+    mensaje: a.errorAlGuardarCambios.mensaje,
+  },
+  errorAlBorrar: {
+    tipo: "informacion",
+    titulo: a.errorAlBorrar.titulo,
+    mensaje: a.errorAlBorrar.mensaje,
+  },
 } satisfies Record<string, DatosDeAviso>;
 
 /**
