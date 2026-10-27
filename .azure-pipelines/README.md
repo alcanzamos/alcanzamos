@@ -32,3 +32,12 @@ El pipeline de `diseno/` se agrega cuando haga falta, con sus filtros y sus caso
 **Cupo:** el plan gratuito de Microsoft-hosted da 1 trabajo a la vez y 1.800 minutos al mes. Los filtros evitan compilar lo que no cambió.
 
 Versiones fijadas (verificadas en sus fuentes oficiales el 2026-10-21): gitleaks v8.30.1 (imagen del 2026-03-21; digest del índice multiarquitectura `sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f`, resuelto en ghcr.io el 2026-10-24), `@commitlint/cli` y `@commitlint/config-conventional` 21.2.3 (la versión más nueva con 7 días o más que resolvió npm el 2026-10-24; la 21.2.4 es del 2026-10-18), Node 24.22.1 LTS (nodejs.org), npm 12.2.1 (registro de npm, 2026-10-24; SHA-512 del tarball fijado en `web.yml`, `movil.yml`, `comun.yml` y `api/Dockerfile`; reglas de instalación en `web/.npmrc`, `movil/.npmrc` y `commitlint/.npmrc`), OpenTofu 1.13.2 (GitHub releases, 2026-10-22; SHA-256 del zip fijado en el pipeline, tomado de `tofu_1.13.2_SHA256SUMS`), Go 1.27.3 (go.dev/dl, 2026-10-22; SHA-256 del tarball fijado en el pipeline), Node 24.22.1 para `web.yml` y `comun.yml` (nodejs.org, `SHASUMS256.txt`, 2026-10-22; SHA-256 del tarball fijado en el pipeline; las dependencias de `web/` están en su README), imagen `ubuntu-24.04`.
+
+## Token de GitHub de `comun` (D-167)
+
+El paso de commitlint pide el título del PR a la API de GitHub. Sin token, GitHub permite 60 pedidos por hora por IP, y los agentes de Azure comparten IP: a veces responde 403 y `comun` falla sin que el PR tenga la culpa. Por eso el pipeline `comun` tiene una **variable secreta `GITHUB_TOKEN_PR`** (Azure DevOps → Pipelines → `comun` → Edit → Variables, «Keep this value secret»).
+
+- **Token:** fine-grained, solo para `alcanzamos/alcanzamos`, permiso «Pull requests: Read-only», vence a los 90 días. Lo crea y lo renueva el dueño. **Creado el 2026-10-27; vence el 2027-01-25: renovarlo antes** (D-167).
+- **Cómo se usa:** entra al paso como variable de entorno y va a `curl` por su entrada estándar, nunca en la línea de comandos. Azure lo oculta en los registros.
+- **Sin la variable:** el paso pide el título sin token, como antes.
+- **Con el token vencido o revocado:** GitHub responde 401 y `comun` falla. Es a propósito: avisa que hay que renovarlo.
