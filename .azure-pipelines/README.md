@@ -37,7 +37,7 @@ Versiones fijadas (verificadas en sus fuentes oficiales el 2026-10-21): gitleaks
 
 El paso de commitlint pide el título del PR a la API de GitHub. Sin token, GitHub permite 60 pedidos por hora por IP, y los agentes de Azure comparten IP: a veces responde 403 y `comun` falla sin que el PR tenga la culpa. Por eso el pipeline `comun` tiene una **variable secreta `GITHUB_TOKEN_PR`** (Azure DevOps → Pipelines → `comun` → Edit → Variables, «Keep this value secret»).
 
-- **Token:** fine-grained, solo para `alcanzamos/alcanzamos`, permiso «Pull requests: Read-only», vence a los 90 días. Lo crea y lo renueva el dueño; la fecha de renovación está en D-167.
+- **Token:** fine-grained, solo para `alcanzamos/alcanzamos`, permiso «Pull requests: Read-only», vence a los 90 días. Lo crea y lo renueva el dueño. **Creado el 2026-10-27; vence el 2027-01-25: renovarlo antes** (D-167).
 - **Cómo se usa:** entra al paso como variable de entorno y va a `curl` por su entrada estándar, nunca en la línea de comandos. Azure lo oculta en los registros.
 - **Sin la variable:** el paso pide el título sin token, como antes.
 - **Con el token vencido o revocado:** GitHub responde 401 y `comun` falla. Es a propósito: avisa que hay que renovarlo.
