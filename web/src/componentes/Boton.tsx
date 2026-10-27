@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { alTocarEnlace } from "../enrutador";
 
-type Variante = "primario" | "secundario" | "texto";
+type Variante = "primario" | "secundario" | "texto" | "destructivo";
 
 // Botón de E14-SDD 5.2 y botón de texto de 48 px. Deshabilitado usa aria-disabled: el foco no se pierde
 // y el botón puede seguir enlazado a su explicación con aria-describedby.
