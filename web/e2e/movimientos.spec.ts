@@ -497,32 +497,62 @@ test.describe("PN-02 · Detalle, corregir y borrar (US-52)", () => {
     });
   });
 
-  test("un aporte: sin Tipo ni Categoría al corregir, y la hoja de borrar dice cuánto baja el avance de la meta", async ({
+  test("un aporte y un retiro se ven en el detalle, sin «Corregir» ni «Borrar» (D-170)", async ({
     page,
   }) => {
     await hoyEs2DeNoviembre(page);
-    await api(page, deNoviembre);
-    await page.goto("/movimientos?movimiento=m4");
+    await api(page, [
+      ...deNoviembre,
+      { ...arriendoDeEnero, id: "m6", sentido: "salida" },
+    ]);
     const detalle = page.getByRole("region", { name: "Movimiento" });
-    await expect(detalle).toContainText("Aporte a «Arriendo de enero»");
-    await expect(detalle).toContainText("De quién esCompartido con el hogar");
-    await detalle.getByRole("button", { name: "Corregir" }).click();
+    for (const [id, subtitulo] of [
+      ["m4", "Aporte a «Arriendo de enero»"],
+      ["m6", "Retiro de «Arriendo de enero»"],
+    ]) {
+      await page.goto(`/movimientos?movimiento=${id}`);
+      await expect(detalle).toContainText(subtitulo ?? "");
+      await expect(detalle).toContainText("De quién esCompartido con el hogar");
+      await expect(
+        detalle.getByRole("button", { name: "Corregir" }),
+      ).toHaveCount(0);
+      await expect(
+        detalle.getByRole("button", { name: "Borrar este movimiento" }),
+      ).toHaveCount(0);
+    }
+    await sinViolaciones(page);
+  });
+
+  test("corregir un movimiento de una categoría oculta la deja elegida, con el ícono y la palabra «Oculta», y guarda sin cambiarla", async ({
+    page,
+  }) => {
+    await hoyEs2DeNoviembre(page);
+    const { cuerpos } = await api(page, [musica]);
+    await page.goto("/movimientos?periodo=2026-10&movimiento=m2");
+    await page.getByRole("button", { name: "Corregir" }).click();
     const formulario = page.getByRole("region", {
       name: "Corregir movimiento",
     });
-    await expect(formulario.getByRole("group", { name: "Tipo" })).toHaveCount(
-      0,
-    );
+    const chip = formulario.getByRole("radio", {
+      name: "Suscripciones Oculta",
+    });
+    await expect(chip).toBeChecked();
     await expect(
-      formulario.getByRole("group", { name: "Categoría" }),
-    ).toHaveCount(0);
-    await formulario.getByRole("button", { name: "Ahora no" }).click();
-    await page.getByRole("button", { name: "Borrar este movimiento" }).click();
+      formulario
+        .locator(".chip", { hasText: "Suscripciones" })
+        .locator(".oculta svg"),
+    ).toBeVisible();
+    await expect(formulario.getByText("Oculta")).toHaveCount(1);
+    await sinViolaciones(page);
+    await formulario
+      .getByRole("button", { name: "Guardar los cambios" })
+      .click();
     await expect(
-      page.getByRole("region", { name: "¿Borrar este movimiento?" }),
-    ).toContainText(
-      "El avance de «Arriendo de enero» baja $100.000. El avance nunca queda por debajo de cero.",
-    );
+      page
+        .getByRole("status")
+        .filter({ hasText: "Listo, guardamos los cambios." }),
+    ).toBeVisible();
+    expect(cuerpos[0]?.cuerpo).toMatchObject({ categoria_id: 10 });
   });
 
   test("un error al cargar dice «No pudimos cargar tus movimientos.» y no tiene violaciones de axe", async ({

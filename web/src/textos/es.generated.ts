@@ -167,12 +167,8 @@ export const textos = {
       titulo: "Listo, borramos el gasto de {monto}.",
     },
     borramosIngreso: {
-      // E14-PRR 4.2 (PN-02), «Tras borrar»: forma del ingreso; propuesto, pendiente de aprobación del dueño
+      // E14-PRR 4.2 (PN-02), «Tras borrar»: aviso tras borrar un ingreso, aprobado en E14-PRR 1.9 (D-170)
       titulo: "Listo, borramos el ingreso de {monto}.",
-    },
-    borramosAporte: {
-      // E14-PRR 4.2 (PN-02), «Tras borrar»: forma del aporte a una meta; propuesto, pendiente de aprobación del dueño
-      titulo: "Listo, borramos el aporte de {monto}.",
     },
   },
   correo: {
@@ -503,6 +499,8 @@ export const textos = {
       etiqueta: "Categoría",
       // E14-PPN 3.1, fila 9
       verTodas: "Ver todas",
+      // E14-PRR 4.2 (PN-02), «Categoría oculta al corregir»: la palabra junto al ícono (E14-PRR 1.9, D-170)
+      oculta: "Oculta",
     },
     medio: {
       // E14-PPN 3.1, fila 10
@@ -700,7 +698,7 @@ export const textos = {
     otroMes: "Otro mes",
     // E14-PRR 4.1 (PN-01), fila 4
     todas: "Todas",
-    // E14-PRR 4.1 (PN-01), fila 5: «10 movimientos»; la forma singular «1 movimiento» es propuesta; propuesto, pendiente de aprobación del dueño
+    // E14-PRR 4.1 (PN-01), fila 5: «10 movimientos»; la forma singular «1 movimiento» está aprobada en E14-PRR 1.9 (D-170)
     resumen: { one: "{n} movimiento", other: "{n} movimientos" },
     // E14-PRR 4.1 (PN-01), fila 5: «Alimentación: 2 movimientos, $120.000» (plantilla sacada del ejemplo)
     resumenDeCategoria: "{categoria}: {movimientos}, {total}",
@@ -717,7 +715,7 @@ export const textos = {
       conDescripcion: "{nombre} · {descripcion}",
       // E14-PRR 4.1 (PN-01), «Cómo se arma cada fila»: «Aporte a una meta · Transferencia»
       aporte: "Aporte a una meta",
-      // E14-PRR 4.1 (PN-01), «Aportes y retiros» (CU-07 3a): E14 no da el texto de la fila de un retiro; propuesto, pendiente de aprobación del dueño
+      // E14-PRR 4.1 (PN-01), «Aportes y retiros» (CU-07 3a); texto aprobado en E14-PRR 1.9 (D-170)
       retiro: "Retiro de una meta",
       // E14-PRR 4.1 (PN-01), «Cómo se arma cada fila», Marca de propiedad; E14-PRR 2.2, fila 7 (SEG-002, NC-E16-40)
       compartido: "Compartido con el hogar",
@@ -741,10 +739,12 @@ export const textos = {
       titulo: "Movimiento",
       // E14-PRR 4.2 (PN-02), fila 2
       gastoEn: "Gasto en {categoria}",
-      // E14-PRR 4.2 (PN-02), fila 2: forma del ingreso; propuesto, pendiente de aprobación del dueño
-      ingresoEn: "Ingreso en {categoria}",
-      // E14-PRR 4.2 (PN-02), «Un aporte a una meta»: el detalle muestra la meta en lugar de la categoría; E14 no da la frase; propuesto, pendiente de aprobación del dueño
+      // E14-PRR 4.2 (PN-02), fila 2: subtítulo del ingreso, aprobado en E14-PRR 1.9 (D-170)
+      ingresoPor: "Ingreso por {categoria}",
+      // E14-PRR 4.2 (PN-02), «Un aporte a una meta»: subtítulo del aporte, aprobado en E14-PRR 1.9 (D-170)
       aporteA: "Aporte a «{meta}»",
+      // E14-PRR 4.2 (PN-02): subtítulo del retiro de una meta, aprobado en E14-PRR 1.9 (D-170)
+      retiroDe: "Retiro de «{meta}»",
       // E14-PRR 4.2 (PN-02), fila 3
       fecha: "Fecha",
       // E14-PRR 4.2 (PN-02), fila 3
@@ -769,14 +769,10 @@ export const textos = {
       titulo: "¿Borrar este movimiento?",
       // E14-PRR 4.2 (PN-02), «Borrar», fila 2: «Gasto de $45.000 en Alimentación, Ayer.»
       gasto: "Gasto de {monto} en {categoria}, {dia}.",
-      // E14-PRR 4.2 (PN-02), «Borrar», fila 2: forma del ingreso; propuesto, pendiente de aprobación del dueño
-      ingreso: "Ingreso de {monto} en {categoria}, {dia}.",
-      // E14-PRR 4.2 (PN-02), «Borrar», fila 2: forma del aporte a una meta; propuesto, pendiente de aprobación del dueño
-      aporte: "Aporte de {monto} a «{meta}», {dia}.",
+      // E14-PRR 4.2 (PN-02), «Borrar», fila 2: hoja de borrar un ingreso, aprobada en E14-PRR 1.9 (D-170)
+      ingreso: "Ingreso de {monto} por {categoria}, {dia}.",
       // E14-PRR 4.2 (PN-02), «Borrar», fila 3
       quePasa: "Se quita de tu lista y calculamos el mes de nuevo.",
-      // E14-PRR 4.2 (PN-02), «Un aporte a una meta» (CU-08 2c)
-      avance: "El avance de «{meta}» baja {monto}. El avance nunca queda por debajo de cero.",
       // E14-PRR 4.2 (PN-02), «Borrar», fila 4
       confirmar: "Borrar el movimiento",
       // E14-PRR 4.2 (PN-02), estado «Ya no existe»
