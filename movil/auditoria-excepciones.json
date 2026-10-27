@@ -1,26 +1,12 @@
 [
   {
-    "ghsa": "GHSA-86w9-cpqp-85rv",
-    "paquete": "node-forge",
-    "rutas": [
-      "expo > @expo/cli > @expo/code-signing-certificates > node-forge",
-      "expo > @expo/cli > node-forge",
-      "@react-native-community/datetimepicker > expo > @expo/cli > @expo/code-signing-certificates > node-forge",
-      "@react-native-community/datetimepicker > expo > @expo/cli > node-forge"
-    ],
-    "motivo": "node-forge verifica firmas RSA PKCS#1 v1.5 y lo usa @expo/cli (la herramienta de línea de comandos de Expo: expo start, expo export) para firmar y comprobar certificados de actualizaciones. Corre en la máquina de desarrollo y en el pipeline, no se empaqueta en la app que se instala (Metro no lo incluye porque ningún archivo de src/ lo importa). No hay versión corregida: la última publicada de node-forge es la 1.4.0 y es la afectada (consultado el 2026-10-24); la «corrección» que ofrece npm es bajar a expo 44.",
-    "revisado": "2026-10-24",
-    "revisar_antes_de": "2026-11-05"
-  },
-  {
     "ghsa": "GHSA-mrhx-c7xc-m3w5",
     "paquete": "zod",
     "rutas": [
-      "expo > @expo/cli > zod",
-      "@react-native-community/datetimepicker > expo > @expo/cli > zod"
+      "expo > @expo/cli > zod"
     ],
-    "motivo": "zod valida datos con esquemas y lo usa @expo/cli (la herramienta de línea de comandos de Expo: expo start, expo export) para validar la configuración y las opciones de la CLI. El aviso es que zod puede agotar la memoria al validar colecciones enormes con restricciones. Corre en la máquina de desarrollo y en el pipeline, no se empaqueta en la app que se instala (Metro no lo incluye porque ningún archivo de src/ lo importa). No hay corrección compatible: la corrección es zod 4 (a partir de la 4.6.6), un salto mayor que Expo 58 no usa (@expo/cli trae la 3.25.76); la «corrección» que ofrece npm es bajar a expo 44 (consultado el 2026-10-24). Aprobada en D-154.",
-    "revisado": "2026-10-24",
+    "motivo": "zod valida datos con esquemas y lo usa @expo/cli (la herramienta de línea de comandos de Expo: expo start, expo export) para validar la configuración y las opciones de la CLI. El aviso es que zod puede agotar la memoria al validar colecciones enormes con restricciones. Corre en la máquina de desarrollo y en el pipeline, no se empaqueta en la app que se instala (Metro no lo incluye porque ningún archivo de src/ lo importa). No hay corrección compatible: la corrección es zod 4 (a partir de la 4.6.6), un salto mayor que Expo 58 no usa (@expo/cli trae la 3.25.76); la «corrección» que ofrece npm es bajar a expo 44 (consultado el 2026-10-24). Aprobada en D-154. Desde el 2026-10-27 el camino por @react-native-community/datetimepicker ya no se reporta (D-166).",
+    "revisado": "2026-10-27",
     "revisar_antes_de": "2026-11-05"
   }
 ]
