@@ -250,6 +250,7 @@ describe("auditoria-excepciones.json", () => {
         "GHSA-mrhx-c7xc-m3w5",
         "zod",
         [
+          "@react-native-community/datetimepicker > expo > @expo/cli > zod",
           "expo > @expo/cli > zod",
         ],
       ],
