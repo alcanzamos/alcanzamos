@@ -1,7 +1,7 @@
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { listarMovimientos, type Listado, type Movimiento } from '../api/movimientos';
 import { reiniciarBorrador } from '../borradorDeRegistro';
@@ -10,6 +10,7 @@ import { Boton, BotonDeTexto } from '../componentes/Boton';
 import { cifras } from '../componentes/Cifras';
 import { ChipsDeEleccion } from '../componentes/ChipsDeEleccion';
 import { HojaDeElecciones } from '../componentes/HojaDeElecciones';
+import { IconoSiguiente } from '../componentes/Iconos';
 import { MarcaDePropiedad } from '../componentes/MarcaDePropiedad';
 import { Pantalla } from '../componentes/Pantalla';
 import { Tarjeta } from '../componentes/Tarjeta';
@@ -155,7 +156,7 @@ export function Movimientos({ navigation, route }: NativeStackScreenProps<Rutas,
                 </Text>
                 <View style={estilos.tarjeta}>
                   {filas.map((fila) => (
-                    <Fila key={fila.id} fila={fila} />
+                    <Fila key={fila.id} fila={fila} alTocar={() => navigation.navigate('DetalleDeMovimiento', { movimiento: fila })} />
                   ))}
                 </View>
               </View>
@@ -189,18 +190,19 @@ export function Movimientos({ navigation, route }: NativeStackScreenProps<Rutas,
   );
 }
 
-// Una Fila de lista con valor (E14-SDD 5.20). Todavía no abre nada: PN-02 llega en la parte siguiente de la US-52.
-function Fila({ fila }: { fila: Movimiento }) {
+// Una Fila de lista navegable con valor (E14-SDD 5.20): toda la fila es el área táctil y abre PN-02.
+function Fila({ fila, alTocar }: { fila: Movimiento; alTocar: () => void }) {
   const { principal, apoyo } = textosDeFila(fila);
   return (
-    <View accessible style={estilos.fila}>
+    <Pressable accessibilityRole="button" onPress={alTocar} style={estilos.fila}>
       <View style={estilos.columna}>
         <Text style={estilos.principal}>{cifras(principal, true)}</Text>
         <Text style={estilos.apoyo}>{cifras(apoyo)}</Text>
         {fila.compartido && <MarcaDePropiedad compartido />}
       </View>
       <Text style={estilos.monto}>{cifras(formatearPesos(BigInt(fila.monto_centavos)))}</Text>
-    </View>
+      <IconoSiguiente color={tokens.color.texto.secundario} />
+    </Pressable>
   );
 }
 

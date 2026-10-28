@@ -86,3 +86,25 @@ describe('Boton (E14-SDD 5.2)', () => {
     expect(screen.getByRole('button').props.accessibilityHint).toBe('Abre la recuperación');
   });
 });
+
+describe('Boton · Destructivo (E14-SDD 5.2)', () => {
+  it('relleno de peligro con texto blanco, y deshabilitado no hace nada', async () => {
+    const alTocar = jest.fn();
+    const { rerender } = await render(<Boton variante="destructivo" alTocar={alTocar}>Borrar el movimiento</Boton>);
+    expect(screen.getByRole('button', { name: 'Borrar el movimiento' })).toHaveStyle({
+      backgroundColor: tokens.color.accion.destructiva.fondo,
+    });
+    await fireEvent.press(screen.getByRole('button', { name: 'Borrar el movimiento' }));
+    expect(alTocar).toHaveBeenCalledTimes(1);
+    await rerender(
+      <Boton variante="destructivo" deshabilitado alTocar={alTocar}>
+        Borrar el movimiento
+      </Boton>,
+    );
+    await fireEvent.press(screen.getByRole('button', { name: 'Borrar el movimiento' }));
+    expect(alTocar).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'Borrar el movimiento' })).toHaveStyle({
+      backgroundColor: tokens.color.accion.deshabilitada.fondo,
+    });
+  });
+});

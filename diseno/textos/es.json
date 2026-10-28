@@ -224,6 +224,50 @@
           "texto": "Tus datos están a salvo. Intenta de nuevo.",
           "e14": "E14-PRR 4.1 (PN-01), estado «Error de carga»"
         }
+      },
+      "cambiosGuardados": {
+        "titulo": {
+          "texto": "Listo, guardamos los cambios.",
+          "e14": "E14-PRR 4.2 (PN-02), «Tras guardar»"
+        }
+      },
+      "movimientoNoExiste": {
+        "titulo": {
+          "texto": "Ese movimiento ya no está.",
+          "e14": "E14-PRR 4.2 (PN-02), estado «Ya no existe»"
+        }
+      },
+      "errorAlGuardarCambios": {
+        "titulo": {
+          "texto": "No pudimos guardar los cambios.",
+          "e14": "E14-PRR 4.2 (PN-02), estado «Error de guardado»"
+        },
+        "mensaje": {
+          "texto": "Tu movimiento sigue igual. Intenta de nuevo.",
+          "e14": "E14-PRR 4.2 (PN-02), estado «Error de guardado»"
+        }
+      },
+      "errorAlBorrar": {
+        "titulo": {
+          "texto": "No pudimos borrar el movimiento.",
+          "e14": "E14-PRR 4.2 (PN-02), estado «Error al borrar»"
+        },
+        "mensaje": {
+          "texto": "Sigue en tu lista. Intenta de nuevo.",
+          "e14": "E14-PRR 4.2 (PN-02), estado «Error al borrar»"
+        }
+      },
+      "borramosGasto": {
+        "titulo": {
+          "texto": "Listo, borramos el gasto de {monto}.",
+          "e14": "E14-PRR 4.2 (PN-02), «Tras borrar»"
+        }
+      },
+      "borramosIngreso": {
+        "titulo": {
+          "texto": "Listo, borramos el ingreso de {monto}.",
+          "e14": "E14-PRR 4.2 (PN-02), «Tras borrar»: aviso tras borrar un ingreso, aprobado en E14-PRR 1.9 (D-170)"
+        }
       }
     },
     "correo": {
@@ -1099,6 +1143,10 @@
       }
     },
     "movimientos": {
+      "oculta": {
+        "texto": "Oculta",
+        "e14": "E14-PRR 4.2 (PN-02), «Categoría oculta al corregir»: la palabra junto al ícono (E14-PRR 1.9, D-170)"
+      },
       "titulo": {
         "texto": "Movimientos",
         "e14": "E14-PRR 4.1 (PN-01), fila 2"
@@ -1183,130 +1231,6 @@
           "texto": "Registra el primero y aquí lo verás.",
           "e14": "E14-PRR 4.1 (PN-01), estado «Sin ningún movimiento»"
         }
-      }
-    }
-  },
-  "solo_web": {
-    "erroresDeCampo": {
-      "crearCuenta": {
-        "mayor_de_edad_requerido": {
-          "texto": "Falta marcar que eres mayor de edad.",
-          "e14": "E14-PCP 4.1 (PN-58)"
-        }
-      }
-    },
-    "pagina": {
-      "atras": {
-        "texto": "Atrás",
-        "e14": "E14-PCP 4.4 (PN-61); E14-PCP 4.6 (PN-63); E14-PCP 4.7 (PN-64); E14-PCP 4.9 (PN-66); E14-PCP 4.10 (PN-67); E14-PCP 4.11 (PN-68); E14-PCP 4.12 (PN-69); E14-PCP 4.13 (PN-70); E14-PCP 4.14 (PN-71); E14-PCP 4.15 (PN-73); E14-PCP 4.16"
-      },
-      "titulo_del_documento": {
-        "texto": "{titulo} · Alcanzamos",
-        "e14": "E14-PCP 1.19 (título de la pestaña del navegador, aprobado en D-163)"
-      }
-    },
-    "campos": {
-      "contrasenaNueva": {
-        "etiqueta": {
-          "texto": "Contraseña nueva",
-          "e14": "E14-PCP 4.5 (PN-62); E14-PCP 4.15 (PN-73)"
-        },
-        "repeticion": {
-          "texto": "Repite la contraseña nueva",
-          "e14": "E14-PCP 4.5 (PN-62)"
-        }
-      },
-      "mayorDeEdad": {
-        "etiqueta": {
-          "texto": "Soy mayor de edad",
-          "e14": "E14-PCP 4.1 (PN-58); E14-PCP 4.8 (PN-65); E14-PCP 4.16"
-        }
-      }
-    },
-    "recuperar": {
-      "titulo": {
-        "texto": "Elige tu contraseña nueva",
-        "e14": "E14-PCP 4.5 (PN-62)"
-      },
-      "pedirOtro": {
-        "texto": "Pedir otro enlace",
-        "e14": "E14-PCP 4.5 (PN-62)"
-      }
-    },
-    "textosDeRepeticion": {
-      "vacia": {
-        "texto": "Falta repetir la contraseña.",
-        "e14": "E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62"
-      },
-      "distinta": {
-        "texto": "Falta que las dos contraseñas sean iguales.",
-        "e14": "E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62"
-      }
-    },
-    "periodicidad": {
-      "errores": {
-        "sinFecha": {
-          "texto": "Falta la fecha en que empieza.",
-          "e14": "E14-PRR 4.3 (PN-03), errores de campo"
-        }
-      }
-    },
-    "avisos": {
-      "cambiosGuardados": {
-        "titulo": {
-          "texto": "Listo, guardamos los cambios.",
-          "e14": "E14-PRR 4.2 (PN-02), «Tras guardar»"
-        }
-      },
-      "movimientoNoExiste": {
-        "titulo": {
-          "texto": "Ese movimiento ya no está.",
-          "e14": "E14-PRR 4.2 (PN-02), estado «Ya no existe»"
-        }
-      },
-      "errorAlGuardarCambios": {
-        "titulo": {
-          "texto": "No pudimos guardar los cambios.",
-          "e14": "E14-PRR 4.2 (PN-02), estado «Error de guardado»"
-        },
-        "mensaje": {
-          "texto": "Tu movimiento sigue igual. Intenta de nuevo.",
-          "e14": "E14-PRR 4.2 (PN-02), estado «Error de guardado»"
-        }
-      },
-      "errorAlBorrar": {
-        "titulo": {
-          "texto": "No pudimos borrar el movimiento.",
-          "e14": "E14-PRR 4.2 (PN-02), estado «Error al borrar»"
-        },
-        "mensaje": {
-          "texto": "Sigue en tu lista. Intenta de nuevo.",
-          "e14": "E14-PRR 4.2 (PN-02), estado «Error al borrar»"
-        }
-      },
-      "borramosGasto": {
-        "titulo": {
-          "texto": "Listo, borramos el gasto de {monto}.",
-          "e14": "E14-PRR 4.2 (PN-02), «Tras borrar»"
-        }
-      },
-      "borramosIngreso": {
-        "titulo": {
-          "texto": "Listo, borramos el ingreso de {monto}.",
-          "e14": "E14-PRR 4.2 (PN-02), «Tras borrar»: aviso tras borrar un ingreso, aprobado en E14-PRR 1.9 (D-170)"
-        }
-      }
-    },
-    "movimientos": {
-      "oculta": {
-        "texto": "Oculta",
-        "e14": "E14-PRR 4.2 (PN-02), «Categoría oculta al corregir»: la palabra junto al ícono (E14-PRR 1.9, D-170)"
-      },
-      "vacio": {
-        "elegir": {
-          "texto": "Elige un movimiento para verlo.",
-          "e14": "E14-PRR 4.1 (PN-01), variante web"
-        }
       },
       "detalle": {
         "titulo": {
@@ -1390,6 +1314,80 @@
         "irAMovimientos": {
           "texto": "Ir a Movimientos",
           "e14": "E14-PRR 4.2 (PN-02), estado «Ya no existe»"
+        }
+      }
+    }
+  },
+  "solo_web": {
+    "erroresDeCampo": {
+      "crearCuenta": {
+        "mayor_de_edad_requerido": {
+          "texto": "Falta marcar que eres mayor de edad.",
+          "e14": "E14-PCP 4.1 (PN-58)"
+        }
+      }
+    },
+    "pagina": {
+      "atras": {
+        "texto": "Atrás",
+        "e14": "E14-PCP 4.4 (PN-61); E14-PCP 4.6 (PN-63); E14-PCP 4.7 (PN-64); E14-PCP 4.9 (PN-66); E14-PCP 4.10 (PN-67); E14-PCP 4.11 (PN-68); E14-PCP 4.12 (PN-69); E14-PCP 4.13 (PN-70); E14-PCP 4.14 (PN-71); E14-PCP 4.15 (PN-73); E14-PCP 4.16"
+      },
+      "titulo_del_documento": {
+        "texto": "{titulo} · Alcanzamos",
+        "e14": "E14-PCP 1.19 (título de la pestaña del navegador, aprobado en D-163)"
+      }
+    },
+    "campos": {
+      "contrasenaNueva": {
+        "etiqueta": {
+          "texto": "Contraseña nueva",
+          "e14": "E14-PCP 4.5 (PN-62); E14-PCP 4.15 (PN-73)"
+        },
+        "repeticion": {
+          "texto": "Repite la contraseña nueva",
+          "e14": "E14-PCP 4.5 (PN-62)"
+        }
+      },
+      "mayorDeEdad": {
+        "etiqueta": {
+          "texto": "Soy mayor de edad",
+          "e14": "E14-PCP 4.1 (PN-58); E14-PCP 4.8 (PN-65); E14-PCP 4.16"
+        }
+      }
+    },
+    "recuperar": {
+      "titulo": {
+        "texto": "Elige tu contraseña nueva",
+        "e14": "E14-PCP 4.5 (PN-62)"
+      },
+      "pedirOtro": {
+        "texto": "Pedir otro enlace",
+        "e14": "E14-PCP 4.5 (PN-62)"
+      }
+    },
+    "textosDeRepeticion": {
+      "vacia": {
+        "texto": "Falta repetir la contraseña.",
+        "e14": "E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62"
+      },
+      "distinta": {
+        "texto": "Falta que las dos contraseñas sean iguales.",
+        "e14": "E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62"
+      }
+    },
+    "periodicidad": {
+      "errores": {
+        "sinFecha": {
+          "texto": "Falta la fecha en que empieza.",
+          "e14": "E14-PRR 4.3 (PN-03), errores de campo"
+        }
+      }
+    },
+    "movimientos": {
+      "vacio": {
+        "elegir": {
+          "texto": "Elige un movimiento para verlo.",
+          "e14": "E14-PRR 4.1 (PN-01), variante web"
         }
       }
     }

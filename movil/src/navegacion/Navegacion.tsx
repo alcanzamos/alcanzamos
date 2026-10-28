@@ -4,12 +4,13 @@ import { useEffect, useState } from 'react';
 import { AutorizacionDeDatos } from '../pantallas/AutorizacionDeDatos';
 import { CambiarContrasena } from '../pantallas/CambiarContrasena';
 import { CrearCuenta } from '../pantallas/CrearCuenta';
+import { DetalleDeMovimiento } from '../pantallas/DetalleDeMovimiento';
 import { Edad } from '../pantallas/Edad';
 import { Entrar } from '../pantallas/Entrar';
 import { InformacionDePrivacidad } from '../pantallas/InformacionDePrivacidad';
 import { Movimientos } from '../pantallas/Movimientos';
 import { RecuperarAcceso } from '../pantallas/RecuperarAcceso';
-import { Registrar } from '../pantallas/Registrar';
+import { CorregirMovimiento, Registrar } from '../pantallas/Registrar';
 import { RevisaTuCorreo } from '../pantallas/RevisaTuCorreo';
 import { SeRepite } from '../pantallas/SeRepite';
 import { SeguridadDeLaCuenta } from '../pantallas/SeguridadDeLaCuenta';
@@ -43,8 +44,9 @@ async function pantallaInicial(): Promise<keyof Rutas> {
 // y a PN-60 («No autorizo») se cambia con `reemplazarPila`: Atrás no vuelve a PN-64 ni a una cuenta borrada. PN-61 se apila sobre PN-60. PN-62 no está: el
 // enlace del correo abre la web (D-155) y la app no recibe enlaces hasta los App Links de I08. PN-01 («Movimientos») se apila
 // sobre PN-71 (su Atrás vuelve a PN-71) y «Registrar» sobre PN-01 (su Atrás vuelve a PN-01 sin guardar); PN-03 se apila
-// sobre «Registrar» (su Atrás vuelve al formulario). Tras guardar se vuelve a PN-01 con `popTo` y el aviso como mensaje de
-// estado: el formulario sale de la pila y el Atrás no vuelve a él.
+// sobre «Registrar» (su Atrás vuelve al formulario). PN-02 se apila sobre PN-01 (su Atrás vuelve a PN-01) y «Corregir»
+// sobre PN-02 (su Atrás vuelve a PN-02 sin guardar). Tras guardar, corregir o borrar se vuelve a PN-01 con `popTo` y el
+// aviso como mensaje de estado: el formulario y PN-02 salen de la pila y el Atrás no vuelve a ellos.
 export function Navegacion() {
   const [inicial, setInicial] = useState<keyof Rutas | null>(null);
   useEffect(() => {
@@ -82,6 +84,16 @@ export function Navegacion() {
         />
         <Pila.Screen name="RecuperarAcceso" component={RecuperarAcceso} options={conBarra(textos.recuperarAcceso.titulo)} />
         <Pila.Screen name="ListaDeMovimientos" component={Movimientos} options={conBarra(textos.movimientos.titulo)} />
+        <Pila.Screen
+          name="DetalleDeMovimiento"
+          component={DetalleDeMovimiento}
+          options={conBarra(textos.movimientos.detalle.titulo)}
+        />
+        <Pila.Screen
+          name="CorregirMovimiento"
+          component={CorregirMovimiento}
+          options={conBarra(textos.movimientos.detalle.corregirTitulo)}
+        />
         <Pila.Screen name="FormularioDeRegistro" component={Registrar} options={conBarra(textos.registro.titulo)} />
         <Pila.Screen name="SeRepite" component={SeRepite} options={conBarra(textos.periodicidad.titulo)} />
       </Pila.Navigator>

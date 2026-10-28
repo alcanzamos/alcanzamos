@@ -4,7 +4,7 @@
 // imports sin extensión se resuelven como `.ts` (Node quita los tipos solo, sin compilar nada).
 //
 // Desde la US-51 también prueba el registro (categorías, un gasto en efectivo, el arriendo, PN-03) con la sesión ya autorizada
-// y, desde la US-52, la lista de movimientos de PN-01 con sus filtros.
+// y, desde la US-52, la lista de movimientos de PN-01 con sus filtros y PN-02 (corregir, D-168, y borrar, D-169).
 // Uso (el API, PostgreSQL y Mailpit ya arriba; ver README, «Probar en el celular»):
 //   EXPO_PUBLIC_URL_API=http://127.0.0.1:18090 URL_MAILPIT=http://127.0.0.1:58025 npm run integracion:api
 // Las autorizaciones se dan por el API (GET y POST /api/v1/autorizaciones), no por SQL. Datos sintéticos; nada sale del equipo.
@@ -554,6 +554,90 @@ paso(
     filtroMalo.campos.categoria === 'categoria_invalida',
   JSON.stringify(filtroMalo),
 );
+
+// 14c. PN-02 (US-52): corregir y borrar contra el API de verdad.
+const delEfectivo = delMes.find((m) => m.monto_centavos === '4500000');
+const corregido = await movimientos.corregirMovimiento(
+  { ...base, montoCentavos: 4000000n, categoriaId: 16, descripcion: 'Mercado' },
+  delEfectivo,
+);
+paso('PN-02: corregir el monto de $45.000 a $40.000: 200', corregido.ok && corregido.estado === 200, JSON.stringify(corregido));
+const trasCorregir = await movimientos.listarMovimientos(mesDeHoy, 16);
+const filaCorregida = trasCorregir.ok ? trasCorregir.cuerpo.movimientos.find((m) => m.id === delEfectivo.id) : undefined;
+paso(
+  'PN-02: la lista trae el movimiento con $40.000 y su descripción nueva',
+  filaCorregida?.monto_centavos === '4000000' && filaCorregida?.descripcion === 'Mercado',
+  JSON.stringify(filaCorregida),
+);
+const montoMalo = await movimientos.corregirMovimiento({ ...base, montoCentavos: 0n, categoriaId: 16 }, delEfectivo);
+paso(
+  'PN-02: corregir con monto cero: 422 con monto_centavos = monto_no_positivo',
+  !montoMalo.ok && montoMalo.estado === 422 && montoMalo.campos.monto_centavos === 'monto_no_positivo',
+  JSON.stringify(montoMalo.campos),
+);
+
+// D-168: la fecha de un recurrente. La app no manda la fecha; si la mandara con otra, el API la rechaza.
+const delArriendo = deAgosto.ok ? deAgosto.cuerpo.movimientos[0] : undefined;
+const arriendoSolicitud = { ...base, montoCentavos: 110000000n, fecha: '2026-08-15', categoriaId: 4, medio: 'transferencia', descripcion: 'Arriendo' };
+const arriendoCorregido = await movimientos.corregirMovimiento(arriendoSolicitud, delArriendo);
+paso('D-168: corregir el monto de la fecha de un recurrente sin mandar la fecha: 200', arriendoCorregido.ok, JSON.stringify(arriendoCorregido));
+const otraFecha = await movimientos.corregirMovimiento(
+  { ...arriendoSolicitud, fecha: '2026-08-16' },
+  { ...delArriendo, recurrente: null },
+);
+paso(
+  'D-168: mandar otra fecha para una fecha de un recurrente: 422 con fecha = fecha_no_editable',
+  !otraFecha.ok && otraFecha.estado === 422 && otraFecha.campos.fecha === 'fecha_no_editable',
+  JSON.stringify(otraFecha.campos),
+);
+const otroTipo = await movimientos.corregirMovimiento({ ...arriendoSolicitud, tipo: 'ingreso', categoriaId: 25 }, delArriendo);
+paso(
+  'D-168: cambiar el tipo de una fecha de un recurrente: 422 con tipo = tipo_no_editable',
+  !otroTipo.ok && otroTipo.estado === 422 && otroTipo.campos.tipo === 'tipo_no_editable',
+  JSON.stringify(otroTipo.campos),
+);
+const trasArriendo = await movimientos.listarMovimientos('2026-08', 4);
+paso(
+  'D-168: la lista trae el arriendo de agosto con $1.100.000 y la misma fecha y repetición',
+  trasArriendo.ok &&
+    trasArriendo.cuerpo.movimientos[0]?.monto_centavos === '110000000' &&
+    trasArriendo.cuerpo.movimientos[0]?.fecha === '2026-08-15' &&
+    trasArriendo.cuerpo.movimientos[0]?.recurrente?.recurrente_id === delArriendo.recurrente.recurrente_id,
+);
+
+// D-169: `vuelve_a_pendiente` lo decide el API. El arriendo de agosto, creado hoy, es historia (false); una repetición
+// creada hoy con la fecha de hoy sí vuelve (true).
+paso(
+  'D-169: el arriendo del 15 de agosto, creado hoy, trae vuelve_a_pendiente = false',
+  delArriendo.recurrente.vuelve_a_pendiente === false,
+);
+const deHoy = await registro.guardarMovimiento({ ...base, montoCentavos: 250000n, descripcion: 'Suscripción', periodicidad: 'mensual' });
+const trasDeHoy = await movimientos.listarMovimientos(mesDeHoy, null);
+const filaDeHoy = trasDeHoy.ok ? trasDeHoy.cuerpo.movimientos.find((m) => m.id === deHoy.cuerpo?.movimiento_id) : undefined;
+paso(
+  'D-169: una repetición creada hoy con la fecha de hoy trae vuelve_a_pendiente = true',
+  deHoy.ok && filaDeHoy?.recurrente?.vuelve_a_pendiente === true && filaDeHoy.recurrente.periodicidad === 'mensual',
+  JSON.stringify(filaDeHoy?.recurrente),
+);
+const borradoDeHoy = await movimientos.borrarMovimiento(filaDeHoy.id);
+const trasBorrarDeHoy = await movimientos.listarMovimientos(mesDeHoy, null);
+paso(
+  'PN-02: borrar la fecha de esa repetición: 204 y ya no está en la lista',
+  borradoDeHoy.ok && borradoDeHoy.estado === 204 && trasBorrarDeHoy.ok && !trasBorrarDeHoy.cuerpo.movimientos.some((m) => m.id === filaDeHoy.id),
+  JSON.stringify(borradoDeHoy),
+);
+const dePrueba = await movimientos.listarMovimientos(`${anioDeDiciembre}-12`, null);
+const elRegalo = dePrueba.ok ? dePrueba.cuerpo.movimientos.find((m) => m.descripcion === 'Regalos de Navidad') : undefined;
+const borrado = await movimientos.borrarMovimiento(elRegalo.id);
+paso('PN-02: borrar el regalo de diciembre (sin repetición): 204', borrado.ok && borrado.estado === 204, JSON.stringify(borrado));
+const otraVez = await movimientos.borrarMovimiento(elRegalo.id);
+paso(
+  'PN-02: borrarlo otra vez: 404 no_encontrado (lo que la app muestra como «Ese movimiento ya no está.»)',
+  !otraVez.ok && otraVez.estado === 404 && otraVez.codigo === 'no_encontrado',
+  JSON.stringify(otraVez),
+);
+const noExiste = await movimientos.corregirMovimiento({ ...base, montoCentavos: 100n }, elRegalo);
+paso('PN-02: corregir lo que ya no existe: 404 no_encontrado', !noExiste.ok && noExiste.estado === 404);
 
 // 15. Sin conexión: una dirección que nadie escucha.
 process.env.EXPO_PUBLIC_URL_API = 'http://127.0.0.1:9';

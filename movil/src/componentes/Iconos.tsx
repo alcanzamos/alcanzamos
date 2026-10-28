@@ -94,3 +94,10 @@ export const IconoCompartido = ({ color }: Propiedades) => (
     <Path d="M3.5 19c.9-2.8 2.9-4 5.5-4s4.6 1.2 5.5 4M15 15.3c.7-.2 1.4-.3 2-.3 2 0 3.3 1 4 3.5" />
   </Icono>
 );
+
+// El Siguiente del final de una Fila de lista navegable (E14-SDD 5.20).
+export const IconoSiguiente = ({ color }: Propiedades) => (
+  <Icono color={color}>
+    <Path d="m9 6 6 6-6 6" />
+  </Icono>
+);

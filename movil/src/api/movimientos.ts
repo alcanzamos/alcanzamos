@@ -1,5 +1,5 @@
 import { pedir } from './cliente';
-import type { Medio, Periodicidad, Tipo } from './registro';
+import type { Medio, Periodicidad, Solicitud, Tipo } from './registro';
 
 // Rutas de PN-01 y PN-02 (api/README.md, «Movimientos: lista, detalle, corregir y borrar»). El API no manda textos:
 // manda ids, claves y códigos. Los montos llegan como texto (enteros de 64 bits, D-082): se pasan a `bigint`.
@@ -46,4 +46,26 @@ export function listarMovimientos(periodo: string | null, categoria: number | nu
     ...(categoria ? [`categoria=${categoria}`] : []),
   ].join('&');
   return pedir<Listado>('GET', `/api/v1/movimientos?${consulta}`);
+}
+
+export const borrarMovimiento = (id: string) => pedir('DELETE', `/api/v1/movimientos/${id}`);
+
+/**
+ * «Corregir» manda todos los campos (PUT). La fecha de un recurrente no se manda (D-168). Un aporte o un retiro no se
+ * corrige en la US-52 (D-170). El cuerpo de la respuesta no se usa: PN-01 vuelve a pedir la lista.
+ */
+export function corregirMovimiento(s: Solicitud, original: Movimiento) {
+  const resto = JSON.stringify({
+    tipo: s.tipo,
+    ...(original.recurrente ? {} : { fecha: s.fecha }),
+    categoria_id: s.categoriaId,
+    medio: s.medio,
+    ...(s.descripcion.trim() ? { descripcion: s.descripcion.trim() } : {}),
+  });
+  // Igual que en el registro: los centavos se pegan como dígitos, sin pasar por un `number` (D-082).
+  return pedir<Record<string, never>>(
+    'PUT',
+    `/api/v1/movimientos/${original.id}`,
+    `{"monto_centavos":${s.montoCentavos},${resto.slice(1)}`,
+  );
 }

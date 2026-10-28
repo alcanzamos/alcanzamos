@@ -1,8 +1,9 @@
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View, type TextInputInstance } from 'react-native';
+import { corregirMovimiento, type Movimiento } from '../api/movimientos';
 import { guardarMovimiento, obtenerCategorias, type CatalogoDeCategorias, type Medio } from '../api/registro';
-import { cambiarBorrador, reiniciarBorrador, useBorrador } from '../borradorDeRegistro';
+import { borradorDeMovimiento, cambiarBorrador, reiniciarBorrador, useBorrador, type Borrador } from '../borradorDeRegistro';
 import { Aviso } from '../componentes/Aviso';
 import { Boton, BotonDeTexto } from '../componentes/Boton';
 import { CampoDeFecha } from '../componentes/CampoDeFecha';
@@ -10,7 +11,7 @@ import { CampoDeTexto } from '../componentes/CampoDeTexto';
 import { ChipsDeEleccion } from '../componentes/ChipsDeEleccion';
 import { HojaDeElecciones } from '../componentes/HojaDeElecciones';
 import { Pantalla } from '../componentes/Pantalla';
-import { Texto } from '../componentes/Texto';
+import { Nota, Texto } from '../componentes/Texto';
 import { formatearPesos, leerMonto } from '../dinero';
 import { aIso, desdeIso, diaEnPalabras, hoyEnColombia } from '../fechas';
 import { seguirPorAccesoNegado } from '../navegacion/accesoNegado';
@@ -41,8 +42,22 @@ const r = textos.registro;
 // Formulario de registro, variante Android (E14-PPN 3.1, D-164). Mismo flujo, textos y errores del API que la web.
 // Sin el cuadro de lenguaje natural, el aviso de faltante, «Tarjeta», «Cuotas», PN-04, PN-05 ni «Compartido con el
 // hogar»: esas filas no se dibujan (README de movil). Al guardar vuelve a PN-01 con el aviso como mensaje de estado.
-export function Registrar({ navigation }: NativeStackScreenProps<Rutas, 'FormularioDeRegistro'>) {
-  const borrador = useBorrador();
+// Con `corregir` es «Corregir» de PN-02 (E14-PRR 4.2): lleva su propio estado, no el borrador, y no ofrece lo que el API
+// no deja cambiar. Una fecha de un recurrente no lleva Fecha ni Tipo (D-168). Si el movimiento tiene una categoría que la
+// persona ocultó después, el formulario la incluye ya elegida, con el ícono y la palabra «Oculta» (D-170).
+export function FormularioDeMovimiento({
+  navigation,
+  corregir,
+}: {
+  navigation: NativeStackNavigationProp<Rutas, 'FormularioDeRegistro'> | NativeStackNavigationProp<Rutas, 'CorregirMovimiento'>;
+  corregir?: Movimiento;
+}) {
+  const delBorrador = useBorrador();
+  const [propio, setPropio] = useState<Borrador>(() => (corregir ? borradorDeMovimiento(corregir) : delBorrador));
+  const borrador = corregir ? propio : delBorrador;
+  const cambiar = (cambio: Partial<Borrador>) =>
+    corregir ? setPropio({ ...propio, ...cambio }) : cambiarBorrador(cambio);
+  const esRecurrente = Boolean(corregir?.recurrente);
   const [catalogo, setCatalogo] = useState<Catalogo>({ fase: 'cargando' });
   const [intento, setIntento] = useState(0);
   const [errores, setErrores] = useState<Errores>({});
@@ -68,13 +83,18 @@ export function Registrar({ navigation }: NativeStackScreenProps<Rutas, 'Formula
   const hoy = hoyEnColombia();
   const fecha = borrador.fecha ?? hoy;
   // Solo las categorías con texto de E14: el API manda el `id` y el texto sale de es.json.
-  const categorias =
-    catalogo.fase === 'listo'
-      ? catalogo.categorias[borrador.tipo].flatMap((c) => {
-          const nombre = nombresDeCategoria[`c${c.id}`];
-          return nombre ? [{ ...c, nombre }] : [];
-        })
-      : [];
+  const delCatalogo = catalogo.fase === 'listo' ? catalogo.categorias[borrador.tipo] : [];
+  const categorias: { id: number; nombre: string; oculta: boolean }[] = delCatalogo.flatMap((c) => {
+    const nombre = nombresDeCategoria[`c${c.id}`];
+    return nombre ? [{ id: c.id, nombre, oculta: false }] : [];
+  });
+  // La categoría que el movimiento ya tiene y el catálogo no trae es una que la persona ocultó (RN-011): el API la
+  // acepta en el PUT. Solo es de su mismo tipo: al cambiar de tipo deja de ofrecerse.
+  const actual = corregir?.categoria_id;
+  const nombreOculta = actual ? nombresDeCategoria[`c${actual}`] : undefined;
+  if (actual && nombreOculta && corregir.tipo === borrador.tipo && !delCatalogo.some((c) => c.id === actual))
+    categorias.push({ id: actual, nombre: nombreOculta, oculta: true });
+  categorias.sort((a, b) => a.id - b.id);
   // La categoría es obligatoria hasta que exista el motor de reglas que la sugiere (D-165): sin elegir, no hay ninguna.
   const categoriaId = categorias.find((c) => c.id === borrador.categoriaId)?.id ?? null;
 
@@ -95,9 +115,16 @@ export function Registrar({ navigation }: NativeStackScreenProps<Rutas, 'Formula
     }
     setErrores({});
     setEnviando(true);
-    const respuesta = await guardarMovimiento(revisado.solicitud);
-    setEnviando(false);
     const { solicitud } = revisado;
+    const respuesta = corregir
+      ? await corregirMovimiento(solicitud, corregir)
+      : await guardarMovimiento(solicitud);
+    setEnviando(false);
+    if (respuesta.ok && corregir) {
+      // Vuelve a PN-01: PN-02 y «Corregir» salen de la pila, así que el Atrás no vuelve al movimiento corregido.
+      navigation.popTo('ListaDeMovimientos', { aviso: avisos.cambiosGuardados }, { merge: true });
+      return;
+    }
     if (respuesta.ok) {
       reiniciarBorrador();
       const aviso = avisoDeRegistro(
@@ -111,6 +138,10 @@ export function Registrar({ navigation }: NativeStackScreenProps<Rutas, 'Formula
       return;
     }
     if (seguirPorAccesoNegado(navigation, respuesta)) return;
+    if (corregir && respuesta.estado === 404) {
+      navigation.popTo('DetalleDeMovimiento', { movimiento: corregir, noExiste: true });
+      return;
+    }
     const delCampo: Errores = {};
     let sinTexto = false;
     if (respuesta.codigo === 'datos_invalidos') {
@@ -126,11 +157,13 @@ export function Registrar({ navigation }: NativeStackScreenProps<Rutas, 'Formula
       return;
     }
     setErrores({});
-    setAviso(avisoDeFallo(respuesta, avisoErrorAlGuardarMovimiento(solicitud.tipo)));
+    setAviso(
+      avisoDeFallo(respuesta, corregir ? avisos.errorAlGuardarCambios : avisoErrorAlGuardarMovimiento(solicitud.tipo)),
+    );
   }
 
   function elegirCategoria(id: number) {
-    cambiarBorrador({ categoriaId: id });
+    cambiar({ categoriaId: id });
     setVerTodas(false);
   }
 
@@ -166,40 +199,45 @@ export function Registrar({ navigation }: NativeStackScreenProps<Rutas, 'Formula
   return (
     <Pantalla conBarra>
       {aviso && <Aviso {...aviso} />}
-      <ChipsDeEleccion
-        etiqueta={r.tipo.etiqueta}
-        opciones={[
-          { valor: 'gasto', etiqueta: r.tipo.gasto },
-          { valor: 'ingreso', etiqueta: r.tipo.ingreso },
-        ]}
-        valor={borrador.tipo}
-        alElegir={(tipo) => cambiarBorrador({ tipo })}
-        error={errores.tipo}
-      />
+      {esRecurrente && <Nota>{textos.movimientos.detalle.soloEstaFecha}</Nota>}
+      {!esRecurrente && (
+        <ChipsDeEleccion
+          etiqueta={r.tipo.etiqueta}
+          opciones={[
+            { valor: 'gasto', etiqueta: r.tipo.gasto },
+            { valor: 'ingreso', etiqueta: r.tipo.ingreso },
+          ]}
+          valor={borrador.tipo}
+          alElegir={(tipo) => cambiar({ tipo })}
+          error={errores.tipo}
+        />
+      )}
       <CampoDeTexto
         ref={campoDeMonto}
         etiqueta={r.monto.etiqueta}
         teclado="decimal-pad"
         cifra
         valor={borrador.monto}
-        alCambiar={(monto) => cambiarBorrador({ monto })}
+        alCambiar={(monto) => cambiar({ monto })}
         alSalir={() => {
           const lectura = leerMonto(borrador.monto);
-          if (lectura.ok) cambiarBorrador({ monto: formatearPesos(lectura.centavos) });
+          if (lectura.ok) cambiar({ monto: formatearPesos(lectura.centavos) });
         }}
         error={errores.monto}
       />
-      <CampoDeFecha
-        etiqueta={r.fecha.etiqueta}
-        valor={desdeIso(fecha)}
-        texto={fecha === hoy ? r.fecha.hoy : (diaEnPalabras(fecha) ?? undefined)}
-        alCambiar={(nueva) => cambiarBorrador({ fecha: aIso(nueva) })}
-        error={errores.fecha}
-      />
+      {!esRecurrente && (
+        <CampoDeFecha
+          etiqueta={r.fecha.etiqueta}
+          valor={desdeIso(fecha)}
+          texto={fecha === hoy ? r.fecha.hoy : (diaEnPalabras(fecha) ?? undefined)}
+          alCambiar={(nueva) => cambiar({ fecha: aIso(nueva) })}
+          error={errores.fecha}
+        />
+      )}
       <ChipsDeEleccion
         etiqueta={r.categoria.etiqueta}
         enFila
-        opciones={categorias.map((c) => ({ valor: c.id, etiqueta: c.nombre }))}
+        opciones={categorias.map((c) => ({ valor: c.id, etiqueta: c.nombre, oculta: c.oculta }))}
         valor={categoriaId}
         alElegir={elegirCategoria}
         error={errores.categoria}
@@ -208,7 +246,7 @@ export function Registrar({ navigation }: NativeStackScreenProps<Rutas, 'Formula
       <HojaDeElecciones
         visible={verTodas}
         alCerrar={() => setVerTodas(false)}
-        opciones={categorias.map((c) => ({ valor: c.id, etiqueta: c.nombre }))}
+        opciones={categorias.map((c) => ({ valor: c.id, etiqueta: c.nombre, oculta: c.oculta }))}
         valor={categoriaId}
         alElegir={elegirCategoria}
       />
@@ -216,32 +254,43 @@ export function Registrar({ navigation }: NativeStackScreenProps<Rutas, 'Formula
         etiqueta={r.medio.etiqueta}
         opciones={medios}
         valor={borrador.medio}
-        alElegir={(medio) => cambiarBorrador({ medio })}
+        alElegir={(medio) => cambiar({ medio })}
         error={errores.medio}
       />
-      <ChipsDeEleccion etiqueta={r.quien.etiqueta} opciones={[{ valor: SOLO_MIO, etiqueta: r.quien.soloMio }]} valor={SOLO_MIO} />
+      <ChipsDeEleccion
+        etiqueta={r.quien.etiqueta}
+        opciones={[{ valor: SOLO_MIO, etiqueta: corregir?.compartido ? textos.movimientos.fila.compartido : r.quien.soloMio }]}
+        valor={SOLO_MIO}
+      />
       <CampoDeTexto
         ref={campoDeDescripcion}
         etiqueta={r.descripcion.etiqueta}
         ayuda={r.descripcion.ayuda}
         maxLength={LARGO_DE_LA_DESCRIPCION}
         valor={borrador.descripcion}
-        alCambiar={(descripcion) => cambiarBorrador({ descripcion })}
+        alCambiar={(descripcion) => cambiar({ descripcion })}
         error={errores.descripcion}
       />
-      <View style={estilos.filaDeLista}>
-        <View style={estilos.columna}>
-          {!periodicidad && <Texto>{r.seRepite.etiqueta}</Texto>}
-          <Texto variante={periodicidad ? 'cuerpo' : 'ayuda'}>{valorDeRepite}</Texto>
+      {!corregir && (
+        <View style={estilos.filaDeLista}>
+          <View style={estilos.columna}>
+            {!periodicidad && <Texto>{r.seRepite.etiqueta}</Texto>}
+            <Texto variante={periodicidad ? 'cuerpo' : 'ayuda'}>{valorDeRepite}</Texto>
+          </View>
+          <BotonDeTexto pista={valorDeRepite} alTocar={() => navigation.navigate('SeRepite')}>
+            {r.seRepite.cambiar}
+          </BotonDeTexto>
         </View>
-        <BotonDeTexto pista={valorDeRepite} alTocar={() => navigation.navigate('SeRepite')}>
-          {r.seRepite.cambiar}
-        </BotonDeTexto>
-      </View>
+      )}
       {errores.repeticion && <Aviso tipo="atencion" titulo={errores.repeticion} />}
       <Boton deshabilitado={enviando} alTocar={() => void enviar()}>
-        {r.guardar}
+        {corregir ? textos.movimientos.detalle.guardarCambios : r.guardar}
       </Boton>
+      {corregir && (
+        <Boton variante="secundario" alTocar={() => navigation.goBack()}>
+          {textos.movimientos.detalle.ahoraNo}
+        </Boton>
+      )}
       {aviso && (
         <Boton variante="secundario" alTocar={() => void enviar()}>
           {textos.acciones.intentarDeNuevo}
@@ -250,6 +299,16 @@ export function Registrar({ navigation }: NativeStackScreenProps<Rutas, 'Formula
     </Pantalla>
   );
 }
+
+// El formulario de registro: se llega desde «Registrar» de PN-01 y vuelve a PN-01 al guardar (D-164).
+export const Registrar = ({ navigation }: NativeStackScreenProps<Rutas, 'FormularioDeRegistro'>) => (
+  <FormularioDeMovimiento navigation={navigation} />
+);
+
+// «Corregir» de PN-02: los mismos campos, ya llenos; su Atrás vuelve a PN-02 sin guardar.
+export const CorregirMovimiento = ({ navigation, route }: NativeStackScreenProps<Rutas, 'CorregirMovimiento'>) => (
+  <FormularioDeMovimiento navigation={navigation} corregir={route.params.movimiento} />
+);
 
 const estilos = StyleSheet.create({
   filaDeLista: {

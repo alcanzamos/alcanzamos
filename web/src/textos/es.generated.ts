@@ -674,6 +674,8 @@ export const textos = {
     },
   },
   movimientos: {
+    // E14-PRR 4.2 (PN-02), «Categoría oculta al corregir»: la palabra junto al ícono (E14-PRR 1.9, D-170)
+    oculta: "Oculta",
     // E14-PRR 4.1 (PN-01), fila 2
     titulo: "Movimientos",
     // E14-PRR 4.1 (PN-01), fila 10 (Botón Registrar fijo en Android; en la web, «Registrar» arriba de la navegación lateral)
@@ -720,8 +722,6 @@ export const textos = {
       // E14-PRR 4.1 (PN-01), variante web
       elegir: "Elige un movimiento para verlo.",
     },
-    // E14-PRR 4.2 (PN-02), «Categoría oculta al corregir»: la palabra junto al ícono (E14-PRR 1.9, D-170)
-    oculta: "Oculta",
     detalle: {
       // E14-PRR 4.2 (PN-02), fila 1 (barra)
       titulo: "Movimiento",
