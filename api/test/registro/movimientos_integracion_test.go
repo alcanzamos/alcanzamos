@@ -185,7 +185,7 @@ func (s *servidorDePrueba) sembrarHogar(persona string) string {
 	if err != nil {
 		s.t.Fatal(err)
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck // sin efecto tras el commit
+	defer tx.Rollback(ctx)
 	var hogar string
 	if err := tx.QueryRow(ctx, `INSERT INTO hogar (nombre, creado_en, administrador_id) VALUES ('Nuestro hogar', '2026-10-01', $1::uuid) RETURNING id::text`, persona).Scan(&hogar); err != nil {
 		s.t.Fatal(err)
