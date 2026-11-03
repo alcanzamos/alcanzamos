@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"mime"
 	"mime/quotedprintable"
 	"net"
@@ -186,13 +187,13 @@ func (s *SMTP) enviar(ctx context.Context, destino string, mensaje []byte) error
 	cliente, err := smtp.NewClient(conexion, host)
 	if err != nil {
 		_ = conexion.Close()
-		return fmt.Errorf("saludar al servidor de correo: %w", err)
+		return respuesta("saludar al servidor de correo", err)
 	}
 	defer cliente.Close()
 
 	if ofrece, _ := cliente.Extension("STARTTLS"); ofrece {
 		if err := cliente.StartTLS(&tls.Config{ServerName: host, MinVersion: tls.VersionTLS12}); err != nil {
-			return fmt.Errorf("iniciar TLS con el servidor de correo: %w", err)
+			return respuesta("iniciar TLS con el servidor de correo", err)
 		}
 	}
 	if err := cliente.Mail(s.remitente); err != nil {
@@ -211,15 +212,27 @@ func (s *SMTP) enviar(ctx context.Context, destino string, mensaje []byte) error
 	if err := w.Close(); err != nil {
 		return respuesta("el servidor no aceptó el mensaje", err)
 	}
-	return cliente.Quit()
+	if err := cliente.Quit(); err != nil {
+		return respuesta("cerrar el diálogo con el servidor de correo", err)
+	}
+	return nil
 }
 
-// respuesta envuelve un error del servidor SMTP sin su texto: ese texto suele repetir la dirección del destinatario
-// y los errores se registran (NM-03). Deja solo el código de la respuesta.
+// respuesta envuelve un error del diálogo SMTP sin el texto que mandó el servidor: ese texto suele repetir la dirección
+// del destinatario y los errores se registran (NM-03, E17 3.13). Un error con código deja solo el código; uno de la
+// red o de la conexión cerrada se conserva, porque no trae texto del servidor; cualquier otro (una línea sin código,
+// una respuesta que la biblioteca no entiende) se reemplaza por un texto fijo. Así ningún texto del servidor llega
+// al registro, sea cual sea su respuesta.
 func respuesta(contexto string, err error) error {
 	var e *textproto.Error
-	if errors.As(err, &e) {
+	var red net.Error
+	switch {
+	case errors.As(err, &e):
 		return fmt.Errorf("%s: el servidor respondió %d", contexto, e.Code)
+	case errors.Is(err, io.EOF), errors.Is(err, io.ErrUnexpectedEOF), errors.Is(err, context.DeadlineExceeded),
+		errors.Is(err, context.Canceled), errors.As(err, &red):
+		return fmt.Errorf("%s: %w", contexto, err)
+	default:
+		return fmt.Errorf("%s: respuesta del servidor no válida", contexto)
 	}
-	return fmt.Errorf("%s: %w", contexto, err)
 }

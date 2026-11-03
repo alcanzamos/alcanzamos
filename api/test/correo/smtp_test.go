@@ -309,80 +309,6 @@ func TestEnviarVerificacionErrores(t *testing.T) {
 	})
 }
 
-// servidorGuionado es un servidor SMTP que responde lo que dice el guion a cada comando (por prefijo; «.» es el fin
-// de los datos) y 250 a lo demás. Una respuesta vacía cierra la conexión. Tras un 220 a STARTTLS manda basura en
-// lugar de negociar TLS.
-func servidorGuionado(t *testing.T, saludo string, guion map[string]string) string {
-	t.Helper()
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { l.Close() })
-	go func() {
-		c, err := l.Accept()
-		if err != nil {
-			return
-		}
-		defer c.Close()
-		r := bufio.NewReader(c)
-		resp := func(s string) bool {
-			if s == "" {
-				return false
-			}
-			_, _ = io.WriteString(c, s+"\r\n")
-			return true
-		}
-		if !resp(saludo) {
-			return
-		}
-		for {
-			linea, err := r.ReadString('\n')
-			if err != nil {
-				return
-			}
-			linea = strings.TrimRight(linea, "\r\n")
-			clave, quiere := "", "250 ok"
-			if strings.HasPrefix(linea, "DATA") {
-				quiere = "354 siga"
-			}
-			for _, k := range []string{"EHLO", "STARTTLS", "MAIL", "RCPT", "DATA", "QUIT"} {
-				if strings.HasPrefix(linea, k) {
-					clave = k
-				}
-			}
-			if o, ok := guion[clave]; ok && clave != "" {
-				quiere = o
-			}
-			switch clave {
-			case "DATA":
-				if !resp(quiere) || !strings.HasPrefix(quiere, "354") {
-					return
-				}
-				for {
-					l, err := r.ReadString('\n')
-					if err != nil || l == ".\r\n" {
-						break
-					}
-				}
-				quiere = "250 ok"
-				if o, ok := guion["."]; ok {
-					quiere = o
-				}
-			case "STARTTLS":
-				if resp(quiere) && strings.HasPrefix(quiere, "220") {
-					_, _ = io.WriteString(c, "esto no es TLS")
-				}
-				return
-			}
-			if !resp(quiere) {
-				return
-			}
-		}
-	}()
-	return l.Addr().String()
-}
-
 // Cada paso del diálogo SMTP que falla da un error propio y, cuando el servidor responde con un código, solo el código.
 func TestEnviarFallaEnCadaPasoDelDialogo(t *testing.T) {
 	casos := []struct {
@@ -399,7 +325,7 @@ func TestEnviarFallaEnCadaPasoDelDialogo(t *testing.T) {
 	}
 	for _, c := range casos {
 		t.Run(c.nombre, func(t *testing.T) {
-			s := correo.NuevoSMTP(configDePrueba(servidorGuionado(t, c.saludo, c.guion)), relojDePrueba())
+			s := correo.NuevoSMTP(configDePrueba(correotest.ServidorGuionado(t, c.saludo, c.guion)), relojDePrueba())
 			err := s.EnviarVerificacion(context.Background(), "laura@ejemplo.test", "abc")
 			if err == nil || !strings.Contains(err.Error(), c.quiere) || strings.Contains(err.Error(), "laura") {
 				t.Fatalf("error %v, se esperaba %q", err, c.quiere)
