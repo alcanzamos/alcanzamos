@@ -234,7 +234,7 @@ Versiones fijadas sin `~` ni `^`, verificadas en el registro de npm el 2026-10-2
 
 ## Versión de Expo
 
-**Expo SDK 58** (`expo` 58.0.19, React Native 0.88.0, React 19.3.0), subido desde el SDK 57 con `npx expo install expo@58.0.19` y `npx expo install --fix`; `npx expo-doctor` no reporta avisos (20 de 20 comprobaciones). Las versiones están fijadas sin `~` ni `^` (Expo las pide con `~`, pero el proyecto las fija exactas); la tabla de abajo es la de `expo/bundledNativeModules.json` del SDK 58.
+**Expo SDK 58** (`expo` 58.0.20, React Native 0.88.0, React 19.3.0), subido desde el SDK 57 con `npx expo install expo@58.0.19` y `npx expo install --fix`, y el 2026-11-03 a 58.0.20 (D-166); `npx expo-doctor` da 19 de 20 comprobaciones: la que falla compara contra las últimas versiones de Expo (`expo` ~58.0.23, publicada ese mismo día, y parches de `expo-font`, `react-native`, `react-native-screens`, `jest-expo` y `react-native-safe-area-context`), no contra las de `bundledNativeModules.json` de 58.0.20, que el proyecto cumple. Las versiones están fijadas sin `~` ni `^` (Expo las pide con `~`, pero el proyecto las fija exactas); la tabla de abajo es la de `expo/bundledNativeModules.json` del SDK 58.
 
 Por qué el SDK 58: el Expo Go de Google Play ya es la **58.0.5** y solo abre proyectos del SDK 58 (el dueño no instala una versión anterior). Referencias: <https://expo.dev/changelog/sdk-58> (15 de octubre de 2026) y `https://api.expo.dev/v2/versions/latest`, que el 2026-10-24 todavía informaba `expoGoSdkVersion: 57.0.0` (la tienda va antes que ese dato).
 
@@ -242,7 +242,7 @@ Versiones del SDK 58, verificadas en el registro de npm el 2026-10-24 (fecha de 
 
 | Paquete | SDK 57 | SDK 58 |
 |---|---|---|
-| `expo` | 57.0.31 | 58.0.19 (2026-10-23) |
+| `expo` | 57.0.31 | 58.0.20 (2026-10-27) |
 | `react-native` | 0.86.3 | 0.88.0 (2026-10-15) |
 | `react` | 19.2.3 | 19.3.0 (2026-09-09; existe la 19.3.1, pero Expo pide la 19.3.0) |
 | `@types/react` | 19.2.4 | 19.3.0 (la única 19.3) |
@@ -333,7 +333,7 @@ npm 12.2.1 pide Node `^22.22.2 || ^24.15.0 || >=26`. Con un gestor de versiones 
 
 ### `min-release-age` frente al lockfile (medido con npm 12.2.1, 2026-10-24)
 
-- **`npm ci` respeta el lockfile y no aplica la edad:** instala versiones fijadas con menos de 7 días (aquí, p. ej. `expo` 58.0.19, publicado el 2026-10-23), también con la caché vacía. No falla ni avisa.
+- **`npm ci` respeta el lockfile y no aplica la edad:** instala versiones fijadas con menos de 7 días (p. ej. `expo` 58.0.19 el 2026-10-23, antes de subirlo a 58.0.20), también con la caché vacía. No falla ni avisa.
 - **`npm install` sin cambios en `package.json`:** igual, deja el lockfile como está.
 - **Cualquier resolución nueva sí la aplica:** `npm install paquete` elige la última versión con 7 días o más; `npm install paquete@x.y.z` con una versión más joven falla con `ETARGET` («No matching version found … with a date before …»); si `package.json` pide una versión joven que el lockfile no tiene, `npm install` falla igual; `npm update` **baja** una versión joven del lockfile a una anterior que cumpla el rango.
 - **Consecuencia:** subir una dependencia exacta publicada hace menos de 7 días no se puede instalar hasta que cumpla la edad, o hasta agregarla a `min-release-age-exclude[]` con motivo y fecha. Un lockfile que ya la trae sigue instalándose. Este proyecto fija versiones exactas; una subida de SDK con paquetes de menos de una semana espera 7 días o se excluye paquete por paquete.
@@ -350,9 +350,9 @@ npm 12.2.1 pide Node `^22.22.2 || ^24.15.0 || >=26`. Con un gestor de versiones 
 
 Las excepciones van en `antiguedad-excepciones.json`, una por versión, con `paquete`, `version`, `motivo` y `revisar_antes_de` (la fecha de vencimiento), como las de auditoría. Una excepción de una versión que ya cumple la edad se informa como sobrante, pero no falla hasta vencer. Para instalar una versión joven por una corrección de seguridad urgente hacen falta dos cosas: `min-release-age-exclude[]` en `.npmrc` (para que npm la resuelva) y su excepción aquí (para que pase esta revisión).
 
-**Transición (D-158):** el archivo arranca con 63 excepciones, las versiones que ya estaban en el lockfile de `main` el 2026-10-24 con menos de 7 días (la mayoría entró con el SDK 58). Todas vencen el 2026-11-01 (D-159): el motivo de cada una dice el día en que esa versión cumple 7 días (entre el 2026-10-25 y el 2026-10-30), y el PR del 2026-11-01 vacía el archivo. Si no se vacía, el pipeline falla desde el 2026-11-02.
+**Transición (D-158):** el archivo arrancó con 63 excepciones, las versiones que ya estaban en el lockfile de `main` el 2026-10-24 con menos de 7 días (la mayoría entró con el SDK 58). Todas vencen el 2026-11-01 (D-159): el motivo de cada una dice el día en que esa versión cumple 7 días (entre el 2026-10-25 y el 2026-10-30), y el archivo se vació el 2026-11-03 (`[]`): al subir `expo` a 58.0.20 y refrescar el lockfile, todas las versiones cumplen ya los 7 días. Una excepción vencida hace fallar el pipeline.
 
-**node-forge 1.4.2 (D-166):** el 2026-10-27 se subió `node-forge` a 1.4.2 (corrección de GHSA-86w9-cpqp-85rv, publicada ese día) con `--min-release-age-exclude=node-forge` en la línea de comandos de esa única instalación, sin tocar `.npmrc`, y con una excepción de antigüedad que vence el **2026-11-03**, cuando cumple 7 días. Pasada esa fecha se quita la excepción.
+**node-forge 1.4.2 (D-166):** el 2026-10-27 se subió `node-forge` a 1.4.2 (corrección de GHSA-86w9-cpqp-85rv, publicada ese día) con `--min-release-age-exclude=node-forge` en la línea de comandos de esa única instalación, sin tocar `.npmrc`, y con una excepción de antigüedad que vence el **2026-11-03**, cuando cumple 7 días. La excepción se quitó el 2026-11-03.
 
 **Riesgo aceptado (D-158):** npm no detecta que un paquete perdió nivel de confianza (por ejemplo, que pasó de publicarse desde un pipeline con procedencia a publicarse sin ella). Se mitiga con la revisión de los cambios del lockfile en cada PR y con `npm audit signatures`.
 
