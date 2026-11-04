@@ -22,7 +22,7 @@ services:
   # Servidor de correo de prueba: recibe todo y no reenvía nada.
   # Sin MP_SMTP_RELAY_*: ningún correo sale del equipo.
   mailpit:
-    image: axllent/mailpit:v1.31.6
+    image: axllent/mailpit:v1.32.0
     environment:
       MP_MAX_MESSAGES: "500"
     ports:

@@ -32,7 +32,7 @@ func (s *Sesiones) Crear(ctx context.Context, persona string, huella []byte, aho
 	if err != nil {
 		return fmt.Errorf("abrir la transacción: %w", err)
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck // sin efecto tras el commit
+	defer tx.Rollback(ctx)
 	if err := insertarSesion(ctx, tx, persona, huella, ahora); err != nil {
 		return err
 	}
