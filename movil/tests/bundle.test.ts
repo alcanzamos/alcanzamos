@@ -39,6 +39,29 @@ describe("buscarMarcas", () => {
   });
 });
 
+describe("marcas de argparse y caniuse-lite (D-182)", () => {
+  it("encuentra las de argparse y las de caniuse-lite", () => {
+    expect(buscarMarcas("new ArgumentParser(); p.add_argument('x')", MARCAS_POR_PAQUETE.argparse)).toEqual([
+      "ArgumentParser",
+      "add_argument",
+    ]);
+    expect(buscarMarcas("require('caniuse-lite/dist/unpacker/agents')", MARCAS_POR_PAQUETE["caniuse-lite"])).toEqual([
+      "caniuse-lite",
+    ]);
+    expect(buscarMarcas("limpio", MARCAS_POR_PAQUETE.argparse)).toEqual([]);
+  });
+
+  it("falla y nombra el paquete si aparecen en el paquete de la app", () => {
+    const { fallas } = revisarArchivos([
+      { nombre: "a.hbc", contenido: "ArgumentError y node_modules/caniuse-lite" },
+    ]);
+    expect(fallas).toEqual([
+      "a.hbc contiene argparse (marcas: ArgumentError)",
+      "a.hbc contiene caniuse-lite (marcas: node_modules/caniuse-lite, caniuse-lite)",
+    ]);
+  });
+});
+
 describe("revisarArchivos", () => {
   it("pasa con paquetes limpios", () => {
     const r = revisarArchivos([{ nombre: "index.hbc", contenido: "limpio" }]);

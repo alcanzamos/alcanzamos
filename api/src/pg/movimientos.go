@@ -56,7 +56,7 @@ func (m *Movimientos) Guardar(ctx context.Context, g registro.Guardado, ahora ti
 	if err != nil {
 		return creados, fmt.Errorf("abrir la transacción: %w", err)
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck // sin efecto tras el commit
+	defer tx.Rollback(ctx)
 
 	// Si la persona no existe (la cuenta se borró entre la sesión y este pedido) no es un problema de la categoría: se
 	// sigue y la llave de `persona` lo rechaza como un fallo, no como un error de validación.
