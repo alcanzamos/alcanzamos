@@ -2,9 +2,7 @@
   {
     "ghsa": "GHSA-mrhx-c7xc-m3w5",
     "paquete": "zod",
-    "rutas": [
-      "expo > @expo/cli > zod"
-    ],
+    "rutas": ["expo > @expo/cli > zod"],
     "motivo": "zod valida datos con esquemas y lo usa @expo/cli (la herramienta de línea de comandos de Expo: expo start, expo export) para validar la configuración y las opciones de la CLI. El aviso es que zod puede agotar la memoria al validar colecciones enormes con restricciones. Corre en la máquina de desarrollo y en el pipeline, no se empaqueta en la app que se instala (Metro no lo incluye porque ningún archivo de src/ lo importa). Ya existe la corrección: @expo/cli 58.1.18 y 58.1.19 ya no dependen de zod (verificado en npm y en el paquete) y expo 58.0.22 pide @expo/cli ^58.1.18. @expo/cli 58.1.18 y expo 58.0.22 se publicaron el 2026-10-31 a las 10:33 UTC (58.1.19, el 2026-11-03) y la regla de antigüedad de 7 días (D-158) los admite desde el 2026-11-07 a las 10:33 UTC. Por eso la excepción se renueva solo hasta el 2026-11-12 y se borra completa al subir expo a 58.0.22 con versión exacta, desde el 2026-11-07 (D-182): la auditoría debe pasar sin ninguna excepción y `npm ls zod` debe dejar solo la de eslint-plugin-react-hooks (desarrollo). Historia: aprobada en D-154; el 2026-10-27 el camino por @react-native-community/datetimepicker dejó de reportarse (D-166) y volvió esa noche por GHSA-gcqx-w48m-w2h4 (deepmerge 4.3.1, severidad baja), que vuelve a marcar expo como afectado, sin cambiar zod 3.25.76 (D-171). El 2026-11-04 el camino por @react-native-community/datetimepicker dejó de reportarse otra vez: npm audit ahora indica que la corrección es subir expo (fixAvailable: expo, la 58.0.22 que ya no trae zod) y deja de llevar el efecto al selector de fecha. Es el mismo zod 3.25.76; solo cambió el camino que informa npm (D-182).",
     "revisado": "2026-11-04",
     "revisar_antes_de": "2026-11-12"
