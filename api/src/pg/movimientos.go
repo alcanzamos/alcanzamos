@@ -99,9 +99,14 @@ func (m *Movimientos) Guardar(ctx context.Context, g registro.Guardado, ahora ti
 	return creados, nil
 }
 
-// errorDeGuardar traduce la violación de la llave (categoría, tipo) a ErrCategoriaInvalida.
+// errorDeGuardar traduce la violación de la llave (categoría, tipo) a ErrCategoriaInvalida y la de la llave de `persona`
+// (la cuenta se borró mientras se guardaba) a ErrSinCuenta.
 func errorDeGuardar(que string, err error) error {
 	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23503" &&
+		(pgErr.ConstraintName == "fk_movimiento_persona_id" || pgErr.ConstraintName == "fk_movimiento_recurrente_persona_id") {
+		return registro.ErrSinCuenta
+	}
 	if errors.As(err, &pgErr) && pgErr.Code == "23503" &&
 		(pgErr.ConstraintName == "fk_movimiento_categoria_tipo" || pgErr.ConstraintName == "fk_recurrente_categoria_tipo") {
 		return registro.ErrCategoriaInvalida

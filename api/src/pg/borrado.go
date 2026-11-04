@@ -185,7 +185,7 @@ func (r *Borrado) BorrarCuenta(ctx context.Context, persona string, vistos []str
 	for range intentosDeBorrado {
 		err = r.borrarUnaVez(ctx, persona, vistos, confirmaMenores, ahora, conservarHasta)
 		if !esChoqueDeTransacciones(err) {
-			return err
+			return conRestriccion(err)
 		}
 	}
 	// La base siguió ocupada: si la cuenta ya no está, otro pedido la borró y esto es lo mismo que llegar tarde. Si no se
@@ -195,21 +195,52 @@ func (r *Borrado) BorrarCuenta(ctx context.Context, persona string, vistos []str
 	if !existe {
 		return cuenta.ErrNoExiste
 	}
-	return fmt.Errorf("%w: %w", cuenta.ErrOcupada, err)
+	return fmt.Errorf("%w: %w", cuenta.ErrOcupada, conRestriccion(err))
 }
 
+// restriccionesDeEscrituraConcurrente son las únicas restricciones de integridad que el borrado reintenta: las que salta
+// una escritura de otra conexión que se coló entre leer y borrar. Cualquier otra violación es un error de verdad: se
+// intenta una sola vez, sale tal cual y la ruta lo vuelve un 500 con su línea de registro.
+//   - 23514 `ck_*_persona_o_hogar`: una fila nueva «propia» que apareció cuando ya se había borrado lo propio, y que el
+//     SET NULL de `persona_id` dejaría sin dueño.
+//   - 23503 `fk_hogar_administrador_id` y `fk_hogar_administrador_miembro`: el papel de administrador apuntaba a una
+//     persona que otro borrado se llevó (o la membresía cambió).
+var restriccionesDeEscrituraConcurrente = map[string]bool{
+	"ck_movimiento_persona_o_hogar": true, "ck_recurrente_persona_o_hogar": true, "ck_meta_persona_o_hogar": true,
+	"ck_presupuesto_persona_o_hogar": true, "ck_deuda_persona_o_hogar": true,
+	"fk_hogar_administrador_id": true, "fk_hogar_administrador_miembro": true,
+}
+
+// errHogarCambio: el hogar de la persona cambió entre mirarlo y bloquearlo; se repite con el hogar de ahora.
+var errHogarCambio = errors.New("el hogar de la persona cambió mientras se bloqueaba")
+
 // esChoqueDeTransacciones dice si el error es un choque con otra transacción que se arregla repitiendo todo: 40001
-// serialización, 40P01 interbloqueo, 23503 llave foránea o 23514 CHECK (una escritura concurrente que se coló).
+// serialización, 40P01 interbloqueo, o una de las restricciones de `restriccionesDeEscrituraConcurrente`.
 func esChoqueDeTransacciones(err error) bool {
+	if errors.Is(err, errHogarCambio) {
+		return true
+	}
 	var pgErr *pgconn.PgError
 	if !errors.As(err, &pgErr) {
 		return false
 	}
 	switch pgErr.Code {
-	case "40001", "40P01", "23503", "23514":
+	case "40001", "40P01":
 		return true
+	case "23503", "23514":
+		return restriccionesDeEscrituraConcurrente[pgErr.ConstraintName]
 	}
 	return false
+}
+
+// conRestriccion agrega al error de la base el código y la restricción que violó, para el registro: el texto de la
+// base no los trae siempre y nunca lleva datos de la persona (ni el `Detail` de la base, que sí podría).
+func conRestriccion(err error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return fmt.Errorf("%w [SQLSTATE %s, restricción %q]", err, pgErr.Code, pgErr.ConstraintName)
+	}
+	return err
 }
 
 // mismosIDs dice si dos listas de ids son el mismo conjunto.
@@ -229,9 +260,31 @@ func mismosIDs(a, b []string) bool {
 	return true
 }
 
-// bloquearParaBorrar toma, en el orden dado, los candados de las fases 1 a 3. Cada sentencia ordena sus filas para que dos
-// borrados cualesquiera las pidan siempre en el mismo orden.
+// hogarDe lee, sin bloquear, el hogar de la persona (nulo si no tiene).
+func leerHogar(ctx context.Context, q consultor, persona string) (*string, error) {
+	var hogar *string
+	err := q.QueryRow(ctx, `SELECT hogar_id::text FROM miembro_hogar WHERE persona_id = $1::uuid`, persona).Scan(&hogar)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, fmt.Errorf("leer el hogar: %w", err)
+	}
+	return hogar, nil
+}
+
+// bloquearParaBorrar toma los candados del borrado en un orden global fijo: 0 el hogar, 1 la credencial, la persona y su
+// perfil de adulta, 2 los menores que tutela (persona, perfil y todas sus tutorías), 3 los miembros del hogar. El hogar va
+// primero para que dos personas del mismo hogar se turnen enteras y no se crucen (una pasando el papel de administrador a
+// la otra, que ya tiene bloqueado su perfil); y la credencial antes que la persona es el orden de `IniciarSesion`, de
+// elegir la contraseña con un enlace y de pedir un enlace, que llegan a la persona por ahí. Cada sentencia ordena sus filas.
 func bloquearParaBorrar(ctx context.Context, tx pgx.Tx, persona string) error {
+	hogar, err := leerHogar(ctx, tx, persona)
+	if err != nil {
+		return err
+	}
+	if hogar != nil {
+		if _, err := tx.Exec(ctx, `SELECT 1 FROM hogar WHERE id = $1::uuid FOR UPDATE`, *hogar); err != nil {
+			return fmt.Errorf("bloquear el hogar: %w", err)
+		}
+	}
 	for _, q := range []struct{ que, sql string }{
 		{"la credencial", `SELECT 1 FROM credencial WHERE persona_id = $1::uuid FOR UPDATE`},
 		{"la persona", `SELECT 1 FROM persona WHERE id = $1::uuid FOR UPDATE`},
@@ -240,13 +293,20 @@ func bloquearParaBorrar(ctx context.Context, tx pgx.Tx, persona string) error {
 		{"las personas de los menores", `SELECT 1 FROM persona WHERE id IN (SELECT menor_id FROM tutoria WHERE tutor_id = $1::uuid) ORDER BY id FOR UPDATE`},
 		{"los perfiles de los menores", `SELECT 1 FROM perfil_menor WHERE persona_id IN (SELECT menor_id FROM tutoria WHERE tutor_id = $1::uuid) ORDER BY persona_id FOR UPDATE`},
 		{"las tutorías de los menores", `SELECT 1 FROM tutoria WHERE menor_id IN (SELECT menor_id FROM tutoria WHERE tutor_id = $1::uuid) ORDER BY menor_id, tutor_id FOR UPDATE`},
-		// Su hogar y quienes lo forman.
-		{"el hogar", `SELECT 1 FROM hogar WHERE id IN (SELECT hogar_id FROM miembro_hogar WHERE persona_id = $1::uuid) FOR UPDATE`},
+		// Quienes forman su hogar.
 		{"los miembros del hogar", `SELECT 1 FROM miembro_hogar WHERE hogar_id IN (SELECT hogar_id FROM miembro_hogar WHERE persona_id = $1::uuid) ORDER BY persona_id FOR UPDATE`},
 	} {
 		if _, err := tx.Exec(ctx, q.sql, persona); err != nil {
 			return fmt.Errorf("bloquear %s: %w", q.que, err)
 		}
+	}
+	// Si la persona cambió de hogar mientras se esperaba, el que se bloqueó ya no es el suyo.
+	despues, err := leerHogar(ctx, tx, persona)
+	if err != nil {
+		return err
+	}
+	if (hogar == nil) != (despues == nil) || (hogar != nil && *hogar != *despues) {
+		return errHogarCambio
 	}
 	return nil
 }
