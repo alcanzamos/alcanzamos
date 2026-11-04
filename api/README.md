@@ -211,6 +211,26 @@ La respuesta nunca revela si el correo estaba registrado, ni da la sesión de es
 - **Ninguna de estas rutas manda texto** a la persona: los clientes toman los de E14-PCP.
 - **Con un reinicio.** La sesión de mentira es un token firmado, no una fila ni una entrada en memoria: tras reiniciar el API (o en otra réplica con la misma `SESION_SENUELO_CLAVE`) cada acción responde lo mismo que antes y lo mismo que una sesión limitada real. Lo prueba `TestLaSesionDeMentiraRespondeIgualTrasUnReinicio`, que crea la sesión con un servidor, arma uno nuevo y una réplica con la misma clave sobre la misma base, y compara las seis respuestas de un guion; con otra clave el token da `401`. Los contadores de límites sí se reinician (viven en la memoria, D-123), igual para la sesión real y para la de mentira.
 
+## Borrar la cuenta (US-53, PN-69)
+
+| Ruta | Nivel | Qué hace |
+|---|---|---|
+| `GET /api/v1/cuenta/borrado` | `requiere_autorizacion` | Lo que PN-69 dice del hogar (fila 4) y de los menores (filas 5 y 6): `{"hogar": null \| {nombre, es_administradora, unica_adulta, nuevo_administrador}, "menores": ["Mateo"]}`. No cambia nada |
+| `POST /api/v1/cuenta/borrado` | `requiere_autorizacion` | Borra la cuenta. Cuerpo `{contrasena, confirma_menores}` |
+
+E12 no nombra la ruta (`CuentaServicio.BorrarCuenta(s, contrasena, confirmaMenores)`); es POST, como `POST /api/v1/cuenta/contrasena`, porque lleva la contraseña en el cuerpo y así cae en la defensa de E17-ECO 3.15 cuando llegue (hoy ninguna ruta la tiene: bug #214 de I06).
+
+- **Respuestas.** `200 {"estado":"cuenta_borrada"}` con la cookie `__Host-sesion` mandada a borrar (`Max-Age=0`) y `Cache-Control: no-store`; el cliente va a PN-60. `400 contrasena_incorrecta`, que cuenta como fallo del límite de D-136 (el mismo contador del inicio de sesión) y deja `inicio_sesion_fallido`; `429 demasiados_intentos`; `422 validacion` con `contrasena: contrasena_vacia` o `confirma_menores: confirmacion_requerida` (hay menores que dependen solo de la persona y no se confirmó: no cambia nada); `403 cuenta_de_menor`; `401 sin_sesion`.
+- **Una sola transacción serializable** (`pg.Borrado.BorrarCuenta`): o queda todo borrado o no cambia nada.
+  1. Los menores que dependen solo de la persona (su única tutoría es la suya) se borran con ella (RN-006).
+  2. Si administra el hogar y queda otra persona adulta, el papel pasa a la de `miembro_hogar.desde` más antiguo (RN-007). Si era la única adulta, el hogar se disuelve: todo lo de ese `hogar_id` se borra con ella.
+  3. Se borra lo **propio** (`hogar_id` nulo) de `movimiento`, `movimiento_recurrente`, `meta`, `presupuesto` y `deuda`. Hay que hacerlo antes: el `SET NULL` de `persona_id` dejaría la fila sin dueño y violaría `ck_*_persona_o_hogar`. Lo compartido de un hogar que sigue queda en el hogar con `persona_id` nulo (D-053).
+  4. `autorizacion` no tiene llave a la persona: sus filas quedan retiradas y con `conservar_hasta` a 3 años (E13 §7, provisional).
+  5. `DELETE FROM persona` y el `CASCADE` se lleva perfiles, credencial, **todas las sesiones** y tokens de dispositivo, enlaces, avisos, pertenencia al hogar, tutorías y propuestas pendientes.
+- **Segunda llamada.** Con la misma sesión es `401 sin_sesion`: la primera ya la borró. Con una carrera, `cuenta.ErrNoExiste` también da `401`.
+- **Registro.** Nada de lo borrado ni la contraseña quedan en el registro. El id interno de la cuenta solo aparece en el evento `inicio_sesion_fallido` de una contraseña mal escrita (E17-ECO 3.13).
+- **Pendiente.** No se avisa al nuevo administrador (la tabla `aviso` y quien la llena llegan con el hogar, I08) y «Descargar mis datos» (RF-032, D-102) no está en esta historia.
+
 ## Sesiones (US-49)
 
 Es la capa de sesiones: el `Enrutador` resuelve la sesión de cada pedido con `sesion.Resolutor`, y la crean `POST /api/v1/cuentas` (arriba) y `POST /api/v1/sesiones` (abajo).
