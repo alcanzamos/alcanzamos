@@ -1,15 +1,11 @@
 # Pipeline de reglas/: verifica el SHA-256 de los conjuntos congelados (D-083).
 # Corre solo cuando cambia reglas/ o este archivo (ADR-001, filtros por carpeta).
-trigger:
-  branches:
-    include:
-      - main
-  paths:
-    include:
-      - reglas/*
-      - .azure-pipelines/reglas.yml
-
+# D-183: no corre al fusionar en main. Con la rama al día (protección `strict`) y squash, main queda igual a lo
+# que ya se probó en el PR; volver a correrlo solo gasta minutos. Se vuelve a poner cuando haya despliegue.
+trigger: none
 pr:
+  # D-183: un PR borrador no corre; corre cuando se marca «listo para revisar», ya al día con main.
+  drafts: false
   branches:
     include:
       - main

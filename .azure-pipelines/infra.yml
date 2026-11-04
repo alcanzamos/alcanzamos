@@ -1,16 +1,12 @@
 # Pipeline de infra/: valida el formato y la configuración de OpenTofu y el compose local.
 # Nunca ejecuta plan ni apply, no usa conexión de servicio de Azure ni secretos (US-44, S3).
 # Corre solo cuando cambia infra/ o este archivo (ADR-001, filtros por carpeta).
-trigger:
-  branches:
-    include:
-      - main
-  paths:
-    include:
-      - infra/*
-      - .azure-pipelines/infra.yml
-
+# D-183: no corre al fusionar en main. Con la rama al día (protección `strict`) y squash, main queda igual a lo
+# que ya se probó en el PR; volver a correrlo solo gasta minutos. Se vuelve a poner cuando haya despliegue.
+trigger: none
 pr:
+  # D-183: un PR borrador no corre; corre cuando se marca «listo para revisar», ya al día con main.
+  drafts: false
   branches:
     include:
       - main
