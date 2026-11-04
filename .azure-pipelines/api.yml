@@ -4,20 +4,12 @@
 # Docker (datos sintéticos, solo en 127.0.0.1) para correr también las pruebas de integración.
 # La imagen embebe la web, así que también corre cuando cambian web/, diseno/ o el logo que la web importa
 # (marca/logo-horizontal-color.svg, D-152) (ADR-001, filtros por carpeta).
-trigger:
-  branches:
-    include:
-      - main
-  paths:
-    include:
-      - api/*
-      - web/*
-      - diseno/*
-      - marca/logo-horizontal-color.svg
-      - .azure-pipelines/api.yml
-      - .azure-pipelines/pruebas/cobertura.py
-
+# D-183: no corre al fusionar en main. Con la rama al día (protección `strict`) y squash, main queda igual a lo
+# que ya se probó en el PR; volver a correrlo solo gasta minutos. Se vuelve a poner cuando haya despliegue.
+trigger: none
 pr:
+  # D-183: un PR borrador no corre; corre cuando se marca «listo para revisar», ya al día con main.
+  drafts: false
   branches:
     include:
       - main
