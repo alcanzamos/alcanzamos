@@ -154,9 +154,20 @@ export const avisos = {
     titulo: a.errorAlBorrarLaCuenta.titulo,
     mensaje: a.errorAlBorrarLaCuenta.mensaje,
   },
-  errorAlCargarLoQueSeBorra: {
+  errorAlCargarTusDatos: {
     tipo: "informacion",
-    titulo: a.errorAlCargarLoQueSeBorra.titulo,
+    titulo: a.errorAlCargarTusDatos.titulo,
+    mensaje: a.errorAlCargarTusDatos.mensaje,
+  },
+  descargaLista: {
+    tipo: "informacion",
+    titulo: a.descargaLista.titulo,
+    mensaje: a.descargaLista.mensaje,
+  },
+  errorAlDescargar: {
+    tipo: "informacion",
+    titulo: a.errorAlDescargar.titulo,
+    mensaje: a.errorAlDescargar.mensaje,
   },
   cuentaBorrada: {
     tipo: "informacion",

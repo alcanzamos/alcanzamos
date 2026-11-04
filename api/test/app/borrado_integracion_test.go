@@ -3,10 +3,12 @@
 package app_test
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -227,6 +229,9 @@ func TestBorrarConHogarYMenoresDePuntaAPunta(t *testing.T) {
 		sql(`INSERT INTO autorizacion (titular_id, otorgante_id, finalidad, version_del_texto, otorgada_en) VALUES ($1::uuid, $1::uuid, $2, '1.0', now() - interval '1 day')`, laura, f)
 	}
 	sql(`INSERT INTO movimiento (persona_id, hogar_id, tipo, monto, fecha, medio, descripcion, categoria_id) VALUES ($1::uuid, $2::uuid, 'gasto', 80000, current_date, 'efectivo', 'arriendo de enero', 4)`, laura, hogar)
+	sql(`INSERT INTO movimiento (persona_id, hogar_id, tipo, monto, fecha, medio, descripcion, categoria_id) VALUES ($1::uuid, $2::uuid, 'gasto', 5, current_date, 'efectivo', 'secreto de Camilo', 4)`, camilo, hogar)
+	sql(`INSERT INTO movimiento (persona_id, tipo, monto, fecha, medio, descripcion, categoria_id) VALUES ($1::uuid, 'gasto', 6, current_date, 'efectivo', 'secreto de Sofía', 1)`, sofia)
+	sql(`INSERT INTO movimiento (persona_id, tipo, monto, fecha, medio, descripcion, categoria_id) VALUES ($1::uuid, 'ingreso', 150000, current_date, 'transferencia', 'sueldo de Laura', 17)`, laura)
 	if err := tx.Commit(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -237,6 +242,38 @@ func TestBorrarConHogarYMenoresDePuntaAPunta(t *testing.T) {
 		t.Fatalf("entrar: %d %s", entrada.Code, entrada.Body)
 	}
 	cookie := entrada.Result().Cookies()[0]
+
+	// «Descargar mis datos»: cuatro CSV, y en movimientos solo lo que Laura registró, sin nada de las demás personas.
+	descarga := llamar("GET", "/api/v1/cuenta/datos", "", cookie)
+	if descarga.Code != 200 || descarga.Header().Get("Content-Type") != "application/zip" || descarga.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("descarga: %d %v", descarga.Code, descarga.Header())
+	}
+	z, err := zip.NewReader(bytes.NewReader(descarga.Body.Bytes()), int64(descarga.Body.Len()))
+	if err != nil || len(z.File) != 4 {
+		t.Fatalf("ZIP: %v %d", err, len(z.File))
+	}
+	todo := ""
+	for _, f := range z.File {
+		r, _ := f.Open()
+		crudo, _ := io.ReadAll(r)
+		r.Close()
+		todo += string(crudo)
+		if f.Name == "movimientos.csv" {
+			if n := strings.Count(string(crudo), "\n"); n != 3 {
+				t.Errorf("movimientos.csv: %d líneas, se esperaban el encabezado y 2 movimientos de Laura:\n%s", n, crudo)
+			}
+		}
+	}
+	for _, quiere := range []string{"arriendo de enero", "sueldo de Laura", "1500.00", "Salario", "800.00"} {
+		if !strings.Contains(todo, quiere) {
+			t.Errorf("la descarga no trae %q:\n%s", quiere, todo)
+		}
+	}
+	for _, ajeno := range []string{"secreto", "Camilo", "Sofía", "Mateo", camilo, sofia, mateo, hogar, laura} {
+		if strings.Contains(todo, ajeno) {
+			t.Errorf("la descarga lleva %q", ajeno)
+		}
+	}
 
 	var resumen struct {
 		Hogar struct {
@@ -278,6 +315,20 @@ func TestBorrarConHogarYMenoresDePuntaAPunta(t *testing.T) {
 		t.Fatalf("resumen tras el cambio: %+v", resumen)
 	}
 	vistos := `"menores":["` + mateo + `","` + sofia + `"]`
+	// RN-006: con menores a cargo, sin la confirmación completa el API rechaza y no borra nada, aunque la contraseña sea buena.
+	for nombre, cuerpo := range map[string]string{
+		"sin la casilla ni la lista":         `{"contrasena":"` + clave + `"}`,
+		"con la casilla y sin la lista":      `{"contrasena":"` + clave + `","confirma_menores":true}`,
+		"con la casilla y la lista corta":    `{"contrasena":"` + clave + `","confirma_menores":true,"menores":["` + mateo + `"]}`,
+		"con la lista y sin la casilla":      `{"contrasena":"` + clave + `",` + vistos + `}`,
+		"con la lista y la casilla en falso": `{"contrasena":"` + clave + `","confirma_menores":false,` + vistos + `}`,
+		"con una lista vacía":                `{"contrasena":"` + clave + `","confirma_menores":true,"menores":[]}`,
+	} {
+		rr := llamar("POST", "/api/v1/cuenta/borrado", cuerpo, cookie)
+		if (rr.Code != 409 && rr.Code != 422) || rr.Header().Get("Set-Cookie") != "" || personas() != 3 {
+			t.Errorf("%s: %d %s (personas %d)", nombre, rr.Code, rr.Body, personas())
+		}
+	}
 	if rr := llamar("POST", "/api/v1/cuenta/borrado", `{"contrasena":"`+clave+`",`+vistos+`}`, cookie); rr.Code != 422 || !strings.Contains(rr.Body.String(), "confirmacion_requerida") || personas() != 3 {
 		t.Fatalf("sin marcar la casilla: %d %s", rr.Code, rr.Body)
 	}
