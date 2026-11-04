@@ -139,9 +139,10 @@ func leerSituacion(ctx context.Context, q consultor, persona string) (situacion,
 var tablasConDatos = []string{"movimiento", "movimiento_recurrente", "meta", "presupuesto", "deuda"}
 
 // intentosDeBorrado: cuántas veces se repite la transacción entera si la base la aborta por un choque con otra
-// (40001 serialización, 40P01 interbloqueo) o por una escritura concurrente que se coló (23503 llave foránea, 23514
-// restricción CHECK). Cada intento vuelve a leer y a calcular todo. Después de eso, ErrNoExiste si la cuenta ya no
-// está y ErrOcupada si sigue.
+// (40001 serialización, 40P01 interbloqueo) o por una escritura concurrente que se coló y chocó con una de las
+// restricciones conocidas (las `ck_*_persona_o_hogar` y las llaves del administrador del hogar). Cualquier otro error
+// de integridad no se repite: sale como error y se registra. Cada intento vuelve a leer y a calcular todo. Después de
+// eso, ErrNoExiste si la cuenta ya no está y ErrOcupada si sigue.
 const intentosDeBorrado = 3
 
 // BorrarCuenta borra la cuenta de la persona, en una sola transacción: o queda todo borrado o no cambia nada (RN-006,
@@ -149,28 +150,29 @@ const intentosDeBorrado = 3
 //
 // **Los candados van primero, en un orden fijo**, y después se lee y se calcula:
 //
-//  1. La credencial, la persona y su perfil de adulta (en ese orden, que es el de `IniciarSesion`: actualiza la
-//     credencial y luego inserta la sesión). Las llaves foráneas de lo que otros escriban de ella (movimientos, metas,
-//     sesiones…, que apuntan a `persona`; presupuestos, deudas y tarjetas, que apuntan a `perfil_adulto`) toman un
-//     candado compartido sobre esas filas: quedan esperando y, cuando la persona se borra, fallan por la llave sin que
-//     nada quede a medias.
-//  2. Los menores que ella tutela: su persona, su perfil de menor y **todas las tutorías de esos menores**, ordenadas.
+//  1. Su hogar, si tiene. Va primero para que dos personas del mismo hogar que se borran a la vez se turnen enteras
+//     y no se crucen al pasar el papel de administrador; si la persona cambió de hogar mientras esperaba, se repite.
+//  2. La credencial, la persona y su perfil de adulta (en ese orden, que también siguen `IniciarSesion`, elegir la
+//     contraseña con un enlace y pedir un enlace). Las llaves foráneas de lo que otros escriban de ella (movimientos,
+//     metas, sesiones…, que apuntan a `persona`; presupuestos, deudas y tarjetas, que apuntan a `perfil_adulto`) toman
+//     un candado compartido sobre esas filas: quedan esperando y, cuando la persona se borra, fallan por la llave sin
+//     que nada quede a medias.
+//  3. Los menores que ella tutela: su persona, su perfil de menor y **todas las tutorías de esos menores**, ordenadas.
 //     Así dos tutores de la misma menor que borran a la vez se turnan (la segunda ve a la menor a cargo solo de ella),
 //     una tutoría nueva espera, y lo que escriba la menor espera.
-//  3. Su hogar y los miembros de ese hogar, para que dos personas del mismo hogar no pasen el papel de administrador a
-//     quien se está borrando.
+//  4. Los miembros del hogar, para no pasar el papel de administrador a quien se está borrando.
 //
 // Con eso:
 //
-//  4. Los menores que dependen solo de ella son exactamente `vistos`, los que la pantalla mostró; si no, o si cambiaron
+//  5. Los menores que dependen solo de ella son exactamente `vistos`, los que la pantalla mostró; si no, o si cambiaron
 //     entre tanto, cuenta.ErrMenoresCambiaron y no cambia nada (RN-006: cada menor se avisa y se confirma). Sin
 //     `confirmaMenores`, cuenta.ErrFaltaConfirmarMenores. Los menores se borran con ella.
-//  5. Si administra el hogar y queda otra persona adulta, el papel pasa a la más antigua. Si era la única adulta, el
+//  6. Si administra el hogar y queda otra persona adulta, el papel pasa a la más antigua. Si era la única adulta, el
 //     hogar se disuelve: lo compartido pasa a ser suyo y se borra con ella (`hogar_id` de cada tabla de datos).
-//  6. Se borra lo propio (`hogar_id` nulo) de ella y de los menores. Lo compartido de un hogar que sigue queda en el
+//  7. Se borra lo propio (`hogar_id` nulo) de ella y de los menores. Lo compartido de un hogar que sigue queda en el
 //     hogar sin su nombre: el SET NULL de `persona_id` (D-053).
-//  7. Las autorizaciones, que no tienen llave a la persona, quedan retiradas y se conservan hasta `conservarHasta`.
-//  8. Se borra la persona: el CASCADE se lleva los perfiles, la credencial, **todas las sesiones**, los tokens de
+//  8. Las autorizaciones, que no tienen llave a la persona, quedan retiradas y se conservan hasta `conservarHasta`.
+//  9. Se borra la persona: el CASCADE se lleva los perfiles, la credencial, **todas las sesiones**, los tokens de
 //     dispositivo, los enlaces, los avisos, la pertenencia al hogar, las tutorías y las propuestas pendientes.
 //
 // Corre en READ COMMITTED, con los candados de arriba, y no en SERIALIZABLE (se probó los dos): con los candados puestos,
@@ -178,8 +180,8 @@ const intentosDeBorrado = 3
 // toma en la primera sentencia, antes de esperar los candados, y una fila que otros actualizan sin parar (la credencial,
 // con inicios de sesión seguidos) hace abortar con 40001 el primer candado en cada intento: el borrado se quedaba en
 // «ocupado» tres veces de tres (`TestBorrarMientrasOtroDispositivoEntra`). Con los candados puestos, las pruebas de
-// R1 a R5 pasan en los dos niveles. Si aun así la base aborta o una escritura se cuela (40001, 40P01, 23503, 23514), se
-// repite todo, hasta `intentosDeBorrado` veces, y nunca es un 500.
+// R1 a R5 pasan en los dos niveles. Si aun así la base aborta (40001, 40P01) o una escritura se cuela y choca con una
+// restricción conocida, se repite todo, hasta `intentosDeBorrado` veces; otro error de integridad sale y se registra.
 func (r *Borrado) BorrarCuenta(ctx context.Context, persona string, vistos []string, confirmaMenores bool, ahora, conservarHasta time.Time) error {
 	var err error
 	for range intentosDeBorrado {
@@ -260,7 +262,7 @@ func mismosIDs(a, b []string) bool {
 	return true
 }
 
-// hogarDe lee, sin bloquear, el hogar de la persona (nulo si no tiene).
+// leerHogar lee, sin bloquear, el hogar de la persona (nulo si no tiene).
 func leerHogar(ctx context.Context, q consultor, persona string) (*string, error) {
 	var hogar *string
 	err := q.QueryRow(ctx, `SELECT hogar_id::text FROM miembro_hogar WHERE persona_id = $1::uuid`, persona).Scan(&hogar)
