@@ -597,7 +597,7 @@ func (s *servidorDePrueba) nuevoMenor() string {
 	if err != nil {
 		s.t.Fatal(err)
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck // sin efecto tras el commit
+	defer tx.Rollback(ctx)
 	var menor string
 	if err := tx.QueryRow(ctx, `INSERT INTO persona (nombre, etapa) VALUES ('Mateo', 'menor') RETURNING id::text`).Scan(&menor); err != nil {
 		s.t.Fatal(err)

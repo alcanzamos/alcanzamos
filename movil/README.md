@@ -44,7 +44,7 @@ Rama `feat/us-49-movil-componentes` (D-155). Los componentes de E14-SDD 5 en Rea
 
 ### Por qué el selector de fecha aparece en la auditoría
 
-`@react-native-community/datetimepicker` declara `expo` como dependencia par opcional y `npm audit` lo lista como «vulnerable» solo por esa vía (sin aviso propio), así que la excepción de `zod` de `auditoria-excepciones.json` sumó el camino que entra por el selector (D-156). Desde el 2026-10-27 ese camino ya no se reporta y la excepción solo lista `expo > @expo/cli > zod` (D-166); la comprobación del paquete sigue cubriendo que no entren en la app.
+`@react-native-community/datetimepicker` declara `expo` como dependencia par opcional y `npm audit` lo lista como «vulnerable» solo por esa vía (sin aviso propio), así que la excepción de `zod` de `auditoria-excepciones.json` sumó el camino que entra por el selector (D-156). El camino se fue el 2026-10-27 (D-166), volvió esa noche por el aviso de deepmerge (D-171) y se fue otra vez el 2026-11-04, cuando `npm audit` empezó a indicar que la corrección es subir expo (D-182); desde entonces la excepción solo lista `expo > @expo/cli > zod`. La comprobación del paquete sigue cubriendo que no entren en la app.
 
 ## Crear la cuenta y verificar el correo (US-49, A3)
 
@@ -234,7 +234,7 @@ Versiones fijadas sin `~` ni `^`, verificadas en el registro de npm el 2026-10-2
 
 ## Versión de Expo
 
-**Expo SDK 58** (`expo` 58.0.19, React Native 0.88.0, React 19.3.0), subido desde el SDK 57 con `npx expo install expo@58.0.19` y `npx expo install --fix`; `npx expo-doctor` no reporta avisos (20 de 20 comprobaciones). Las versiones están fijadas sin `~` ni `^` (Expo las pide con `~`, pero el proyecto las fija exactas); la tabla de abajo es la de `expo/bundledNativeModules.json` del SDK 58.
+**Expo SDK 58** (`expo` 58.0.20, React Native 0.88.0, React 19.3.0), subido desde el SDK 57 con `npx expo install expo@58.0.19` y `npx expo install --fix`, y el 2026-11-03 a 58.0.20 (D-166); `npx expo-doctor` da 19 de 20 comprobaciones: la que falla compara contra las últimas versiones de Expo (`expo` ~58.0.23, publicada ese mismo día, y parches de `expo-font`, `react-native`, `react-native-screens`, `jest-expo` y `react-native-safe-area-context`), no contra las de `bundledNativeModules.json` de 58.0.20, que el proyecto cumple. Las versiones están fijadas sin `~` ni `^` (Expo las pide con `~`, pero el proyecto las fija exactas); la tabla de abajo es la de `expo/bundledNativeModules.json` del SDK 58.
 
 Por qué el SDK 58: el Expo Go de Google Play ya es la **58.0.5** y solo abre proyectos del SDK 58 (el dueño no instala una versión anterior). Referencias: <https://expo.dev/changelog/sdk-58> (15 de octubre de 2026) y `https://api.expo.dev/v2/versions/latest`, que el 2026-10-24 todavía informaba `expoGoSdkVersion: 57.0.0` (la tienda va antes que ese dato).
 
@@ -242,7 +242,7 @@ Versiones del SDK 58, verificadas en el registro de npm el 2026-10-24 (fecha de 
 
 | Paquete | SDK 57 | SDK 58 |
 |---|---|---|
-| `expo` | 57.0.31 | 58.0.19 (2026-10-23) |
+| `expo` | 57.0.31 | 58.0.20 (2026-10-27) |
 | `react-native` | 0.86.3 | 0.88.0 (2026-10-15) |
 | `react` | 19.2.3 | 19.3.0 (2026-09-09; existe la 19.3.1, pero Expo pide la 19.3.0) |
 | `@types/react` | 19.2.4 | 19.3.0 (la única 19.3) |
@@ -333,7 +333,7 @@ npm 12.2.1 pide Node `^22.22.2 || ^24.15.0 || >=26`. Con un gestor de versiones 
 
 ### `min-release-age` frente al lockfile (medido con npm 12.2.1, 2026-10-24)
 
-- **`npm ci` respeta el lockfile y no aplica la edad:** instala versiones fijadas con menos de 7 días (aquí, p. ej. `expo` 58.0.19, publicado el 2026-10-23), también con la caché vacía. No falla ni avisa.
+- **`npm ci` respeta el lockfile y no aplica la edad:** instala versiones fijadas con menos de 7 días (p. ej. `expo` 58.0.19 el 2026-10-23, antes de subirlo a 58.0.20), también con la caché vacía. No falla ni avisa.
 - **`npm install` sin cambios en `package.json`:** igual, deja el lockfile como está.
 - **Cualquier resolución nueva sí la aplica:** `npm install paquete` elige la última versión con 7 días o más; `npm install paquete@x.y.z` con una versión más joven falla con `ETARGET` («No matching version found … with a date before …»); si `package.json` pide una versión joven que el lockfile no tiene, `npm install` falla igual; `npm update` **baja** una versión joven del lockfile a una anterior que cumpla el rango.
 - **Consecuencia:** subir una dependencia exacta publicada hace menos de 7 días no se puede instalar hasta que cumpla la edad, o hasta agregarla a `min-release-age-exclude[]` con motivo y fecha. Un lockfile que ya la trae sigue instalándose. Este proyecto fija versiones exactas; una subida de SDK con paquetes de menos de una semana espera 7 días o se excluye paquete por paquete.
@@ -350,9 +350,9 @@ npm 12.2.1 pide Node `^22.22.2 || ^24.15.0 || >=26`. Con un gestor de versiones 
 
 Las excepciones van en `antiguedad-excepciones.json`, una por versión, con `paquete`, `version`, `motivo` y `revisar_antes_de` (la fecha de vencimiento), como las de auditoría. Una excepción de una versión que ya cumple la edad se informa como sobrante, pero no falla hasta vencer. Para instalar una versión joven por una corrección de seguridad urgente hacen falta dos cosas: `min-release-age-exclude[]` en `.npmrc` (para que npm la resuelva) y su excepción aquí (para que pase esta revisión).
 
-**Transición (D-158):** el archivo arranca con 63 excepciones, las versiones que ya estaban en el lockfile de `main` el 2026-10-24 con menos de 7 días (la mayoría entró con el SDK 58). Todas vencen el 2026-11-01 (D-159): el motivo de cada una dice el día en que esa versión cumple 7 días (entre el 2026-10-25 y el 2026-10-30), y el PR del 2026-11-01 vacía el archivo. Si no se vacía, el pipeline falla desde el 2026-11-02.
+**Transición (D-158):** el archivo arrancó con 63 excepciones, las versiones que ya estaban en el lockfile de `main` el 2026-10-24 con menos de 7 días (la mayoría entró con el SDK 58). Todas vencen el 2026-11-01 (D-159): el motivo de cada una dice el día en que esa versión cumple 7 días (entre el 2026-10-25 y el 2026-10-30), y el archivo se vació el 2026-11-03 (`[]`): al subir `expo` a 58.0.20 y refrescar el lockfile, todas las versiones cumplen ya los 7 días. Una excepción vencida hace fallar el pipeline.
 
-**node-forge 1.4.2 (D-166):** el 2026-10-27 se subió `node-forge` a 1.4.2 (corrección de GHSA-86w9-cpqp-85rv, publicada ese día) con `--min-release-age-exclude=node-forge` en la línea de comandos de esa única instalación, sin tocar `.npmrc`, y con una excepción de antigüedad que vence el **2026-11-03**, cuando cumple 7 días. Pasada esa fecha se quita la excepción.
+**node-forge 1.4.2 (D-166):** el 2026-10-27 se subió `node-forge` a 1.4.2 (corrección de GHSA-86w9-cpqp-85rv, publicada ese día) con `--min-release-age-exclude=node-forge` en la línea de comandos de esa única instalación, sin tocar `.npmrc`, y con una excepción de antigüedad que vence el **2026-11-03**, cuando cumple 7 días. La excepción se quitó el 2026-11-03.
 
 **Riesgo aceptado (D-158):** npm no detecta que un paquete perdió nivel de confianza (por ejemplo, que pasó de publicarse desde un pipeline con procedencia a publicarse sin ella). Se mitiga con la revisión de los cambios del lockfile en cada PR y con `npm audit signatures`.
 
@@ -377,11 +377,11 @@ Las denegaciones van por nombre (sin versión): valen para cualquier versión y 
 - Vale igual que en la web: los literales de texto con colores sueltos (`#…`, `rgb(`, `hsl(`), medidas con unidad, la paleta primitiva (`paleta`) y los dominios fijos (`alcanzamos.co`, `localhost`, `http(s)://`, D-129).
 - Distinto: en React Native los estilos son objetos, sin unidades. La regla marca además un número distinto de cero en las propiedades de medida de un objeto de estilo (`padding*`, `margin*`, `gap`, `top`…, `width`, `height`, `fontSize`, `lineHeight`, `letterSpacing`, `borderRadius`, `border*Width`, `min*`/`max*`). `flex`, `opacity` y `zIndex` no son medidas y no se revisan.
 - Límite: solo ve literales. Un valor que sale de una función o de una variable no se puede revisar con una regla de sintaxis: lo revisa el dueño con la lista de E17-ECO 6. `tests/`, `scripts/` y los `*.config.*` quedan fuera de la regla, y `src/tokens/tokens.generated.ts` (generado) no se revisa.
-- `eslint-plugin-react-native-a11y` 3.5.1 declara compatibilidad solo hasta ESLint 8 (`peerDependencies`), pero sus reglas corren en ESLint 9. Para no usar `--legacy-peer-deps` en todo el proyecto, `package.json` tiene `overrides` solo para ese plugin (`"eslint": "$eslint"`). Se revisa cuando el plugin publique una versión nueva.
+- `eslint-plugin-react-native-a11y` 3.5.1 declara compatibilidad solo hasta ESLint 8 (`peerDependencies`), pero sus reglas corren en ESLint 10 (D-182): `tests/eslint/accesibilidad.test.ts` comprueba, con un caso inválido por regla, que cada una de las 14 reglas activas reporta su error. Para no usar `--legacy-peer-deps` en todo el proyecto, `package.json` tiene `overrides` solo para ese plugin (`"eslint": "$eslint"`). Se revisa cuando el plugin publique una versión nueva.
 - `src/fuentes.ts` queda fuera de `no-require-imports`: Metro solo empaqueta las fuentes con `require()` estático.
 - **Sin textos sueltos en JSX (D-162, US-59).** La misma regla `no-restricted-syntax` de `web/eslint.config.js`, equivalente a `react/jsx-no-literals` con `noStrings: true` (`eslint-plugin-react` no se instala): reporta texto como hijo (`<Text>Hola</Text>`), cadenas y plantillas entre llaves (también en un ternario o un `&&` directo) y cadenas en las propiedades de texto: las de React Native (`accessibilityLabel`, `accessibilityHint`, `aria-label`, `placeholder`, `title`) y las de los componentes de la app (`titulo`, `etiqueta`, `ayuda`, `pista`, `texto`, `error`, `mensaje`). Se permiten el espacio en blanco, las cadenas vacías, los números y las propiedades que no son texto (`accessibilityRole`, `autocompletar`, `teclado`, `variante`…). `tests/eslint/texto-suelto.test.ts` corre ESLint con la API de Node (en un proceso aparte, `tests/ayudas/eslint-nodo.mjs`: Jest no deja que ESLint cargue `eslint.config.mjs`) con fixtures que deben y que no deben reportar, y comprueba que `src/` y `App.tsx` pasan. Límite: no sigue cadenas que entran por una variable o por un argumento (`conBarra("…")`); de las copias de un texto de `es.json` se encarga `tests/textos/claves.test.ts`. **Excepción:** solo `src/PantallaCifras.tsx` (pantalla de prueba de tipografía, ya sin montar) queda fuera de esta regla. `App.tsx` la cumple desde D-163: «Cargando…» y «No pudimos abrir la app. Ciérrala y vuelve a abrirla.» salen de `es.json` (E14-PCP 1.19) y el detalle del error de las fuentes va solo al registro (`console.error`), nunca a la pantalla (`tests/App.test.tsx`).
 
-Versiones fijadas sin `~` ni `^`, verificadas en el registro de npm el 2026-10-23: `eslint` y `@eslint/js` 9.39.5 (las mismas de `web/`; la última de `eslint` es la 10.13.0, pero `web/` y este proyecto se mantienen juntos en la 9), `typescript-eslint` 8.72.0, `eslint-plugin-react-hooks` 7.1.1, `eslint-plugin-react-native-a11y` 3.5.1 (2026-07-20, última) y `globals` 17.13.0.
+Versiones fijadas sin `~` ni `^`, verificadas en el registro de npm el 2026-10-23: `eslint` 10.13.0 (2026-10-16) y `@eslint/js` 10.0.1 (2026-02-06), las mismas de `web/` (D-182: la 10.14.0, del 2026-10-30, todavía no cumplía 7 días el 2026-11-04), `typescript-eslint` 8.72.0, `eslint-plugin-react-hooks` 7.1.1, `eslint-plugin-react-native-a11y` 3.5.1 (2026-07-20, última) y `globals` 17.13.0.
 
 ### Vulnerabilidades (`npm run auditoria`)
 
@@ -390,16 +390,18 @@ Versiones fijadas sin `~` ni `^`, verificadas en el registro de npm el 2026-10-2
 - todo aviso alto o crítico que no esté en `auditoria-excepciones.json`;
 - toda excepción que ya no se reporta (quedó obsoleta: se quita);
 - toda excepción cuyo camino de dependencias cambió, por ejemplo si el paquete pasa a ser una dependencia directa de la app;
-- toda excepción cuya fecha `revisar_antes_de` pasó (hoy en UTC, después de esa fecha). El dueño la renueva en el cierre de cada iteración (D-150), y también se revisa al subir de versión de Expo. La fecha actual es **2026-11-05**, el fin de la iteración I05.
+- toda excepción cuya fecha `revisar_antes_de` pasó (hoy en UTC, después de esa fecha). El dueño la renueva en el cierre de cada iteración (D-150), y también se revisa al subir de versión de Expo. La fecha actual es **2026-11-12** (D-182; antes 2026-11-05, el fin de I05).
 
 Cada excepción trae el GHSA, el paquete, las rutas de dependencias (que muestran que el paquete llega solo por las herramientas de construcción), el motivo, la fecha de revisión y `revisar_antes_de`.
 
-### `node-forge` y `zod` no entran en la app (`npm run comprobar-bundle`)
+### `node-forge`, `zod`, `argparse` y `caniuse-lite` no entran en la app (`npm run comprobar-bundle`)
 
-La excepción de `zod` (y, antes de D-166, la de `node-forge`) se apoya en que ningún archivo de la app los importa; el script sigue comprobando los dos. `scripts/comprobar-bundle.mjs` lo comprueba: corre `npx expo export --platform android` en una carpeta temporal fuera del repositorio y busca en el paquete de JavaScript el nombre y cadenas propias de cada paquete, porque Metro no deja las rutas de los módulos (`MARCAS_POR_PAQUETE` en `scripts/bundle-logica.mjs`):
+La excepción de `zod` (y, antes de D-166, la de `node-forge`) se apoya en que ningún archivo de la app los importa; el script sigue comprobando los dos. Desde D-182 también comprueba `argparse` y `caniuse-lite`: sus excepciones de licencia son permanentes y «no van en la app» lo prueba el pipeline. `scripts/comprobar-bundle.mjs` lo comprueba: corre `npx expo export --platform android` en una carpeta temporal fuera del repositorio y busca en el paquete de JavaScript el nombre y cadenas propias de cada paquete, porque Metro no deja las rutas de los módulos (`MARCAS_POR_PAQUETE` en `scripts/bundle-logica.mjs`):
 
 - `node-forge`: `RSASSA-PKCS1-V1_5` y el prefijo de OID `1.2.840.113549`.
 - `zod`: `ZodError`, `invalid_type`, `too_small` e `invalid_enum_value` (valores de datos, que sobreviven a la minificación y aparecen en el bytecode de Hermes).
+- `argparse`: `node_modules/argparse`, `ArgumentParser`, `ArgumentError` y `add_argument`.
+- `caniuse-lite`: `node_modules/caniuse-lite` y `caniuse-lite`.
 
 Falla, nombrando el paquete, si aparecen en algún archivo o si no se generó ningún paquete. Probado con un `import` temporal de cada paquete: falla; sin él, pasa (D-150, D-154).
 
@@ -407,7 +409,7 @@ Tarda de 3 a 6 segundos (medido el 2026-10-24, Expo 58.0.19, Node 24.22.1 en el 
 
 ### Licencias (`npm run licencias`)
 
-`scripts/licencias.mjs` es la copia de la revisión de `web/` (`web/scripts/licencias.mjs`), sin importar nada de otra carpeta: solo dependencias de producción, contra la misma lista de licencias compatibles con AGPLv3 (condición 4 de ADR-003). **La lista general no cambia.** Las excepciones (D-150) son por paquete, en `licencias-excepciones.json`, cada una con la licencia, el camino de dependencias, la razón y `revisar_antes_de` (**2026-11-05**):
+`scripts/licencias.mjs` es la copia de la revisión de `web/` (`web/scripts/licencias.mjs`), sin importar nada de otra carpeta: solo dependencias de producción, contra la misma lista de licencias compatibles con AGPLv3 (condición 4 de ADR-003). **La lista general no cambia.** Las excepciones (D-150, hechas permanentes en D-182) son por paquete **y por ruta exacta**, no una lista general de licencias permitidas, en `licencias-excepciones.json`, cada una con la licencia, el camino de dependencias y la razón, **sin fecha** (no tienen `revisar_antes_de`):
 
 | Paquete | Licencia | Camino |
 |---|---|---|
@@ -416,7 +418,7 @@ Tarda de 3 a 6 segundos (medido el 2026-10-24, Expo 58.0.19, Node 24.22.1 en el 
 
 Razón: son herramientas de compilación que no van en la app, y la FSF considera las dos licencias compatibles con la GPLv3. El camino de cada paquete es el más corto desde las dependencias directas, uno por cada paquete que depende de él.
 
-Falla si: otro paquete tiene una licencia no permitida; cambia la licencia de uno con excepción; cambia su camino; la excepción quedó obsoleta (el paquete ya no está o su licencia ahora es permitida); o pasó la fecha `revisar_antes_de`. En este último caso se revisa en el cierre de la iteración y se renueva la fecha, o se quita la excepción.
+Una excepción sin fecha solo vale con rutas exactas (`rutas` es obligatoria). Falla si: otro paquete tiene una licencia no permitida; cambia la licencia de uno con excepción; **aparece por una ruta nueva** o deja de aparecer por una listada; o la excepción quedó obsoleta (el paquete ya no está o su licencia ahora es permitida). Si una excepción trae `revisar_antes_de` (campo opcional) y esa fecha pasó, también falla. Que no vayan en la app lo comprueba `npm run comprobar-bundle` (arriba). Si al subir `expo` cambian las rutas, se revisan antes de actualizar la excepción.
 
 ## Alertas de `npm audit` (2026-10-23, actualizado el 2026-10-27)
 
@@ -427,11 +429,11 @@ Con `--omit=dev`, `npm audit` marcaba 5 alertas altas, por dos avisos:
 | Paquete | Aviso | Quién lo trae |
 |---|---|---|
 | `node-forge` 1.4.0 (corregido en 1.4.2, D-166) | GHSA-86w9-cpqp-85rv: la verificación de firmas RSA PKCS#1 v1.5 acepta elementos de más | `expo` → `@expo/cli` (y `@expo/code-signing-certificates`) |
-| `zod` 3.25.76 | GHSA-mrhx-c7xc-m3w5: puede agotar la memoria al validar colecciones enormes con restricciones (afecta a `zod` anterior a 4.6.6) | `expo` → `@expo/cli`, y `@react-native-community/datetimepicker` → `expo` → `@expo/cli` (este camino vuelve desde el 2026-10-27 por el aviso de deepmerge GHSA-gcqx-w48m-w2h4, de severidad baja; D-171). Como dependencia de desarrollo también por `eslint-plugin-react-hooks`, que la auditoría de producción omite |
+| `zod` 3.25.76 | GHSA-mrhx-c7xc-m3w5: puede agotar la memoria al validar colecciones enormes con restricciones (afecta a `zod` anterior a 4.6.6) | `expo` → `@expo/cli` (el camino por `@react-native-community/datetimepicker` dejó de reportarse el 2026-11-04, cuando `npm audit` empezó a indicar que la corrección es subir expo; D-171, D-182). Como dependencia de desarrollo también por `eslint-plugin-react-hooks`, que la auditoría de producción omite |
 
 Las otras tres alertas son los paquetes que dependen de `node-forge` o `zod` (`@expo/code-signing-certificates`, `@expo/cli` y `expo`). El aviso de `braces` (GHSA-vfj7-8cjw-p6xm, `micromatch` de las herramientas de Jest y Metro) que se documentó el 2026-10-22 ya no sale: GitHub retiró ese aviso (*withdrawn*), aunque la versión instalada sigue siendo la 3.0.3 (`npm ls braces`). `@expo/cli` es la herramienta de línea de comandos de Expo, no la app que se instala en el celular: ninguno de los archivos de `src/` lo importa.
 
-`zod` no tiene corrección compatible: la solución es `zod` 4 (4.6.6 o posterior), un salto mayor que Expo 58 no usa (`@expo/cli` 58.1.15 sigue trayendo la 3.25.76), y la «corrección» de npm es bajar a expo 44 (consultado el 2026-10-23). `@expo/cli` lo usa para validar la configuración y las opciones de la CLI, en la máquina de desarrollo y en el pipeline, y ningún archivo de `src/` lo importa. Es la única excepción de `auditoria-excepciones.json` (aprobada en D-154, con revisión antes del 2026-11-05). No se fuerza `zod` 4 con `overrides`: puede romper `expo start` y `expo export`.
+`zod` no tiene corrección compatible: la solución es `zod` 4 (4.6.6 o posterior), un salto mayor que Expo 58 no usa (`@expo/cli` 58.1.15 sigue trayendo la 3.25.76), y la «corrección» de npm es bajar a expo 44 (consultado el 2026-10-23). `@expo/cli` lo usa para validar la configuración y las opciones de la CLI, en la máquina de desarrollo y en el pipeline, y ningún archivo de `src/` lo importa. Es la única excepción de `auditoria-excepciones.json` (aprobada en D-154, con revisión antes del 2026-11-05; D-182 la renovó hasta el **2026-11-12**: `@expo/cli` 58.1.18 y 58.1.19 ya no dependen de `zod` y `expo` 58.0.22 pide `@expo/cli` `^58.1.18`, publicadas el 2026-10-31 a las 10:33 UTC y admitidas por la regla de antigüedad desde el 2026-11-07 a las 10:33 UTC; con la subida de `expo` a 58.0.22 se borra la excepción completa y la auditoría pasa sin ninguna). No se fuerza `zod` 4 con `overrides`: puede romper `expo start` y `expo export`.
 
 - **No se usa `npm audit fix --force`:** bajaría Expo al SDK 44.
 - **Se revisan cada vez que se sube de versión de Expo.**

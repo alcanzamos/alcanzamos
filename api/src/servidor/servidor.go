@@ -3,7 +3,6 @@ package servidor
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io/fs"
 	"log/slog"
@@ -53,9 +52,7 @@ func manejadorConAPI(raizWeb fs.FS, api http.Handler) http.Handler {
 }
 
 func salud(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]string{"estado": "ok"})
+	EscribirJSON(w, http.StatusOK, map[string]string{"estado": "ok"})
 }
 
 // Servir atiende en direccion hasta que ctx se cancele; luego apaga con un plazo de 10 s.
