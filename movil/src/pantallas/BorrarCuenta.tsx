@@ -2,8 +2,9 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useRef, useState } from 'react';
 import type { TextInputInstance } from 'react-native';
 import { borrarLaCuenta, resumenDeBorrado, type ResumenDeBorrado } from '../api/cuentas';
+import { descargarMisDatos } from '../api/descarga';
 import { Aviso } from '../componentes/Aviso';
-import { Boton } from '../componentes/Boton';
+import { Boton, BotonDeTexto } from '../componentes/Boton';
 import { CampoDeContrasena } from '../componentes/CampoDeContrasena';
 import { Casilla } from '../componentes/Casilla';
 import { IconoHogar } from '../componentes/Iconos';
@@ -17,9 +18,7 @@ import { avisoDeFallo, avisos, nombresEnFrase, textoDeErrorDeCampo, type DatosDe
 import { formatear, plural, textos } from '../textos/es.generated';
 
 type Estado =
-  | { fase: 'cargando' }
-  | { fase: 'error'; aviso: DatosDeAviso }
-  | { fase: 'listo'; resumen: ResumenDeBorrado };
+  { fase: 'cargando' } | { fase: 'error'; aviso: DatosDeAviso } | { fase: 'listo'; resumen: ResumenDeBorrado };
 
 const t = textos.borrarCuenta;
 
@@ -29,7 +28,9 @@ function textoDelHogar(hogar: NonNullable<ResumenDeBorrado['hogar']>) {
   const nombre = hogar.nombre ?? t.hogar.nombrePorOmision;
   if (hogar.unica_adulta) return formatear(t.hogar.unicaAdulta, { hogar: nombre });
   if (hogar.es_administradora && hogar.nuevo_administrador)
-    return formatear(t.hogar.administradora, { nombre: hogar.nuevo_administrador });
+    return formatear(t.hogar.administradora, {
+      nombre: hogar.nuevo_administrador,
+    });
   return t.hogar.miembro;
 }
 
@@ -41,9 +42,17 @@ export function BorrarCuenta({ navigation }: NativeStackScreenProps<Rutas, 'Borr
   const [intento, setIntento] = useState(0);
   const [contrasena, setContrasena] = useState('');
   const [confirmaMenores, setConfirmaMenores] = useState(false);
-  const [errores, setErrores] = useState<{ contrasena?: string; menores?: string }>({});
+  const [errores, setErrores] = useState<{
+    contrasena?: string;
+    menores?: string;
+  }>({});
   const [aviso, setAviso] = useState<DatosDeAviso | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [descarga, setDescarga] = useState<
+    { fase: 'libre' } | { fase: 'preparando' } | { fase: 'aviso'; aviso: DatosDeAviso }
+  >({
+    fase: 'libre',
+  });
   const campoContrasena = useRef<TextInputInstance>(null);
 
   useEffect(() => {
@@ -52,7 +61,10 @@ export function BorrarCuenta({ navigation }: NativeStackScreenProps<Rutas, 'Borr
       if (!vigente) return;
       if (respuesta.ok) setEstado({ fase: 'listo', resumen: respuesta.cuerpo });
       else if (!seguirPorAccesoNegado(navigation, respuesta))
-        setEstado({ fase: 'error', aviso: avisoDeFallo(respuesta, avisos.errorAlCargarTusDatos) });
+        setEstado({
+          fase: 'error',
+          aviso: avisoDeFallo(respuesta, avisos.errorAlCargarTusDatos),
+        });
     });
     return () => {
       vigente = false;
@@ -61,6 +73,20 @@ export function BorrarCuenta({ navigation }: NativeStackScreenProps<Rutas, 'Borr
 
   const menores = estado.fase === 'listo' ? estado.resumen.menores : [];
   const nombres = nombresEnFrase(menores.map((m) => m.nombre));
+
+  // «Descargar mis datos» (D-102, D-180): opcional, no condiciona el borrado ni abre otra pantalla. El archivo se comparte
+  // desde la hoja de Android y no queda copia dentro de la app (descarga.ts).
+  async function descargar() {
+    if (descarga.fase === 'preparando') return;
+    setDescarga({ fase: 'preparando' });
+    const respuesta = await descargarMisDatos();
+    if (respuesta.ok) return setDescarga({ fase: 'aviso', aviso: avisos.descargaLista });
+    if (seguirPorAccesoNegado(navigation, respuesta)) return;
+    setDescarga({
+      fase: 'aviso',
+      aviso: avisoDeFallo(respuesta, avisos.errorAlDescargar),
+    });
+  }
 
   async function enviar() {
     if (enviando) return;
@@ -72,7 +98,10 @@ export function BorrarCuenta({ navigation }: NativeStackScreenProps<Rutas, 'Borr
     });
     setEnviando(false);
     // El token ya se borró del Keystore: la persona vuelve a PN-60 sin poder volver atrás a su cuenta.
-    if (respuesta.ok) return reemplazarPila(navigation, 'Entrar', { llegada: 'tu_cuenta_borrada' });
+    if (respuesta.ok)
+      return reemplazarPila(navigation, 'Entrar', {
+        llegada: 'tu_cuenta_borrada',
+      });
     if (seguirPorAccesoNegado(navigation, respuesta)) return;
     if (respuesta.codigo === 'menores_cambiaron') {
       // Los menores a cargo ya no son los que se mostraron (RN-006): no se borró nada. Se vuelve a leer el resumen y la
@@ -119,6 +148,7 @@ export function BorrarCuenta({ navigation }: NativeStackScreenProps<Rutas, 'Borr
       )}
       {estado.fase === 'listo' && (
         <>
+          {descarga.fase === 'aviso' && <Aviso {...descarga.aviso} />}
           {aviso && <Aviso {...aviso} />}
           <Aviso {...avisos.vasABorrarTuCuenta} />
           <Tarjeta titulo={t.loQueSeBorra.titulo}>
@@ -152,6 +182,10 @@ export function BorrarCuenta({ navigation }: NativeStackScreenProps<Rutas, 'Borr
             alCambiar={setContrasena}
             error={errores.contrasena}
           />
+          <BotonDeTexto deshabilitado={descarga.fase === 'preparando'} alTocar={() => void descargar()}>
+            {descarga.fase === 'preparando' ? textos.descargarMisDatos.preparando : textos.descargarMisDatos.boton}
+          </BotonDeTexto>
+          <Texto variante="ayuda">{textos.descargarMisDatos.ayuda}</Texto>
           <Boton variante="destructivo" deshabilitado={enviando} alTocar={() => void enviar()}>
             {t.borrarMiCuenta}
           </Boton>

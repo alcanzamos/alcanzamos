@@ -851,6 +851,14 @@ export const textos = {
       ayuda: "La pedimos para confirmar que eres tú.",
     },
   },
+  descargarMisDatos: {
+    // E14-PCP 4.12 (PN-69), fila 8
+    boton: "Descargar mis datos",
+    // E14-PCP 4.12 (PN-69), fila 8
+    ayuda: "Un archivo ZIP con tus movimientos, metas, deudas y presupuestos en CSV. Solo trae lo tuyo.",
+    // E14-PCP 4.12 (PN-69), estado «Descargando»
+    preparando: "Preparando tu archivo…",
+  },
   recuperar: {
     // E14-PCP 4.5 (PN-62)
     titulo: "Elige tu contraseña nueva",
@@ -862,14 +870,6 @@ export const textos = {
     vacia: "Falta repetir la contraseña.",
     // E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62
     distinta: "Falta que las dos contraseñas sean iguales.",
-  },
-  descargarMisDatos: {
-    // E14-PCP 4.12 (PN-69), fila 8
-    boton: "Descargar mis datos",
-    // E14-PCP 4.12 (PN-69), fila 8
-    ayuda: "Un archivo ZIP con tus movimientos, metas, deudas y presupuestos en CSV. Solo trae lo tuyo.",
-    // E14-PCP 4.12 (PN-69), estado «Descargando»
-    preparando: "Preparando tu archivo…",
   },
 } as const;
 

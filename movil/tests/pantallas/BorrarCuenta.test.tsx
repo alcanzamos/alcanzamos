@@ -6,6 +6,13 @@ import { instalarFetchFalso, respuestaJson } from '../ayudas/fetchFalso';
 import { navegacionFalsa, propiedades } from '../ayudas/pantalla';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
 
+const descarga = { resultado: { ok: true } as { ok: boolean; estado?: number; codigo?: string; campos?: object }, llamadas: 0 };
+jest.mock('../../src/api/descarga', () => ({
+  descargarMisDatos: async () => {
+    descarga.llamadas++;
+    return descarga.resultado;
+  },
+}));
 jest.mock('expo-secure-store', () => jest.requireActual('../ayudas/secureStoreFalso').crearSecureStoreFalso());
 const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crearSecureStoreFalso>;
 
@@ -68,7 +75,6 @@ describe('PN-69 · Borrar la cuenta (E14-PCP 4.12)', () => {
     expect(screen.queryByText('Menores a tu cargo')).not.toBeOnTheScreen();
     expect(screen.queryByRole('checkbox')).not.toBeOnTheScreen();
     expect(screen.queryByText(/Eres quien lo administra/)).not.toBeOnTheScreen();
-    expect(screen.queryByText('Descargar mis datos')).not.toBeOnTheScreen();
   });
 
   it('«Ahora no» vuelve a PN-71', async () => {
@@ -307,6 +313,75 @@ describe('PN-69 · Borrar la cuenta (E14-PCP 4.12)', () => {
     await soltar(respuestaJson(200, {}));
     await waitFor(() => expect(navegacion.dispatch).toHaveBeenCalled());
     expect(falso.fetchFalso).toHaveBeenCalledTimes(2);
+  });
+
+  describe('«Descargar mis datos» (RF-032, D-102, D-180)', () => {
+    beforeEach(() => {
+      descarga.resultado = { ok: true };
+      descarga.llamadas = 0;
+    });
+    const descargar = () => fireEvent.press(screen.getByRole('button', { name: 'Descargar mis datos' }));
+
+    it('va antes de «Borrar mi cuenta», con su explicación', async () => {
+      await abrir(sinHogar);
+      const botones = screen.getAllByRole('button');
+      const lugar = (nombre: string) => botones.indexOf(screen.getByRole('button', { name: nombre }));
+      expect(lugar('Descargar mis datos')).toBeLessThan(lugar('Borrar mi cuenta'));
+      expect(
+        screen.getByText('Un archivo ZIP con tus movimientos, metas, deudas y presupuestos en CSV. Solo trae lo tuyo.'),
+      ).toBeOnTheScreen();
+    });
+
+    it('descarga y avisa «Listo, descargamos tus datos.»; el botón vuelve a estar activo', async () => {
+      await abrir(sinHogar);
+      await descargar();
+      expect(await screen.findByText('Listo, descargamos tus datos.')).toBeOnTheScreen();
+      expect(screen.getByText('El archivo queda en tu teléfono. Guárdalo en un lugar seguro.')).toBeOnTheScreen();
+      expect(screen.getByRole('button', { name: 'Descargar mis datos' }).props.accessibilityState).toEqual({
+        disabled: false,
+      });
+    });
+
+    it('mientras prepara, el botón dice «Preparando tu archivo…», está deshabilitado y no pide dos veces', async () => {
+      let soltar: (v: { ok: boolean }) => void = () => {};
+      descarga.resultado = new Promise((r) => (soltar = r)) as never;
+      await abrir(sinHogar);
+      await descargar();
+      const preparando = await screen.findByRole('button', { name: 'Preparando tu archivo…' });
+      expect(preparando.props.accessibilityState).toEqual({ disabled: true });
+      expect(screen.getByRole('button', { name: 'Borrar mi cuenta' })).toBeOnTheScreen();
+      await fireEvent.press(preparando);
+      await soltar({ ok: true });
+      await screen.findByText('Listo, descargamos tus datos.');
+      expect(descarga.llamadas).toBe(1);
+    });
+
+    it('un error dice «No pudimos preparar tu archivo.» y la persona puede borrar igual', async () => {
+      descarga.resultado = { ok: false, estado: 500, codigo: 'error_interno', campos: {} };
+      const { navegacion } = await abrir(sinHogar, respuestaJson(200, {}));
+      await descargar();
+      expect(await screen.findByText('No pudimos preparar tu archivo.')).toBeOnTheScreen();
+      expect(screen.getByText('Tu cuenta sigue igual. Intenta de nuevo.')).toBeOnTheScreen();
+      await escribir();
+      await borrar();
+      await waitFor(() => expect(navegacion.dispatch).toHaveBeenCalled());
+    });
+
+    it('sin conexión lo dice', async () => {
+      descarga.resultado = { ok: false, estado: 0, codigo: 'sin_conexion', campos: {} };
+      await abrir(sinHogar);
+      await descargar();
+      expect(await screen.findByText('Sin conexión. Intenta de nuevo cuando vuelvas a tener internet.')).toBeOnTheScreen();
+    });
+
+    it('sin sesión sigue por el acceso negado', async () => {
+      descarga.resultado = { ok: false, estado: 401, codigo: 'sin_sesion', campos: {} };
+      const { navegacion } = await abrir(sinHogar);
+      await descargar();
+      await waitFor(() =>
+        expect(navegacion.dispatch).toHaveBeenCalledWith(reinicio('Entrar', { llegada: 'sesion_cerrada' })),
+      );
+    });
   });
 
   describe('al abrir', () => {

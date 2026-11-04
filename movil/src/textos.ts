@@ -158,6 +158,16 @@ export const avisos = {
     titulo: a.errorAlCargarTusDatos.titulo,
     mensaje: a.errorAlCargarTusDatos.mensaje,
   },
+  descargaLista: {
+    tipo: 'informacion',
+    titulo: a.descargaLista.titulo,
+    mensaje: a.descargaLista.mensaje,
+  },
+  errorAlDescargar: {
+    tipo: 'informacion',
+    titulo: a.errorAlDescargar.titulo,
+    mensaje: a.errorAlDescargar.mensaje,
+  },
   cuentaBorrada: {
     tipo: 'informacion',
     titulo: a.cuentaBorrada.titulo,

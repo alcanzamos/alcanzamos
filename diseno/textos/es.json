@@ -308,6 +308,26 @@
           "texto": "Intenta de nuevo.",
           "e14": "E14-PRR PN-72 (05-pantallas-registro-y-regreso.md:865), estado «Error de carga»; reutilizado en PN-69 (D-180)"
         }
+      },
+      "descargaLista": {
+        "titulo": {
+          "texto": "Listo, descargamos tus datos.",
+          "e14": "E14-PCP 4.12 (PN-69), estado «Descarga lista»"
+        },
+        "mensaje": {
+          "texto": "El archivo queda en tu teléfono. Guárdalo en un lugar seguro.",
+          "e14": "E14-PCP 4.12 (PN-69), estado «Descarga lista» y aviso del archivo"
+        }
+      },
+      "errorAlDescargar": {
+        "titulo": {
+          "texto": "No pudimos preparar tu archivo.",
+          "e14": "E14-PCP 4.12 (PN-69), estado «Error al descargar»"
+        },
+        "mensaje": {
+          "texto": "Tu cuenta sigue igual. Intenta de nuevo.",
+          "e14": "E14-PCP 4.12 (PN-69), estado «Error al descargar»"
+        }
       }
     },
     "correo": {
@@ -1446,6 +1466,20 @@
           "e14": "E14-PCP 4.12 (PN-69), fila 7"
         }
       }
+    },
+    "descargarMisDatos": {
+      "boton": {
+        "texto": "Descargar mis datos",
+        "e14": "E14-PCP 4.12 (PN-69), fila 8"
+      },
+      "ayuda": {
+        "texto": "Un archivo ZIP con tus movimientos, metas, deudas y presupuestos en CSV. Solo trae lo tuyo.",
+        "e14": "E14-PCP 4.12 (PN-69), fila 8"
+      },
+      "preparando": {
+        "texto": "Preparando tu archivo…",
+        "e14": "E14-PCP 4.12 (PN-69), estado «Descargando»"
+      }
     }
   },
   "solo_web": {
@@ -1518,42 +1552,6 @@
         "elegir": {
           "texto": "Elige un movimiento para verlo.",
           "e14": "E14-PRR 4.1 (PN-01), variante web"
-        }
-      }
-    },
-    "descargarMisDatos": {
-      "boton": {
-        "texto": "Descargar mis datos",
-        "e14": "E14-PCP 4.12 (PN-69), fila 8"
-      },
-      "ayuda": {
-        "texto": "Un archivo ZIP con tus movimientos, metas, deudas y presupuestos en CSV. Solo trae lo tuyo.",
-        "e14": "E14-PCP 4.12 (PN-69), fila 8"
-      },
-      "preparando": {
-        "texto": "Preparando tu archivo…",
-        "e14": "E14-PCP 4.12 (PN-69), estado «Descargando»"
-      }
-    },
-    "avisos": {
-      "descargaLista": {
-        "titulo": {
-          "texto": "Listo, descargamos tus datos.",
-          "e14": "E14-PCP 4.12 (PN-69), estado «Descarga lista»"
-        },
-        "mensaje": {
-          "texto": "El archivo queda en tu teléfono. Guárdalo en un lugar seguro.",
-          "e14": "E14-PCP 4.12 (PN-69), estado «Descarga lista» y aviso del archivo"
-        }
-      },
-      "errorAlDescargar": {
-        "titulo": {
-          "texto": "No pudimos preparar tu archivo.",
-          "e14": "E14-PCP 4.12 (PN-69), estado «Error al descargar»"
-        },
-        "mensaje": {
-          "texto": "Tu cuenta sigue igual. Intenta de nuevo.",
-          "e14": "E14-PCP 4.12 (PN-69), estado «Error al descargar»"
         }
       }
     }

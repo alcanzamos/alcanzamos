@@ -194,6 +194,18 @@ export const textos = {
       // E14-PRR PN-72 (05-pantallas-registro-y-regreso.md:865), estado «Error de carga»; reutilizado en PN-69 (D-180)
       mensaje: "Intenta de nuevo.",
     },
+    descargaLista: {
+      // E14-PCP 4.12 (PN-69), estado «Descarga lista»
+      titulo: "Listo, descargamos tus datos.",
+      // E14-PCP 4.12 (PN-69), estado «Descarga lista» y aviso del archivo
+      mensaje: "El archivo queda en tu teléfono. Guárdalo en un lugar seguro.",
+    },
+    errorAlDescargar: {
+      // E14-PCP 4.12 (PN-69), estado «Error al descargar»
+      titulo: "No pudimos preparar tu archivo.",
+      // E14-PCP 4.12 (PN-69), estado «Error al descargar»
+      mensaje: "Tu cuenta sigue igual. Intenta de nuevo.",
+    },
     menorDeEdad: {
       // E14-PCP 4.8, PN-65: «Menos de 18 años» (D-090). Sin el botón «Ya tengo un usuario: iniciar sesión» hasta I11 (D-137).
       titulo: "Esta cuenta la crea una persona adulta.",
@@ -826,6 +838,14 @@ export const textos = {
       // E14-PCP 4.12 (PN-69), fila 7
       ayuda: "La pedimos para confirmar que eres tú.",
     },
+  },
+  descargarMisDatos: {
+    // E14-PCP 4.12 (PN-69), fila 8
+    boton: "Descargar mis datos",
+    // E14-PCP 4.12 (PN-69), fila 8
+    ayuda: "Un archivo ZIP con tus movimientos, metas, deudas y presupuestos en CSV. Solo trae lo tuyo.",
+    // E14-PCP 4.12 (PN-69), estado «Descargando»
+    preparando: "Preparando tu archivo…",
   },
   arranque: {
     // E14-PCP 1.19 (arranque de la app en Android, aprobado en D-163)
