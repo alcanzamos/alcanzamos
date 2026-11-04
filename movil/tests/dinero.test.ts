@@ -155,3 +155,32 @@ describe('leerMonto (D-082, EXA-001)', () => {
     if (!lectura.ok) expect(['ilegible', 'vacio']).toContain(lectura.motivo);
   });
 });
+
+// EXA-001 (E12 6.1, D-082): los ejemplos de dinero de E12 §6.1 que le tocan al cliente, con la entrada, los centavos y el
+// texto mostrado de la tabla, tal cual. `80.000,50` + `19,50` y `RedondearAlPeso` son del núcleo del API (Go): el cliente
+// no suma ni redondea (E17-ECO 4.7).
+describe('EXA-001 ejemplos de dinero de E12 §6.1', () => {
+  it.each([
+    ['80000', 8000000n, '$80.000'],
+    ['$ 80.000', 8000000n, '$80.000'],
+    ['123.456,78', 12345678n, '$123.456,78'],
+    ['123.456,7', 12345670n, '$123.456,70'],
+    ['80.000,00', 8000000n, '$80.000'],
+  ])('EXA-001 «%s» son %s centavos y se muestra %s', (texto, centavos, mostrado) => {
+    expect(leerMonto(texto)).toEqual({ ok: true, centavos });
+    expect(formatearPesos(centavos)).toBe(mostrado);
+  });
+
+  it.each([
+    ['12.5', 1250000n, 1250n, '$12.500', '$12,50'],
+    ['1.23', 123000n, 123n, '$1.230', '$1,23'],
+  ])('EXA-001 «%s» es ambiguo y da las dos lecturas', (texto, miles, decimal, enPesos, enCentavos) => {
+    expect(leerMonto(texto)).toEqual({ ok: false, motivo: 'ambiguo', miles, decimal });
+    expect(formatearPesos(miles)).toBe(enPesos);
+    expect(formatearPesos(decimal)).toBe(enCentavos);
+  });
+
+  it('EXA-001 «1,234» tiene más de dos decimales y no se redondea en silencio', () => {
+    expect(leerMonto('1,234')).toEqual({ ok: false, motivo: 'decimales' });
+  });
+});

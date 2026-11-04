@@ -71,8 +71,8 @@ const guardados = (pedidos: { metodo: string; cuerpo: unknown }[]) =>
   pedidos.filter((p) => p.metodo === "POST").map((p) => p.cuerpo);
 
 test.describe("PN-01 · Formulario de registro (US-51)", () => {
-  // USA-004 (registrar un gasto en efectivo en menos de 20 s) no se cronometra aquí: lo mide una persona con la app.
-  // Lo que sí se puede fijar es cuántas interacciones cuesta: son cinco desde PN-01, con «Hoy»: la categoría
+  // Control del número de pasos del registro (RNF-001, D-165): el tiempo no se cronometra aquí. Lo que se fija es
+  // cuántas interacciones cuesta: son cinco desde PN-01, con «Hoy»: la categoría
   // cuenta porque todavía no existe el motor de reglas que la sugiere (D-165).
   test("un gasto en efectivo: desde PN-01, cinco interacciones, y vuelve a PN-01 con «Listo, registramos tu gasto de $45.000.»", async ({
     page,
