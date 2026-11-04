@@ -73,7 +73,15 @@ const textoSueltoEnJsx = [
 
 export default defineConfig(
   {
-    ignores: ["coverage/", ".expo/", "dist/", "src/tokens/tokens.generated.ts", "src/textos/es.generated.ts"],
+    ignores: [
+      "coverage/",
+      ".expo/",
+      "dist/",
+      "src/tokens/tokens.generated.ts",
+      "src/textos/es.generated.ts",
+      // Fixtures inválidos a propósito de tests/eslint/accesibilidad.test.ts (D-182): solo los lee esa prueba.
+      "tests/eslint/fixtures-a11y/",
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
