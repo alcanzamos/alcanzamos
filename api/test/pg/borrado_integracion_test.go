@@ -9,16 +9,17 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/alcanzamos/alcanzamos/api/src/autenticacion"
 	"github.com/alcanzamos/alcanzamos/api/src/cuenta"
 	"github.com/alcanzamos/alcanzamos/api/src/pg"
 )
@@ -728,47 +729,6 @@ func TestDosBorradosAlMismoTiempoUnoBorraYElOtroDaErrNoExiste(t *testing.T) {
 	}
 }
 
-// La misma persona sigue escribiendo mientras se borra su cuenta: el borrado espera a los pedidos en curso, ve lo que
-// escribieron y termina; los que llegan después ya no tienen a quién escribirle.
-func TestBorrarMientrasLaMismaPersonaRegistraMovimientos(t *testing.T) {
-	e := nuevoEntorno(t)
-	ctx := context.Background()
-	for i := range 4 {
-		laura := adulta(t, e.pool, "Laura", fmt.Sprintf("laura%d@ejemplo.test", i))
-		datos(t, e.pool, laura, "")
-		parar := make(chan struct{})
-		var escritores sync.WaitGroup
-		var guardados atomic.Int32
-		for range 2 { // el pool tiene pocas conexiones: dos escritores dejan una libre para el borrado
-			escritores.Add(1)
-			go func() {
-				defer escritores.Done()
-				for {
-					select {
-					case <-parar:
-						return
-					default:
-					}
-					if _, err := e.pool.Exec(ctx, `INSERT INTO movimiento (persona_id, tipo, monto, fecha, medio, categoria_id) VALUES ($1::uuid, 'gasto', 100, '2026-11-02', 'efectivo', 1)`, laura); err == nil {
-						guardados.Add(1)
-					}
-					time.Sleep(time.Millisecond)
-				}
-			}()
-		}
-		for guardados.Load() < 10 {
-			time.Sleep(time.Millisecond)
-		}
-		err := borrar(e.pool, laura, false)
-		close(parar)
-		escritores.Wait()
-		if err != nil {
-			t.Fatalf("vuelta %d: %v", i, err)
-		}
-		quedaSoloLaPrueba(t, e.pool, laura)
-	}
-}
-
 // Un inicio de sesión a la vez con el borrado (toma la credencial y luego la persona) no deja el borrado en un
 // interbloqueo: al terminar, la cuenta está borrada.
 func TestBorrarMientrasOtroDispositivoEntra(t *testing.T) {
@@ -825,120 +785,284 @@ func TestUnChoqueQueNoSeVaDaErrOcupadaYNoBorraNada(t *testing.T) {
 	}
 }
 
-// Tras los reintentos, si la cuenta ya no está (otro pedido la borró), es lo mismo que llegar tarde: ErrNoExiste.
-func TestUnChoqueQueDejaLaCuentaBorradaDaErrNoExiste(t *testing.T) {
-	e := nuevoEntorno(t)
-	laura := adulta(t, e.pool, "Laura", "laura@ejemplo.test")
-	// El disparador falla con 40001 en cada intento y, al fallar, otra conexión borra la cuenta por fuera.
-	ejecutar(t, e.pool, `CREATE FUNCTION choque() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'choque' USING ERRCODE = '40001'; END $$`)
-	ejecutar(t, e.pool, `CREATE TRIGGER choque BEFORE DELETE ON persona FOR EACH ROW EXECUTE FUNCTION choque()`)
-	hecho := make(chan error, 1)
-	go func() {
-		// Otro pedido borra la cuenta cuando el disparador ya no estorba: se quita y se borra a mano.
-		time.Sleep(50 * time.Millisecond)
-		_, err := e.pool.Exec(context.Background(), `DROP TRIGGER choque ON persona`)
-		if err == nil {
-			_, err = e.pool.Exec(context.Background(), `DELETE FROM persona WHERE id = $1::uuid`, laura)
+// ---- Ventana determinista (sin dormir ni repetir hasta que salga) ----
+//
+// Un disparador detiene el `UPDATE autorizacion` (el borrado ya leyó, bloqueó y borró sus datos, y solo falta borrar la persona) hasta que
+// la prueba suelta un candado de aviso. En ese hueco la prueba mete la escritura de otra conexión y luego suelta.
+
+const candadoDeLaVentana = 53053
+
+type ventana struct {
+	t       *testing.T
+	pool    *pgxpool.Pool
+	candado *pgxpool.Conn
+}
+
+// poolGrande da conexiones de sobra: el borrado, el que escribe, el que mira y el que sostiene el candado.
+func poolGrande(t *testing.T, base *pgxpool.Pool) *pgxpool.Pool {
+	t.Helper()
+	cfg := base.Config()
+	cfg.MaxConns = 16
+	p, err := pgxpool.NewWithConfig(context.Background(), cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(p.Close)
+	return p
+}
+
+func abrirVentana(t *testing.T, pool *pgxpool.Pool) *ventana {
+	t.Helper()
+	ctx := context.Background()
+	ejecutar(t, pool, `CREATE FUNCTION en_la_ventana() RETURNS trigger LANGUAGE plpgsql AS $$
+		BEGIN PERFORM pg_advisory_lock_shared(53053); PERFORM pg_advisory_unlock_shared(53053); RETURN NULL; END $$`)
+	c, err := pool.Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Exec(ctx, `SELECT pg_advisory_lock($1)`, candadoDeLaVentana); err != nil {
+		t.Fatal(err)
+	}
+	ejecutar(t, pool, `CREATE TRIGGER en_la_ventana BEFORE UPDATE ON autorizacion FOR EACH STATEMENT EXECUTE FUNCTION en_la_ventana()`)
+	return &ventana{t: t, pool: pool, candado: c}
+}
+
+// soltar abre la ventana: los borrados detenidos siguen.
+func (v *ventana) soltar() {
+	v.t.Helper()
+	if _, err := v.candado.Exec(context.Background(), `SELECT pg_advisory_unlock($1)`, candadoDeLaVentana); err != nil {
+		v.t.Fatal(err)
+	}
+	v.candado.Release()
+}
+
+// esperar vuelve cuando hay al menos `esperando` conexiones detenidas en un candado (la del borrado en la ventana y, si
+// la hay, la que escribe y quedó esperando al borrado) o, antes, cuando `hecho` se cierra (la escritura ya terminó: no
+// la detuvo nada). Mira la base en un ciclo; no duerme.
+func (v *ventana) esperar(esperando int, hecho <-chan struct{}) {
+	v.t.Helper()
+	deadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		select {
+		case <-hecho:
+			return
+		default:
 		}
-		hecho <- err
-	}()
+		var n int
+		if err := v.pool.QueryRow(context.Background(),
+			`SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'`).Scan(&n); err != nil {
+			v.t.Fatal(err)
+		}
+		if n >= esperando {
+			return
+		}
+		runtime.Gosched()
+	}
+	v.t.Fatal("la ventana no se llenó en 30 s")
+}
+
+// enSegundoPlano corre f y avisa al terminar.
+func enSegundoPlano(f func() error) (<-chan struct{}, func() error) {
+	hecho := make(chan struct{})
 	var err error
-	for range 200 { // hasta que la otra conexión borre la cuenta
-		if err = borrar(e.pool, laura, false); !errors.Is(err, cuenta.ErrOcupada) {
-			break
+	go func() { defer close(hecho); err = f() }()
+	return hecho, func() error { <-hecho; return err }
+}
+
+func admitido(err error, validos ...error) bool {
+	if err == nil {
+		return true
+	}
+	for _, v := range validos {
+		if errors.Is(err, v) {
+			return true
 		}
-		time.Sleep(10 * time.Millisecond)
 	}
-	if e := <-hecho; e != nil {
-		t.Fatal(e)
-	}
-	if !errors.Is(err, cuenta.ErrNoExiste) {
-		t.Fatalf("error: %v", err)
+	return false
+}
+
+func sinMenoresHuerfanos(t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
+	if n := contar(t, pool, `SELECT count(*) FROM persona p WHERE p.etapa = 'menor' AND NOT EXISTS (SELECT 1 FROM tutoria t WHERE t.menor_id = p.id)`); n != 0 {
+		t.Errorf("menores que se quedaron sin tutor: %d", n)
 	}
 }
 
-// «Descargar mis datos» con un hogar de varias personas: solo lo que la persona registró; nada de las demás ni de los
-// terceros que anotaron (SC-E21-20 riesgo 3, E18).
-func TestLaDescargaTraeSoloLoPropioEnUnHogarDeVariasPersonas(t *testing.T) {
+// R1 · Dos tutores de la misma menor borran a la vez: la segunda cuenta que se borra ve a la menor a cargo solo de ella,
+// que su pantalla no mostró (ErrMenoresCambiaron). Nunca queda una menor sin tutor.
+func TestDosTutoresDeLaMismaMenorQueBorranAlMismoTiempoNoLaDejanSinTutor(t *testing.T) {
 	e := nuevoEntorno(t)
-	laura := adulta(t, e.pool, "Laura", "laura@ejemplo.test")
-	camilo := adulta(t, e.pool, "Camilo", "camilo@ejemplo.test")
-	ana := adulta(t, e.pool, "Ana", "ana@ejemplo.test")
-	hogar := hogarDe(t, e.pool, "Nuestro hogar", laura, laura, camilo, ana)
-	mateo := menor(t, e.pool, "Mateo", "mateo.p", laura)
-	datos(t, e.pool, laura, hogar)
-	datos(t, e.pool, camilo, hogar)
-	datos(t, e.pool, ana, hogar)
-	ejecutar(t, e.pool, `UPDATE movimiento SET descripcion = 'secreto de ' || p.nombre FROM persona p WHERE p.id = movimiento.persona_id AND p.id <> $1::uuid`, laura)
-	ejecutar(t, e.pool, `UPDATE movimiento SET descripcion = 'mercado de Laura' WHERE persona_id = $1::uuid AND hogar_id IS NULL AND tipo = 'gasto' AND recurrente_id IS NULL`, laura)
-	// Una fila compartida sin dueño (de alguien que ya borró su cuenta) y un aporte a una meta ajena.
-	ejecutar(t, e.pool, `INSERT INTO movimiento (hogar_id, tipo, monto, fecha, medio, descripcion, categoria_id) VALUES ($1::uuid, 'gasto', 1, '2026-10-01', 'efectivo', 'huérfano', 5)`, hogar)
-	repo := pg.NuevoBorrado(e.pool)
+	pool := poolGrande(t, e.pool)
+	laura := adulta(t, pool, "Laura", "laura@ejemplo.test")
+	camilo := adulta(t, pool, "Camilo", "camilo@ejemplo.test")
+	sofia := menor(t, pool, "Sofía", "sofia.p", laura, camilo)
+	v := abrirVentana(t, pool)
+	hechoL, esperaL := enSegundoPlano(func() error { return borrar(pool, laura, false) })
+	hechoC, esperaC := enSegundoPlano(func() error { return borrar(pool, camilo, false) })
+	_, _ = hechoL, hechoC
+	v.esperar(2, nil)
+	v.soltar()
+	for _, err := range []error{esperaL(), esperaC()} {
+		if !admitido(err, cuenta.ErrMenoresCambiaron) {
+			t.Errorf("error inesperado: %v", err)
+		}
+	}
+	sinMenoresHuerfanos(t, pool)
+	if contar(t, pool, `SELECT count(*) FROM persona WHERE id = $1::uuid`, sofia) != 1 {
+		t.Error("Sofía sigue: nadie la avisó ni la confirmó")
+	}
+}
 
-	filas, err := repo.MovimientosDe(context.Background(), laura)
+// R2 · La administradora y otra miembro del mismo hogar borran a la vez: las dos terminan y el hogar se cierra al final.
+func TestLaAdministradoraYOtraMiembroQueBorranAlMismoTiempoTerminanLasDos(t *testing.T) {
+	e := nuevoEntorno(t)
+	pool := poolGrande(t, e.pool)
+	laura := adulta(t, pool, "Laura", "laura@ejemplo.test")
+	camilo := adulta(t, pool, "Camilo", "camilo@ejemplo.test")
+	hogar := hogarDe(t, pool, "Nuestro hogar", laura, laura, camilo)
+	datos(t, pool, laura, hogar)
+	datos(t, pool, camilo, hogar)
+	v := abrirVentana(t, pool)
+	_, esperaL := enSegundoPlano(func() error { return borrar(pool, laura, false) })
+	_, esperaC := enSegundoPlano(func() error { return borrar(pool, camilo, false) })
+	v.esperar(2, nil)
+	v.soltar()
+	if err := esperaL(); err != nil {
+		t.Errorf("Laura: %v", err)
+	}
+	if err := esperaC(); err != nil {
+		t.Errorf("Camilo: %v", err)
+	}
+	quedaSoloLaPrueba(t, pool, laura)
+	quedaSoloLaPrueba(t, pool, camilo)
+	if contar(t, pool, `SELECT count(*) FROM hogar`) != 0 {
+		t.Error("el hogar se cierra con la última persona adulta")
+	}
+}
+
+// R4 · Mientras Laura borra con [Mateo], otra tutoría de Camilo a Mateo se confirma: no se borra a Mateo ni a la
+// tutoría de Camilo sin avisarle (ErrMenoresCambiaron), o la tutoría nueva espera y falla porque Mateo ya no está.
+func TestUnaTutoriaNuevaMientrasLauraBorraNoBorraAMateoSinAvisar(t *testing.T) {
+	e := nuevoEntorno(t)
+	pool := poolGrande(t, e.pool)
+	laura := adulta(t, pool, "Laura", "laura@ejemplo.test")
+	camilo := adulta(t, pool, "Camilo", "camilo@ejemplo.test")
+	mateo := menor(t, pool, "Mateo", "mateo.p", laura)
+	v := abrirVentana(t, pool)
+	_, esperaB := enSegundoPlano(func() error { return borrar(pool, laura, true, mateo) })
+	v.esperar(1, nil)
+	hecho, esperaT := enSegundoPlano(func() error {
+		_, err := pool.Exec(context.Background(), `INSERT INTO tutoria (tutor_id, menor_id, declaro_escuchar_al_menor, declaro_representacion, autorizacion_expresa, version_declaracion, inicio)
+			VALUES ($1::uuid, $2::uuid, true, true, true, '1.0', $3)`, camilo, mateo, ahora)
+		return err
+	})
+	v.esperar(2, hecho)
+	v.soltar()
+	errB, errT := esperaB(), esperaT()
+	if !admitido(errB, cuenta.ErrMenoresCambiaron) {
+		t.Errorf("borrado: %v", errB)
+	}
+	if errT == nil && (contar(t, pool, `SELECT count(*) FROM persona WHERE id = $1::uuid`, mateo) != 1 ||
+		contar(t, pool, `SELECT count(*) FROM tutoria WHERE tutor_id = $1::uuid AND menor_id = $2::uuid`, camilo, mateo) != 1) {
+		t.Error("la tutoría de Camilo se confirmó y el borrado se llevó a Mateo y a esa tutoría")
+	}
+	if errB == nil && errT == nil {
+		t.Error("las dos no pueden salir bien")
+	}
+}
+
+// R3 y R5 · Escrituras de otras conexiones durante el borrado: el borrado las espera o las ve, termina con la cuenta
+// borrada y sin un error de la base. Lo que escribió la persona o el menor antes de la ventana se borra con ellos.
+func TestUnaEscrituraConcurrenteNoHaceFallarElBorrado(t *testing.T) {
+	casos := []struct {
+		nombre  string
+		escribe func(laura, mateo string) (string, []any)
+	}{
+		{"un menor guarda un movimiento (R3)", func(_, mateo string) (string, []any) {
+			return `INSERT INTO movimiento (persona_id, tipo, monto, fecha, medio, categoria_id) VALUES ($1::uuid, 'gasto', 100, '2026-11-02', 'efectivo', 1)`, []any{mateo}
+		}},
+		{"la misma persona guarda un movimiento", func(laura, _ string) (string, []any) {
+			return `INSERT INTO movimiento (persona_id, tipo, monto, fecha, medio, categoria_id) VALUES ($1::uuid, 'gasto', 100, '2026-11-02', 'efectivo', 1)`, []any{laura}
+		}},
+		{"la persona guarda su presupuesto (R5)", func(laura, _ string) (string, []any) {
+			return `INSERT INTO presupuesto (persona_id, categoria_id, periodo, monto_asignado) VALUES ($1::uuid, 2, '2026-12-01', 1000)`, []any{laura}
+		}},
+		{"la persona guarda una deuda propia (R5)", func(laura, _ string) (string, []any) {
+			return `INSERT INTO deuda (persona_id, nombre, monto, cuotas, inicio, vence, origen, titular) VALUES ($1::uuid, 'Nueva', 1000, 1, '2026-10-01', '2026-12-01', 'informal', 'propia')`, []any{laura}
+		}},
+	}
+	for _, c := range casos {
+		t.Run(c.nombre, func(t *testing.T) {
+			e := nuevoEntorno(t)
+			pool := poolGrande(t, e.pool)
+			laura := adulta(t, pool, "Laura", "laura@ejemplo.test")
+			mateo := menor(t, pool, "Mateo", "mateo.p", laura)
+			v := abrirVentana(t, pool)
+			_, esperaB := enSegundoPlano(func() error { return borrar(pool, laura, true, mateo) })
+			v.esperar(1, nil)
+			sql, args := c.escribe(laura, mateo)
+			hecho, esperaW := enSegundoPlano(func() error { _, err := pool.Exec(context.Background(), sql, args...); return err })
+			v.esperar(2, hecho)
+			v.soltar()
+			if err := esperaB(); err != nil {
+				t.Fatalf("el borrado falló: %v", err)
+			}
+			_ = esperaW() // si esperó, ya no hay a quién escribirle y falla por la llave: es lo correcto
+			quedaSoloLaPrueba(t, pool, laura)
+			quedaSoloLaPrueba(t, pool, mateo)
+			if contar(t, pool, `SELECT count(*) FROM movimiento WHERE persona_id IS NULL AND hogar_id IS NULL`) != 0 {
+				t.Error("quedó una fila sin dueño")
+			}
+		})
+	}
+}
+
+// Inicio de sesión de la persona que se está borrando: el borrado termina y el inicio de sesión responde «no hay
+// cuenta» (autenticacion.ErrNoExiste, que el servicio vuelve un 401 como a cualquier cuenta que no existe), nunca un 500.
+func TestUnInicioDeSesionMientrasSeBorraLaCuentaNoEsUnError(t *testing.T) {
+	e := nuevoEntorno(t)
+	pool := poolGrande(t, e.pool)
+	laura := adulta(t, pool, "Laura", "laura@ejemplo.test")
+	v := abrirVentana(t, pool)
+	_, esperaB := enSegundoPlano(func() error { return borrar(pool, laura, false) })
+	v.esperar(1, nil)
+	hecho, esperaL := enSegundoPlano(func() error {
+		return pg.NuevoAutenticacion(pool).IniciarSesion(context.Background(), laura, []byte("huella-de-prueba-de-32-bytes...."), ahora, nil)
+	})
+	v.esperar(2, hecho)
+	v.soltar()
+	if err := esperaB(); err != nil {
+		t.Fatal(err)
+	}
+	if err := esperaL(); !errors.Is(err, autenticacion.ErrNoExiste) {
+		t.Errorf("inicio de sesión: %v", err)
+	}
+	if contar(t, pool, `SELECT count(*) FROM sesion`) != 0 {
+		t.Error("no queda ninguna sesión")
+	}
+}
+
+// Otro pedido borró la cuenta justo antes: el borrado, que esperaba el candado, encuentra la cuenta ya borrada y
+// responde ErrNoExiste. Se sincroniza con la base (la espera del candado), sin dormir.
+func TestUnBorradoQueEsperabaElCandadoDeOtroQueBorroLaCuentaDaErrNoExiste(t *testing.T) {
+	e := nuevoEntorno(t)
+	pool := poolGrande(t, e.pool)
+	laura := adulta(t, pool, "Laura", "laura@ejemplo.test")
+	ctx := context.Background()
+	otro, err := pool.Begin(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var propios int
-	if err := e.pool.QueryRow(context.Background(), `SELECT count(*) FROM movimiento WHERE persona_id = $1::uuid`, laura).Scan(&propios); err != nil {
+	if _, err := otro.Exec(ctx, `DELETE FROM persona WHERE id = $1::uuid`, laura); err != nil {
 		t.Fatal(err)
 	}
-	if propios < 4 || len(filas) != propios {
-		t.Fatalf("filas %d, movimientos de Laura %d", len(filas), propios)
-	}
-	zip, err := cuenta.ArmarZIP(filas)
-	if err != nil {
+	v := &ventana{t: t, pool: pool}
+	_, espera := enSegundoPlano(func() error { return borrar(pool, laura, false) })
+	v.esperar(1, nil)
+	if err := otro.Commit(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if len(zip) == 0 {
-		t.Fatal("ZIP vacío")
-	}
-	var conMercado, compartidos int
-	for _, f := range filas {
-		if strings.Contains(f.Descripcion, "secreto") || strings.Contains(f.Descripcion, "huérfano") {
-			t.Errorf("fila ajena: %+v", f)
-		}
-		if f.Descripcion == "mercado de Laura" {
-			conMercado++
-		}
-		if f.Compartido {
-			compartidos++
-		}
-		if f.Meta != "" && !strings.HasPrefix(f.Meta, "Arriendo "+laura) {
-			t.Errorf("meta ajena: %+v", f)
-		}
-	}
-	if conMercado != 1 || compartidos != 1 {
-		t.Errorf("mercado %d, compartidos %d", conMercado, compartidos)
-	}
-	// Lo que sí lleva: nombre de la categoría y de su propia meta, sin ningún id.
-	hayAporte := false
-	for _, f := range filas {
-		if f.Tipo == "aporte" {
-			hayAporte = f.Meta == "Arriendo "+laura && f.Sentido == "entrada" && f.MontoCentavos == 5000
-		}
-		if f.Tipo == "gasto" && f.Categoria == "" {
-			t.Errorf("sin categoría: %+v", f)
-		}
-	}
-	if !hayAporte {
-		t.Error("el aporte a su propia meta")
-	}
-	// (El nombre de las metas de prueba lleva el id de Laura: es texto suyo, no una columna de id.)
-	for _, id := range []string{camilo, ana, mateo, hogar} {
-		if strings.Contains(fmt.Sprintf("%+v", filas), id) {
-			t.Errorf("la descarga lleva un id: %s", id)
-		}
-	}
-	// Un menor y una persona sin movimientos: vacío; una cuenta que no existe: ErrNoExiste.
-	if f, err := repo.MovimientosDe(context.Background(), mateo); err != nil || len(f) == 0 {
-		t.Errorf("las filas de Mateo: %d %v", len(f), err)
-	}
-	sola := adulta(t, e.pool, "Sola", "sola@ejemplo.test")
-	if f, err := repo.MovimientosDe(context.Background(), sola); err != nil || len(f) != 0 {
-		t.Errorf("sin movimientos: %v %v", f, err)
-	}
-	if _, err := repo.MovimientosDe(context.Background(), "0192f3c4-0000-7000-8000-0000000000ff"); !errors.Is(err, cuenta.ErrNoExiste) {
-		t.Errorf("sin cuenta: %v", err)
+	if err := espera(); !errors.Is(err, cuenta.ErrNoExiste) {
+		t.Fatalf("error: %v", err)
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alcanzamos/alcanzamos/api/src/autenticacion"
 	"github.com/alcanzamos/alcanzamos/api/src/seguridad"
 	"github.com/alcanzamos/alcanzamos/api/src/sesion"
 )
@@ -196,5 +197,19 @@ func TestSeguridadDaElIngresoAnteriorEnUTC(t *testing.T) {
 	rr = llamar(e.api(t, &seguridad.Sujeto{Persona: personaDePrueba, Verificada: true}), "GET", "/api/v1/cuenta/seguridad", "", "203.0.113.7")
 	if rr.Code != 403 || !strings.Contains(rr.Body.String(), "autorizacion_pendiente") {
 		t.Errorf("sin autorizar: %d %s", rr.Code, rr.Body)
+	}
+}
+
+// US-53: la cuenta se borró entre buscarla y entrar. Es lo mismo que una cuenta que no existe: el 401 de siempre, sin
+// token ni cookie y contado como un fallo; nunca un 500.
+func TestUnaCuentaBorradaEntreBuscarlaYEntrarDaElMismo401(t *testing.T) {
+	e := nuevoEntorno(t)
+	e.repo.errores = map[string]error{"IniciarSesion": autenticacion.ErrNoExiste}
+	rr := llamar(e.api(t, nil), "POST", rutaSesiones, entrar(correoDePrueba, claveDePrueba), "203.0.113.7")
+	if rr.Code != 401 || strings.TrimSpace(rr.Body.String()) != `{"error":"credenciales_invalidas"}` || rr.Header().Get("Set-Cookie") != "" || len(e.repo.sesiones) != 0 {
+		t.Fatalf("%d %s %v", rr.Code, rr.Body, rr.Header())
+	}
+	if !strings.Contains(e.registro.String(), `"evento_seguridad":"inicio_sesion_fallido"`) {
+		t.Errorf("deja el evento: %s", e.registro)
 	}
 }

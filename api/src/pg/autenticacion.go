@@ -59,7 +59,8 @@ func (r *Autenticacion) IniciarSesion(ctx context.Context, persona string, huell
 		return fmt.Errorf("registrar el ingreso: %w", err)
 	}
 	if res.RowsAffected() != 1 {
-		return errors.New("registrar el ingreso: la cuenta no tiene credencial")
+		// La cuenta se borró entre buscarla y entrar (US-53): es lo mismo que una cuenta que no existe.
+		return autenticacion.ErrNoExiste
 	}
 	if err := insertarSesion(ctx, tx, persona, huella, ahora); err != nil {
 		return err
