@@ -856,3 +856,89 @@ func TestUnChoqueQueDejaLaCuentaBorradaDaErrNoExiste(t *testing.T) {
 		t.Fatalf("error: %v", err)
 	}
 }
+
+// «Descargar mis datos» con un hogar de varias personas: solo lo que la persona registró; nada de las demás ni de los
+// terceros que anotaron (SC-E21-20 riesgo 3, E18).
+func TestLaDescargaTraeSoloLoPropioEnUnHogarDeVariasPersonas(t *testing.T) {
+	e := nuevoEntorno(t)
+	laura := adulta(t, e.pool, "Laura", "laura@ejemplo.test")
+	camilo := adulta(t, e.pool, "Camilo", "camilo@ejemplo.test")
+	ana := adulta(t, e.pool, "Ana", "ana@ejemplo.test")
+	hogar := hogarDe(t, e.pool, "Nuestro hogar", laura, laura, camilo, ana)
+	mateo := menor(t, e.pool, "Mateo", "mateo.p", laura)
+	datos(t, e.pool, laura, hogar)
+	datos(t, e.pool, camilo, hogar)
+	datos(t, e.pool, ana, hogar)
+	ejecutar(t, e.pool, `UPDATE movimiento SET descripcion = 'secreto de ' || p.nombre FROM persona p WHERE p.id = movimiento.persona_id AND p.id <> $1::uuid`, laura)
+	ejecutar(t, e.pool, `UPDATE movimiento SET descripcion = 'mercado de Laura' WHERE persona_id = $1::uuid AND hogar_id IS NULL AND tipo = 'gasto' AND recurrente_id IS NULL`, laura)
+	// Una fila compartida sin dueño (de alguien que ya borró su cuenta) y un aporte a una meta ajena.
+	ejecutar(t, e.pool, `INSERT INTO movimiento (hogar_id, tipo, monto, fecha, medio, descripcion, categoria_id) VALUES ($1::uuid, 'gasto', 1, '2026-10-01', 'efectivo', 'huérfano', 5)`, hogar)
+	repo := pg.NuevoBorrado(e.pool)
+
+	filas, err := repo.MovimientosDe(context.Background(), laura)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var propios int
+	if err := e.pool.QueryRow(context.Background(), `SELECT count(*) FROM movimiento WHERE persona_id = $1::uuid`, laura).Scan(&propios); err != nil {
+		t.Fatal(err)
+	}
+	if propios < 4 || len(filas) != propios {
+		t.Fatalf("filas %d, movimientos de Laura %d", len(filas), propios)
+	}
+	zip, err := cuenta.ArmarZIP(filas)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(zip) == 0 {
+		t.Fatal("ZIP vacío")
+	}
+	var conMercado, compartidos int
+	for _, f := range filas {
+		if strings.Contains(f.Descripcion, "secreto") || strings.Contains(f.Descripcion, "huérfano") {
+			t.Errorf("fila ajena: %+v", f)
+		}
+		if f.Descripcion == "mercado de Laura" {
+			conMercado++
+		}
+		if f.Compartido {
+			compartidos++
+		}
+		if f.Meta != "" && !strings.HasPrefix(f.Meta, "Arriendo "+laura) {
+			t.Errorf("meta ajena: %+v", f)
+		}
+	}
+	if conMercado != 1 || compartidos != 1 {
+		t.Errorf("mercado %d, compartidos %d", conMercado, compartidos)
+	}
+	// Lo que sí lleva: nombre de la categoría y de su propia meta, sin ningún id.
+	hayAporte := false
+	for _, f := range filas {
+		if f.Tipo == "aporte" {
+			hayAporte = f.Meta == "Arriendo "+laura && f.Sentido == "entrada" && f.MontoCentavos == 5000
+		}
+		if f.Tipo == "gasto" && f.Categoria == "" {
+			t.Errorf("sin categoría: %+v", f)
+		}
+	}
+	if !hayAporte {
+		t.Error("el aporte a su propia meta")
+	}
+	// (El nombre de las metas de prueba lleva el id de Laura: es texto suyo, no una columna de id.)
+	for _, id := range []string{camilo, ana, mateo, hogar} {
+		if strings.Contains(fmt.Sprintf("%+v", filas), id) {
+			t.Errorf("la descarga lleva un id: %s", id)
+		}
+	}
+	// Un menor y una persona sin movimientos: vacío; una cuenta que no existe: ErrNoExiste.
+	if f, err := repo.MovimientosDe(context.Background(), mateo); err != nil || len(f) == 0 {
+		t.Errorf("las filas de Mateo: %d %v", len(f), err)
+	}
+	sola := adulta(t, e.pool, "Sola", "sola@ejemplo.test")
+	if f, err := repo.MovimientosDe(context.Background(), sola); err != nil || len(f) != 0 {
+		t.Errorf("sin movimientos: %v %v", f, err)
+	}
+	if _, err := repo.MovimientosDe(context.Background(), "0192f3c4-0000-7000-8000-0000000000ff"); !errors.Is(err, cuenta.ErrNoExiste) {
+		t.Errorf("sin cuenta: %v", err)
+	}
+}
