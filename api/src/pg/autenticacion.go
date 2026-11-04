@@ -97,6 +97,9 @@ func (r *Autenticacion) CredencialDe(ctx context.Context, persona string) (auten
 		`SELECT c.hash, COALESCE(pa.correo, ''), COALESCE(pa.correo_verificado, false)
 		 FROM credencial c LEFT JOIN perfil_adulto pa ON pa.persona_id = c.persona_id
 		 WHERE c.persona_id = $1::uuid`, persona).Scan(&c.Hash, &c.Correo, &c.Verificada)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return autenticacion.Credencial{}, autenticacion.ErrNoExiste // la cuenta se borró
+	}
 	if err != nil {
 		return autenticacion.Credencial{}, fmt.Errorf("leer la credencial: %w", err)
 	}
@@ -112,11 +115,24 @@ func (r *Autenticacion) NuevoEnlaceDeRecuperacion(ctx context.Context, correo st
 		return false, fmt.Errorf("abrir la transacción: %w", err)
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck // sin efecto tras el commit
+	// Los mismos candados y en el mismo orden que el borrado de la cuenta y que elegir la contraseña con el enlace: la
+	// credencial, la persona y su perfil. Se busca la persona sin bloquear y, con los candados, se vuelve a comprobar el
+	// correo y que esté verificado (puede haber cambiado, o la cuenta haberse borrado, mientras se esperaba).
 	var persona string
+	err = tx.QueryRow(ctx, `SELECT persona_id::text FROM perfil_adulto WHERE correo = lower(btrim($1))`, correo).Scan(&persona)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("buscar la cuenta: %w", err)
+	}
+	if err := bloquearCuentaParaEnlace(ctx, tx, persona); err != nil {
+		return false, err
+	}
 	var verificada bool
 	err = tx.QueryRow(ctx,
-		`SELECT persona_id::text, correo_verificado FROM perfil_adulto WHERE correo = lower(btrim($1)) FOR UPDATE`,
-		correo).Scan(&persona, &verificada)
+		`SELECT correo_verificado FROM perfil_adulto WHERE persona_id = $1::uuid AND correo = lower(btrim($2)) FOR UPDATE`,
+		persona, correo).Scan(&verificada)
 	if errors.Is(err, pgx.ErrNoRows) || (err == nil && !verificada) {
 		return false, nil
 	}
@@ -135,6 +151,20 @@ func (r *Autenticacion) NuevoEnlaceDeRecuperacion(ctx context.Context, correo st
 		return false, fmt.Errorf("confirmar la transacción: %w", err)
 	}
 	return true, nil
+}
+
+// bloquearCuentaParaEnlace toma la credencial y la persona, en ese orden: el orden global de lo que llega a una cuenta
+// (iniciar sesión, borrarla, pedir un enlace, elegir la contraseña). Si la cuenta ya no existe, no bloquea nada.
+func bloquearCuentaParaEnlace(ctx context.Context, tx pgx.Tx, persona string) error {
+	for _, q := range []string{
+		`SELECT 1 FROM credencial WHERE persona_id = $1::uuid FOR UPDATE`,
+		`SELECT 1 FROM persona WHERE id = $1::uuid FOR UPDATE`,
+	} {
+		if _, err := tx.Exec(ctx, q, persona); err != nil {
+			return fmt.Errorf("bloquear la cuenta: %w", err)
+		}
+	}
+	return nil
 }
 
 func borrarEnlacesDeRecuperacion(ctx context.Context, tx pgx.Tx, persona string) error {
@@ -170,7 +200,21 @@ func (r *Autenticacion) FijarContrasenaConEnlace(ctx context.Context, huella []b
 		return fmt.Errorf("abrir la transacción: %w", err)
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck // sin efecto tras el commit
+	// Primero la cuenta del enlace y sus candados (credencial, persona), como el borrado; solo después se consume el enlace.
+	// Si el enlace no existe, o la cuenta se borró mientras se esperaba y el enlace se fue con ella, es un enlace que no sirve.
 	var persona string
+	err = tx.QueryRow(ctx,
+		`SELECT persona_id::text FROM enlace_un_uso WHERE hash_token = $1 AND proposito = 'recuperacion' AND usado_en IS NULL AND vence_en > $2`,
+		huella, ahora).Scan(&persona)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return cuenta.ErrEnlaceInvalido
+	}
+	if err != nil {
+		return fmt.Errorf("buscar el enlace: %w", err)
+	}
+	if err := bloquearCuentaParaEnlace(ctx, tx, persona); err != nil {
+		return err
+	}
 	err = tx.QueryRow(ctx,
 		`UPDATE enlace_un_uso SET usado_en = $2
 		 WHERE hash_token = $1 AND proposito = 'recuperacion' AND usado_en IS NULL AND vence_en > $2
@@ -214,7 +258,7 @@ func guardarHashYCerrarSesiones(ctx context.Context, tx pgx.Tx, persona, hash st
 		return fmt.Errorf("guardar la contraseña: %w", err)
 	}
 	if res.RowsAffected() != 1 {
-		return errors.New("guardar la contraseña: la cuenta no tiene credencial")
+		return autenticacion.ErrNoExiste // la cuenta se borró
 	}
 	if _, err := tx.Exec(ctx,
 		`DELETE FROM sesion WHERE persona_id = $1::uuid AND ($2::bytea IS NULL OR hash_token <> $2::bytea)`, persona, conservar); err != nil {

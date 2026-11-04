@@ -21,7 +21,9 @@ import (
 
 	"github.com/alcanzamos/alcanzamos/api/src/autenticacion"
 	"github.com/alcanzamos/alcanzamos/api/src/cuenta"
+	"github.com/alcanzamos/alcanzamos/api/src/fechas"
 	"github.com/alcanzamos/alcanzamos/api/src/pg"
+	"github.com/alcanzamos/alcanzamos/api/src/registro"
 )
 
 var conservarHasta = ahora.AddDate(cuenta.AniosDeLaPruebaDeAutorizacion, 0, 0)
@@ -813,6 +815,12 @@ func poolGrande(t *testing.T, base *pgxpool.Pool) *pgxpool.Pool {
 
 func abrirVentana(t *testing.T, pool *pgxpool.Pool) *ventana {
 	t.Helper()
+	return abrirVentanaEn(t, pool, "BEFORE UPDATE", "autorizacion")
+}
+
+// abrirVentanaEn detiene, en `evento` sobre `tabla`, a quien llegue a esa sentencia mientras la prueba tiene el candado.
+func abrirVentanaEn(t *testing.T, pool *pgxpool.Pool, evento, tabla string) *ventana {
+	t.Helper()
 	ctx := context.Background()
 	ejecutar(t, pool, `CREATE FUNCTION en_la_ventana() RETURNS trigger LANGUAGE plpgsql AS $$
 		BEGIN PERFORM pg_advisory_lock_shared(53053); PERFORM pg_advisory_unlock_shared(53053); RETURN NULL; END $$`)
@@ -823,7 +831,7 @@ func abrirVentana(t *testing.T, pool *pgxpool.Pool) *ventana {
 	if _, err := c.Exec(ctx, `SELECT pg_advisory_lock($1)`, candadoDeLaVentana); err != nil {
 		t.Fatal(err)
 	}
-	ejecutar(t, pool, `CREATE TRIGGER en_la_ventana BEFORE UPDATE ON autorizacion FOR EACH STATEMENT EXECUTE FUNCTION en_la_ventana()`)
+	ejecutar(t, pool, `CREATE TRIGGER en_la_ventana `+evento+` ON `+tabla+` FOR EACH STATEMENT EXECUTE FUNCTION en_la_ventana()`)
 	return &ventana{t: t, pool: pool, candado: c}
 }
 
@@ -922,8 +930,11 @@ func TestLaAdministradoraYOtraMiembroQueBorranAlMismoTiempoTerminanLasDos(t *tes
 	hogar := hogarDe(t, pool, "Nuestro hogar", laura, laura, camilo)
 	datos(t, pool, laura, hogar)
 	datos(t, pool, camilo, hogar)
-	v := abrirVentana(t, pool)
+	antes := interbloqueos(t, e.pool)
+	// Laura llega a pasar el papel (UPDATE hogar) con el hogar bloqueado; Camilo llega después y espera.
+	v := abrirVentanaEn(t, pool, "BEFORE UPDATE", "hogar")
 	_, esperaL := enSegundoPlano(func() error { return borrar(pool, laura, false) })
+	v.esperar(1, nil)
 	_, esperaC := enSegundoPlano(func() error { return borrar(pool, camilo, false) })
 	v.esperar(2, nil)
 	v.soltar()
@@ -938,6 +949,23 @@ func TestLaAdministradoraYOtraMiembroQueBorranAlMismoTiempoTerminanLasDos(t *tes
 	if contar(t, pool, `SELECT count(*) FROM hogar`) != 0 {
 		t.Error("el hogar se cierra con la última persona adulta")
 	}
+	if n := interbloqueosDespues(t, e.pool, pool, antes); n != 0 {
+		t.Errorf("interbloqueos entre dos personas de un mismo hogar: %d (cada uno se absorbe con un reintento de ~1 s)", n)
+	}
+}
+
+// interbloqueos lee cuántos interbloqueos ha detectado la base de la prueba.
+func interbloqueos(t *testing.T, pool *pgxpool.Pool) int {
+	t.Helper()
+	return contar(t, pool, `SELECT deadlocks FROM pg_stat_database WHERE datname = current_database()`)
+}
+
+// interbloqueosDespues cuenta los nuevos desde `antes`. Las estadísticas de cada conexión se envían al cerrarla, así que
+// se cierra el pool que hizo el trabajo antes de leer: sin esperar ni adivinar un plazo.
+func interbloqueosDespues(t *testing.T, lector, trabajo *pgxpool.Pool, antes int) int {
+	t.Helper()
+	trabajo.Close()
+	return interbloqueos(t, lector) - antes
 }
 
 // R4 · Mientras Laura borra con [Mateo], otra tutoría de Camilo a Mateo se confirma: no se borra a Mateo ni a la
@@ -1064,5 +1092,250 @@ func TestUnBorradoQueEsperabaElCandadoDeOtroQueBorroLaCuentaDaErrNoExiste(t *tes
 	}
 	if err := espera(); !errors.Is(err, cuenta.ErrNoExiste) {
 		t.Fatalf("error: %v", err)
+	}
+}
+
+// ---- Recuperar la contraseña, cambiarla y registrar mientras se borra la cuenta ----
+
+// Elegir la contraseña con el enlace (PN-62) mientras la cuenta se borra: toma la credencial antes de consumir el enlace
+// (el mismo orden que el borrado, que llega al enlace por la cascada) y, al despertar, el enlace ya no existe: el mismo
+// `ErrEnlaceInvalido` de un enlace que no sirve. Sin interbloqueo y sin un 500.
+func TestElegirLaContrasenaConElEnlaceMientrasSeBorraLaCuentaDaEnlaceInvalido(t *testing.T) {
+	e := nuevoEntorno(t)
+	pool := poolGrande(t, e.pool)
+	laura := adulta(t, pool, "Laura", "laura@ejemplo.test")
+	huella := []byte("enlace-de-recuperacion-32-bytes!")
+	ejecutar(t, pool, `INSERT INTO enlace_un_uso (hash_token, persona_id, proposito, creado_en, vence_en) VALUES ($1, $2::uuid, 'recuperacion', $3, $4)`, huella, laura, ahora, ahora.Add(time.Hour))
+	antes := interbloqueos(t, e.pool)
+	v := abrirVentana(t, pool)
+	_, esperaB := enSegundoPlano(func() error { return borrar(pool, laura, false) })
+	v.esperar(1, nil)
+	hecho, esperaF := enSegundoPlano(func() error {
+		return pg.NuevoAutenticacion(pool).FijarContrasenaConEnlace(context.Background(), huella, "$argon2id$v=19$m=8,t=1,p=1$prueba$nueva", ahora)
+	})
+	v.esperar(2, hecho)
+	v.soltar()
+	if err := esperaB(); err != nil {
+		t.Errorf("borrado: %v", err)
+	}
+	if err := esperaF(); !errors.Is(err, cuenta.ErrEnlaceInvalido) {
+		t.Errorf("elegir la contraseña: %v", err)
+	}
+	if n := interbloqueosDespues(t, e.pool, pool, antes); n != 0 {
+		t.Errorf("interbloqueos: %d", n)
+	}
+	quedaSoloLaPrueba(t, e.pool, laura)
+}
+
+// Pedir un enlace de recuperación (PN-61) mientras la cuenta se borra: mismo orden de candados; sin interbloqueo.
+func TestPedirUnEnlaceMientrasSeBorraLaCuentaNoHaceInterbloqueo(t *testing.T) {
+	e := nuevoEntorno(t)
+	pool := poolGrande(t, e.pool)
+	laura := adulta(t, pool, "Laura", "laura@ejemplo.test")
+	antes := interbloqueos(t, e.pool)
+	// El pedido llega al borrado de los enlaces pendientes con el perfil ya bloqueado y espera ahí; el borrado llega después.
+	v := abrirVentanaEn(t, pool, "BEFORE DELETE", "enlace_un_uso")
+	hechoP, esperaP := enSegundoPlano(func() error {
+		_, err := pg.NuevoAutenticacion(pool).NuevoEnlaceDeRecuperacion(context.Background(), "laura@ejemplo.test", []byte("enlace-de-recuperacion-32-bytes!"), ahora, ahora.Add(time.Hour))
+		return err
+	})
+	v.esperar(1, hechoP)
+	_, esperaB := enSegundoPlano(func() error { return borrar(pool, laura, false) })
+	v.esperar(2, nil)
+	v.soltar()
+	if err := esperaP(); err != nil {
+		t.Errorf("pedir el enlace: %v", err)
+	}
+	if err := esperaB(); err != nil {
+		t.Errorf("borrado: %v", err)
+	}
+	if n := interbloqueosDespues(t, e.pool, pool, antes); n != 0 {
+		t.Errorf("interbloqueos: %d", n)
+	}
+	quedaSoloLaPrueba(t, e.pool, laura)
+}
+
+// Cambiar la contraseña con la sesión (PN-73) mientras la cuenta se borra: la cuenta ya no existe, `ErrNoExiste` (el
+// servicio y la ruta lo vuelven un 401), no un error de la base.
+func TestCambiarLaContrasenaMientrasSeBorraLaCuentaDaErrNoExiste(t *testing.T) {
+	e := nuevoEntorno(t)
+	pool := poolGrande(t, e.pool)
+	laura := adulta(t, pool, "Laura", "laura@ejemplo.test")
+	v := abrirVentana(t, pool)
+	_, esperaB := enSegundoPlano(func() error { return borrar(pool, laura, false) })
+	v.esperar(1, nil)
+	hecho, esperaC := enSegundoPlano(func() error {
+		return pg.NuevoAutenticacion(pool).CambiarContrasena(context.Background(), laura, "$argon2id$v=19$m=8,t=1,p=1$prueba$nueva", []byte("sesion-que-se-conserva-32-bytes!"))
+	})
+	v.esperar(2, hecho)
+	v.soltar()
+	if err := esperaB(); err != nil {
+		t.Errorf("borrado: %v", err)
+	}
+	if err := esperaC(); !errors.Is(err, autenticacion.ErrNoExiste) {
+		t.Errorf("cambiar la contraseña: %v", err)
+	}
+	// Y con la cuenta ya borrada antes de empezar.
+	if _, err := pg.NuevoAutenticacion(pool).CredencialDe(context.Background(), laura); !errors.Is(err, autenticacion.ErrNoExiste) {
+		t.Errorf("credencial de una cuenta borrada: %v", err)
+	}
+}
+
+// Registrar un movimiento (POST) mientras la cuenta se borra: la llave de `persona` lo rechaza y eso es `ErrSinCuenta`
+// (la cuenta ya no existe), no un fallo de la base.
+func TestRegistrarMientrasSeBorraLaCuentaDaErrSinCuenta(t *testing.T) {
+	for nombre, repite := range map[string]fechas.Periodicidad{"un movimiento": "", "con una repetición": "mensual"} {
+		t.Run(nombre, func(t *testing.T) {
+			e := nuevoEntorno(t)
+			pool := poolGrande(t, e.pool)
+			laura := adulta(t, pool, "Laura", "laura@ejemplo.test")
+			v := abrirVentana(t, pool)
+			_, esperaB := enSegundoPlano(func() error { return borrar(pool, laura, false) })
+			v.esperar(1, nil)
+			hecho, esperaG := enSegundoPlano(func() error {
+				_, err := pg.NuevoMovimientos(pool).Guardar(context.Background(),
+					registro.Guardado{Persona: laura, Tipo: "gasto", Monto: 100, Fecha: ahora, CategoriaID: 1, Medio: "efectivo", Periodicidad: repite, ConMovimiento: true}, ahora)
+				return err
+			})
+			v.esperar(2, hecho)
+			v.soltar()
+			if err := esperaB(); err != nil {
+				t.Errorf("borrado: %v", err)
+			}
+			if err := esperaG(); !errors.Is(err, registro.ErrSinCuenta) {
+				t.Errorf("guardar: %v", err)
+			}
+			quedaSoloLaPrueba(t, e.pool, laura)
+		})
+	}
+}
+
+// Solo se reintenta lo que se sabe que causa una escritura concurrente: un CHECK de «persona o hogar» o la llave del
+// administrador. Cualquier otro error de integridad se intenta una sola vez y sale tal cual (el API lo vuelve un 500
+// con su línea de registro), y lo conocido se intenta 3 veces y es «ocupado».
+func TestSoloSeReintentanLasRestriccionesConocidas(t *testing.T) {
+	casos := []struct {
+		nombre, restriccion string
+		intentos            int
+		ocupado             bool
+	}{
+		{"la de un movimiento sin dueño", "ck_movimiento_persona_o_hogar", 3, true},
+		{"la llave del administrador", "fk_hogar_administrador_id", 3, true},
+		{"otra de integridad", "ck_persona_nombre", 1, false},
+		{"otra llave", "fk_cualquiera", 1, false},
+	}
+	for _, c := range casos {
+		t.Run(c.nombre, func(t *testing.T) {
+			e := nuevoEntorno(t)
+			laura := adulta(t, e.pool, "Laura", "laura@ejemplo.test")
+			codigo := "23514"
+			if strings.HasPrefix(c.restriccion, "fk_") {
+				codigo = "23503"
+			}
+			ejecutar(t, e.pool, `CREATE SEQUENCE intentos`)
+			ejecutar(t, e.pool, `CREATE FUNCTION choque() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM nextval('intentos'); RAISE EXCEPTION 'choque' USING ERRCODE = '`+codigo+`', CONSTRAINT = '`+c.restriccion+`'; END $$`)
+			ejecutar(t, e.pool, `CREATE TRIGGER choque BEFORE DELETE ON persona FOR EACH ROW EXECUTE FUNCTION choque()`)
+
+			err := borrar(e.pool, laura, false)
+
+			if got := errors.Is(err, cuenta.ErrOcupada); got != c.ocupado {
+				t.Errorf("ocupado = %v: %v", got, err)
+			}
+			if err == nil || errors.Is(err, cuenta.ErrNoExiste) {
+				t.Errorf("error: %v", err)
+			}
+			if n := contar(t, e.pool, `SELECT last_value FROM intentos`); n != c.intentos {
+				t.Errorf("intentos %d, se esperaban %d", n, c.intentos)
+			}
+			if !c.ocupado && !strings.Contains(err.Error(), c.restriccion) {
+				t.Errorf("el error conserva la restricción para el registro: %v", err)
+			}
+		})
+	}
+}
+
+// Pedir un enlace cuando la cuenta se borra mientras el pedido espera sus candados: al despertar la cuenta ya no existe y
+// responde como a una cuenta sin enlace (false, sin error); nada se guarda.
+func TestPedirUnEnlaceDeUnaCuentaQueSeBorroMientrasEsperabaNoGuardaNada(t *testing.T) {
+	e := nuevoEntorno(t)
+	pool := poolGrande(t, e.pool)
+	laura := adulta(t, pool, "Laura", "laura@ejemplo.test")
+	v := abrirVentana(t, pool)
+	_, esperaB := enSegundoPlano(func() error { return borrar(pool, laura, false) })
+	v.esperar(1, nil)
+	var guardo bool
+	hecho, esperaP := enSegundoPlano(func() error {
+		var err error
+		guardo, err = pg.NuevoAutenticacion(pool).NuevoEnlaceDeRecuperacion(context.Background(), "laura@ejemplo.test", []byte("enlace-de-recuperacion-32-bytes!"), ahora, ahora.Add(time.Hour))
+		return err
+	})
+	v.esperar(2, hecho)
+	v.soltar()
+	if err := esperaB(); err != nil {
+		t.Errorf("borrado: %v", err)
+	}
+	if err := esperaP(); err != nil || guardo {
+		t.Errorf("pedir el enlace: guardó=%v, error=%v", guardo, err)
+	}
+	if contar(t, e.pool, `SELECT count(*) FROM enlace_un_uso`) != 0 {
+		t.Error("no queda ningún enlace")
+	}
+}
+
+// La persona cambia de hogar mientras el borrado espera el candado del hogar que había leído: el borrado se da cuenta,
+// repite con el hogar de ahora y termina; el otro hogar queda intacto.
+func TestUnCambioDeHogarMientrasSeEsperaElCandadoRepiteElBorrado(t *testing.T) {
+	e := nuevoEntorno(t)
+	pool := poolGrande(t, e.pool)
+	ctx := context.Background()
+	camilo := adulta(t, pool, "Camilo", "camilo@ejemplo.test")
+	laura := adulta(t, pool, "Laura", "laura@ejemplo.test")
+	ana := adulta(t, pool, "Ana", "ana@ejemplo.test")
+	viejo := hogarDe(t, pool, "Viejo", camilo, camilo, laura)
+	nuevo := hogarDe(t, pool, "Nuevo", ana, ana)
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, `SELECT 1 FROM hogar WHERE id = $1::uuid FOR UPDATE`, viejo); err != nil {
+		t.Fatal(err)
+	}
+	v := &ventana{t: t, pool: pool}
+	_, espera := enSegundoPlano(func() error { return borrar(pool, laura, false) })
+	v.esperar(1, nil)
+	if _, err := tx.Exec(ctx, `UPDATE miembro_hogar SET hogar_id = $2::uuid WHERE persona_id = $1::uuid`, laura, nuevo); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := espera(); err != nil {
+		t.Fatalf("borrado: %v", err)
+	}
+	quedaSoloLaPrueba(t, pool, laura)
+	if contar(t, pool, `SELECT count(*) FROM hogar WHERE id = ANY($1::uuid[])`, []string{viejo, nuevo}) != 2 {
+		t.Error("los dos hogares siguen: en ambos queda otra persona adulta")
+	}
+}
+
+// Entradas que la base rechaza: el error sale tal cual (no se confunde con «no existe») y no queda nada a medias.
+func TestLaBaseRechazaUnEnlaceOUnaContrasenaMalFormados(t *testing.T) {
+	e := nuevoEntorno(t)
+	laura := adulta(t, e.pool, "Laura", "laura@ejemplo.test")
+	repo := pg.NuevoAutenticacion(e.pool)
+	ctx := context.Background()
+	if _, err := repo.NuevoEnlaceDeRecuperacion(ctx, "laura@ejemplo.test", []byte("corto"), ahora, ahora.Add(time.Hour)); err == nil || errors.Is(err, autenticacion.ErrNoExiste) {
+		t.Errorf("enlace con una huella que no es de 32 bytes: %v", err)
+	}
+	huella := []byte("enlace-de-recuperacion-32-bytes!")
+	ejecutar(t, e.pool, `INSERT INTO enlace_un_uso (hash_token, persona_id, proposito, creado_en, vence_en) VALUES ($1, $2::uuid, 'recuperacion', $3, $4)`, huella, laura, ahora, ahora.Add(time.Hour))
+	if err := repo.FijarContrasenaConEnlace(ctx, huella, "no es argon2id", ahora); err == nil || errors.Is(err, cuenta.ErrEnlaceInvalido) {
+		t.Errorf("contraseña mal formada: %v", err)
+	}
+	if contar(t, e.pool, `SELECT count(*) FROM enlace_un_uso WHERE usado_en IS NOT NULL`) != 0 {
+		t.Error("el enlace no se gasta si la contraseña no se pudo guardar")
+	}
+	if err := repo.CambiarContrasena(ctx, laura, "no es argon2id", nil); err == nil || errors.Is(err, autenticacion.ErrNoExiste) {
+		t.Errorf("cambiar con una contraseña mal formada: %v", err)
 	}
 }

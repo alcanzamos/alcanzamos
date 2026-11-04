@@ -205,6 +205,9 @@ func (h *Handler) cambiarContrasena(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, ErrDemasiadosIntentos):
 		h.eventos.Registrar(r.Context(), seguridad.InicioSesionFallido, sujeto.Persona, r.Pattern, http.StatusTooManyRequests)
 		servidor.EscribirError(w, http.StatusTooManyRequests, "demasiados_intentos")
+	case errors.Is(err, ErrNoExiste):
+		// La cuenta se borró mientras tanto: la sesión ya no sirve, como en cualquier ruta (401 sin_sesion).
+		servidor.EscribirError(w, http.StatusUnauthorized, servidor.CodigoSinSesion)
 	case errors.Is(err, ErrContrasenaActualIncorrecta):
 		h.eventos.Registrar(r.Context(), seguridad.InicioSesionFallido, sujeto.Persona, r.Pattern, http.StatusBadRequest)
 		servidor.EscribirError(w, http.StatusBadRequest, "contrasena_actual_incorrecta")
