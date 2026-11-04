@@ -1,5 +1,6 @@
 // Lógica pura de la revisión de licencias (sin dependencias). La usan scripts/licencias.mjs y tests/licencias.test.ts.
-// Copia de la de web/ con las excepciones por paquete de D-150 (licencias-excepciones.json): la lista general no cambia.
+// Copia de la de web/ con las excepciones por paquete y por ruta de D-150 y D-182 (licencias-excepciones.json): la lista
+// general no cambia.
 
 // Licencias compatibles con AGPLv3 que se aceptan en el árbol de producción.
 export const PERMITIDAS = new Set([
@@ -104,7 +105,7 @@ export function revisar(paquetes, permitidas = PERMITIDAS) {
 // --- Excepciones por paquete (D-150) ---
 
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
-const CAMPOS = ["paquete", "licencia", "rutas", "motivo", "revisar_antes_de"];
+const CAMPOS = ["paquete", "licencia", "rutas", "motivo"];
 
 // Fecha de hoy en UTC, AAAA-MM-DD.
 export const hoyUtc = () => new Date().toISOString().slice(0, 10);
@@ -169,7 +170,8 @@ export function validarExcepciones(excepciones) {
         (Array.isArray(valor) && (valor.length === 0 || valor.some((r) => typeof r !== "string" || r.trim() === "")));
       if (vacio) errores.push(`la excepción ${i + 1} no tiene «${campo}»`);
     }
-    if (typeof e?.revisar_antes_de === "string" && e.revisar_antes_de.trim() !== "" && !FECHA.test(e.revisar_antes_de)) {
+    // `revisar_antes_de` es opcional: sin fecha la excepción es permanente (D-182), y por eso las rutas son obligatorias.
+    if (e?.revisar_antes_de !== undefined && !(typeof e.revisar_antes_de === "string" && FECHA.test(e.revisar_antes_de))) {
       errores.push(`la excepción ${i + 1} tiene «revisar_antes_de» que no es una fecha AAAA-MM-DD`);
     }
   });
@@ -179,7 +181,8 @@ export function validarExcepciones(excepciones) {
 // Revisa las licencias de producción con excepciones por paquete. Devuelve { conteo, fallas, aceptados }.
 // Falla si: un paquete no permitido no tiene excepción; la licencia de uno con excepción cambió; su camino de
 // dependencias cambió; la excepción quedó obsoleta (el paquete ya no está o ya tiene licencia permitida); o la fecha
-// `revisar_antes_de` pasó (`hoy`, AAAA-MM-DD en UTC).
+// `revisar_antes_de`, si la excepción la trae, pasó (`hoy`, AAAA-MM-DD en UTC). Sin fecha es permanente, pero solo con
+// las rutas exactas: una ruta nueva o una licencia distinta siguen fallando.
 export function revisarConExcepciones(lock, leerRespaldo, excepciones, hoy = hoyUtc(), permitidas = PERMITIDAS) {
   const errores = validarExcepciones(excepciones);
   const paquetes = paquetesDeProduccion(lock, leerRespaldo);
@@ -219,7 +222,7 @@ export function revisarConExcepciones(lock, leerRespaldo, excepciones, hoy = hoy
         `la excepción de ${e.paquete} (${e.licencia}) ya no hace falta: el paquete no está en producción o su licencia ahora es permitida; quítala de licencias-excepciones.json`,
       );
     }
-    if (hoy > e.revisar_antes_de) {
+    if (e.revisar_antes_de !== undefined && hoy > e.revisar_antes_de) {
       fallas.push(
         `la excepción de ${e.paquete} (${e.licencia}) venció el ${e.revisar_antes_de}: revísala en el cierre de la iteración ` +
           "(y al subir de versión de Expo) y renueva `revisar_antes_de` en licencias-excepciones.json, o quítala",

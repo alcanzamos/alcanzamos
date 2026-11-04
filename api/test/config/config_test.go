@@ -98,7 +98,7 @@ func TestLaClaveDelSenueloSeDecodificaYNoSeImprime(t *testing.T) {
 		var registro bytes.Buffer
 		slog.New(slog.NewJSONHandler(&registro, nil)).Info("config", "clave", cfg.SesionSenuelo, "cfg", cfg)
 		salida := fmt.Sprintf("%v %+v %#v %s", cfg, cfg, cfg, registro.String())
-		if strings.Contains(salida, valor) || strings.Contains(salida, fmt.Sprint(esperada)) {
+		if strings.Contains(salida, valor) || strings.Contains(salida, fmt.Sprintf("%v", esperada)) {
 			t.Fatalf("%s: la clave salió en una impresión: %s", nombre, salida)
 		}
 	}
