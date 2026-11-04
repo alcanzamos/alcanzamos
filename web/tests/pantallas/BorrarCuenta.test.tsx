@@ -5,6 +5,9 @@ import { BorrarCuenta } from "../../src/pantallas/BorrarCuenta";
 import { avisos } from "../../src/textos";
 import { json, simularApi, type Pedido } from "../ayudas";
 
+/** Los menores del resumen: cada uno con su id, que el borrado devuelve. */
+const m = (nombres: string[]) =>
+  nombres.map((nombre) => ({ id: `id-${nombre}`, nombre }));
 const sinHogar = { hogar: null, menores: [] };
 const conOtraAdulta = {
   hogar: {
@@ -13,7 +16,7 @@ const conOtraAdulta = {
     unica_adulta: false,
     nuevo_administrador: "Camilo",
   },
-  menores: ["Mateo"],
+  menores: m(["Mateo"]),
 };
 
 /** El API de PN-69: el resumen al abrir y la respuesta al borrar. */
@@ -180,7 +183,7 @@ describe("PN-69 · Borrar la cuenta", () => {
   ])(
     "con varios menores (%j) los nombra a todos",
     async (menores, aviso, casilla) => {
-      await abrir({ hogar: null, menores });
+      await abrir({ hogar: null, menores: m(menores) });
       expect(screen.getByText(aviso)).toBeInTheDocument();
       expect(
         screen.getByRole("checkbox", { name: casilla }),
@@ -196,7 +199,11 @@ describe("PN-69 · Borrar la cuenta", () => {
     expect(pedidos[1]).toEqual({
       metodo: "POST",
       ruta: "/api/v1/cuenta/borrado",
-      cuerpo: { contrasena: "lluvia café tren azul", confirma_menores: false },
+      cuerpo: {
+        contrasena: "lluvia café tren azul",
+        confirma_menores: false,
+        menores: [],
+      },
     });
     expect(avisoDeLlegada()).toBe(avisos.cuentaBorrada);
     expect(avisos.cuentaBorrada).toEqual({
@@ -215,6 +222,7 @@ describe("PN-69 · Borrar la cuenta", () => {
     expect(pedidos[1]?.cuerpo).toEqual({
       contrasena: "lluvia café tren azul",
       confirma_menores: true,
+      menores: ["id-Mateo"],
     });
   });
 
@@ -235,7 +243,7 @@ describe("PN-69 · Borrar la cuenta", () => {
   });
 
   it("con varios menores el error los nombra a todos", async () => {
-    await abrir({ hogar: null, menores: ["Mateo", "Sofía"] }, () =>
+    await abrir({ hogar: null, menores: m(["Mateo", "Sofía"]) }, () =>
       json(422, {
         error: "validacion",
         campos: { confirma_menores: "confirmacion_requerida" },
@@ -246,6 +254,51 @@ describe("PN-69 · Borrar la cuenta", () => {
     expect(
       await screen.findByText("Falta confirmar lo de Mateo y Sofía."),
     ).toBeInTheDocument();
+  });
+
+  it("si los menores cambiaron (409) no se borró nada: vuelve a leer, muestra a todos con la casilla sin marcar y pide confirmar a cada uno", async () => {
+    let lecturas = 0;
+    const pedidos = simularApi((pedido: Pedido) => {
+      if (pedido.metodo === "GET")
+        return json(200, {
+          hogar: null,
+          menores: m(++lecturas === 1 ? ["Mateo"] : ["Mateo", "Sofía"]),
+        });
+      return pedido.cuerpo &&
+        (pedido.cuerpo as { menores: string[] }).menores.length === 2
+        ? json(200, {})
+        : json(409, { error: "menores_cambiaron" });
+    });
+    render(<BorrarCuenta />);
+    await screen.findByRole("button", { name: "Borrar mi cuenta" });
+    escribir();
+    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.click(botonBorrar());
+    expect(
+      await screen.findByText(
+        "Mateo y Sofía dependen solo de ti. Sus cuentas y sus datos también se borran.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("No pudimos borrar tu cuenta."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("checkbox")).not.toBeChecked();
+    expect(contrasena()).toHaveValue("lluvia café tren azul");
+    expect(window.location.pathname).not.toBe("/entrar");
+    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.click(botonBorrar());
+    await waitFor(() => expect(window.location.pathname).toBe("/entrar"));
+    expect(pedidos.map((p) => p.metodo)).toEqual([
+      "GET",
+      "POST",
+      "GET",
+      "POST",
+    ]);
+    expect(pedidos[3]?.cuerpo).toEqual({
+      contrasena: "lluvia café tren azul",
+      confirma_menores: true,
+      menores: ["id-Mateo", "id-Sofía"],
+    });
   });
 
   it("la contraseña vacía (422) da «Falta tu contraseña.» y el foco va al campo", async () => {
@@ -305,6 +358,7 @@ describe("PN-69 · Borrar la cuenta", () => {
 
   it.each([
     [500, { error: "error_interno" }],
+    [503, { error: "ocupado" }],
     [403, { error: "cuenta_de_menor" }],
   ])("un error (%i) dice que los datos siguen ahí", async (estado, cuerpo) => {
     await abrir(sinHogar, () => json(estado, cuerpo));

@@ -48,13 +48,17 @@ describe("pedidos de PN-69", () => {
   it("el resumen y el borrado llaman a su ruta del contrato", async () => {
     const pedidos = simularApi(() => json(200, {}));
     await resumenDeBorrado();
-    await borrarLaCuenta({ contrasena: "x", confirma_menores: true });
+    await borrarLaCuenta({
+      contrasena: "x",
+      confirma_menores: true,
+      menores: ["id-1"],
+    });
     expect(pedidos).toEqual([
       { metodo: "GET", ruta: "/api/v1/cuenta/borrado", cuerpo: undefined },
       {
         metodo: "POST",
         ruta: "/api/v1/cuenta/borrado",
-        cuerpo: { contrasena: "x", confirma_menores: true },
+        cuerpo: { contrasena: "x", confirma_menores: true, menores: ["id-1"] },
       },
     ]);
   });

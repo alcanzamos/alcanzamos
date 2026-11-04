@@ -8,7 +8,7 @@ const resumenConMenor = {
     unica_adulta: false,
     nuevo_administrador: "Camilo",
   },
-  menores: ["Mateo"],
+  menores: [{ id: "id-mateo", nombre: "Mateo" }],
 };
 
 test.describe("PN-69 · Borrar la cuenta", () => {
@@ -76,8 +76,48 @@ test.describe("PN-69 · Borrar la cuenta", () => {
     expect(pedidos[1]).toEqual({
       metodo: "POST",
       ruta: "/api/v1/cuenta/borrado",
-      cuerpo: { contrasena: "lluvia café tren azul", confirma_menores: true },
+      cuerpo: {
+        contrasena: "lluvia café tren azul",
+        confirma_menores: true,
+        menores: ["id-mateo"],
+      },
     });
+  });
+
+  test("si los menores cambiaron (409) vuelve a leer y pide confirmar a cada uno, sin violaciones", async ({
+    page,
+  }) => {
+    let lecturas = 0;
+    await simularApi(page, {
+      "GET /api/v1/cuenta/borrado": (ruta) =>
+        responder(200, {
+          hogar: null,
+          menores:
+            ++lecturas === 1
+              ? [{ id: "id-mateo", nombre: "Mateo" }]
+              : [
+                  { id: "id-mateo", nombre: "Mateo" },
+                  { id: "id-sofia", nombre: "Sofía" },
+                ],
+        })(ruta, undefined),
+      "POST /api/v1/cuenta/borrado": responder(409, {
+        error: "menores_cambiaron",
+      }),
+    });
+    await page.goto("/cuenta/borrar");
+    await page.getByLabel("Tu contraseña").fill("lluvia café tren azul");
+    await page
+      .getByLabel("Entiendo que también se borra la cuenta de Mateo.")
+      .check();
+    await page.getByRole("button", { name: "Borrar mi cuenta" }).click();
+    await expect(
+      page.getByLabel(
+        "Entiendo que también se borran las cuentas de Mateo y Sofía.",
+      ),
+    ).not.toBeChecked();
+    await expect(page.getByText("No pudimos borrar tu cuenta.")).toBeVisible();
+    await expect(page).toHaveURL(/\/cuenta\/borrar$/);
+    await sinViolaciones(page);
   });
 
   test("la contraseña que no coincide se queda en la pantalla, con el error en su campo", async ({
