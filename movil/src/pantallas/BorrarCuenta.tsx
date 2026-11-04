@@ -6,6 +6,7 @@ import { Aviso } from '../componentes/Aviso';
 import { Boton } from '../componentes/Boton';
 import { CampoDeContrasena } from '../componentes/CampoDeContrasena';
 import { Casilla } from '../componentes/Casilla';
+import { IconoHogar } from '../componentes/Iconos';
 import { Pantalla } from '../componentes/Pantalla';
 import { Tarjeta } from '../componentes/Tarjeta';
 import { Texto } from '../componentes/Texto';
@@ -25,7 +26,7 @@ const t = textos.borrarCuenta;
 // La fila 4 de PN-69 cambia con el hogar (E14-PCP 4.12): quien lo administra con otra persona adulta, la única persona
 // adulta, o quien es miembro sin el papel.
 function textoDelHogar(hogar: NonNullable<ResumenDeBorrado['hogar']>) {
-  const nombre = hogar.nombre ?? t.hogar.sinNombre;
+  const nombre = hogar.nombre ?? t.hogar.nombrePorOmision;
   if (hogar.unica_adulta) return formatear(t.hogar.unicaAdulta, { hogar: nombre });
   if (hogar.es_administradora && hogar.nuevo_administrador)
     return formatear(t.hogar.administradora, { nombre: hogar.nuevo_administrador });
@@ -51,7 +52,7 @@ export function BorrarCuenta({ navigation }: NativeStackScreenProps<Rutas, 'Borr
       if (!vigente) return;
       if (respuesta.ok) setEstado({ fase: 'listo', resumen: respuesta.cuerpo });
       else if (!seguirPorAccesoNegado(navigation, respuesta))
-        setEstado({ fase: 'error', aviso: avisoDeFallo(respuesta, avisos.errorAlCargarLoQueSeBorra) });
+        setEstado({ fase: 'error', aviso: avisoDeFallo(respuesta, avisos.errorAlCargarTusDatos) });
     });
     return () => {
       vigente = false;
@@ -125,7 +126,7 @@ export function BorrarCuenta({ navigation }: NativeStackScreenProps<Rutas, 'Borr
             <Texto variante="ayuda">{t.loQueSeBorra.prueba}</Texto>
           </Tarjeta>
           {estado.resumen.hogar && (
-            <Tarjeta titulo={estado.resumen.hogar.nombre ?? t.hogar.sinNombre}>
+            <Tarjeta titulo={estado.resumen.hogar.nombre ?? t.hogar.nombrePorOmision} Icono={IconoHogar}>
               <Texto>{textoDelHogar(estado.resumen.hogar)}</Texto>
             </Tarjeta>
           )}

@@ -99,7 +99,7 @@ describe('PN-69 · Borrar la cuenta (E14-PCP 4.12)', () => {
     ).toBeOnTheScreen();
   });
 
-  it('siendo miembro sin el papel solo dice que lo compartido sigue sin su nombre (propuesto)', async () => {
+  it('siendo miembro sin el papel solo dice que lo compartido sigue sin su nombre', async () => {
     await abrir({
       hogar: { nombre: 'Nuestro hogar', es_administradora: false, unica_adulta: false, nuevo_administrador: null },
       menores: [],
@@ -108,13 +108,21 @@ describe('PN-69 · Borrar la cuenta (E14-PCP 4.12)', () => {
     expect(screen.queryByText(/Eres quien lo administra/)).not.toBeOnTheScreen();
   });
 
-  it('un hogar sin nombre se titula «Tu hogar» (propuesto)', async () => {
+  it('un hogar sin nombre se titula «Nuestro hogar» (D-098)', async () => {
     await abrir({
       hogar: { nombre: null, es_administradora: true, unica_adulta: true, nuevo_administrador: null },
       menores: [],
     });
-    expect(screen.getByRole('header', { name: 'Tu hogar' })).toBeOnTheScreen();
-    expect(screen.getByText(/Eres la única persona adulta de «Tu hogar»\./)).toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: 'Nuestro hogar' })).toBeOnTheScreen();
+    expect(screen.getByText(/Eres la única persona adulta de «Nuestro hogar»\./)).toBeOnTheScreen();
+  });
+
+  it('la tarjeta del hogar lleva el ícono Hogar junto al nombre (E14-SDD 5.1)', async () => {
+    await abrir({ ...conOtraAdulta, menores: [] });
+    // El ícono Hogar (dos personas: círculos de radio 3.5 y 2.5) va dentro de la tarjeta del hogar.
+    const arbol = JSON.stringify(screen.toJSON());
+    expect(arbol).toContain('"r":"3.5"');
+    expect(arbol).toContain('"r":"2.5"');
   });
 
   it('con un menor que depende solo de ella lo nombra y pide la casilla, sin marcar', async () => {
@@ -302,10 +310,10 @@ describe('PN-69 · Borrar la cuenta (E14-PCP 4.12)', () => {
   });
 
   describe('al abrir', () => {
-    it('sin el resumen no se puede borrar: avisa (propuesto) y deja intentar de nuevo', async () => {
+    it('sin el resumen no se puede borrar: avisa («No pudimos cargar tus datos.», D-180) y deja intentar de nuevo', async () => {
       const { pedidos } = instalarFetchFalso(respuestaJson(500, { error: 'error_interno' }), respuestaJson(200, sinHogar));
       await mostrar();
-      expect(await screen.findByText('No pudimos cargar lo que se borra.')).toBeOnTheScreen();
+      expect(await screen.findByText('No pudimos cargar tus datos.')).toBeOnTheScreen();
       expect(screen.queryByRole('button', { name: 'Borrar mi cuenta' })).not.toBeOnTheScreen();
       expect(screen.queryByText('Tu contraseña')).not.toBeOnTheScreen();
       expect(screen.getByRole('button', { name: 'Ahora no' })).toBeOnTheScreen();

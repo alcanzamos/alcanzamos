@@ -101,3 +101,12 @@ export const IconoSiguiente = ({ color }: Propiedades) => (
     <Path d="m9 6 6 6-6 6" />
   </Icono>
 );
+
+// Hogar (E14-SDD 5.1; «Ícono / Hogar» del archivo de Penpot): dos personas, la de adelante más grande.
+export const IconoHogar = ({ color }: Propiedades) => (
+  <Icono color={color}>
+    <Circle cx="9" cy="8" r="3.5" />
+    <Circle cx="16.5" cy="8.5" r="2.5" />
+    <Path d="M3 20c0-3.5 2.5-5.5 6-5.5s6 2 6 5.5M16 14.5c3 0 5 1.8 5 5" />
+  </Icono>
+);

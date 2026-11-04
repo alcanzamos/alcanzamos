@@ -654,6 +654,22 @@ paso(
   resumenDeBorrado.ok && resumenDeBorrado.cuerpo.hogar === null && resumenDeBorrado.cuerpo.menores.length === 0,
   JSON.stringify(resumenDeBorrado),
 );
+// «Descargar mis datos» (D-180): el ZIP con los cuatro CSV. La app de Android todavía no lo baja (falta una dependencia
+// para guardar el archivo), pero el API ya lo entrega con el mismo Bearer.
+const descarga = await fetch(`${URL_API}/api/v1/cuenta/datos`, {
+  headers: { Authorization: `Bearer ${token()}`, 'X-Alcanzamos-Cliente': 'android' },
+});
+const zip = Buffer.from(await descarga.arrayBuffer());
+const nombresDelZip = ['movimientos.csv', 'metas.csv', 'deudas.csv', 'presupuestos.csv'];
+paso(
+  'PN-69: la descarga es un ZIP, sin copia (no-store), con los cuatro CSV',
+  descarga.status === 200 &&
+    descarga.headers.get('content-type') === 'application/zip' &&
+    descarga.headers.get('cache-control') === 'no-store' &&
+    zip.subarray(0, 2).toString() === 'PK' &&
+    nombresDelZip.every((n) => zip.includes(Buffer.from(n))),
+  `${descarga.status} ${zip.length} bytes`,
+);
 const sinClave = await cuentas.borrarLaCuenta({ contrasena: '', confirma_menores: false, menores: [] });
 paso(
   'PN-69: sin contraseña: 422 con contrasena = contrasena_vacia y el token se queda',
