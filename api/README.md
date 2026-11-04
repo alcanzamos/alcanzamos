@@ -733,9 +733,17 @@ python3 -I -B .azure-pipelines/pruebas/cobertura.py probar   # prueba del propio
 
 La salida es una tabla por grupo y por paquete; el código de salida es 1 si algo falla. `c.out` no se confirma. Sin PostgreSQL las pruebas de integración se saltan y la cobertura sale más baja de lo que el pipeline mide.
 
-## Pruebas de escritorio de E15 (EXA-006, D-111)
+## Pruebas de escritorio de E15 (EXA-006, D-111, D-181)
 
-Regla fuerte de D-111 (Q-13): cada id de E15 existe como subprueba `t.Run("<id>", …)` y pasa. Hoy el API implementa solo el algoritmo 5.2 (`src/fechas`, con `src/registro`), y sus 23 ids están en `test/fechas` bajo `TestFP` (`go test ./test/fechas -run 'TestFP/^FP-17$' -v`). Los otros 18 algoritmos (263 ids: RD, MT, FE, SM, PS, AV, RG, SU, RC, CC, AC, HV, OD, DV, SD, CI, CP y PM) no tienen todavía código en `src/` (no existe `nucleo`, D-145): su subprueba entra con el algoritmo, sin simular la función, y cada uno llama a la implementación real de `src/`.
+Regla fuerte de D-111 (Q-13): cada id de E15 existe como subprueba `t.Run("<id>", …)` y pasa. EXA-006 se cumple **por algoritmo**, no de una vez (D-181): **cada historia que construye un algoritmo de E15 trae todas sus filas como subpruebas con su id, y pasan** (E17-ECO paso 41). Hoy el API implementa solo el 5.2 (`src/fechas`, con `src/registro`): sus 23 ids (FP-01 a FP-23) están en `test/fechas` bajo `TestFP` (`go test ./test/fechas -run 'TestFP/^FP-17$' -v`). Los otros 18 algoritmos (263 ids) entran con la historia que los construya.
+
+`test/e15` lo vigila (`TestEXA_006…`): lee `test/e15/ids.json`, una copia de los ids de E15 (los documentos están en otro repositorio y el pipeline no los ve), y falla si a un prefijo de `construidos` le falta una subprueba, o si alguna subprueba con forma de id de E15 usa un id que E15 no tiene. **Agregar el prefijo a `construidos` en `ids.json` es parte de la historia que construye el algoritmo.** Si cambia E15 (una fila nueva o retirada), se regenera la copia con el repositorio de documentos al lado:
+
+```sh
+python3 -I -B api/test/e15/generar_ids.py <documentos>/docs/adso/proyecto/03-diseno/E15-diseno-algoritmico/01-diseno-algoritmico.md > /tmp/ids.json && mv /tmp/ids.json api/test/e15/ids.json
+```
+
+El generador solo lee E15, usa la lógica de `e18-ids-e15.py` y conserva la lista `construidos` del archivo actual.
 
 ## Vulnerabilidades (govulncheck)
 
