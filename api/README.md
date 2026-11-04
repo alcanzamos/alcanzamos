@@ -558,6 +558,100 @@ Es `PUT` y no `PATCH`: «Corregir» abre el formulario con todos los campos ya l
 
 Pruebas: `test/registro/movimientos_test.go` (contrato, validación y D-168 con un repositorio falso) y `test/registro/movimientos_integracion_test.go` (de punta a punta contra PostgreSQL, en web y en Android): la lista con orden, filtros, meses y categorías ocultas; el 404 de lo ajeno en las tres rutas; **D-170: el `409 movimiento_no_editable` al corregir o borrar un aporte y un retiro, sin cambiar nada;** D-168 al corregir y al borrar (con `fechas.PorConfirmar` sobre lo que queda en la base y la restricción única); **D-169: `vuelve_a_pendiente` en lista y detalle para el arriendo de agosto (`false`, y tras borrar `PorConfirmar` no lo devuelve) y para una repetición creada hoy (`true`, y tras borrar vuelve), con una prueba de consistencia entre el booleano y `PorConfirmar`;** **SEG-002 con «Arriendo de enero»**: se siembran por SQL un hogar con la persona como miembro, la meta «Arriendo de enero» y un aporte compartido de $100.000, y la lista y el detalle lo traen con `compartido: true` y su `meta`, mientras quien no es del hogar no lo ve (RNF-003); y el 401 y 403 de las cuatro rutas. `test/app/rutas_test.go` lleva el inventario de rutas.
 
+## Por confirmar: fechas pendientes de una repetición (US-60, API)
+
+La sección «Por confirmar» de PN-01 y «Confirmar todos» (E14-PRR 4.8) usan estas cuatro rutas, todas `requiere_autorizacion`. Las reglas viven aquí (E17-ECO 4.7): el cliente no calcula fechas ni cuentas. Código en `src/fechas` (`ConfirmarVarias`, `FechaDelMovimiento`, `PorConfirmar`), `src/registro` (`pendientes.go`: `PorConfirmar`, `ConfirmarOcurrencia`, `OmitirOcurrencia`, `ConfirmarVarias`), `pg.Movimientos` (`Recurrentes`, `Decidir`) y `servidor.DefensaCSRF`. **E12 y E17 no fijan las rutas HTTP: estas son una propuesta** consistente con `/api/v1/repeticiones/proximas`. Sin PN-72 ni la tarjeta de Inicio (D-170).
+
+| Ruta | Qué hace | Éxito |
+|---|---|---|
+| `GET /api/v1/repeticiones/pendientes` | Las fechas pendientes que ya llegaron (`f ≤ hoy`) y las cuentas del resumen | `200` |
+| `POST /api/v1/repeticiones/{id}/confirmacion` | Confirma una fecha con el monto habitual o con otro | `201` con el `Movimiento` |
+| `POST /api/v1/repeticiones/{id}/omision` | «No pasó»: guarda la fecha omitida, no crea movimiento | `204` |
+| `POST /api/v1/repeticiones/decisiones` | «Confirmar todos»: solo las filas marcadas y las «No pasó», todo o nada | `200` |
+
+**Qué fecha está pendiente (E15 5.2, D-091).** `pendiente(f) ⇔ f ∈ fechasDelMes ∧ f ≥ máx(inicio, día de creación) ∧ (sin detenido_en ∨ f < detenido_en) ∧ ¬∃ movimiento (recurrente, f) ∧ ¬∃ omitida (recurrente, f)`; la lista agrega `f ≤ hoy` (el «hoy» es el de Colombia, del `Reloj`). Es `fechas.PorConfirmar`, la misma que usa el POST de movimientos. **Solo las repeticiones de la persona** (`persona_id`): las de un hogar no se ofrecen (E14 4.8: «puede confirmar quien registró el recurrente»). Una fecha futura no se puede confirmar ni omitir: da `409` (decisión de esta API; E15 solo habla de las que ya llegaron).
+
+### Lista: `GET /api/v1/repeticiones/pendientes`
+
+`200` con `Cache-Control: no-store`, de la más antigua a la más reciente y, con la misma fecha, primero el ingreso (E14 4.8). La repetición no guarda un nombre: la fila se titula con la categoría, que la app resuelve por `categoria_id`. Montos en centavos enteros.
+
+```json
+{
+  "pendientes": [
+    {"recurrente_id": "0192f3c4-…", "fecha": "2026-11-27", "tipo": "gasto", "categoria_id": 4,
+     "medio": "transferencia", "monto_habitual_centavos": 65000000, "periodicidad": "mensual"},
+    {"recurrente_id": "0192f3c4-…", "fecha": "2026-11-26", "tipo": "ingreso", "categoria_id": 17,
+     "medio": "transferencia", "monto_habitual_centavos": 120000000, "periodicidad": "quincenal"}
+  ],
+  "resumen": {"total": 13, "ingresos": 2, "gastos": 11}
+}
+```
+
+`resumen` trae lo de «13 por confirmar: 2 ingresos y 11 gastos»; el texto lo arma la app. Sin fechas, `{"pendientes":[],"resumen":{"total":0,"ingresos":0,"gastos":0}}`. «Por confirmar» no se muestra con una categoría elegida: es del cliente.
+
+### Confirmar una: `POST /api/v1/repeticiones/{id}/confirmacion`
+
+```json
+{"fecha": "2026-11-26", "monto_centavos": 110000000}
+```
+
+`monto_centavos` es opcional (omitido o `null`: el habitual); el cambio es solo para esa fecha y no toca `monto_habitual`. `201` con el `Movimiento` (el mismo de la lista y el detalle de PN-01 y PN-02), con `recurrente.vuelve_a_pendiente` y **la fecha programada, nunca la de hoy (D-094, FP-22 y FP-23)**: un salario del 16 de noviembre confirmado el 14 de diciembre queda en noviembre; `creado_en` es el momento de la confirmación. El tipo, la categoría y el medio son los de la repetición.
+
+### «No pasó»: `POST /api/v1/repeticiones/{id}/omision`
+
+```json
+{"fecha": "2026-11-26"}
+```
+
+`204` sin cuerpo. Guarda la fecha en `ocurrencia_omitida` (D-092), no crea ningún movimiento, y la fecha deja de ofrecerse y de contarse como esperada. No lleva monto (un campo `monto_centavos` es `400`). Una fecha confirmada y una omitida son exclusivas.
+
+### Confirmar todos: `POST /api/v1/repeticiones/decisiones`
+
+```json
+{"decisiones": [
+  {"recurrente_id": "0192f3c4-…", "fecha": "2026-11-12", "omitida": true},
+  {"recurrente_id": "0192f3c4-…", "fecha": "2026-12-01", "monto_centavos": 110000000},
+  {"recurrente_id": "0192f3c4-…", "fecha": "2026-11-05"}
+]}
+```
+
+Solo van las filas marcadas y las «No pasó»; lo desmarcado no se manda y **sigue pendiente (FP-18)**. `200` con `Cache-Control: no-store`:
+
+```json
+{
+  "movimientos": [{"id": "…", "tipo": "gasto", "monto_centavos": 12000000, "fecha": "2026-11-05", "…": "…"}],
+  "omitidas": [{"recurrente_id": "0192f3c4-…", "fecha": "2026-11-12"}],
+  "siguen_pendientes": 0,
+  "resumen": {"guardados": 12, "omitidas": 1, "ingresos_centavos": 230000000, "gastos_centavos": 225000000}
+}
+```
+
+`resumen.guardados` y `resumen.omitidas` son los números del aviso «Listo, guardamos 12 movimientos y dejamos de contar 1 fecha.»; los centavos son la suma exacta (FP-17: ingresos $2.300.000 y gastos $2.250.000). **Es una sola transacción** (D-093): si una decisión no vale, no se guarda ninguna, ni las válidas ni las «No pasó» («No se guardó ninguno», E14 4.8). Sin decisiones válidas que guardar, `422`. Tope: `DecisionesMaximas` (500) decisiones y 72 KB de cuerpo; con más, `422 demasiadas_decisiones` y la persona confirma en tandas.
+
+### Errores
+
+| Código | Cuándo | Rutas |
+|---|---|---|
+| `422 datos_invalidos` con `campos` | `fecha_requerida`, `fecha_invalida` (AAAA-MM-DD, año ≥ 1900), `monto_requerido`, `monto_invalido` (no es un entero de centavos que quepa en `int64`; también un monto en una «No pasó»), `monto_no_positivo`, `recurrente_requerido`, `recurrente_invalido` (no es un identificador), `decisiones_requeridas`, `demasiadas_decisiones`. En «Confirmar todos» la clave es `decisiones[i].<campo>`, todas a la vez | confirmación, omisión, decisiones |
+| `404 no_encontrado` | La repetición no existe **o es de otra persona** (el mismo código: no revela que existe); en la ruta, un id mal formado también | las cuatro rutas con id |
+| `409 fecha_no_pendiente` | Ya confirmada u omitida, todavía no llegó, anterior a la creación de la repetición o a `inicio`, no es una fecha de su periodicidad, de `detenido_en` en adelante, dos decisiones sobre la misma fecha en una operación, **o alguien la resolvió a la vez**: `ErrFechaNoPendiente` (E15 `ErrFechaNoPendiente`) | confirmación, omisión, decisiones |
+| `400 solicitud_invalida` | Cuerpo que no es un JSON de un objeto o con un campo fuera del contrato | POST |
+| `403 solicitud_no_permitida` · `415 tipo_de_contenido_no_permitido` | La defensa contra CSRF (abajo) | POST |
+| `401 sin_sesion` · `403 autorizacion_pendiente` · `403 verificacion_pendiente` | El guard de `requiere_autorizacion` | todas |
+| `500 error_interno` | Fallo de la base o datos incoherentes | todas |
+
+El orden es: forma (`422`), dueña (`404`), estado (`409`). `ErrMontoInvalido` y `ErrFechaNoPendiente` de E15 son los de `fechas.ConfirmarVarias`; el servicio traduce el primero a `422` con el campo antes de llamarla.
+
+### Concurrencia
+
+Confirmar dos veces la misma fecha a la vez no crea dos movimientos: la restricción única `uq_movimiento_recurrente_programada` hace fallar al segundo `INSERT` (`23505`) y el repositorio lo traduce a `409 fecha_no_pendiente`, no a `500`. Confirmar y omitir la misma fecha a la vez: los disparadores de E13 (`fn_movimiento_sin_omitida` y `fn_omitida_sin_movimiento`) bloquean la fila de la repetición y rechazan al segundo (`check_violation` sin restricción), con el mismo `409`. Dos «Confirmar todos» iguales: gana uno entero y el otro no guarda nada (misma transacción). Cada `INSERT` lee la repetición con `persona_id`: una ajena no inserta nada aunque el servicio fallara antes. No hace falta migración.
+
+### Defensa contra CSRF (E17 3.15, D-173 a D-175)
+
+Los tres POST pasan por `servidor.DefensaCSRF(URL_PUBLICA, …)`: (a) si viene `Sec-Fetch-Site`, solo `same-origin`; (b) si no, si viene `Origin`, igual al origen de `URL_PUBLICA`; (c) si no viene ninguna, exige `Authorization: Bearer` o `X-Alcanzamos-Cliente` (Android); lo incumplido da `403 solicitud_no_permitida` sin tocar nada; (d) `Content-Type: application/json`, con o sin cuerpo, o `415 tipo_de_contenido_no_permitido`. E17 3.15 pide que viva en el `Enrutador` para todo POST que cambia algo, **pero esa regla no estaba construida** (ningún POST anterior la aplica); aquí solo cubre estos tres. Los códigos de rechazo (`solicitud_no_permitida`, `tipo_de_contenido_no_permitido`) son una propuesta: D-174 fija el `403` y el `415`, no el texto del código. **Los clientes web y móvil deben mandar `Content-Type: application/json` en estos POST** (la web ya lo hace según D-175; Android manda `X-Alcanzamos-Cliente`).
+
+Pruebas: `test/fechas/confirmar_test.go` (FP-17 a FP-23 por nombre, más montos, desbordes y casos vacíos); `test/registro/pendientes_test.go` (contrato, errores y CSRF con un repositorio falso); `test/registro/pendientes_integracion_test.go` (de punta a punta contra PostgreSQL, en web y Android: la lista, D-094 en la lista de noviembre y diciembre, «No pasó», todo o nada, carreras con 8 pedidos a la vez, lo ajeno, hogar, `detenido_en`, categoría oculta, 401/403 y CSRF); `test/pg/repeticiones_integracion_test.go`; `test/servidor/csrf_test.go`. `test/app/rutas_test.go` lleva el inventario de rutas.
+
 ## Gaps de la US-49
 
 - **Origen detrás de un proxy:** el límite por origen usa la dirección de la conexión. Detrás de Azure Container Apps todos los pedidos llegarían con la dirección de su entrada y el límite se volvería de todos juntos. Es la fila 17 del primer despliegue (D-143 (4)): se confiará solo en la dirección que agregue esa entrada. No se lee `X-Forwarded-For` mientras tanto.
