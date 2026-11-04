@@ -1390,6 +1390,116 @@
           "e14": "E14-PRR 4.1 (PN-01), variante web"
         }
       }
+    },
+    "porConfirmar": {
+      "titulo": {
+        "texto": "Por confirmar",
+        "e14": "E14-PRR 4.1 (PN-01), fila 2a"
+      },
+      "textoVarias": {
+        "texto": "Estos movimientos que se repiten ya llegaron a su fecha. Confírmalos con un toque, o toca «Más» si no pasaron o cambió el monto.",
+        "e14": "E14-PRR 4.1 (PN-01), fila 2a"
+      },
+      "textoUna": {
+        "texto": "Esta fecha de un movimiento que se repite ya llegó. Confírmala con un toque.",
+        "e14": "E14-PPN 4.1 (Inicio), fila 3a, «Con una sola fecha»; PN-01 no trae un texto aparte para una sola fecha; su uso en PN-01 queda propuesto"
+      },
+      "marca": {
+        "texto": "Por confirmar",
+        "e14": "E14-PRR 4.1 (PN-01), «Confirmar un movimiento que se repite», fila «Marca»"
+      },
+      "confirmar": {
+        "texto": "Confirmar",
+        "e14": "E14-PRR 4.1 (PN-01), «Confirmar un movimiento que se repite», fila «Confirmar»"
+      },
+      "mas": {
+        "texto": "Más",
+        "e14": "E14-PRR 4.1 (PN-01), «Confirmar un movimiento que se repite», fila «Más»"
+      },
+      "cerrar": {
+        "texto": "Cerrar",
+        "e14": "E14-PRR 4.1 (PN-01), hojas «Más», «No pasó» y «Cambiar el monto»; E14-SDD 5.12"
+      },
+      "apoyoConMedio": {
+        "texto": "{tipo} · {medio} · {fecha}",
+        "e14": "E14-PRR 4.1 (PN-01), fila «Texto de apoyo»: «Ingreso · Transferencia · 16 de noviembre de 2026»"
+      },
+      "nombreDeConfirmar": {
+        "texto": "Confirmar {nombre} del {fecha}",
+        "e14": "E14-PRR 4.1 (PN-01), fila «Confirmar»: «Confirmar Salario del 16 de noviembre de 2026»"
+      },
+      "nombreDeMas": {
+        "texto": "Más opciones de {nombre} del {fecha}",
+        "e14": "E14-PRR 4.1 (PN-01), fila «Más»: «Más opciones de Salario del 16 de noviembre de 2026»"
+      },
+      "hoja": {
+        "titulo": {
+          "texto": "{nombre} · {fecha}",
+          "e14": "E14-PRR 4.1 (PN-01), «Hoja «Más»»: «Salario · 16 de noviembre de 2026»"
+        },
+        "cambiarElMonto": {
+          "texto": "Cambiar el monto",
+          "e14": "E14-PRR 4.1 (PN-01), «Hoja «Más»»; E14-PRR 4.8 (PN-72, «Confirmar todos»), «Más» → «Cambiar el monto»"
+        },
+        "noPaso": {
+          "texto": "No pasó",
+          "e14": "E14-PRR 4.1 (PN-01), «Hoja «Más»» y «Hoja «No pasó»»; E14-PRR 4.8 (PN-72, «Confirmar todos»), «Más» → «No pasó»"
+        },
+        "tituloNoPaso": {
+          "texto": "¿Esta fecha no pasó?",
+          "e14": "E14-PRR 4.1 (PN-01), «Hoja «No pasó»»"
+        },
+        "textoNoPaso": {
+          "texto": "Dejamos de contarla en tu simulación. Las demás fechas siguen igual. Si después pasó, la registras a mano.",
+          "e14": "E14-PRR 4.1 (PN-01), «Hoja «No pasó»»"
+        },
+        "tituloDeIngreso": {
+          "texto": "¿Cuánto llegó?",
+          "e14": "E14-PRR 4.1 (PN-01), «Hoja «Cambiar el monto»»; E14-PRR 4.8 (PN-72, «Confirmar todos»)"
+        },
+        "tituloDeGasto": {
+          "texto": "¿Cuánto pagaste?",
+          "e14": "E14-PRR 4.1 (PN-01), «Hoja «Cambiar el monto»»; E14-PRR 4.8 (PN-72, «Confirmar todos»)"
+        },
+        "confirmar": {
+          "texto": "Confirmar",
+          "e14": "E14-PRR 4.1 (PN-01), «Hoja «Cambiar el monto»», Botón · Primario"
+        }
+      },
+      "avisos": {
+        "confirmamosIngreso": {
+          "texto": "Listo, confirmamos tu ingreso de {monto}.",
+          "e14": "E14-PRR 4.1 (PN-01), «Después de «Confirmar»»"
+        },
+        "confirmamosGasto": {
+          "texto": "Listo, confirmamos tu gasto de {monto}.",
+          "e14": "E14-PRR 4.1 (PN-01), «Después de «Confirmar»»"
+        },
+        "yaNoContamos": {
+          "texto": "Listo, ya no contamos esa fecha.",
+          "e14": "E14-PRR 4.1 (PN-01), «Hoja «No pasó»»"
+        },
+        "errorAlConfirmar": {
+          "titulo": {
+            "texto": "No pudimos confirmar el movimiento.",
+            "e14": "E14-PRR 4.1 (PN-01), estado «Error al confirmar»"
+          },
+          "mensaje": {
+            "texto": "Sigue por confirmar. Intenta de nuevo.",
+            "e14": "E14-PRR 4.1 (PN-01), estado «Error al confirmar»"
+          }
+        },
+        "errorAlOmitir": {
+          "titulo": {
+            "texto": "No pudimos guardar el cambio.",
+            "e14": "E14-PRR 4.1 (PN-01), estado «Error al marcar «No pasó»»"
+          },
+          "mensaje": {
+            "texto": "Sigue por confirmar. Intenta de nuevo.",
+            "e14": "E14-PRR 4.1 (PN-01), estado «Error al marcar «No pasó»»"
+          }
+        }
+      }
     }
   },
   "solo_android": {

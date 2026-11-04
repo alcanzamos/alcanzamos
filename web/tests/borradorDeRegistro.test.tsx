@@ -26,6 +26,11 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-10-26T15:00:00Z"));
   simularApi((p) => {
+    if (p.ruta === "/api/v1/repeticiones/pendientes")
+      return json(200, {
+        pendientes: [],
+        resumen: { total: 0, ingresos: 0, gastos: 0 },
+      });
     if (p.ruta.startsWith("/api/v1/repeticiones"))
       return json(200, { proximas: [] });
     if (p.ruta === "/api/v1/categorias") return json(200, catalogo);

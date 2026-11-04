@@ -39,6 +39,12 @@ export async function simularApi(
   return pedidos;
 }
 
+/** «Por confirmar» sin fechas que ya llegaron: PN-01 pide esta lista junto con la de movimientos. */
+export const sinPendientes = {
+  pendientes: [],
+  resumen: { total: 0, ingresos: 0, gastos: 0 },
+};
+
 /** axe-core sobre lo que se ve ahora: cero violaciones (E17-ECO 4.10). */
 export async function sinViolaciones(page: Page) {
   const resultado = await new AxeBuilder({ page }).analyze();

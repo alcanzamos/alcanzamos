@@ -5,6 +5,7 @@ import {
   type Listado,
   type Movimiento,
 } from "../api/movimientos";
+import { listarPendientes, type Pendientes } from "../api/repeticiones";
 import { Aviso } from "../componentes/Aviso";
 import { Boton, BotonEnlace } from "../componentes/Boton";
 import { ChipsDeEleccion } from "../componentes/ChipsDeEleccion";
@@ -13,6 +14,7 @@ import { IconoAtras } from "../componentes/Iconos";
 import { MarcaDePropiedad } from "../componentes/MarcaDePropiedad";
 import { Pagina } from "../componentes/Pagina";
 import { formatearPesos } from "../dinero";
+import { useFocoPendiente } from "../enfoque";
 import { alTocarEnlace, navegar, useUbicacion } from "../enrutador";
 import { hoyEnColombia, mesAnterior, mesEnPalabras } from "../fechas";
 import { avisoDeLlegada } from "../llegada";
@@ -25,11 +27,12 @@ import {
 import { textosDeFila, tituloDelDia } from "../textosDeMovimientos";
 import { formatear, plural, textos } from "../textos/es.generated";
 import { DetalleDeMovimiento } from "./DetalleDeMovimiento";
+import { PorConfirmar } from "./PorConfirmar";
 
 type Estado =
   | { fase: "cargando" }
   | { fase: "error"; aviso: DatosDeAviso }
-  | { fase: "listo"; datos: Listado };
+  | { fase: "listo"; datos: Listado; pendientes: Pendientes };
 
 const m = textos.movimientos;
 const TODAS = 0;
@@ -64,7 +67,7 @@ function porDia(movimientos: Movimiento[]) {
 
 // PN-01 · Movimientos: lista y filtros, variante web (E14-PRR 4.1). Dos columnas: la lista a la izquierda y el detalle
 // (PN-02) a la derecha, sin cambiar de página. Por debajo de 768 px es una pantalla a la vez, como en Android.
-// Sin la sección «Por confirmar» (US-60, D-168) ni las «Horas de vida» (RF-054). Sin el contexto «Nuestro hogar».
+// Con la sección «Por confirmar» (US-60, D-091 a D-093). Sin las «Horas de vida» (RF-054) ni el contexto «Nuestro hogar».
 export function Movimientos() {
   const { parametros } = useUbicacion();
   const periodo = parametros.get("periodo");
@@ -75,17 +78,30 @@ export function Movimientos() {
   const [aviso, setAviso] = useState(avisoDeLlegada);
   const [verMeses, setVerMeses] = useState(false);
   const [verTodas, setVerTodas] = useState(false);
+  const pedirFoco = useFocoPendiente();
 
   useEffect(() => {
     let vigente = true;
-    void listarMovimientos(periodo, categoria).then((respuesta) => {
+    // «Por confirmar» no depende de los filtros (E14-PRR 4.1): se pide junto con la lista.
+    void Promise.all([
+      listarPendientes(),
+      listarMovimientos(periodo, categoria),
+    ]).then(([pendientes, lista]) => {
       if (!vigente) return;
-      if (respuesta.ok) setEstado({ fase: "listo", datos: respuesta.cuerpo });
-      else if (!seguirPorAccesoNegado(respuesta))
+      if (lista.ok && pendientes.ok)
         setEstado({
-          fase: "error",
-          aviso: avisoDeFallo(respuesta, avisos.errorAlCargarMovimientos),
+          fase: "listo",
+          datos: lista.cuerpo,
+          pendientes: pendientes.cuerpo,
         });
+      else {
+        const fallo = lista.ok ? pendientes : lista;
+        if (!fallo.ok && !seguirPorAccesoNegado(fallo))
+          setEstado({
+            fase: "error",
+            aviso: avisoDeFallo(fallo, avisos.errorAlCargarMovimientos),
+          });
+      }
     });
     return () => {
       vigente = false;
@@ -95,6 +111,12 @@ export function Movimientos() {
   const recargar = () => {
     setEstado({ fase: "cargando" });
     setIntento(intento + 1);
+  };
+  // Después de confirmar o marcar «No pasó» se vuelve a pedir lo pendiente y la lista, sin vaciar la pantalla.
+  const alTerminarPorConfirmar = (nuevo: DatosDeAviso) => {
+    setAviso(nuevo);
+    setIntento(intento + 1);
+    pedirFoco("titulo-de-pagina");
   };
   const ir = (destino: string) => {
     setVerMeses(false);
@@ -113,6 +135,7 @@ export function Movimientos() {
   const datos = estado.fase === "listo" ? estado.datos : null;
   const elegido = datos?.movimientos.find((f) => f.id === abierto);
   const hoy = hoyEnColombia();
+  const pendientes = estado.fase === "listo" ? estado.pendientes : null;
 
   return (
     <Pagina titulo={m.titulo} estado={aviso} ancha>
@@ -130,6 +153,14 @@ export function Movimientos() {
                 {textos.acciones.intentarDeNuevo}
               </Boton>
             </>
+          )}
+          {pendientes && pendientes.pendientes.length > 0 && !categoria && (
+            <PorConfirmar
+              datos={pendientes}
+              alEmpezar={() => setAviso(null)}
+              alTerminar={alTerminarPorConfirmar}
+              refrescar={() => setIntento(intento + 1)}
+            />
           )}
           {datos && (
             <Lista
