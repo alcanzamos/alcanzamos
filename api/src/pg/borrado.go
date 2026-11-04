@@ -274,3 +274,37 @@ func (r *Borrado) borrarUnaVez(ctx context.Context, persona string, vistos []str
 	}
 	return nil
 }
+
+// MovimientosDe implementa cuenta.RepositorioDeExportacion: lo que la persona registró (`persona_id` suyo), con el nombre
+// de la categoría y, en un aporte, el de su propia meta (nunca el de una meta de otra persona), y sin ningún id. Nada
+// que otra persona registró en un hogar ni los terceros que anotó (SC-E21-20). Cuenta.ErrNoExiste si la persona no está.
+func (r *Borrado) MovimientosDe(ctx context.Context, persona string) ([]cuenta.MovimientoExportado, error) {
+	var existe bool
+	if err := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM persona WHERE id = $1::uuid)`, persona).Scan(&existe); err != nil {
+		return nil, fmt.Errorf("leer la persona: %w", err)
+	}
+	if !existe {
+		return nil, cuenta.ErrNoExiste
+	}
+	filas, err := r.pool.Query(ctx,
+		`SELECT m.fecha::text, m.tipo, m.monto, COALESCE(c.nombre, ''), m.medio, COALESCE(m.descripcion, ''),
+		        COALESCE(mt.nombre, ''), COALESCE(m.sentido, ''), m.hogar_id IS NOT NULL
+		 FROM movimiento m
+		 LEFT JOIN categoria c ON c.id = m.categoria_id
+		 LEFT JOIN meta mt ON mt.id = m.meta_id AND mt.persona_id = m.persona_id
+		 WHERE m.persona_id = $1::uuid
+		 ORDER BY m.fecha, m.creado_en, m.id`, persona)
+	if err != nil {
+		return nil, fmt.Errorf("leer los movimientos: %w", err)
+	}
+	defer filas.Close()
+	var salida []cuenta.MovimientoExportado
+	for filas.Next() {
+		var m cuenta.MovimientoExportado
+		if err := filas.Scan(&m.Fecha, &m.Tipo, &m.MontoCentavos, &m.Categoria, &m.Medio, &m.Descripcion, &m.Meta, &m.Sentido, &m.Compartido); err != nil {
+			return nil, fmt.Errorf("leer un movimiento: %w", err)
+		}
+		salida = append(salida, m)
+	}
+	return salida, filas.Err()
+}

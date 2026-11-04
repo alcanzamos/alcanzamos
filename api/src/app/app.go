@@ -140,7 +140,9 @@ func ArmarEnrutador(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, 
 	autenticacion.NuevoHandler(autenticaciones, eventos, log).Registrar(enrutador)
 	autorizacion.NuevoHandler(autorizacion.NuevoServicio(pg.NuevoAutorizaciones(pool), hora), eventos, log).Registrar(enrutador)
 	registro.NuevoHandler(registro.NuevoServicio(pg.NuevoMovimientos(pool), hora), log).Registrar(enrutador)
-	cuenta.NuevoHandlerDeBorrado(cuenta.NuevoBorrado(pg.NuevoBorrado(pool), hasher, limitador, hora), eventos, log).Registrar(enrutador)
+	repoDeBorrado := pg.NuevoBorrado(pool)
+	cuenta.NuevoHandlerDeBorrado(cuenta.NuevoBorrado(repoDeBorrado, hasher, limitador, hora), eventos, log).Registrar(enrutador)
+	cuenta.NuevoHandlerDeExportacion(cuenta.NuevoExportador(repoDeBorrado), log).Registrar(enrutador)
 	return enrutador, func() { cuentas.Esperar(); autenticaciones.Esperar() }, nil
 }
 
