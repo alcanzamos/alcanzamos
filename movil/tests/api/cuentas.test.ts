@@ -100,10 +100,10 @@ describe('API de PN-69', () => {
 
   it('borrarLaCuenta manda la contraseña y lo del menor, y con el 200 borra el token del Keystore', async () => {
     const { pedidos } = instalarFetchFalso(respuestaJson(200, { estado: 'cuenta_borrada' }));
-    const respuesta = await borrarLaCuenta({ contrasena: 'x', confirma_menores: true });
+    const respuesta = await borrarLaCuenta({ contrasena: 'x', confirma_menores: true, menores: ['id-1'] });
     expect(respuesta.ok).toBe(true);
     expect(pedidos[0]?.init.method).toBe('POST');
-    expect(JSON.parse(pedidos[0]?.init.body as string)).toEqual({ contrasena: 'x', confirma_menores: true });
+    expect(JSON.parse(pedidos[0]?.init.body as string)).toEqual({ contrasena: 'x', confirma_menores: true, menores: ['id-1'] });
     expect(almacen.guardado.has('sesion')).toBe(false);
   });
 
@@ -113,7 +113,7 @@ describe('API de PN-69', () => {
     [500, { error: 'error_interno' }],
   ])('con un %i el token se queda: la cuenta sigue', async (estado, cuerpo) => {
     instalarFetchFalso(respuestaJson(estado, cuerpo));
-    expect((await borrarLaCuenta({ contrasena: 'x', confirma_menores: false })).ok).toBe(false);
+    expect((await borrarLaCuenta({ contrasena: 'x', confirma_menores: false, menores: [] })).ok).toBe(false);
     expect(almacen.guardado.get('sesion')).toBe('token-actual');
   });
 });

@@ -12,10 +12,12 @@ const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crear
 const reinicio = (nombre: string, params?: object) =>
   CommonActions.reset({ index: 0, routes: [{ name: nombre, params }] });
 
+/** Los menores del resumen: cada uno con su id, que el borrado devuelve. */
+const m = (nombres: string[]) => nombres.map((nombre) => ({ id: `id-${nombre}`, nombre }));
 const sinHogar = { hogar: null, menores: [] };
 const conOtraAdulta = {
   hogar: { nombre: 'Nuestro hogar', es_administradora: true, unica_adulta: false, nuevo_administrador: 'Camilo' },
-  menores: ['Mateo'],
+  menores: m(['Mateo']),
 };
 
 async function mostrar() {
@@ -135,7 +137,7 @@ describe('PN-69 · Borrar la cuenta (E14-PCP 4.12)', () => {
       'Entiendo que también se borran las cuentas de Mateo, Sofía y Tomás.',
     ],
   ])('con varios menores (%j) los nombra a todos', async (menores, aviso, casilla) => {
-    await abrir({ hogar: null, menores });
+    await abrir({ hogar: null, menores: m(menores) });
     expect(screen.getByText(aviso)).toBeOnTheScreen();
     expect(screen.getByRole('checkbox', { name: casilla })).toBeOnTheScreen();
   });
@@ -152,6 +154,7 @@ describe('PN-69 · Borrar la cuenta (E14-PCP 4.12)', () => {
     expect(JSON.parse(pedidos[1]?.init.body as string)).toEqual({
       contrasena: 'lluvia café tren azul',
       confirma_menores: false,
+      menores: [],
     });
     expect((pedidos[1]?.init.headers as Record<string, string>).Authorization).toBe('Bearer tk-activa');
     expect(almacen.guardado.has('sesion')).toBe(false);
@@ -166,6 +169,7 @@ describe('PN-69 · Borrar la cuenta (E14-PCP 4.12)', () => {
     expect(JSON.parse(pedidos[1]?.init.body as string)).toEqual({
       contrasena: 'lluvia café tren azul',
       confirma_menores: true,
+      menores: ['id-Mateo'],
     });
   });
 
@@ -183,12 +187,43 @@ describe('PN-69 · Borrar la cuenta (E14-PCP 4.12)', () => {
 
   it('con varios menores el error los nombra a todos', async () => {
     await abrir(
-      { hogar: null, menores: ['Mateo', 'Sofía'] },
+      { hogar: null, menores: m(['Mateo', 'Sofía']) },
       respuestaJson(422, { error: 'validacion', campos: { confirma_menores: 'confirmacion_requerida' } }),
     );
     await escribir();
     await borrar();
     expect(await screen.findByText('Falta confirmar lo de Mateo y Sofía.')).toBeOnTheScreen();
+  });
+
+  it('si los menores cambiaron (409) no se borró nada: vuelve a leer, muestra a todos con la casilla sin marcar y pide confirmar a cada uno', async () => {
+    const { pedidos } = instalarFetchFalso(
+      respuestaJson(200, { hogar: null, menores: m(['Mateo']) }),
+      respuestaJson(409, { error: 'menores_cambiaron' }),
+      respuestaJson(200, { hogar: null, menores: m(['Mateo', 'Sofía']) }),
+      respuestaJson(200, { estado: 'cuenta_borrada' }),
+    );
+    const navegacion = await mostrar();
+    await screen.findByRole('button', { name: 'Borrar mi cuenta' });
+    await escribir();
+    await fireEvent.press(screen.getByRole('checkbox'));
+    await borrar();
+    expect(
+      await screen.findByText('Mateo y Sofía dependen solo de ti. Sus cuentas y sus datos también se borran.'),
+    ).toBeOnTheScreen();
+    expect(screen.getByText('No pudimos borrar tu cuenta.')).toBeOnTheScreen();
+    expect(screen.getByRole('checkbox').props.accessibilityState).toEqual({ checked: false });
+    expect(screen.getByLabelText('Tu contraseña').props.value).toBe('lluvia café tren azul');
+    expect(navegacion.dispatch).not.toHaveBeenCalled();
+    expect(almacen.guardado.get('sesion')).toBe('tk-activa');
+    await fireEvent.press(screen.getByRole('checkbox'));
+    await borrar();
+    await waitFor(() => expect(navegacion.dispatch).toHaveBeenCalled());
+    expect(pedidos.map((p) => p.init.method)).toEqual(['GET', 'POST', 'GET', 'POST']);
+    expect(JSON.parse(pedidos[3]?.init.body as string)).toEqual({
+      contrasena: 'lluvia café tren azul',
+      confirma_menores: true,
+      menores: ['id-Mateo', 'id-Sofía'],
+    });
   });
 
   it('la contraseña vacía (422) da «Falta tu contraseña.» y el foco va al campo', async () => {
@@ -219,6 +254,7 @@ describe('PN-69 · Borrar la cuenta (E14-PCP 4.12)', () => {
 
   it.each([
     [500, { error: 'error_interno' }],
+    [503, { error: 'ocupado' }],
     [403, { error: 'cuenta_de_menor' }],
   ])('un error (%i) dice que los datos siguen ahí y no toca el token', async (estado, cuerpo) => {
     await abrir(sinHogar, respuestaJson(estado, cuerpo));

@@ -654,20 +654,20 @@ paso(
   resumenDeBorrado.ok && resumenDeBorrado.cuerpo.hogar === null && resumenDeBorrado.cuerpo.menores.length === 0,
   JSON.stringify(resumenDeBorrado),
 );
-const sinClave = await cuentas.borrarLaCuenta({ contrasena: '', confirma_menores: false });
+const sinClave = await cuentas.borrarLaCuenta({ contrasena: '', confirma_menores: false, menores: [] });
 paso(
   'PN-69: sin contraseña: 422 con contrasena = contrasena_vacia y el token se queda',
   !sinClave.ok && sinClave.estado === 422 && sinClave.campos.contrasena === 'contrasena_vacia' && token() !== null,
   JSON.stringify(sinClave),
 );
-const claveMala = await cuentas.borrarLaCuenta({ contrasena: 'no es esta', confirma_menores: false });
+const claveMala = await cuentas.borrarLaCuenta({ contrasena: 'no es esta', confirma_menores: false, menores: [] });
 paso(
   'PN-69: contraseña que no coincide: 400 contrasena_incorrecta, no se borra nada y el token se queda',
   !claveMala.ok && claveMala.estado === 400 && claveMala.codigo === 'contrasena_incorrecta' && token() !== null,
   JSON.stringify(claveMala),
 );
 const tokenAntesDeBorrar = token();
-const borrada = await cuentas.borrarLaCuenta({ contrasena: contrasenaNueva, confirma_menores: false });
+const borrada = await cuentas.borrarLaCuenta({ contrasena: contrasenaNueva, confirma_menores: false, menores: [] });
 paso('PN-69: con la contraseña, 200 cuenta_borrada', borrada.ok && borrada.estado === 200 && borrada.cuerpo.estado === 'cuenta_borrada', JSON.stringify(borrada));
 paso('PN-69: el token se borró del almacén seguro', token() === null);
 for (const [nombre, valor] of [

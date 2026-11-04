@@ -59,16 +59,30 @@ export function BorrarCuenta({ navigation }: NativeStackScreenProps<Rutas, 'Borr
   }, [intento, navigation]);
 
   const menores = estado.fase === 'listo' ? estado.resumen.menores : [];
-  const nombres = nombresEnFrase(menores);
+  const nombres = nombresEnFrase(menores.map((m) => m.nombre));
 
   async function enviar() {
     if (enviando) return;
     setEnviando(true);
-    const respuesta = await borrarLaCuenta({ contrasena, confirma_menores: confirmaMenores });
+    const respuesta = await borrarLaCuenta({
+      contrasena,
+      confirma_menores: confirmaMenores,
+      menores: menores.map((m) => m.id),
+    });
     setEnviando(false);
     // El token ya se borró del Keystore: la persona vuelve a PN-60 sin poder volver atrás a su cuenta.
     if (respuesta.ok) return reemplazarPila(navigation, 'Entrar', { llegada: 'tu_cuenta_borrada' });
     if (seguirPorAccesoNegado(navigation, respuesta)) return;
+    if (respuesta.codigo === 'menores_cambiaron') {
+      // Los menores a cargo ya no son los que se mostraron (RN-006): no se borró nada. Se vuelve a leer el resumen y la
+      // casilla vuelve a pedirse, ahora con los de verdad.
+      setConfirmaMenores(false);
+      setErrores({});
+      setAviso(avisos.errorAlBorrarLaCuenta);
+      setEstado({ fase: 'cargando' });
+      setIntento(intento + 1);
+      return;
+    }
     const delCampo: { contrasena?: string; menores?: string } = {};
     if (respuesta.codigo === 'contrasena_incorrecta')
       delCampo.contrasena = textoDeErrorDeCampo(respuesta.codigo, 'borrarCuenta');
