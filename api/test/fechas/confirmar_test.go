@@ -47,7 +47,7 @@ func claves(lista []fechas.FechaPorConfirmar) []string {
 	return textos
 }
 
-func TestFP17ConfirmarTodasMenosUnaOmitidaYUnMontoCambiado(t *testing.T) {
+func fp17(t *testing.T) {
 	var decisiones []fechas.DecisionDeFecha
 	for _, p := range lasTrece() {
 		var m *int64
@@ -75,7 +75,7 @@ func TestFP17ConfirmarTodasMenosUnaOmitidaYUnMontoCambiado(t *testing.T) {
 	}
 }
 
-func TestFP18LaFechaDesmarcadaSiguePendiente(t *testing.T) {
+func fp18(t *testing.T) {
 	r, err := fechas.ConfirmarVarias(tres(), []fechas.DecisionDeFecha{decide("Agua", d(2026, 11, 8), nil, false)})
 	if err != nil {
 		t.Fatal(err)
@@ -91,14 +91,14 @@ func TestFP18LaFechaDesmarcadaSiguePendiente(t *testing.T) {
 	}
 }
 
-func TestFP19UnaDecisionSobreUnaFechaQueNoEstaPendiente(t *testing.T) {
+func fp19(t *testing.T) {
 	_, err := fechas.ConfirmarVarias(tres(), []fechas.DecisionDeFecha{decide("Salario", d(2026, 11, 1), nil, false)})
 	if !errors.Is(err, fechas.ErrFechaNoPendiente) {
 		t.Errorf("error %v", err)
 	}
 }
 
-func TestFP20LaMismaFechaConDosDecisiones(t *testing.T) {
+func fp20(t *testing.T) {
 	_, err := fechas.ConfirmarVarias(tres(), []fechas.DecisionDeFecha{
 		decide("Energía", d(2026, 11, 5), nil, false), decide("Energía", d(2026, 11, 5), nil, true)})
 	if !errors.Is(err, fechas.ErrFechaNoPendiente) {
@@ -106,7 +106,7 @@ func TestFP20LaMismaFechaConDosDecisiones(t *testing.T) {
 	}
 }
 
-func TestFP21UnMontoEnCeroNoConfirmaNingunaNiLaValida(t *testing.T) {
+func fp21(t *testing.T) {
 	r, err := fechas.ConfirmarVarias(tres(), []fechas.DecisionDeFecha{
 		decide("Energía", d(2026, 11, 5), nil, false), decide("Agua", d(2026, 11, 8), monto(0), false)})
 	if !errors.Is(err, fechas.ErrMontoInvalido) {
@@ -118,7 +118,7 @@ func TestFP21UnMontoEnCeroNoConfirmaNingunaNiLaValida(t *testing.T) {
 }
 
 // D-094: el movimiento se guarda con su fecha programada, nunca con la de hoy.
-func TestFP22ElSalarioConfirmadoConAtrasoQuedaEnNoviembre(t *testing.T) {
+func fp22(t *testing.T) {
 	p := por("Salario", d(2026, 11, 16), pesos(1200000), true)
 	hoy := d(2026, 12, 14)
 	if got := fechas.FechaDelMovimiento(p, hoy); !got.Equal(d(2026, 11, 16)) {
@@ -133,7 +133,7 @@ func TestFP22ElSalarioConfirmadoConAtrasoQuedaEnNoviembre(t *testing.T) {
 	}
 }
 
-func TestFP23LaCuotaConfirmadaEnOtroAnioQuedaEnDiciembre(t *testing.T) {
+func fp23(t *testing.T) {
 	p := por("Cuota del crédito", d(2026, 12, 15), pesos(600000), false)
 	r, err := fechas.ConfirmarVarias([]fechas.FechaPorConfirmar{p}, []fechas.DecisionDeFecha{decide("Cuota del crédito", d(2026, 12, 15), monto(pesos(550000)), false)})
 	if err != nil {

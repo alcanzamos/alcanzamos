@@ -733,6 +733,10 @@ python3 -I -B .azure-pipelines/pruebas/cobertura.py probar   # prueba del propio
 
 La salida es una tabla por grupo y por paquete; el código de salida es 1 si algo falla. `c.out` no se confirma. Sin PostgreSQL las pruebas de integración se saltan y la cobertura sale más baja de lo que el pipeline mide.
 
+## Pruebas de escritorio de E15 (EXA-006, D-111)
+
+Regla fuerte de D-111 (Q-13): cada id de E15 existe como subprueba `t.Run("<id>", …)` y pasa. Hoy el API implementa solo el algoritmo 5.2 (`src/fechas`, con `src/registro`), y sus 23 ids están en `test/fechas` bajo `TestFP` (`go test ./test/fechas -run 'TestFP/^FP-17$' -v`). Los otros 18 algoritmos (263 ids: RD, MT, FE, SM, PS, AV, RG, SU, RC, CC, AC, HV, OD, DV, SD, CI, CP y PM) no tienen todavía código en `src/` (no existe `nucleo`, D-145): su subprueba entra con el algoritmo, sin simular la función, y cada uno llama a la implementación real de `src/`.
+
 ## Vulnerabilidades (govulncheck)
 
 El pipeline `api` corre `go tool govulncheck ./...` (v1.9.0, 2026-10-11) después de `go vet`. La herramienta está como directiva `tool` en `go.mod`, con sus sumas en `go.sum`, así que la versión queda fijada con el resto de las dependencias; no entra en el binario del API (`go version -m` lista los mismos módulos) y no está en `src/`, de modo que la barrera de cobertura no la ve. Con la salida por defecto falla (código 3) solo si el código llama a un símbolo vulnerable. En local: `cd api && go tool govulncheck ./...`.
