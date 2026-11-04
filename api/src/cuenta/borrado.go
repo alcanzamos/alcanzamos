@@ -16,6 +16,12 @@ var (
 	// ErrFaltaConfirmarMenores: hay menores que dependen solo de la persona y no confirmó que sus cuentas también se
 	// borran (RN-006). PN-69: «Falta confirmar lo de {nombre}.»
 	ErrFaltaConfirmarMenores = errors.New("falta confirmar el borrado de las cuentas de los menores")
+	// ErrMenoresCambiaron: los menores que dependen solo de la persona ya no son los que la pantalla mostró y confirmó
+	// (otro tutor borró su cuenta, o se sumó uno). No se borra nada: la pantalla vuelve a leer el resumen (RN-006).
+	ErrMenoresCambiaron = errors.New("los menores a cargo cambiaron desde que se mostraron")
+	// ErrOcupada: tras varios intentos la base sigue ocupada con otra operación sobre la misma cuenta y esta sigue
+	// existiendo; no se borró nada y se puede intentar de nuevo.
+	ErrOcupada = errors.New("la cuenta está ocupada con otra operación")
 	// ErrNoExiste lo devuelve el Repositorio cuando la persona ya no existe (otro pedido la borró antes).
 	ErrNoExiste = errors.New("la cuenta no existe")
 	// ErrCuentaDeMenor: una persona menor no borra su cuenta: lo pide por el canal de consultas y reclamos (E14-PME).
@@ -43,12 +49,20 @@ type HogarAlBorrar struct {
 // hay filas 5 y 6.
 type ResumenDeBorrado struct {
 	Hogar *HogarAlBorrar
-	// Menores son los nombres de quienes dependen solo de esta persona y se borrarán con ella.
-	Menores []string
+	// Menores son quienes dependen solo de esta persona y se borrarán con ella, por nombre alfabético. El `ID` es lo que
+	// el cliente devuelve al borrar: confirma exactamente a quienes mostró (RN-006).
+	Menores []MenorACargo
 }
 
+// MenorACargo es un menor que depende solo de la persona que borra su cuenta.
+type MenorACargo struct{ ID, Nombre string }
+
 // CredencialDeBorrado es lo que hace falta para confirmar con la contraseña.
-type CredencialDeBorrado struct{ Correo, Hash string }
+type CredencialDeBorrado struct {
+	Correo, Hash string
+	// EsMenor: la cuenta es de un menor, que no borra su cuenta por aquí (E14-PME P-3).
+	EsMenor bool
+}
 
 // RepositorioDeBorrado es la persistencia del borrado (la implementa src/pg).
 type RepositorioDeBorrado interface {
@@ -57,9 +71,10 @@ type RepositorioDeBorrado interface {
 	// Resumen lee lo que dice PN-69 del hogar y de los menores, o ErrNoExiste.
 	Resumen(ctx context.Context, persona string) (ResumenDeBorrado, error)
 	// BorrarCuenta borra la cuenta en una sola transacción (RN-006, RN-007): o queda todo borrado o no cambia nada.
-	// Con menores que dependen solo de la persona y `confirmaMenores` en falso devuelve ErrFaltaConfirmarMenores sin
-	// cambiar nada. Las autorizaciones quedan retiradas en `ahora` y se conservan hasta `conservarHasta`.
-	BorrarCuenta(ctx context.Context, persona string, confirmaMenores bool, ahora, conservarHasta time.Time) error
+	// `vistos` son los ids de los menores que la pantalla mostró: dentro de la transacción se vuelven a calcular los que
+	// dependen solo de la persona y, si no son los mismos, ErrMenoresCambiaron sin cambiar nada. Con menores y
+	// `confirmaMenores` en falso, ErrFaltaConfirmarMenores. Las autorizaciones quedan retiradas en `ahora` y se conservan hasta `conservarHasta`.
+	BorrarCuenta(ctx context.Context, persona string, vistos []string, confirmaMenores bool, ahora, conservarHasta time.Time) error
 }
 
 // Verificador comprueba una contraseña contra su hash (src/argon2id).
@@ -87,6 +102,7 @@ func (b *Borrado) Resumen(ctx context.Context, persona string) (ResumenDeBorrado
 
 // Borrar borra la cuenta de la persona (RF-032, RN-006, CU-40), en el orden de PN-69:
 //
+//  0. Una cuenta de menor es ErrCuentaDeMenor antes de mirar la contraseña: 400 y 403 no deben decir si acertó.
 //  1. Sin la contraseña: *ErrValidacion (`contrasena`: `contrasena_vacia`).
 //  2. Con el límite de D-136 alcanzado (el mismo contador del inicio de sesión, por el correo de la cuenta y por
 //     origen; sin correo, por la persona): ErrDemasiadosIntentos. Así borrar no da intentos de más para adivinar la
@@ -96,13 +112,16 @@ func (b *Borrado) Resumen(ctx context.Context, persona string) (ResumenDeBorrado
 //     ErrFaltaConfirmarMenores y no cambia nada.
 //
 // Con la cuenta ya borrada es ErrNoExiste: la segunda llamada no borra nada ni inventa un éxito.
-func (b *Borrado) Borrar(ctx context.Context, persona, contrasena string, confirmaMenores bool, origen string) error {
+func (b *Borrado) Borrar(ctx context.Context, persona, contrasena string, vistos []string, confirmaMenores bool, origen string) error {
 	if contrasena == "" {
 		return &ErrValidacion{Campos: map[string]string{campoContrasena: ContrasenaVacia}}
 	}
 	cred, err := b.repo.CredencialDe(ctx, persona)
 	if err != nil {
 		return err
+	}
+	if cred.EsMenor {
+		return ErrCuentaDeMenor
 	}
 	identificador := cred.Correo
 	if identificador == "" {
@@ -120,5 +139,5 @@ func (b *Borrado) Borrar(ctx context.Context, persona, contrasena string, confir
 		return ErrContrasenaIncorrecta
 	}
 	ahora := b.reloj.Ahora()
-	return b.repo.BorrarCuenta(ctx, persona, confirmaMenores, ahora, ahora.AddDate(AniosDeLaPruebaDeAutorizacion, 0, 0))
+	return b.repo.BorrarCuenta(ctx, persona, vistos, confirmaMenores, ahora, ahora.AddDate(AniosDeLaPruebaDeAutorizacion, 0, 0))
 }
