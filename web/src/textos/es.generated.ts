@@ -228,8 +228,8 @@ export const textos = {
     titulo: "Por confirmar",
     // E14-PRR 4.1 (PN-01), fila 2a
     textoVarias: "Estos movimientos que se repiten ya llegaron a su fecha. Confírmalos con un toque, o toca «Más» si no pasaron o cambió el monto.",
-    // E14-PPN 4.1 (Inicio), fila 3a, «Con una sola fecha»; PN-01 no trae un texto aparte para una sola fecha; su uso en PN-01 queda propuesto
-    textoUna: "Esta fecha de un movimiento que se repite ya llegó. Confírmala con un toque.",
+    // E14-PRR 4.7 (PN-72), fila 4b; aprobado para PN-01 y PN-72 en D-179. Clave única: PN-72 debe reutilizarla
+    textoUna: "Esta fecha de un movimiento que se repite ya llegó. Confírmala con un toque, o toca «Más» si no pasó o cambió el monto.",
     // E14-PRR 4.1 (PN-01), «Confirmar un movimiento que se repite», fila «Marca»
     marca: "Por confirmar",
     // E14-PRR 4.1 (PN-01), «Confirmar un movimiento que se repite», fila «Confirmar»

@@ -1401,8 +1401,8 @@
         "e14": "E14-PRR 4.1 (PN-01), fila 2a"
       },
       "textoUna": {
-        "texto": "Esta fecha de un movimiento que se repite ya llegó. Confírmala con un toque.",
-        "e14": "E14-PPN 4.1 (Inicio), fila 3a, «Con una sola fecha»; PN-01 no trae un texto aparte para una sola fecha; su uso en PN-01 queda propuesto"
+        "texto": "Esta fecha de un movimiento que se repite ya llegó. Confírmala con un toque, o toca «Más» si no pasó o cambió el monto.",
+        "e14": "E14-PRR 4.7 (PN-72), fila 4b; aprobado para PN-01 y PN-72 en D-179. Clave única: PN-72 debe reutilizarla"
       },
       "marca": {
         "texto": "Por confirmar",

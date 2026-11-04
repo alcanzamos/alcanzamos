@@ -215,7 +215,7 @@ test.describe("PN-01 · «Por confirmar» (US-60)", () => {
     // Quedó una sola fecha: el texto cambia a singular. El movimiento entra en la lista de su día.
     await expect(
       page.getByText(
-        "Esta fecha de un movimiento que se repite ya llegó. Confírmala con un toque.",
+        "Esta fecha de un movimiento que se repite ya llegó. Confírmala con un toque, o toca «Más» si no pasó o cambió el monto.",
       ),
     ).toBeVisible();
     await expect(

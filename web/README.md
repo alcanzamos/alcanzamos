@@ -82,7 +82,7 @@ Sección «Por confirmar» de PN-01 (E14-PRR 4.1), contra `GET /api/v1/repeticio
 - **La fila:** la repetición no tiene nombre; se titula con el nombre de la categoría (`categoria_id`, igual que las filas de movimientos) y la fecha va en palabras (D-090). «Confirmar» crea el movimiento con el monto habitual y la fecha programada; «Más» abre una hoja con «Cambiar el monto» y «No pasó». El aviso usa el tipo y el monto que devuelve el API. Mientras confirma, el botón queda deshabilitado (`aria-disabled`): no se toca dos veces.
 - **Hoja inferior (E14-SDD 5.12):** en la web es un panel debajo de su fila, sin velo; por debajo de 768 px, anclada abajo con su velo. El foco entra en el título, queda dentro (Tab) y vuelve al botón «Más» al cerrar (con «Cerrar», el velo, «Ahora no» o Escape).
 - **Errores:** el fallo deja la fecha por confirmar y muestra el aviso de E14 dentro de la sección (con el foco). Un `409` (`conflicto_concurrente` o `fecha_no_pendiente`) vuelve a pedir la lista antes de mostrar ese mismo texto; el `401` y los `403` siguen su camino de siempre. Tras un éxito se vuelve a pedir lo pendiente y la lista, el aviso entra por la región viva de la página y el foco pasa al título.
-- **Textos:** `solo_web.porConfirmar` de `diseno/textos/es.json`. El texto de una sola fecha («Esta fecha de un movimiento que se repite ya llegó…») es el de la tarjeta de Inicio (E14-PPN 4.1, fila 3a): PN-01 no trae uno aparte, así que su uso aquí está marcado «propuesto».
+- **Textos:** `solo_web.porConfirmar` de `diseno/textos/es.json`. El texto de una sola fecha es el de PN-72 (E14-PRR 4.7, fila 4b), aprobado para PN-01 y PN-72 en D-179: una sola clave (`textoUna`), que PN-72 debe reutilizar.
 
 ### Pendientes de E14
 
