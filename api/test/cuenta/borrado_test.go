@@ -436,3 +436,18 @@ func TestUnMenorEsRechazadoAntesDeLaContrasena(t *testing.T) {
 		t.Errorf("%d, verificaciones %d", rr.Code, e.verif.veces)
 	}
 }
+
+// El 503 deja su línea en el registro, con el error de la base (código y restricción) y sin datos personales.
+func TestPostBorradoOcupadoDejaLineaEnElRegistroSinDatosPersonales(t *testing.T) {
+	e := nuevoEntornoDeBorrado()
+	e.repo.errBorrar = errors.Join(cuenta.ErrOcupada, errors.New(`ERROR: choque (SQLSTATE 40001) [SQLSTATE 40001, restricción ""]`))
+	rr := e.pedir(t, "POST", `{"contrasena":"`+claveQueBorra+`"}`)
+	if rr.Code != 503 {
+		t.Fatalf("%d", rr.Code)
+	}
+	log := e.registro.String()
+	if !strings.Contains(log, "sigue ocupado") || !strings.Contains(log, "SQLSTATE 40001") ||
+		strings.Contains(log, personaQueBorra) || strings.Contains(log, correoQueBorra) || strings.Contains(log, claveQueBorra) {
+		t.Errorf("registro: %s", log)
+	}
+}

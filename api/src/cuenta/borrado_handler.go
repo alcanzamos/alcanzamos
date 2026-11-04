@@ -109,6 +109,8 @@ func (h *HandlerDeBorrado) borrar(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, ErrMenoresCambiaron):
 		servidor.EscribirError(w, http.StatusConflict, "menores_cambiaron")
 	case errors.Is(err, ErrOcupada):
+		// Sin datos personales (E17-ECO 3.13): el error trae solo el código y la restricción de la base.
+		h.log.WarnContext(r.Context(), "el borrado de la cuenta sigue ocupado tras varios intentos", "peticion", seguridad.PeticionDe(r.Context()), "error", err)
 		servidor.EscribirError(w, http.StatusServiceUnavailable, "ocupado")
 	case errors.Is(err, ErrDemasiadosIntentos):
 		h.eventos.Registrar(r.Context(), seguridad.InicioSesionFallido, sujeto.Persona, r.Pattern, http.StatusTooManyRequests)

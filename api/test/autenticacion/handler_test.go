@@ -213,3 +213,17 @@ func TestUnaCuentaBorradaEntreBuscarlaYEntrarDaElMismo401(t *testing.T) {
 		t.Errorf("deja el evento: %s", e.registro)
 	}
 }
+
+// US-53: cambiar la contraseña mientras la cuenta se borra. La cuenta ya no existe: la sesión no sirve, 401 sin_sesion,
+// tanto si falta al leer la credencial como si se fue al guardar la contraseña nueva.
+func TestCambiarLaContrasenaDeUnaCuentaBorradaDa401(t *testing.T) {
+	for _, donde := range []string{"CredencialDe", "CambiarContrasena"} {
+		e := nuevoEntorno(t)
+		e.repo.errores = map[string]error{donde: autenticacion.ErrNoExiste}
+		token, _ := seguridad.NuevoTokenOpaco()
+		c, b := e.cambiar(t, cuerpoCambio(claveDePrueba, claveNueva), token)
+		if c != 401 || b != `{"error":"sin_sesion"}` {
+			t.Errorf("%s: %d %s", donde, c, b)
+		}
+	}
+}

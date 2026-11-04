@@ -64,6 +64,8 @@ func (h *Handler) crear(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case errors.As(err, &invalido):
 		servidor.EscribirJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": "datos_invalidos", "campos": invalido.Campos})
+	case errors.Is(err, ErrSinCuenta):
+		servidor.EscribirError(w, http.StatusUnauthorized, servidor.CodigoSinSesion)
 	case err != nil:
 		h.fallar(w, r, "no se pudo guardar el movimiento", err)
 	default:
