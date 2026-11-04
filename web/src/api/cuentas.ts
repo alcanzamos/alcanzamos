@@ -33,7 +33,8 @@ export type ResumenDeBorrado = {
     unica_adulta: boolean;
     nuevo_administrador: string | null;
   } | null;
-  menores: string[];
+  /** Quienes dependen solo de la persona. El borrado devuelve sus `id`: confirma a los que se mostraron. */
+  menores: { id: string; nombre: string }[];
 };
 
 // PN-69: lo que cambia en la pantalla según el hogar y los menores, y el borrado mismo (api/README.md, «Borrar la cuenta»).
@@ -43,4 +44,5 @@ export const resumenDeBorrado = () =>
 export const borrarLaCuenta = (datos: {
   contrasena: string;
   confirma_menores: boolean;
+  menores: string[];
 }) => pedir("POST", "/api/v1/cuenta/borrado", datos);

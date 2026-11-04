@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -38,6 +39,7 @@ type repoDeBorradoFalso struct {
 
 type llamadaDeBorrado struct {
 	persona         string
+	vistos          []string
 	confirmaMenores bool
 	ahora, hasta    time.Time
 }
@@ -51,8 +53,8 @@ func (r *repoDeBorradoFalso) Resumen(context.Context, string) (cuenta.ResumenDeB
 	return r.resumen, r.errResumen
 }
 
-func (r *repoDeBorradoFalso) BorrarCuenta(_ context.Context, persona string, confirma bool, ahora, hasta time.Time) error {
-	r.borradas = append(r.borradas, llamadaDeBorrado{persona, confirma, ahora, hasta})
+func (r *repoDeBorradoFalso) BorrarCuenta(_ context.Context, persona string, vistos []string, confirma bool, ahora, hasta time.Time) error {
+	r.borradas = append(r.borradas, llamadaDeBorrado{persona, vistos, confirma, ahora, hasta})
 	return r.errBorrar
 }
 
@@ -92,18 +94,18 @@ func nuevoEntornoDeBorrado() *entornoDeBorrado {
 
 func TestBorrarConLaContrasenaBorraConLasFechasDeLaPruebaDeAutorizacion(t *testing.T) {
 	e := nuevoEntornoDeBorrado()
-	if err := e.servicio.Borrar(context.Background(), personaQueBorra, claveQueBorra, true, "203.0.113.7"); err != nil {
+	if err := e.servicio.Borrar(context.Background(), personaQueBorra, claveQueBorra, []string{"m1"}, true, "203.0.113.7"); err != nil {
 		t.Fatal(err)
 	}
-	quiere := llamadaDeBorrado{personaQueBorra, true, ahoraDePrueba, ahoraDePrueba.AddDate(cuenta.AniosDeLaPruebaDeAutorizacion, 0, 0)}
-	if len(e.repo.borradas) != 1 || e.repo.borradas[0] != quiere {
+	quiere := llamadaDeBorrado{personaQueBorra, []string{"m1"}, true, ahoraDePrueba, ahoraDePrueba.AddDate(cuenta.AniosDeLaPruebaDeAutorizacion, 0, 0)}
+	if len(e.repo.borradas) != 1 || !reflect.DeepEqual(e.repo.borradas[0], quiere) {
 		t.Errorf("borradas %+v, se esperaba %+v", e.repo.borradas, quiere)
 	}
 }
 
 func TestBorrarSinContrasenaNoMiraNiBorraNada(t *testing.T) {
 	e := nuevoEntornoDeBorrado()
-	err := e.servicio.Borrar(context.Background(), personaQueBorra, "", true, "203.0.113.7")
+	err := e.servicio.Borrar(context.Background(), personaQueBorra, "", []string{"m1"}, true, "203.0.113.7")
 	var invalida *cuenta.ErrValidacion
 	if !errors.As(err, &invalida) || invalida.Campos["contrasena"] != cuenta.ContrasenaVacia || len(invalida.Campos) != 1 {
 		t.Fatalf("error %v", err)
@@ -116,13 +118,13 @@ func TestBorrarSinContrasenaNoMiraNiBorraNada(t *testing.T) {
 func TestBorrarConLaContrasenaMalNoBorraYCuentaComoFallo(t *testing.T) {
 	e := nuevoEntornoDeBorrado()
 	for range 5 {
-		if err := e.servicio.Borrar(context.Background(), personaQueBorra, "mal", true, "203.0.113.7"); !errors.Is(err, cuenta.ErrContrasenaIncorrecta) {
+		if err := e.servicio.Borrar(context.Background(), personaQueBorra, "mal", []string{"m1"}, true, "203.0.113.7"); !errors.Is(err, cuenta.ErrContrasenaIncorrecta) {
 			t.Fatalf("error %v", err)
 		}
 	}
 	// D-136: el sexto intento ya no llega a comprobar la contraseña, ni siquiera con la buena.
 	veces := e.verif.veces
-	if err := e.servicio.Borrar(context.Background(), personaQueBorra, claveQueBorra, true, "203.0.113.7"); !errors.Is(err, cuenta.ErrDemasiadosIntentos) {
+	if err := e.servicio.Borrar(context.Background(), personaQueBorra, claveQueBorra, []string{"m1"}, true, "203.0.113.7"); !errors.Is(err, cuenta.ErrDemasiadosIntentos) {
 		t.Fatalf("sexto intento: %v", err)
 	}
 	if e.verif.veces != veces || len(e.repo.borradas) != 0 {
@@ -137,7 +139,7 @@ func TestElLimiteEsElMismoDelInicioDeSesion(t *testing.T) {
 	for range 5 {
 		e.limitador.RegistrarFalloDeIngreso(correoQueBorra, "198.51.100.1")
 	}
-	if err := e.servicio.Borrar(context.Background(), personaQueBorra, claveQueBorra, true, "203.0.113.7"); !errors.Is(err, cuenta.ErrDemasiadosIntentos) {
+	if err := e.servicio.Borrar(context.Background(), personaQueBorra, claveQueBorra, []string{"m1"}, true, "203.0.113.7"); !errors.Is(err, cuenta.ErrDemasiadosIntentos) {
 		t.Fatalf("error %v", err)
 	}
 }
@@ -146,9 +148,9 @@ func TestSinCorreoElLimiteSeCuentaPorLaPersona(t *testing.T) {
 	e := nuevoEntornoDeBorrado()
 	e.repo.credencial.Correo = ""
 	for range 5 {
-		_ = e.servicio.Borrar(context.Background(), personaQueBorra, "mal", false, "203.0.113.7")
+		_ = e.servicio.Borrar(context.Background(), personaQueBorra, "mal", []string{"m1"}, false, "203.0.113.7")
 	}
-	if err := e.servicio.Borrar(context.Background(), personaQueBorra, claveQueBorra, false, "203.0.113.7"); !errors.Is(err, cuenta.ErrDemasiadosIntentos) {
+	if err := e.servicio.Borrar(context.Background(), personaQueBorra, claveQueBorra, []string{"m1"}, false, "203.0.113.7"); !errors.Is(err, cuenta.ErrDemasiadosIntentos) {
 		t.Fatalf("error %v", err)
 	}
 }
@@ -172,7 +174,7 @@ func TestLosErroresDelRepositorioYDelVerificadorSePropagan(t *testing.T) {
 		t.Run(nombre, func(t *testing.T) {
 			e := nuevoEntornoDeBorrado()
 			quiere := c(e)
-			if err := e.servicio.Borrar(context.Background(), personaQueBorra, claveQueBorra, false, "203.0.113.7"); !errors.Is(err, quiere) {
+			if err := e.servicio.Borrar(context.Background(), personaQueBorra, claveQueBorra, []string{"m1"}, false, "203.0.113.7"); !errors.Is(err, quiere) {
 				t.Errorf("error %v, se esperaba %v", err, quiere)
 			}
 		})
@@ -181,9 +183,9 @@ func TestLosErroresDelRepositorioYDelVerificadorSePropagan(t *testing.T) {
 
 func TestElResumenSeEntregaTalCual(t *testing.T) {
 	e := nuevoEntornoDeBorrado()
-	e.repo.resumen = cuenta.ResumenDeBorrado{Menores: []string{"Mateo"}}
+	e.repo.resumen = cuenta.ResumenDeBorrado{Menores: []cuenta.MenorACargo{{ID: "m1", Nombre: "Mateo"}}}
 	r, err := e.servicio.Resumen(context.Background(), personaQueBorra)
-	if err != nil || len(r.Menores) != 1 || r.Menores[0] != "Mateo" {
+	if err != nil || len(r.Menores) != 1 || r.Menores[0].Nombre != "Mateo" {
 		t.Fatalf("%+v %v", r, err)
 	}
 	e.repo.errResumen = cuenta.ErrNoExiste
@@ -241,7 +243,7 @@ func json2(t *testing.T, rr *httptest.ResponseRecorder) map[string]any {
 
 func TestPostBorradoBorraYCierraLaCookie(t *testing.T) {
 	e := nuevoEntornoDeBorrado()
-	rr := e.pedir(t, "POST", `{"contrasena":"`+claveQueBorra+`","confirma_menores":true}`)
+	rr := e.pedir(t, "POST", `{"contrasena":"`+claveQueBorra+`","confirma_menores":true,"menores":["m1"]}`)
 	if rr.Code != 200 || strings.TrimSpace(rr.Body.String()) != `{"estado":"cuenta_borrada"}` || rr.Header().Get("Cache-Control") != "no-store" {
 		t.Fatalf("%d %s %v", rr.Code, rr.Body, rr.Header())
 	}
@@ -249,7 +251,8 @@ func TestPostBorradoBorraYCierraLaCookie(t *testing.T) {
 	if len(cs) != 1 || cs[0].Name != "__Host-sesion" || cs[0].MaxAge >= 0 || cs[0].Value != "" {
 		t.Errorf("cookie %+v", cs)
 	}
-	if len(e.repo.borradas) != 1 || e.repo.borradas[0].persona != personaQueBorra || !e.repo.borradas[0].confirmaMenores {
+	b := e.repo.borradas
+	if len(b) != 1 || b[0].persona != personaQueBorra || !b[0].confirmaMenores || len(b[0].vistos) != 1 || b[0].vistos[0] != "m1" {
 		t.Errorf("borradas %+v", e.repo.borradas)
 	}
 }
@@ -367,10 +370,10 @@ func TestGetBorradoDaElResumenDeLaPantalla(t *testing.T) {
 	nombre := "Nuestro hogar"
 	e.repo.resumen = cuenta.ResumenDeBorrado{
 		Hogar:   &cuenta.HogarAlBorrar{Nombre: &nombre, EsAdministradora: true, NuevoAdministrador: "Camilo"},
-		Menores: []string{"Mateo"},
+		Menores: []cuenta.MenorACargo{{ID: "m1", Nombre: "Mateo"}},
 	}
 	rr := e.pedir(t, "GET", "")
-	quiere := `{"hogar":{"nombre":"Nuestro hogar","es_administradora":true,"unica_adulta":false,"nuevo_administrador":"Camilo"},"menores":["Mateo"]}`
+	quiere := `{"hogar":{"nombre":"Nuestro hogar","es_administradora":true,"unica_adulta":false,"nuevo_administrador":"Camilo"},"menores":[{"id":"m1","nombre":"Mateo"}]}`
 	if rr.Code != 200 || strings.TrimSpace(rr.Body.String()) != quiere || rr.Header().Get("Cache-Control") != "no-store" {
 		t.Fatalf("%d %s %v", rr.Code, rr.Body, rr.Header())
 	}
@@ -397,5 +400,39 @@ func TestGetBorradoErrores(t *testing.T) {
 	e.repo.errResumen = errors.New("roto")
 	if rr := e.pedir(t, "GET", ""); rr.Code != 500 || !strings.Contains(e.registro.String(), "no se pudo leer el resumen del borrado") {
 		t.Errorf("roto: %d %s", rr.Code, e.registro)
+	}
+}
+
+func TestPostBorradoConLosMenoresCambiadosDa409SinCerrarLaSesion(t *testing.T) {
+	e := nuevoEntornoDeBorrado()
+	e.repo.errBorrar = cuenta.ErrMenoresCambiaron
+	rr := e.pedir(t, "POST", `{"contrasena":"`+claveQueBorra+`","confirma_menores":true,"menores":["m1"]}`)
+	if rr.Code != 409 || strings.TrimSpace(rr.Body.String()) != `{"error":"menores_cambiaron"}` || rr.Header().Get("Set-Cookie") != "" {
+		t.Fatalf("%d %s %v", rr.Code, rr.Body, rr.Header())
+	}
+}
+
+func TestPostBorradoOcupadoDa503ConLaCuentaIntacta(t *testing.T) {
+	e := nuevoEntornoDeBorrado()
+	e.repo.errBorrar = cuenta.ErrOcupada
+	rr := e.pedir(t, "POST", `{"contrasena":"`+claveQueBorra+`"}`)
+	if rr.Code != 503 || strings.TrimSpace(rr.Body.String()) != `{"error":"ocupado"}` || rr.Header().Get("Set-Cookie") != "" {
+		t.Fatalf("%d %s", rr.Code, rr.Body)
+	}
+}
+
+// Una cuenta de menor se rechaza antes de mirar la contraseña: 403 igual con la buena y con la mala, sin gastar el
+// límite ni verificar nada.
+func TestUnMenorEsRechazadoAntesDeLaContrasena(t *testing.T) {
+	e := nuevoEntornoDeBorrado()
+	e.repo.credencial.EsMenor = true
+	for _, clave := range []string{claveQueBorra, "mal"} {
+		if err := e.servicio.Borrar(context.Background(), personaQueBorra, clave, nil, false, "203.0.113.7"); !errors.Is(err, cuenta.ErrCuentaDeMenor) {
+			t.Errorf("%q: %v", clave, err)
+		}
+	}
+	rr := e.pedir(t, "POST", `{"contrasena":"mal"}`)
+	if rr.Code != 403 || e.verif.veces != 0 || len(e.repo.borradas) != 0 {
+		t.Errorf("%d, verificaciones %d", rr.Code, e.verif.veces)
 	}
 }

@@ -44,7 +44,7 @@ type hogarAlBorrarJSON struct {
 }
 
 // resumen atiende GET /api/v1/cuenta/borrado: lo que PN-69 dice del hogar (fila 4) y de los menores (filas 5 y 6).
-// `{"hogar": null | {nombre, es_administradora, unica_adulta, nuevo_administrador}, "menores": ["Mateo"]}`.
+// `{"hogar": null | {nombre, es_administradora, unica_adulta, nuevo_administrador}, "menores": [{"id", "nombre"}]}`.
 // `hogar` es nulo sin hogar; `nuevo_administrador` solo viene si administra y queda otra persona adulta; `menores`
 // son quienes dependen solo de ella. No cambia nada.
 func (h *HandlerDeBorrado) resumen(w http.ResponseWriter, r *http.Request) {
@@ -65,15 +65,16 @@ func (h *HandlerDeBorrado) resumen(w http.ResponseWriter, r *http.Request) {
 			hogar.NuevoAdministrador = &res.Hogar.NuevoAdministrador
 		}
 	}
-	menores := res.Menores
-	if menores == nil {
-		menores = []string{}
+	menores := make([]map[string]string, 0, len(res.Menores))
+	for _, m := range res.Menores {
+		menores = append(menores, map[string]string{"id": m.ID, "nombre": m.Nombre})
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	servidor.EscribirJSON(w, http.StatusOK, map[string]any{"hogar": hogar, "menores": menores})
 }
 
-// borrar atiende POST /api/v1/cuenta/borrado (PN-69): `{contrasena, confirma_menores}`.
+// borrar atiende POST /api/v1/cuenta/borrado (PN-69): `{contrasena, confirma_menores, menores}`, con `menores` los ids
+// que la pantalla mostró (los del GET).
 //
 //   - 200 `{"estado":"cuenta_borrada"}`: todo borrado en una transacción, todas las sesiones de la persona ya no
 //     sirven y la cookie de la web se manda a borrar. El cliente va a PN-60 con «Borramos tu cuenta.»
@@ -82,19 +83,22 @@ func (h *HandlerDeBorrado) resumen(w http.ResponseWriter, r *http.Request) {
 //     (también con evento).
 //   - 422 `validacion` con `contrasena: contrasena_vacia` («Falta tu contraseña.») o con
 //     `confirma_menores: confirmacion_requerida` («Falta confirmar lo de {nombre}.»): no cambia nada.
+//   - 409 `menores_cambiaron`: los menores que dependen solo de la persona ya no son los mostrados; no se borró nada y
+//     la pantalla vuelve a leer el resumen. 503 `ocupado`: la base siguió ocupada tras varios intentos y la cuenta sigue.
 //   - 403 `cuenta_de_menor`: el menor no borra su cuenta (E14-PME); 401 `sin_sesion` si la cuenta ya no existe.
 //
 // Una segunda llamada con la misma sesión es 401: la primera ya la borró. Nada de lo que se borra queda en el registro.
 func (h *HandlerDeBorrado) borrar(w http.ResponseWriter, r *http.Request) {
 	var cuerpo struct {
-		Contrasena      string `json:"contrasena"`
-		ConfirmaMenores bool   `json:"confirma_menores"`
+		Contrasena      string   `json:"contrasena"`
+		ConfirmaMenores bool     `json:"confirma_menores"`
+		Menores         []string `json:"menores"`
 	}
 	if !servidor.LeerJSON(w, r, &cuerpo) {
 		return
 	}
 	sujeto, _ := servidor.SujetoDe(r.Context())
-	err := h.servicio.Borrar(r.Context(), sujeto.Persona, cuerpo.Contrasena, cuerpo.ConfirmaMenores, OrigenDe(r))
+	err := h.servicio.Borrar(r.Context(), sujeto.Persona, cuerpo.Contrasena, cuerpo.Menores, cuerpo.ConfirmaMenores, OrigenDe(r))
 	var invalida *ErrValidacion
 	switch {
 	case errors.As(err, &invalida):
@@ -102,6 +106,10 @@ func (h *HandlerDeBorrado) borrar(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, ErrFaltaConfirmarMenores):
 		servidor.EscribirJSON(w, http.StatusUnprocessableEntity, map[string]any{
 			"error": "validacion", "campos": map[string]string{campoConfirmaMenores: ConfirmacionRequerida}})
+	case errors.Is(err, ErrMenoresCambiaron):
+		servidor.EscribirError(w, http.StatusConflict, "menores_cambiaron")
+	case errors.Is(err, ErrOcupada):
+		servidor.EscribirError(w, http.StatusServiceUnavailable, "ocupado")
 	case errors.Is(err, ErrDemasiadosIntentos):
 		h.eventos.Registrar(r.Context(), seguridad.InicioSesionFallido, sujeto.Persona, r.Pattern, http.StatusTooManyRequests)
 		servidor.EscribirError(w, http.StatusTooManyRequests, "demasiados_intentos")

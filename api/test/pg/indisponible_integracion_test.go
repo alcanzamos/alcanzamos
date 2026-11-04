@@ -84,7 +84,7 @@ func TestConLaBaseCaidaCadaOperacionFallaConUnErrorDeInfraestructura(t *testing.
 		{"borrado.CredencialDe", func() error { _, err := pg.NuevoBorrado(pool).CredencialDe(ctx, persona); return err }},
 		{"borrado.Resumen", func() error { _, err := pg.NuevoBorrado(pool).Resumen(ctx, persona); return err }},
 		{"borrado.BorrarCuenta", func() error {
-			return pg.NuevoBorrado(pool).BorrarCuenta(ctx, persona, true, ahora, ahora)
+			return pg.NuevoBorrado(pool).BorrarCuenta(ctx, persona, nil, true, ahora, ahora)
 		}},
 		{"limpieza.LimpiarSesionesYEnlaces", func() error { _, _, err := limpieza.LimpiarSesionesYEnlaces(ctx, ahora); return err }},
 	}

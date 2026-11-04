@@ -11,6 +11,8 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -279,8 +281,9 @@ func quedaSoloLaPrueba(t *testing.T, pool *pgxpool.Pool, persona string) {
 	}
 }
 
-func borrar(pool *pgxpool.Pool, persona string, confirma bool) error {
-	return pg.NuevoBorrado(pool).BorrarCuenta(context.Background(), persona, confirma, ahora, conservarHasta)
+// borrar borra como la pantalla: con los ids de los menores que mostró y, si confirma, con la casilla marcada.
+func borrar(pool *pgxpool.Pool, persona string, confirma bool, vistos ...string) error {
+	return pg.NuevoBorrado(pool).BorrarCuenta(context.Background(), persona, vistos, confirma, ahora, conservarHasta)
 }
 
 func TestBorrarSinHogarNoDejaNadaDeLaPersonaYNoTocaAOtra(t *testing.T) {
@@ -440,7 +443,7 @@ func TestBorrarSiendoLaUnicaAdultaCierraElHogarYBorraLosMenoresQueDependenDeEla(
 	antesDeAna := filasDe(t, e.pool, ana)
 	antesDelOtroHogar := filasDe(t, e.pool, otroHogar)
 
-	if err := borrar(e.pool, laura, true); err != nil {
+	if err := borrar(e.pool, laura, true, mateo); err != nil {
 		t.Fatal(err)
 	}
 
@@ -478,10 +481,10 @@ func TestBorrarConMenoresSinConfirmarNoCambiaNada(t *testing.T) {
 	laura := adulta(t, e.pool, "Laura", "laura@ejemplo.test")
 	hogar := hogarDe(t, e.pool, "Nuestro hogar", laura, laura)
 	datos(t, e.pool, laura, hogar)
-	menor(t, e.pool, "Mateo", "mateo.p", laura)
+	mateo := menor(t, e.pool, "Mateo", "mateo.p", laura)
 	antes := fotografia(t, e.pool)
 
-	err := borrar(e.pool, laura, false)
+	err := borrar(e.pool, laura, false, mateo)
 
 	if !errors.Is(err, cuenta.ErrFaltaConfirmarMenores) {
 		t.Fatalf("error: %v", err)
@@ -499,12 +502,12 @@ func TestUnaFallaAMitadDelBorradoDejaTodoIntacto(t *testing.T) {
 	camilo := adulta(t, e.pool, "Camilo", "camilo@ejemplo.test")
 	hogar := hogarDe(t, e.pool, "Nuestro hogar", laura, laura, camilo)
 	datos(t, e.pool, laura, hogar)
-	menor(t, e.pool, "Mateo", "mateo.p", laura)
+	mateo := menor(t, e.pool, "Mateo", "mateo.p", laura)
 	ejecutar(t, e.pool, `CREATE FUNCTION falla_al_borrar() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'falla de prueba'; END $$`)
 	ejecutar(t, e.pool, `CREATE TRIGGER falla BEFORE DELETE ON persona FOR EACH ROW EXECUTE FUNCTION falla_al_borrar()`)
 	antes := fotografia(t, e.pool)
 
-	err := borrar(e.pool, laura, true)
+	err := borrar(e.pool, laura, true, mateo)
 
 	if err == nil || !strings.Contains(err.Error(), "falla de prueba") {
 		t.Fatalf("se esperaba la falla del disparador: %v", err)
@@ -612,7 +615,7 @@ func TestResumenDelHogarYDeLosMenores(t *testing.T) {
 	if r.Hogar == nil || r.Hogar.Nombre == nil || *r.Hogar.Nombre != "Nuestro hogar" || !r.Hogar.EsAdministradora || r.Hogar.UnicaAdulta || r.Hogar.NuevoAdministrador != "Camilo" {
 		t.Errorf("hogar %+v", r.Hogar)
 	}
-	if !reflect.DeepEqual(r.Menores, []string{"Mateo", "Sofía"}) {
+	if len(r.Menores) != 2 || r.Menores[0].Nombre != "Mateo" || r.Menores[1].Nombre != "Sofía" {
 		t.Errorf("menores %v", r.Menores)
 	}
 
@@ -640,5 +643,216 @@ func TestLaCredencialParaConfirmarConLaContrasena(t *testing.T) {
 	}
 	if _, err := repo.CredencialDe(context.Background(), "0192f3c4-0000-7000-8000-0000000000ff"); !errors.Is(err, cuenta.ErrNoExiste) {
 		t.Errorf("sin cuenta: %v", err)
+	}
+}
+
+// RN-006: cada menor se avisa y se confirma. Si entre que la pantalla leyó el resumen y el borrado cambian los menores
+// que dependen solo de la persona, no se borra nada: confirmar a Mateo no confirma a Sofía.
+func TestBorrarConMenoresQueCambiaronNoBorraNada(t *testing.T) {
+	casos := []struct {
+		nombre string
+		vistos func(mateo, sofia string) []string
+	}{
+		{"se sumó un menor (el otro tutor se fue)", func(mateo, _ string) []string { return []string{mateo} }},
+		{"se mostraron menos de los que hay", func(string, string) []string { return nil }},
+		{"se mostró uno que ya no depende solo de ella", func(mateo, sofia string) []string {
+			return []string{mateo, sofia, "0192f3c4-0000-7000-8000-0000000000ff"}
+		}},
+	}
+	for _, c := range casos {
+		t.Run(c.nombre, func(t *testing.T) {
+			e := nuevoEntorno(t)
+			laura := adulta(t, e.pool, "Laura", "laura@ejemplo.test")
+			camilo := adulta(t, e.pool, "Camilo", "camilo@ejemplo.test")
+			hogarDe(t, e.pool, "Nuestro hogar", laura, laura, camilo)
+			mateo := menor(t, e.pool, "Mateo", "mateo.p", laura)
+			sofia := menor(t, e.pool, "Sofía", "sofia.p", laura, camilo)
+			// La pantalla de Laura mostró solo a Mateo; luego Camilo borra su cuenta y Sofía queda a cargo solo de Laura.
+			if err := borrar(e.pool, camilo, false); err != nil {
+				t.Fatal(err)
+			}
+			antes := fotografia(t, e.pool)
+
+			err := borrar(e.pool, laura, true, c.vistos(mateo, sofia)...)
+
+			if !errors.Is(err, cuenta.ErrMenoresCambiaron) {
+				t.Fatalf("error: %v", err)
+			}
+			if despues := fotografia(t, e.pool); !reflect.DeepEqual(antes, despues) {
+				t.Error("no se debe borrar nada, y menos a Sofía, a quien nadie avisó")
+			}
+			// Con los dos a la vista, sí.
+			if err := borrar(e.pool, laura, true, mateo, sofia); err != nil {
+				t.Fatal(err)
+			}
+			quedaSoloLaPrueba(t, e.pool, sofia)
+		})
+	}
+}
+
+// Dos pedidos a la vez de la misma cuenta: uno borra y el otro encuentra la cuenta ya borrada. Nunca un error de
+// serialización ni un punto medio.
+func TestDosBorradosAlMismoTiempoUnoBorraYElOtroDaErrNoExiste(t *testing.T) {
+	e := nuevoEntorno(t)
+	for i := range 20 {
+		laura := adulta(t, e.pool, "Laura", fmt.Sprintf("laura%d@ejemplo.test", i))
+		datos(t, e.pool, laura, "")
+		resultados := make([]error, 2)
+		var espera sync.WaitGroup
+		inicio := make(chan struct{})
+		for k := range resultados {
+			espera.Add(1)
+			go func() {
+				defer espera.Done()
+				<-inicio
+				resultados[k] = borrar(e.pool, laura, false)
+			}()
+		}
+		close(inicio)
+		espera.Wait()
+		bien, ausentes := 0, 0
+		for _, err := range resultados {
+			switch {
+			case err == nil:
+				bien++
+			case errors.Is(err, cuenta.ErrNoExiste):
+				ausentes++
+			default:
+				t.Errorf("vuelta %d: %v", i, err)
+			}
+		}
+		if bien != 1 || ausentes != 1 {
+			t.Errorf("vuelta %d: %d borrados y %d «no existe»: %v", i, bien, ausentes, resultados)
+		}
+		quedaSoloLaPrueba(t, e.pool, laura)
+	}
+}
+
+// La misma persona sigue escribiendo mientras se borra su cuenta: el borrado espera a los pedidos en curso, ve lo que
+// escribieron y termina; los que llegan después ya no tienen a quién escribirle.
+func TestBorrarMientrasLaMismaPersonaRegistraMovimientos(t *testing.T) {
+	e := nuevoEntorno(t)
+	ctx := context.Background()
+	for i := range 4 {
+		laura := adulta(t, e.pool, "Laura", fmt.Sprintf("laura%d@ejemplo.test", i))
+		datos(t, e.pool, laura, "")
+		parar := make(chan struct{})
+		var escritores sync.WaitGroup
+		var guardados atomic.Int32
+		for range 2 { // el pool tiene pocas conexiones: dos escritores dejan una libre para el borrado
+			escritores.Add(1)
+			go func() {
+				defer escritores.Done()
+				for {
+					select {
+					case <-parar:
+						return
+					default:
+					}
+					if _, err := e.pool.Exec(ctx, `INSERT INTO movimiento (persona_id, tipo, monto, fecha, medio, categoria_id) VALUES ($1::uuid, 'gasto', 100, '2026-11-02', 'efectivo', 1)`, laura); err == nil {
+						guardados.Add(1)
+					}
+					time.Sleep(time.Millisecond)
+				}
+			}()
+		}
+		for guardados.Load() < 10 {
+			time.Sleep(time.Millisecond)
+		}
+		err := borrar(e.pool, laura, false)
+		close(parar)
+		escritores.Wait()
+		if err != nil {
+			t.Fatalf("vuelta %d: %v", i, err)
+		}
+		quedaSoloLaPrueba(t, e.pool, laura)
+	}
+}
+
+// Un inicio de sesión a la vez con el borrado (toma la credencial y luego la persona) no deja el borrado en un
+// interbloqueo: al terminar, la cuenta está borrada.
+func TestBorrarMientrasOtroDispositivoEntra(t *testing.T) {
+	e := nuevoEntorno(t)
+	ctx := context.Background()
+	autenticaciones := pg.NuevoAutenticacion(e.pool)
+	for i := range 8 {
+		laura := adulta(t, e.pool, "Laura", fmt.Sprintf("laura%d@ejemplo.test", i))
+		parar := make(chan struct{})
+		var entradas sync.WaitGroup
+		for k := range 3 {
+			entradas.Add(1)
+			go func() {
+				defer entradas.Done()
+				for n := 0; ; n++ {
+					select {
+					case <-parar:
+						return
+					default:
+					}
+					huella := []byte(fmt.Sprintf("huella-%02d-%02d-%06d-relleno-32-by", i, k, n))[:32]
+					_ = autenticaciones.IniciarSesion(ctx, laura, huella, ahora, nil)
+				}
+			}()
+		}
+		time.Sleep(20 * time.Millisecond)
+		err := borrar(e.pool, laura, false)
+		close(parar)
+		entradas.Wait()
+		if err != nil {
+			t.Fatalf("vuelta %d: %v", i, err)
+		}
+		quedaSoloLaPrueba(t, e.pool, laura)
+	}
+}
+
+// Si la base aborta la transacción una y otra vez (aquí, un disparador que simula el choque), se reintenta un número
+// acotado de veces y después ErrOcupada: la cuenta sigue y no se borró nada; nunca un error que se confunda con éxito.
+func TestUnChoqueQueNoSeVaDaErrOcupadaYNoBorraNada(t *testing.T) {
+	e := nuevoEntorno(t)
+	laura := adulta(t, e.pool, "Laura", "laura@ejemplo.test")
+	datos(t, e.pool, laura, "")
+	ejecutar(t, e.pool, `CREATE FUNCTION choque() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'choque' USING ERRCODE = '40001'; END $$`)
+	ejecutar(t, e.pool, `CREATE TRIGGER choque BEFORE DELETE ON persona FOR EACH ROW EXECUTE FUNCTION choque()`)
+	antes := fotografia(t, e.pool)
+
+	err := borrar(e.pool, laura, false)
+
+	if !errors.Is(err, cuenta.ErrOcupada) || errors.Is(err, cuenta.ErrNoExiste) {
+		t.Fatalf("error: %v", err)
+	}
+	if despues := fotografia(t, e.pool); !reflect.DeepEqual(antes, despues) {
+		t.Error("la base cambió")
+	}
+}
+
+// Tras los reintentos, si la cuenta ya no está (otro pedido la borró), es lo mismo que llegar tarde: ErrNoExiste.
+func TestUnChoqueQueDejaLaCuentaBorradaDaErrNoExiste(t *testing.T) {
+	e := nuevoEntorno(t)
+	laura := adulta(t, e.pool, "Laura", "laura@ejemplo.test")
+	// El disparador falla con 40001 en cada intento y, al fallar, otra conexión borra la cuenta por fuera.
+	ejecutar(t, e.pool, `CREATE FUNCTION choque() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'choque' USING ERRCODE = '40001'; END $$`)
+	ejecutar(t, e.pool, `CREATE TRIGGER choque BEFORE DELETE ON persona FOR EACH ROW EXECUTE FUNCTION choque()`)
+	hecho := make(chan error, 1)
+	go func() {
+		// Otro pedido borra la cuenta cuando el disparador ya no estorba: se quita y se borra a mano.
+		time.Sleep(50 * time.Millisecond)
+		_, err := e.pool.Exec(context.Background(), `DROP TRIGGER choque ON persona`)
+		if err == nil {
+			_, err = e.pool.Exec(context.Background(), `DELETE FROM persona WHERE id = $1::uuid`, laura)
+		}
+		hecho <- err
+	}()
+	var err error
+	for range 200 { // hasta que la otra conexión borre la cuenta
+		if err = borrar(e.pool, laura, false); !errors.Is(err, cuenta.ErrOcupada) {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if e := <-hecho; e != nil {
+		t.Fatal(e)
+	}
+	if !errors.Is(err, cuenta.ErrNoExiste) {
+		t.Fatalf("error: %v", err)
 	}
 }
