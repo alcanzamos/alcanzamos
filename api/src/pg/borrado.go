@@ -138,30 +138,48 @@ func leerSituacion(ctx context.Context, q consultor, persona string) (situacion,
 // las metas y los recurrentes que referencian (ck_movimiento_recurrencia), y las deudas, al final.
 var tablasConDatos = []string{"movimiento", "movimiento_recurrente", "meta", "presupuesto", "deuda"}
 
-// intentosDeBorrado: cuántas veces se repite la transacción entera si la base la aborta por un choque con otra (40001
-// serialización o 40P01 interbloqueo). Después de eso, ErrOcupada si la cuenta sigue y ErrNoExiste si ya no.
+// intentosDeBorrado: cuántas veces se repite la transacción entera si la base la aborta por un choque con otra
+// (40001 serialización, 40P01 interbloqueo) o por una escritura concurrente que se coló (23503 llave foránea, 23514
+// restricción CHECK). Cada intento vuelve a leer y a calcular todo. Después de eso, ErrNoExiste si la cuenta ya no
+// está y ErrOcupada si sigue.
 const intentosDeBorrado = 3
 
 // BorrarCuenta borra la cuenta de la persona, en una sola transacción: o queda todo borrado o no cambia nada (RN-006,
 // RN-007, CU-40).
 //
-// **El candado va primero.** Antes de leer nada se bloquean la credencial y la fila de la persona (en ese orden, que
-// es el de `IniciarSesion`: actualiza la credencial y luego inserta la sesión, que toma la persona; al revés habría
-// interbloqueo). Así, dos borrados de la misma cuenta se turnan y el segundo encuentra la cuenta ya borrada
-// (cuenta.ErrNoExiste, no un error de serialización); lo que otro pedido estaba escribiendo de la misma persona
-// (cada fila nueva toma la persona con su llave foránea) termina antes de que se lea, y se borra también. Corre en
-// READ COMMITTED: con el candado tomado, cada lectura posterior ve lo ya confirmado.
+// **Los candados van primero, en un orden fijo**, y después se lee y se calcula:
 //
-//  1. Los menores que dependen solo de ella son exactamente `vistos`, los que la pantalla mostró; si no, o si cambiaron
+//  1. La credencial, la persona y su perfil de adulta (en ese orden, que es el de `IniciarSesion`: actualiza la
+//     credencial y luego inserta la sesión). Las llaves foráneas de lo que otros escriban de ella (movimientos, metas,
+//     sesiones…, que apuntan a `persona`; presupuestos, deudas y tarjetas, que apuntan a `perfil_adulto`) toman un
+//     candado compartido sobre esas filas: quedan esperando y, cuando la persona se borra, fallan por la llave sin que
+//     nada quede a medias.
+//  2. Los menores que ella tutela: su persona, su perfil de menor y **todas las tutorías de esos menores**, ordenadas.
+//     Así dos tutores de la misma menor que borran a la vez se turnan (la segunda ve a la menor a cargo solo de ella),
+//     una tutoría nueva espera, y lo que escriba la menor espera.
+//  3. Su hogar y los miembros de ese hogar, para que dos personas del mismo hogar no pasen el papel de administrador a
+//     quien se está borrando.
+//
+// Con eso:
+//
+//  4. Los menores que dependen solo de ella son exactamente `vistos`, los que la pantalla mostró; si no, o si cambiaron
 //     entre tanto, cuenta.ErrMenoresCambiaron y no cambia nada (RN-006: cada menor se avisa y se confirma). Sin
 //     `confirmaMenores`, cuenta.ErrFaltaConfirmarMenores. Los menores se borran con ella.
-//  2. Si administra el hogar y queda otra persona adulta, el papel pasa a la más antigua. Si era la única adulta, el
+//  5. Si administra el hogar y queda otra persona adulta, el papel pasa a la más antigua. Si era la única adulta, el
 //     hogar se disuelve: lo compartido pasa a ser suyo y se borra con ella (`hogar_id` de cada tabla de datos).
-//  3. Se borra lo propio (`hogar_id` nulo) de ella y de los menores. Lo compartido de un hogar que sigue queda en el
+//  6. Se borra lo propio (`hogar_id` nulo) de ella y de los menores. Lo compartido de un hogar que sigue queda en el
 //     hogar sin su nombre: el SET NULL de `persona_id` (D-053).
-//  4. Las autorizaciones, que no tienen llave a la persona, quedan retiradas y se conservan hasta `conservarHasta`.
-//  5. Se borra la persona: el CASCADE se lleva los perfiles, la credencial, **todas las sesiones**, los tokens de
+//  7. Las autorizaciones, que no tienen llave a la persona, quedan retiradas y se conservan hasta `conservarHasta`.
+//  8. Se borra la persona: el CASCADE se lleva los perfiles, la credencial, **todas las sesiones**, los tokens de
 //     dispositivo, los enlaces, los avisos, la pertenencia al hogar, las tutorías y las propuestas pendientes.
+//
+// Corre en READ COMMITTED, con los candados de arriba, y no en SERIALIZABLE (se probó los dos): con los candados puestos,
+// cada lectura posterior ve lo último confirmado y ninguna escritura relevante puede colarse; en SERIALIZABLE la foto se
+// toma en la primera sentencia, antes de esperar los candados, y una fila que otros actualizan sin parar (la credencial,
+// con inicios de sesión seguidos) hace abortar con 40001 el primer candado en cada intento: el borrado se quedaba en
+// «ocupado» tres veces de tres (`TestBorrarMientrasOtroDispositivoEntra`). Con los candados puestos, las pruebas de
+// R1 a R5 pasan en los dos niveles. Si aun así la base aborta o una escritura se cuela (40001, 40P01, 23503, 23514), se
+// repite todo, hasta `intentosDeBorrado` veces, y nunca es un 500.
 func (r *Borrado) BorrarCuenta(ctx context.Context, persona string, vistos []string, confirmaMenores bool, ahora, conservarHasta time.Time) error {
 	var err error
 	for range intentosDeBorrado {
@@ -170,21 +188,28 @@ func (r *Borrado) BorrarCuenta(ctx context.Context, persona string, vistos []str
 			return err
 		}
 	}
-	// La base siguió ocupada: si la cuenta ya no está, otro pedido la borró y esto es lo mismo que llegar tarde.
-	var existe bool
-	if errExiste := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM persona WHERE id = $1::uuid)`, persona).Scan(&existe); errExiste != nil {
-		return fmt.Errorf("%w: %w", errExiste, err)
-	}
+	// La base siguió ocupada: si la cuenta ya no está, otro pedido la borró y esto es lo mismo que llegar tarde. Si no se
+	// puede mirar, se supone que sigue (y se dice «ocupado», que es seguro: no se borró nada).
+	existe := true
+	_ = r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM persona WHERE id = $1::uuid)`, persona).Scan(&existe)
 	if !existe {
 		return cuenta.ErrNoExiste
 	}
 	return fmt.Errorf("%w: %w", cuenta.ErrOcupada, err)
 }
 
-// esChoqueDeTransacciones dice si la base abortó la transacción por serialización (40001) o interbloqueo (40P01).
+// esChoqueDeTransacciones dice si el error es un choque con otra transacción que se arregla repitiendo todo: 40001
+// serialización, 40P01 interbloqueo, 23503 llave foránea o 23514 CHECK (una escritura concurrente que se coló).
 func esChoqueDeTransacciones(err error) bool {
 	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && (pgErr.Code == "40001" || pgErr.Code == "40P01")
+	if !errors.As(err, &pgErr) {
+		return false
+	}
+	switch pgErr.Code {
+	case "40001", "40P01", "23503", "23514":
+		return true
+	}
+	return false
 }
 
 // mismosIDs dice si dos listas de ids son el mismo conjunto.
@@ -204,6 +229,28 @@ func mismosIDs(a, b []string) bool {
 	return true
 }
 
+// bloquearParaBorrar toma, en el orden dado, los candados de las fases 1 a 3. Cada sentencia ordena sus filas para que dos
+// borrados cualesquiera las pidan siempre en el mismo orden.
+func bloquearParaBorrar(ctx context.Context, tx pgx.Tx, persona string) error {
+	for _, q := range []struct{ que, sql string }{
+		{"la credencial", `SELECT 1 FROM credencial WHERE persona_id = $1::uuid FOR UPDATE`},
+		{"la persona", `SELECT 1 FROM persona WHERE id = $1::uuid FOR UPDATE`},
+		{"el perfil de adulta", `SELECT 1 FROM perfil_adulto WHERE persona_id = $1::uuid FOR UPDATE`},
+		// Los menores que ella tutela, con sus otros tutores: la persona y el perfil de cada menor, y todas las tutorías.
+		{"las personas de los menores", `SELECT 1 FROM persona WHERE id IN (SELECT menor_id FROM tutoria WHERE tutor_id = $1::uuid) ORDER BY id FOR UPDATE`},
+		{"los perfiles de los menores", `SELECT 1 FROM perfil_menor WHERE persona_id IN (SELECT menor_id FROM tutoria WHERE tutor_id = $1::uuid) ORDER BY persona_id FOR UPDATE`},
+		{"las tutorías de los menores", `SELECT 1 FROM tutoria WHERE menor_id IN (SELECT menor_id FROM tutoria WHERE tutor_id = $1::uuid) ORDER BY menor_id, tutor_id FOR UPDATE`},
+		// Su hogar y quienes lo forman.
+		{"el hogar", `SELECT 1 FROM hogar WHERE id IN (SELECT hogar_id FROM miembro_hogar WHERE persona_id = $1::uuid) FOR UPDATE`},
+		{"los miembros del hogar", `SELECT 1 FROM miembro_hogar WHERE hogar_id IN (SELECT hogar_id FROM miembro_hogar WHERE persona_id = $1::uuid) ORDER BY persona_id FOR UPDATE`},
+	} {
+		if _, err := tx.Exec(ctx, q.sql, persona); err != nil {
+			return fmt.Errorf("bloquear %s: %w", q.que, err)
+		}
+	}
+	return nil
+}
+
 func (r *Borrado) borrarUnaVez(ctx context.Context, persona string, vistos []string, confirmaMenores bool, ahora, conservarHasta time.Time) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -212,11 +259,8 @@ func (r *Borrado) borrarUnaVez(ctx context.Context, persona string, vistos []str
 	defer tx.Rollback(ctx) //nolint:errcheck // sin efecto tras el commit
 
 	// Lo primero de la transacción, antes de leer nada.
-	if _, err := tx.Exec(ctx, `SELECT 1 FROM credencial WHERE persona_id = $1::uuid FOR UPDATE`, persona); err != nil {
-		return fmt.Errorf("bloquear la credencial: %w", err)
-	}
-	if _, err := tx.Exec(ctx, `SELECT 1 FROM persona WHERE id = $1::uuid FOR UPDATE`, persona); err != nil {
-		return fmt.Errorf("bloquear la persona: %w", err)
+	if err := bloquearParaBorrar(ctx, tx, persona); err != nil {
+		return err
 	}
 	s, err := leerSituacion(ctx, tx, persona)
 	if err != nil {
