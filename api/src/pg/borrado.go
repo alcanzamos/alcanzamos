@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/alcanzamos/alcanzamos/api/src/cuenta"
@@ -29,10 +31,11 @@ type consultor interface {
 func (r *Borrado) CredencialDe(ctx context.Context, persona string) (cuenta.CredencialDeBorrado, error) {
 	var c cuenta.CredencialDeBorrado
 	err := r.pool.QueryRow(ctx,
-		`SELECT COALESCE(pa.correo, ''), cr.hash
+		`SELECT COALESCE(pa.correo, ''), cr.hash, pe.etapa = 'menor'
 		 FROM credencial cr
+		 JOIN persona pe ON pe.id = cr.persona_id
 		 LEFT JOIN perfil_adulto pa ON pa.persona_id = cr.persona_id
-		 WHERE cr.persona_id = $1::uuid`, persona).Scan(&c.Correo, &c.Hash)
+		 WHERE cr.persona_id = $1::uuid`, persona).Scan(&c.Correo, &c.Hash, &c.EsMenor)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return c, cuenta.ErrNoExiste
 	}
@@ -64,7 +67,10 @@ type situacion struct {
 }
 
 func (s situacion) resumen() cuenta.ResumenDeBorrado {
-	r := cuenta.ResumenDeBorrado{Menores: s.menoresNombres}
+	r := cuenta.ResumenDeBorrado{}
+	for i, id := range s.menores {
+		r.Menores = append(r.Menores, cuenta.MenorACargo{ID: id, Nombre: s.menoresNombres[i]})
+	}
 	if s.hogar != nil {
 		r.Hogar = &cuenta.HogarAlBorrar{Nombre: s.hogarNombre, EsAdministradora: s.esAdministradora, UnicaAdulta: s.sucesor == nil}
 		if s.esAdministradora {
@@ -132,10 +138,23 @@ func leerSituacion(ctx context.Context, q consultor, persona string) (situacion,
 // las metas y los recurrentes que referencian (ck_movimiento_recurrencia), y las deudas, al final.
 var tablasConDatos = []string{"movimiento", "movimiento_recurrente", "meta", "presupuesto", "deuda"}
 
-// BorrarCuenta borra la cuenta de la persona, en una sola transacción serializable: o queda todo borrado o no cambia
-// nada (RN-006, RN-007, CU-40).
+// intentosDeBorrado: cuántas veces se repite la transacción entera si la base la aborta por un choque con otra (40001
+// serialización o 40P01 interbloqueo). Después de eso, ErrOcupada si la cuenta sigue y ErrNoExiste si ya no.
+const intentosDeBorrado = 3
+
+// BorrarCuenta borra la cuenta de la persona, en una sola transacción: o queda todo borrado o no cambia nada (RN-006,
+// RN-007, CU-40).
 //
-//  1. Los menores que dependen solo de ella se borran con ella; sin `confirmaMenores`, cuenta.ErrFaltaConfirmarMenores.
+// **El candado va primero.** Antes de leer nada se bloquean la credencial y la fila de la persona (en ese orden, que
+// es el de `IniciarSesion`: actualiza la credencial y luego inserta la sesión, que toma la persona; al revés habría
+// interbloqueo). Así, dos borrados de la misma cuenta se turnan y el segundo encuentra la cuenta ya borrada
+// (cuenta.ErrNoExiste, no un error de serialización); lo que otro pedido estaba escribiendo de la misma persona
+// (cada fila nueva toma la persona con su llave foránea) termina antes de que se lea, y se borra también. Corre en
+// READ COMMITTED: con el candado tomado, cada lectura posterior ve lo ya confirmado.
+//
+//  1. Los menores que dependen solo de ella son exactamente `vistos`, los que la pantalla mostró; si no, o si cambiaron
+//     entre tanto, cuenta.ErrMenoresCambiaron y no cambia nada (RN-006: cada menor se avisa y se confirma). Sin
+//     `confirmaMenores`, cuenta.ErrFaltaConfirmarMenores. Los menores se borran con ella.
 //  2. Si administra el hogar y queda otra persona adulta, el papel pasa a la más antigua. Si era la única adulta, el
 //     hogar se disuelve: lo compartido pasa a ser suyo y se borra con ella (`hogar_id` de cada tabla de datos).
 //  3. Se borra lo propio (`hogar_id` nulo) de ella y de los menores. Lo compartido de un hogar que sigue queda en el
@@ -143,13 +162,62 @@ var tablasConDatos = []string{"movimiento", "movimiento_recurrente", "meta", "pr
 //  4. Las autorizaciones, que no tienen llave a la persona, quedan retiradas y se conservan hasta `conservarHasta`.
 //  5. Se borra la persona: el CASCADE se lleva los perfiles, la credencial, **todas las sesiones**, los tokens de
 //     dispositivo, los enlaces, los avisos, la pertenencia al hogar, las tutorías y las propuestas pendientes.
-func (r *Borrado) BorrarCuenta(ctx context.Context, persona string, confirmaMenores bool, ahora, conservarHasta time.Time) error {
-	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+func (r *Borrado) BorrarCuenta(ctx context.Context, persona string, vistos []string, confirmaMenores bool, ahora, conservarHasta time.Time) error {
+	var err error
+	for range intentosDeBorrado {
+		err = r.borrarUnaVez(ctx, persona, vistos, confirmaMenores, ahora, conservarHasta)
+		if !esChoqueDeTransacciones(err) {
+			return err
+		}
+	}
+	// La base siguió ocupada: si la cuenta ya no está, otro pedido la borró y esto es lo mismo que llegar tarde.
+	var existe bool
+	if errExiste := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM persona WHERE id = $1::uuid)`, persona).Scan(&existe); errExiste != nil {
+		return fmt.Errorf("%w: %w", errExiste, err)
+	}
+	if !existe {
+		return cuenta.ErrNoExiste
+	}
+	return fmt.Errorf("%w: %w", cuenta.ErrOcupada, err)
+}
+
+// esChoqueDeTransacciones dice si la base abortó la transacción por serialización (40001) o interbloqueo (40P01).
+func esChoqueDeTransacciones(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && (pgErr.Code == "40001" || pgErr.Code == "40P01")
+}
+
+// mismosIDs dice si dos listas de ids son el mismo conjunto.
+func mismosIDs(a, b []string) bool {
+	conjunto := make(map[string]bool, len(a))
+	for _, id := range a {
+		conjunto[strings.ToLower(id)] = true
+	}
+	if len(conjunto) != len(b) {
+		return false
+	}
+	for _, id := range b {
+		if !conjunto[strings.ToLower(id)] {
+			return false
+		}
+	}
+	return true
+}
+
+func (r *Borrado) borrarUnaVez(ctx context.Context, persona string, vistos []string, confirmaMenores bool, ahora, conservarHasta time.Time) error {
+	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("abrir la transacción: %w", err)
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck // sin efecto tras el commit
 
+	// Lo primero de la transacción, antes de leer nada.
+	if _, err := tx.Exec(ctx, `SELECT 1 FROM credencial WHERE persona_id = $1::uuid FOR UPDATE`, persona); err != nil {
+		return fmt.Errorf("bloquear la credencial: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `SELECT 1 FROM persona WHERE id = $1::uuid FOR UPDATE`, persona); err != nil {
+		return fmt.Errorf("bloquear la persona: %w", err)
+	}
 	s, err := leerSituacion(ctx, tx, persona)
 	if err != nil {
 		return err
@@ -157,12 +225,11 @@ func (r *Borrado) BorrarCuenta(ctx context.Context, persona string, confirmaMeno
 	if s.etapa != "adulta" {
 		return cuenta.ErrCuentaDeMenor
 	}
+	if !mismosIDs(vistos, s.menores) {
+		return cuenta.ErrMenoresCambiaron
+	}
 	if len(s.menores) > 0 && !confirmaMenores {
 		return cuenta.ErrFaltaConfirmarMenores
-	}
-	// Los candados de las filas de la persona, para que un borrado a la vez no se pise con otro.
-	if _, err := tx.Exec(ctx, `SELECT 1 FROM persona WHERE id = $1::uuid FOR UPDATE`, persona); err != nil {
-		return fmt.Errorf("bloquear la persona: %w", err)
 	}
 
 	var disuelto *string
