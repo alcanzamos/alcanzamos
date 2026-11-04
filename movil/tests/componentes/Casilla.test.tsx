@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { Text } from 'react-native';
 import { Casilla } from '../../src/componentes/Casilla';
 import { tokens } from '../../src/tokens/tokens.generated';
 
@@ -38,5 +39,27 @@ describe('Casilla de verificación (E14-SDD 5.17)', () => {
     expect(screen.getByRole('checkbox')).toHaveStyle({ borderColor: tokens.color.borde.foco });
     await fireEvent(screen.getByRole('checkbox'), 'blur');
     expect(screen.getByRole('checkbox')).toHaveStyle({ borderColor: 'transparent' });
+  });
+
+  it('deshabilitada se anuncia deshabilitada, sigue marcada y no cambia al tocarla (E14-PRR 4.8, «No pasó»)', async () => {
+    const alCambiar = jest.fn();
+    await render(<Casilla texto="Energía" marcada={false} deshabilitada alCambiar={alCambiar} />);
+    expect(screen.getByRole('checkbox', { name: 'Energía', disabled: true })).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('checkbox'));
+    expect(alCambiar).not.toHaveBeenCalled();
+  });
+
+  it('habilitada no se anuncia deshabilitada', async () => {
+    await render(<Casilla texto="Energía" marcada alCambiar={jest.fn()} />);
+    expect(screen.getByRole('checkbox', { name: 'Energía', disabled: false })).toBeOnTheScreen();
+  });
+
+  it('con `contenido` lo muestra en vez del texto y el nombre sigue siendo `texto`', async () => {
+    await render(
+      <Casilla texto="Energía, $120.000" contenido={<Text>Fila con monto</Text>} marcada alCambiar={jest.fn()} />,
+    );
+    expect(screen.getByText('Fila con monto')).toBeOnTheScreen();
+    expect(screen.getByRole('checkbox', { name: 'Energía, $120.000' })).toBeOnTheScreen();
+    expect(screen.queryByText('Energía, $120.000')).not.toBeOnTheScreen();
   });
 });

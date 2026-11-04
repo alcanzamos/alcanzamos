@@ -182,6 +182,22 @@ describe("Casilla", () => {
     expect(alCambiar).toHaveBeenCalledWith(true);
   });
 
+  it("deshabilitada no se puede marcar y su texto puede llevar más que una frase", () => {
+    render(
+      <Casilla
+        id="m"
+        texto={<span>Salario · Monto cambiado</span>}
+        marcada={false}
+        deshabilitada
+        alCambiar={() => {}}
+      />,
+    );
+    const casilla = screen.getByRole("checkbox", {
+      name: "Salario · Monto cambiado",
+    });
+    expect(casilla).toBeDisabled();
+  });
+
   it("el error queda ligado a la casilla", () => {
     render(
       <Casilla

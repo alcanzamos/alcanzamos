@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { responder, simularApi, sinViolaciones } from "./ayudas";
+import { responder, simularApi, sinPendientes, sinViolaciones } from "./ayudas";
 
 // Hoy es el 2 de noviembre de 2026 (E14-PRR 2.1), a las 10:00 en Colombia.
 async function hoyEs2DeNoviembre(page: Page) {
@@ -162,6 +162,7 @@ async function api(page: Page, inicial: Movimiento[]) {
   const pedidos = await simularApi(page, {
     "GET /api/v1/cuenta/seguridad": responder(200, { ingreso_anterior: null }),
     "GET /api/v1/categorias": responder(200, catalogo),
+    "GET /api/v1/repeticiones/pendientes": responder(200, sinPendientes),
     "GET /api/v1/movimientos": (ruta) => {
       const consulta = new URL(ruta.request().url()).searchParams;
       const periodo = consulta.get("periodo") ?? "2026-11";
@@ -559,6 +560,7 @@ test.describe("PN-02 · Detalle, corregir y borrar (US-52)", () => {
     page,
   }) => {
     await simularApi(page, {
+      "GET /api/v1/repeticiones/pendientes": responder(200, sinPendientes),
       "GET /api/v1/movimientos": responder(500, { error: "interno" }),
     });
     await page.goto("/movimientos");
