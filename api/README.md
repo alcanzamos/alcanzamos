@@ -154,7 +154,7 @@ Una prueba por regla en `test/seguridad/contrasena_test.go`. Las reglas miran la
 
 ### Correo (`src/correo`)
 
-SMTP de la biblioteca estándar; texto plano en español. Los dos correos (el de verificación y el aviso de D-141, E14-PCP 4.2 bis) terminan **exactamente** con «Si tienes dudas sobre tus datos, escribe a <CORREO_PRIVACIDAD>.» (D-143); una prueba compara el texto en los dos. El puerto `Correo` tiene un `Falso` para las pruebas. Nunca se registra el token, la dirección ni el cuerpo.
+SMTP de la biblioteca estándar; texto plano en español. Los dos correos (el de verificación y el aviso de D-141, E14-PCP 4.2 bis) terminan **exactamente** con «Si tienes dudas sobre tus datos, escribe a <CORREO_PRIVACIDAD>.» (D-143); una prueba compara el texto en los dos. El puerto `Correo` tiene un `Falso` para las pruebas. Nunca se registra el token, la dirección ni el cuerpo. Tampoco el texto que responde el servidor SMTP, que suele repetir la dirección (A-15): de un error con código queda solo el código, uno de la red o de la conexión cerrada se conserva y cualquier otro (por ejemplo una línea sin código) se reemplaza por «respuesta del servidor no válida». Una prueba con un servidor de mentira recorre esos casos y busca la dirección en cada línea del registro.
 
 ## Cuenta (US-49)
 
@@ -585,7 +585,7 @@ Pruebas: `test/registro/movimientos_test.go` (contrato, validación y D-168 con 
 
 ## Base de datos y migraciones
 
-- `pgx` v5 (`pgxpool`) conecta con PostgreSQL. La URL sale de `BASE_DE_DATOS_URL`.
+- `pgx` v5 (`pgxpool`) conecta con PostgreSQL. La URL sale de `BASE_DE_DATOS_URL`. Toda conexión del pool fija `TimeZone=UTC` (`bd.Conectar`; E17 3.9), aunque la URL o `PGTZ` pidan otra zona (A-05).
 - `goose` v3 se usa como biblioteca. Las migraciones van embebidas en el binario (`embed`).
 - `api migrar` aplica las migraciones pendientes y termina.
 - `0001_esquema_inicial.sql`, `0002_catalogo.sql` y `0003_ingreso_anterior.sql` (la columna `credencial.ingreso_anterior`, D-134) son copia idéntica de las de E13 (D-122). No se editan aquí. Si hay que cambiar algo, el cambio vuelve primero a E13, con nota fechada y versión nueva.
