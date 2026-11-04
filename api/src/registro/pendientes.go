@@ -30,6 +30,11 @@ const (
 // alguien la resolvió a la vez (la restricción única de la base). Es el de E15 5.2.
 var ErrFechaNoPendiente = fechas.ErrFechaNoPendiente
 
+// ErrConflictoConcurrente es el 409 `conflicto_concurrente`: la base abortó la operación por un bloqueo mutuo (`40P01`) o
+// un fallo de serialización (`40001`) con otra petición. No se guardó nada y la misma petición puede reintentarse. No se
+// reintenta dentro del API: el estado que el servicio leyó pudo cambiar y el cliente debe volver a pedir la lista.
+var ErrConflictoConcurrente = errors.New("la operación chocó con otra a la vez; no se guardó nada")
+
 // Recurrente es una repetición de la persona con lo que E15 5.2 necesita para saber qué fechas están pendientes.
 type Recurrente struct {
 	ID           string

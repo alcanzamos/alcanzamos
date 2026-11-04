@@ -121,6 +121,8 @@ func (h *Handler) responder(w http.ResponseWriter, r *http.Request, que string, 
 		servidor.EscribirError(w, http.StatusNotFound, "no_encontrado")
 	case errors.Is(err, ErrNoEditable):
 		servidor.EscribirError(w, http.StatusConflict, "movimiento_no_editable")
+	case errors.Is(err, ErrConflictoConcurrente):
+		servidor.EscribirError(w, http.StatusConflict, "conflicto_concurrente")
 	case errors.Is(err, ErrFechaNoPendiente):
 		servidor.EscribirError(w, http.StatusConflict, "fecha_no_pendiente")
 	default:

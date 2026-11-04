@@ -64,6 +64,11 @@ func TestRecurrentesYDecidirConLaBaseCaidaOIncompletaFallan(t *testing.T) {
 		}
 	}
 
+	// Sin nada que decidir no hay qué bloquear ni guardar.
+	if ids, err := pg.NuevoMovimientos(pgtest.Nueva(t)).Decidir(ctx, personaDePrueba, nil, nil, ahora); err != nil || len(ids) != 0 {
+		t.Errorf("Decidir vacío: %v %v", ids, err)
+	}
+
 	// Cada tabla de la lectura de Recurrentes que falte rompe la lectura, no la deja a medias.
 	for _, tabla := range []string{"ocurrencia_omitida", "movimiento_recurrente"} {
 		incompleta := pgtest.Nueva(t)
@@ -72,6 +77,11 @@ func TestRecurrentesYDecidirConLaBaseCaidaOIncompletaFallan(t *testing.T) {
 		}
 		if _, err := pg.NuevoMovimientos(incompleta).Recurrentes(ctx, personaDePrueba); err == nil || esDeNegocio(err) {
 			t.Errorf("Recurrentes sin %s: %v", tabla, err)
+		}
+		if tabla == "movimiento_recurrente" {
+			if _, err := pg.NuevoMovimientos(incompleta).Decidir(ctx, personaDePrueba, confirmar, nil, ahora); err == nil || esDeNegocio(err) {
+				t.Errorf("Decidir sin %s: %v", tabla, err)
+			}
 		}
 	}
 	incompleta := pgtest.Nueva(t)
@@ -82,22 +92,43 @@ func TestRecurrentesYDecidirConLaBaseCaidaOIncompletaFallan(t *testing.T) {
 		t.Errorf("Recurrentes sin movimiento: %v", err)
 	}
 
-	// Una tabla de la escritura que falta es un fallo de infraestructura, no «no pendiente» ni «no encontrado».
-	for tabla, decidir := range map[string]func(*pg.Movimientos) error{
-		"movimiento": func(r *pg.Movimientos) error {
-			_, err := r.Decidir(ctx, personaDePrueba, confirmar, nil, ahora)
+	// Una tabla de la escritura que falta es un fallo de infraestructura, no «no pendiente» ni «no encontrado». La repetición
+	// existe y es de la persona: si no, el bloqueo inicial ya respondería «no encontrado».
+	for tabla, decidir := range map[string]func(*pg.Movimientos, string) error{
+		"movimiento": func(r *pg.Movimientos, id string) error {
+			c := confirmar[0]
+			c.RecurrenteID = id
+			_, err := r.Decidir(ctx, personaDePrueba, []registro.Confirmacion{c}, nil, ahora)
 			return err
 		},
-		"ocurrencia_omitida": func(r *pg.Movimientos) error {
-			_, err := r.Decidir(ctx, personaDePrueba, nil, omitir, ahora)
+		"ocurrencia_omitida": func(r *pg.Movimientos, id string) error {
+			_, err := r.Decidir(ctx, personaDePrueba, nil, []registro.Omision{{RecurrenteID: id, Fecha: dia}}, ahora)
 			return err
 		},
 	} {
 		sinTabla := pgtest.Nueva(t)
+		tx, err := sinTabla.Begin(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var id string
+		if _, err := tx.Exec(ctx, `INSERT INTO persona (id, nombre, etapa) VALUES ($1::uuid, 'Laura', 'adulta')`, personaDePrueba); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO perfil_adulto (persona_id, correo) VALUES ($1::uuid, 'laura@ejemplo.test')`, personaDePrueba); err != nil {
+			t.Fatal(err)
+		}
+		if err := tx.QueryRow(ctx, `INSERT INTO movimiento_recurrente (persona_id, tipo, categoria_id, periodicidad, monto_habitual, medio, inicio)
+			VALUES ($1::uuid, 'gasto', 4, 'mensual', 100, 'efectivo', '2026-10-01') RETURNING id::text`, personaDePrueba).Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			t.Fatal(err)
+		}
 		if _, err := sinTabla.Exec(ctx, `DROP TABLE `+tabla+` CASCADE`); err != nil {
 			t.Fatal(err)
 		}
-		if err := decidir(pg.NuevoMovimientos(sinTabla)); err == nil || esDeNegocio(err) {
+		if err := decidir(pg.NuevoMovimientos(sinTabla), id); err == nil || esDeNegocio(err) {
 			t.Errorf("Decidir sin %s: %v", tabla, err)
 		}
 	}

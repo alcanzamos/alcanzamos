@@ -83,6 +83,11 @@ func (m *Movimientos) Decidir(ctx context.Context, persona string, confirmar []r
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck // sin efecto tras el commit
 
+	// Los disparadores de E13 bloquean la fila de la repetición en el orden de las decisiones: dos operaciones que tocan las
+	// mismas repeticiones en orden contrario se bloquearían entre sí. Se bloquean todas desde el principio, siempre por id.
+	if err := bloquearRepeticiones(ctx, tx, persona, confirmar, omitir); err != nil {
+		return nil, err
+	}
 	ids := make([]string, 0, len(confirmar))
 	for _, c := range confirmar {
 		var id string
@@ -97,15 +102,12 @@ func (m *Movimientos) Decidir(ctx context.Context, persona string, confirmar []r
 		ids = append(ids, id)
 	}
 	for _, o := range omitir {
-		etiqueta, err := tx.Exec(ctx,
+		_, err := tx.Exec(ctx,
 			`INSERT INTO ocurrencia_omitida (recurrente_id, fecha_programada, omitida_en)
 			 SELECT r.id, $3, $4 FROM movimiento_recurrente r WHERE r.id = $1::uuid AND r.persona_id = $2::uuid`,
 			o.RecurrenteID, persona, o.Fecha, ahora)
 		if err != nil {
 			return nil, errorDeDecidir("omitir la fecha", err)
-		}
-		if etiqueta.RowsAffected() == 0 {
-			return nil, registro.ErrNoEncontrado
 		}
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -114,13 +116,44 @@ func (m *Movimientos) Decidir(ctx context.Context, persona string, confirmar []r
 	return ids, nil
 }
 
-// errorDeDecidir traduce lo que la base rechaza de una fecha: la repetición ajena (el INSERT ... SELECT no devolvió
-// fila), la fecha repetida y los disparadores de exclusión entre confirmada y omitida.
+// bloquearRepeticiones toma `FOR UPDATE` de las repeticiones de la persona que intervienen, ordenadas por id. Si falta alguna (no
+// existe o es de otra persona) es ErrNoEncontrado.
+func bloquearRepeticiones(ctx context.Context, tx pgx.Tx, persona string, confirmar []registro.Confirmacion, omitir []registro.Omision) error {
+	vistos := map[string]bool{}
+	var ids []string
+	for _, c := range confirmar {
+		if !vistos[c.RecurrenteID] {
+			vistos[c.RecurrenteID] = true
+			ids = append(ids, c.RecurrenteID)
+		}
+	}
+	for _, o := range omitir {
+		if !vistos[o.RecurrenteID] {
+			vistos[o.RecurrenteID] = true
+			ids = append(ids, o.RecurrenteID)
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	bloqueadas, err := filasDe(ctx, tx, "las repeticiones que se bloquean", pgx.RowTo[string],
+		`SELECT id::text FROM movimiento_recurrente WHERE id = ANY($1::uuid[]) AND persona_id = $2::uuid ORDER BY id FOR UPDATE`, ids, persona)
+	if err != nil {
+		return errorDeDecidir("bloquear las repeticiones", err)
+	}
+	if len(bloqueadas) != len(ids) {
+		return registro.ErrNoEncontrado
+	}
+	return nil
+}
+
+// errorDeDecidir traduce lo que la base rechaza: el bloqueo mutuo y el fallo de serialización (reintentables), la fecha
+// repetida y los disparadores de exclusión entre confirmada y omitida.
 func errorDeDecidir(que string, err error) error {
 	var pgErr *pgconn.PgError
 	switch {
-	case errors.Is(err, pgx.ErrNoRows):
-		return registro.ErrNoEncontrado
+	case errors.As(err, &pgErr) && (pgErr.Code == "40P01" || pgErr.Code == "40001"):
+		return registro.ErrConflictoConcurrente
 	case errors.As(err, &pgErr) && pgErr.Code == "23505" &&
 		(pgErr.ConstraintName == "uq_movimiento_recurrente_programada" || pgErr.ConstraintName == "pk_ocurrencia_omitida"):
 		return registro.ErrFechaNoPendiente

@@ -570,3 +570,17 @@ func TestPendientesDeLaMismaFechaTienenUnOrdenEstable(t *testing.T) {
 		}
 	}
 }
+
+// Un bloqueo mutuo o un fallo de serialización de la base es un 409 `conflicto_concurrente` que se puede reintentar, no un 500.
+func TestUnConflictoConcurrenteDelRepositorioEsUn409Reintentable(t *testing.T) {
+	repo := repoConRepeticiones()
+	repo.errorAlDecidir = registro.ErrConflictoConcurrente
+	for ruta, cuerpo := range map[string]string{
+		confirmacion(recSalario): `{"fecha":"2026-10-16"}`, omision(recSalario): `{"fecha":"2026-10-16"}`,
+		rutaDecisiones: decisiones(decision(recSalario, "2026-10-16", ``)),
+	} {
+		if codigo, resp, _ := post(api(t, repo, hoy), ruta, cuerpo); codigo != 409 || resp != `{"error":"conflicto_concurrente"}` {
+			t.Errorf("%s: %d %s", ruta, codigo, resp)
+		}
+	}
+}

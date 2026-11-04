@@ -632,3 +632,92 @@ func (s *servidorDePrueba) escenarioDeOtra(c *cliente) (salario, arriendo string
 	}
 	return salario, arriendo
 }
+
+// Dos «Confirmar todos» de la misma persona que tocan las mismas repeticiones en orden contrario, a la vez, no se
+// bloquean entre sí en la base (los disparadores de E13 bloquean la fila de la repetición en el orden de las decisiones):
+// ninguno responde 500 y cada fecha queda exactamente una vez confirmada u omitida, nunca las dos ni dos veces.
+func TestUS60DosConfirmarTodosEnOrdenContrarioNoSeBloqueanEntreSi(t *testing.T) {
+	const iteraciones = 36
+	// Semanal desde el lunes 26 de octubre: pendientes el 2, 9, 16, 23 y 30 de noviembre, el 7 y el 14 de diciembre.
+	semana := []string{"2026-11-02", "2026-11-09", "2026-11-16", "2026-11-23", "2026-11-30", "2026-12-07"}
+	s := nuevoServidor(t)
+	c, _ := s.nuevaCuenta("laura@ejemplo.test", false, true)
+	type par struct{ a, b string }
+	pares := make([]par, iteraciones)
+	for i := range pares {
+		pares[i] = par{
+			*s.crear(c, cuerpoDe("ingreso", "120000000", "2026-10-26", catSalario, `,"repeticion":{"periodicidad":"semanal"}`)).RecurrenteID,
+			*s.crear(c, cuerpoDe("gasto", "65000000", "2026-10-26", catArriendo, `,"repeticion":{"periodicidad":"semanal"}`)).RecurrenteID,
+		}
+	}
+	s.reloj.T = time.Date(2026, 12, 14, 15, 0, 0, 0, time.UTC)
+	if _, err := s.pool.Exec(context.Background(), `UPDATE sesion SET ultimo_uso_en = $1::timestamptz, vence_en = $1::timestamptz + interval '30 days'`, s.reloj.T); err != nil {
+		t.Fatal(err)
+	}
+	// La primera pide, fecha a fecha, a y luego b; la segunda, con otras fechas, b y luego a.
+	armar := func(primero, segundo string, fechas []string, omitirSegundo bool) string {
+		var ds []string
+		for _, f := range fechas {
+			ds = append(ds, fmt.Sprintf(`{"recurrente_id":%q,"fecha":%q}`, primero, f))
+			extra := ""
+			if omitirSegundo {
+				extra = `,"omitida":true`
+			}
+			ds = append(ds, fmt.Sprintf(`{"recurrente_id":%q,"fecha":%q%s}`, segundo, f, extra))
+		}
+		return `{"decisiones":[` + strings.Join(ds, ",") + `]}`
+	}
+	var pedidos []func() (string, string, string)
+	for _, p := range pares {
+		uno, otro := armar(p.a, p.b, semana[:3], false), armar(p.b, p.a, semana[3:], true)
+		pedidos = append(pedidos,
+			func() (string, string, string) { return "POST", rutaDecisiones, uno },
+			func() (string, string, string) { return "POST", rutaDecisiones, otro })
+	}
+	for i, codigo := range s.pedirALaVez(c, pedidos) {
+		if !strings.HasPrefix(codigo, "200 ") {
+			t.Errorf("pedido %d: %s", i, codigo)
+		}
+	}
+	for _, p := range pares {
+		for _, id := range []string{p.a, p.b} {
+			for _, fecha := range semana {
+				confirmadas := s.contar(`SELECT count(*) FROM movimiento WHERE recurrente_id = $1::uuid AND fecha_programada = $2`, id, fecha)
+				omitidas := s.contar(`SELECT count(*) FROM ocurrencia_omitida WHERE recurrente_id = $1::uuid AND fecha_programada = $2`, id, fecha)
+				if confirmadas+omitidas != 1 {
+					t.Errorf("%s %s: %d confirmadas y %d omitidas", id, fecha, confirmadas, omitidas)
+				}
+			}
+		}
+	}
+}
+
+// Si la base aborta la operación por un bloqueo mutuo (40P01) o un fallo de serialización (40001), la respuesta es el 409
+// reintentable y no se guarda nada. Se provoca con un disparador de prueba que lanza esos errores.
+func TestUS60UnBloqueoMutuoOUnFalloDeSerializacionDeLaBaseEsUn409Reintentable(t *testing.T) {
+	for _, codigo := range []string{"40P01", "40001"} {
+		t.Run(codigo, func(t *testing.T) {
+			s := nuevoServidor(t)
+			c, _ := s.nuevaCuenta("laura@ejemplo.test", true, true)
+			salario, _ := s.escenario(c)
+			antes := s.contar(`SELECT count(*) FROM movimiento`)
+			if _, err := s.pool.Exec(context.Background(), fmt.Sprintf(`
+				CREATE FUNCTION fn_prueba_choque() RETURNS trigger LANGUAGE plpgsql AS $$
+				BEGIN RAISE EXCEPTION 'choque de prueba' USING ERRCODE = '%s'; END $$;
+				CREATE TRIGGER tr_prueba_choque BEFORE INSERT ON movimiento FOR EACH ROW WHEN (NEW.fecha_programada = '2026-11-26')
+					EXECUTE FUNCTION fn_prueba_choque();`, codigo)); err != nil {
+				t.Fatal(err)
+			}
+			cuerpo := fmt.Sprintf(`{"decisiones":[{"recurrente_id":%q,"fecha":"2026-11-11"},{"recurrente_id":%q,"fecha":"2026-11-26"}]}`, salario, salario)
+			if r := c.llamar("POST", rutaDecisiones, cuerpo); r.Codigo != 409 || r.Cuerpo != `{"error":"conflicto_concurrente"}` {
+				t.Errorf("decisiones: %d %s", r.Codigo, r.Cuerpo)
+			}
+			if r := c.llamar("POST", confirmacionDe(salario), `{"fecha":"2026-11-26"}`); r.Codigo != 409 || r.Cuerpo != `{"error":"conflicto_concurrente"}` {
+				t.Errorf("confirmar: %d %s", r.Codigo, r.Cuerpo)
+			}
+			if n := s.contar(`SELECT count(*) FROM movimiento`); n != antes {
+				t.Errorf("no se guardó nada: %d → %d", antes, n)
+			}
+		})
+	}
+}
