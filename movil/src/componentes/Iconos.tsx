@@ -77,6 +77,13 @@ export const IconoCheck = ({ color }: Propiedades) => (
   </Icono>
 );
 
+// El Cerrar de la Hoja inferior (E14-SDD 5.12).
+export const IconoCerrar = ({ color }: Propiedades) => (
+  <Icono color={color}>
+    <Path d="M6 6l12 12M18 6 6 18" />
+  </Icono>
+);
+
 // Propio, de la Marca de propiedad (E14-SDD 5.16, PN-63 fila 5): una persona dentro de un círculo.
 export const IconoPropio = ({ color }: Propiedades) => (
   <Icono color={color}>

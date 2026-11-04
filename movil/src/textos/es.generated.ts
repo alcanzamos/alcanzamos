@@ -218,6 +218,64 @@ export const textos = {
     },
   },
   porConfirmar: {
+    // E14-PRR 4.1 (PN-01), fila 2a
+    titulo: "Por confirmar",
+    // E14-PRR 4.1 (PN-01), fila 2a
+    textoVarias: "Estos movimientos que se repiten ya llegaron a su fecha. Confírmalos con un toque, o toca «Más» si no pasaron o cambió el monto.",
+    // E14-PRR 4.7 (PN-72), fila 4b; aprobado para PN-01 y PN-72 en D-179. Clave única: PN-72 debe reutilizarla
+    textoUna: "Esta fecha de un movimiento que se repite ya llegó. Confírmala con un toque, o toca «Más» si no pasó o cambió el monto.",
+    // E14-PRR 4.1 (PN-01), «Confirmar un movimiento que se repite», fila «Marca»
+    marca: "Por confirmar",
+    // E14-PRR 4.1 (PN-01), «Confirmar un movimiento que se repite», fila «Confirmar»
+    confirmar: "Confirmar",
+    // E14-PRR 4.1 (PN-01), «Confirmar un movimiento que se repite», fila «Más»
+    mas: "Más",
+    // E14-PRR 4.1 (PN-01), hojas «Más», «No pasó» y «Cambiar el monto»; E14-SDD 5.12
+    cerrar: "Cerrar",
+    // E14-PRR 4.1 (PN-01), fila «Texto de apoyo»: «Ingreso · Transferencia · 16 de noviembre de 2026»
+    apoyoConMedio: "{tipo} · {medio} · {fecha}",
+    // E14-PRR 4.1 (PN-01), fila «Confirmar»: «Confirmar Salario del 16 de noviembre de 2026»
+    nombreDeConfirmar: "Confirmar {nombre} del {fecha}",
+    // E14-PRR 4.1 (PN-01), fila «Más»: «Más opciones de Salario del 16 de noviembre de 2026»
+    nombreDeMas: "Más opciones de {nombre} del {fecha}",
+    hoja: {
+      // E14-PRR 4.1 (PN-01), «Hoja «Más»»: «Salario · 16 de noviembre de 2026»
+      titulo: "{nombre} · {fecha}",
+      // E14-PRR 4.1 (PN-01), «Hoja «Más»»; E14-PRR 4.8 (PN-72, «Confirmar todos»), «Más» → «Cambiar el monto»
+      cambiarElMonto: "Cambiar el monto",
+      // E14-PRR 4.1 (PN-01), «Hoja «Más»» y «Hoja «No pasó»»; E14-PRR 4.8 (PN-72, «Confirmar todos»), «Más» → «No pasó»
+      noPaso: "No pasó",
+      // E14-PRR 4.1 (PN-01), «Hoja «No pasó»»
+      tituloNoPaso: "¿Esta fecha no pasó?",
+      // E14-PRR 4.1 (PN-01), «Hoja «No pasó»»
+      textoNoPaso: "Dejamos de contarla en tu simulación. Las demás fechas siguen igual. Si después pasó, la registras a mano.",
+      // E14-PRR 4.1 (PN-01), «Hoja «Cambiar el monto»»; E14-PRR 4.8 (PN-72, «Confirmar todos»)
+      tituloDeIngreso: "¿Cuánto llegó?",
+      // E14-PRR 4.1 (PN-01), «Hoja «Cambiar el monto»»; E14-PRR 4.8 (PN-72, «Confirmar todos»)
+      tituloDeGasto: "¿Cuánto pagaste?",
+      // E14-PRR 4.1 (PN-01), «Hoja «Cambiar el monto»», Botón · Primario
+      confirmar: "Confirmar",
+    },
+    avisos: {
+      // E14-PRR 4.1 (PN-01), «Después de «Confirmar»»
+      confirmamosIngreso: "Listo, confirmamos tu ingreso de {monto}.",
+      // E14-PRR 4.1 (PN-01), «Después de «Confirmar»»
+      confirmamosGasto: "Listo, confirmamos tu gasto de {monto}.",
+      // E14-PRR 4.1 (PN-01), «Hoja «No pasó»»
+      yaNoContamos: "Listo, ya no contamos esa fecha.",
+      errorAlConfirmar: {
+        // E14-PRR 4.1 (PN-01), estado «Error al confirmar»
+        titulo: "No pudimos confirmar el movimiento.",
+        // E14-PRR 4.1 (PN-01), estado «Error al confirmar»
+        mensaje: "Sigue por confirmar. Intenta de nuevo.",
+      },
+      errorAlOmitir: {
+        // E14-PRR 4.1 (PN-01), estado «Error al marcar «No pasó»»
+        titulo: "No pudimos guardar el cambio.",
+        // E14-PRR 4.1 (PN-01), estado «Error al marcar «No pasó»»
+        mensaje: "Sigue por confirmar. Intenta de nuevo.",
+      },
+    },
     // E14-PRR 1.6 (PN-72, D-093, aprobado en D-163): «13 por confirmar: 2 ingresos y 11 gastos»
     resumen: "{total} por confirmar: {ingresos} y {gastos}",
     // E14-PRR 1.6 (PN-72, D-163): «2 ingresos» y «1 ingreso», con los dos tipos
