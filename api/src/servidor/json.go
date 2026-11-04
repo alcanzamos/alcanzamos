@@ -13,7 +13,12 @@ const tamanoMaximoDelCuerpo = 16 << 10
 // que mande la fecha de nacimiento recibe 400 y el API nunca la lee (D-089). Si falla, ya respondió 400
 // `solicitud_invalida` y devuelve false.
 func LeerJSON(w http.ResponseWriter, r *http.Request, destino any) bool {
-	d := json.NewDecoder(http.MaxBytesReader(w, r.Body, tamanoMaximoDelCuerpo))
+	return LeerJSONHasta(w, r, destino, tamanoMaximoDelCuerpo)
+}
+
+// LeerJSONHasta es LeerJSON con otro tamaño máximo del cuerpo, en bytes, para las pocas rutas que reciben una lista.
+func LeerJSONHasta(w http.ResponseWriter, r *http.Request, destino any, maximo int64) bool {
+	d := json.NewDecoder(http.MaxBytesReader(w, r.Body, maximo))
 	d.DisallowUnknownFields()
 	if err := d.Decode(destino); err != nil || d.Decode(&struct{}{}) != io.EOF {
 		EscribirError(w, http.StatusBadRequest, "solicitud_invalida")
