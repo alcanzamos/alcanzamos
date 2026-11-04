@@ -188,9 +188,23 @@ export const textos = {
       // E14-PCP 4.3 (PN-60), estado «Cuenta borrada» (viene de PN-69)
       mensaje: "Gracias por haber usado Alcanzamos.",
     },
-    errorAlCargarLoQueSeBorra: {
-      // propuesto, pendiente de aprobar: E14 no tiene el estado de error de carga de PN-69. Sin leer el hogar y los menores no se puede mostrar lo que RN-006 pide avisar, así que no se deja borrar
-      titulo: "No pudimos cargar lo que se borra.",
+    errorAlCargarTusDatos: {
+      // E14-PRR PN-72 (05-pantallas-registro-y-regreso.md:865), estado «Error de carga»; reutilizado en PN-69 (D-180)
+      titulo: "No pudimos cargar tus datos.",
+      // E14-PRR PN-72 (05-pantallas-registro-y-regreso.md:865), estado «Error de carga»; reutilizado en PN-69 (D-180)
+      mensaje: "Intenta de nuevo.",
+    },
+    descargaLista: {
+      // E14-PCP 4.12 (PN-69), estado «Descarga lista»
+      titulo: "Listo, descargamos tus datos.",
+      // E14-PCP 4.12 (PN-69), estado «Descarga lista» y aviso del archivo
+      mensaje: "El archivo queda en tu teléfono. Guárdalo en un lugar seguro.",
+    },
+    errorAlDescargar: {
+      // E14-PCP 4.12 (PN-69), estado «Error al descargar»
+      titulo: "No pudimos preparar tu archivo.",
+      // E14-PCP 4.12 (PN-69), estado «Error al descargar»
+      mensaje: "Tu cuenta sigue igual. Intenta de nuevo.",
     },
   },
   correo: {
@@ -239,7 +253,7 @@ export const textos = {
       contrasena_vacia: "Falta tu contraseña.",
       // E14-PCP 4.12 (PN-69), errores de campo
       contrasena_incorrecta: "No pudimos confirmar tu contraseña. Escríbela de nuevo.",
-      // E14-PCP 4.12 (PN-69), errores de campo: «Falta confirmar lo de Mateo.»; con varios menores, sus nombres juntos (propuesto, pendiente de aprobar)
+      // E14-PCP 4.12 (PN-69), errores de campo: «Falta confirmar lo de Mateo.»; con varios menores, sus nombres juntos (aprobado en D-180)
       confirmacion_requerida: "Falta confirmar lo de {nombres}.",
     },
   },
@@ -823,23 +837,23 @@ export const textos = {
       prueba: "Solo guardamos una prueba mínima de tu autorización, sin tu nombre ni tu correo, durante 3 años.",
     },
     hogar: {
-      // propuesto, pendiente de aprobar: el hogar puede no tener nombre y E14 no dice cómo titular la tarjeta; es el título del grupo de E14-PCP 4.9 (PN-66), fila 3
-      sinNombre: "Tu hogar",
       // E14-PCP 4.12 (PN-69), fila 4, «Con otra persona adulta»
       administradora: "Eres quien lo administra. El papel pasa ahora mismo a {nombre}. Lo que compartiste sigue en el hogar, sin tu nombre.",
-      // propuesto, pendiente de aprobar: E14 solo da el texto de quien administra el hogar; es su última frase para quien es miembro sin el papel (RN-006)
+      // aprobado en D-180: E14-PCP 4.12 (PN-69), fila 4; última frase de «Con otra persona adulta» para quien es miembro sin el papel
       miembro: "Lo que compartiste sigue en el hogar, sin tu nombre.",
       // E14-PCP 4.12 (PN-69), fila 4, «Siendo la única persona adulta»
       unicaAdulta: "Eres la única persona adulta de «{hogar}». El hogar se cierra y lo que compartiste también se borra.",
+      // E14-PMH PN-27: «Si lo dejas vacío, se llama «Nuestro hogar»» (D-098 (7)); título de la tarjeta del hogar, E14-PCP 4.12 (PN-69) fila 4
+      nombrePorOmision: "Nuestro hogar",
     },
     menores: {
       // E14-PCP 4.12 (PN-69), fila 5
       titulo: "Menores a tu cargo",
-      // E14-PCP 4.12 (PN-69), fila 5. Con un menor, el texto de E14; con varios E14 da solo «{nombre} y {nombre} dependen solo de ti.»: «Sus cuentas y sus datos también se borran.» es propuesto, pendiente de aprobar
+      // aprobado en D-180: E14-PCP 4.12 (PN-69), fila 5. Con un menor, el texto de E14; con varios, «{nombre} y {nombre} dependen solo de ti.» y «Sus cuentas y sus datos también se borran.»
       dependen: { one: "{nombres} depende solo de ti. Su cuenta y sus datos también se borran.", other: "{nombres} dependen solo de ti. Sus cuentas y sus datos también se borran." },
       // E14-PCP 4.12 (PN-69), fila 6, con uno y con varios menores
       casilla: { one: "Entiendo que también se borra la cuenta de {nombres}.", other: "Entiendo que también se borran las cuentas de {nombres}." },
-      // propuesto, pendiente de aprobar: E14-PCP 4.12 (PN-69), fila 5 da «Mateo y {nombre}» para dos; con tres o más, comas y «y» antes del último
+      // aprobado en D-180: E14-PCP 4.12 (PN-69), fila 5 da «Mateo y {nombre}» para dos; con tres o más, comas y «y» antes del último
       union: "{anteriores} y {ultimo}",
     },
     contrasena: {
@@ -848,6 +862,14 @@ export const textos = {
       // E14-PCP 4.12 (PN-69), fila 7
       ayuda: "La pedimos para confirmar que eres tú.",
     },
+  },
+  descargarMisDatos: {
+    // E14-PCP 4.12 (PN-69), fila 8
+    boton: "Descargar mis datos",
+    // E14-PCP 4.12 (PN-69), fila 8
+    ayuda: "Un archivo ZIP con tus movimientos, metas, deudas y presupuestos en CSV. Solo trae lo tuyo.",
+    // E14-PCP 4.12 (PN-69), estado «Descargando»
+    preparando: "Preparando tu archivo…",
   },
 } as const;
 

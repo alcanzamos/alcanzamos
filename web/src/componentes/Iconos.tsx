@@ -85,3 +85,12 @@ export const IconoCompartido = () => (
     <path d="M3.5 19c.9-2.8 2.9-4 5.5-4s4.6 1.2 5.5 4M15 15.3c.7-.2 1.4-.3 2-.3 2 0 3.3 1 4 3.5" />
   </Icono>
 );
+
+// Hogar (E14-SDD 5.1; «Ícono / Hogar» del archivo de Penpot): dos personas, la de adelante más grande.
+export const IconoHogar = () => (
+  <Icono>
+    <circle cx="9" cy="8" r="3.5" />
+    <circle cx="16.5" cy="8.5" r="2.5" />
+    <path d="M3 20c0-3.5 2.5-5.5 6-5.5s6 2 6 5.5M16 14.5c3 0 5 1.8 5 5" />
+  </Icono>
+);

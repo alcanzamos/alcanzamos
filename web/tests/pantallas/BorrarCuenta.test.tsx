@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { avisoDeLlegada } from "../../src/llegada";
 import { BorrarCuenta } from "../../src/pantallas/BorrarCuenta";
 import { avisos } from "../../src/textos";
@@ -86,8 +86,9 @@ describe("PN-69 · Borrar la cuenta", () => {
     expect(screen.queryByText("Menores a tu cargo")).toBeNull();
     expect(screen.queryByRole("checkbox")).toBeNull();
     expect(screen.queryByText(/Eres quien lo administra/)).toBeNull();
-    // «Descargar mis datos» (RF-032, D-102) no está en esta historia.
-    expect(screen.queryByText("Descargar mis datos")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Descargar mis datos" }),
+    ).toBeInTheDocument();
   });
 
   it("al administrar un hogar con otra persona adulta dice a quién pasa el papel", async () => {
@@ -119,7 +120,7 @@ describe("PN-69 · Borrar la cuenta", () => {
     ).toBeInTheDocument();
   });
 
-  it("siendo miembro sin el papel solo dice que lo compartido sigue sin su nombre (propuesto)", async () => {
+  it("siendo miembro sin el papel solo dice que lo compartido sigue sin su nombre ", async () => {
     await abrir({
       hogar: {
         nombre: "Nuestro hogar",
@@ -135,7 +136,7 @@ describe("PN-69 · Borrar la cuenta", () => {
     expect(screen.queryByText(/Eres quien lo administra/)).toBeNull();
   });
 
-  it("un hogar sin nombre se titula «Tu hogar» (propuesto) y la única adulta lo nombra igual", async () => {
+  it("un hogar sin nombre se titula «Nuestro hogar», como se llama por omisión (D-098), y la única adulta lo nombra igual", async () => {
     await abrir({
       hogar: {
         nombre: null,
@@ -146,10 +147,10 @@ describe("PN-69 · Borrar la cuenta", () => {
       menores: [],
     });
     expect(
-      screen.getByRole("heading", { level: 2, name: "Tu hogar" }),
+      screen.getByRole("heading", { level: 2, name: "Nuestro hogar" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Eres la única persona adulta de «Tu hogar»\./),
+      screen.getByText(/Eres la única persona adulta de «Nuestro hogar»\./),
     ).toBeInTheDocument();
   });
 
@@ -416,8 +417,174 @@ describe("PN-69 · Borrar la cuenta", () => {
     expect(pedidos).toHaveLength(2);
   });
 
+  it("la tarjeta del hogar lleva el ícono Hogar junto al nombre del hogar (E14-SDD 5.1)", async () => {
+    await abrir({ ...conOtraAdulta, menores: [] });
+    const titulo = screen.getByRole("heading", {
+      level: 2,
+      name: "Nuestro hogar",
+    });
+    const icono = titulo.querySelector("svg.icono");
+    expect(icono).not.toBeNull();
+    expect(icono).toHaveAttribute("aria-hidden", "true");
+  });
+
+  describe("«Descargar mis datos» (RF-032, D-102, D-180)", () => {
+    const zip = () =>
+      new Response(new Uint8Array([80, 75]), {
+        status: 200,
+        headers: { "Content-Type": "application/zip" },
+      });
+    const descargar = () =>
+      screen.getByRole("button", { name: "Descargar mis datos" });
+    let clics: string[];
+    beforeEach(() => {
+      clics = [];
+      URL.createObjectURL = vi.fn(() => "blob:archivo");
+      URL.revokeObjectURL = vi.fn();
+      vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(
+        function (this: HTMLAnchorElement) {
+          clics.push(`${this.download}|${this.href}`);
+        },
+      );
+    });
+    /** El API de PN-69 con la descarga: GET /cuenta/borrado, GET /cuenta/datos y el borrado. */
+    function conDescarga(descarga: () => Response | Promise<Response>) {
+      return simularApi((pedido: Pedido) =>
+        pedido.ruta === "/api/v1/cuenta/datos"
+          ? descarga()
+          : pedido.metodo === "GET"
+            ? json(200, sinHogar)
+            : json(200, {}),
+      );
+    }
+    async function abrirConDescarga(
+      descarga: () => Response | Promise<Response>,
+    ) {
+      const pedidos = conDescarga(descarga);
+      render(<BorrarCuenta />);
+      await screen.findByRole("button", { name: "Borrar mi cuenta" });
+      return pedidos;
+    }
+
+    it("va antes de «Borrar mi cuenta», es un botón de texto con su explicación", async () => {
+      await abrirConDescarga(zip);
+      expect(descargar()).toHaveClass("boton--texto");
+      expect(
+        screen.getByText(
+          "Un archivo ZIP con tus movimientos, metas, deudas y presupuestos en CSV. Solo trae lo tuyo.",
+        ),
+      ).toBeInTheDocument();
+      expect(
+        descargar().compareDocumentPosition(botonBorrar()) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
+
+    it("descarga: pide GET /api/v1/cuenta/datos, baja el ZIP y avisa «Listo, descargamos tus datos.»", async () => {
+      const pedidos = await abrirConDescarga(zip);
+      fireEvent.click(descargar());
+      expect(
+        await screen.findByText("Listo, descargamos tus datos."),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          "El archivo queda en tu teléfono. Guárdalo en un lugar seguro.",
+        ),
+      ).toBeInTheDocument();
+      expect(pedidos[1]).toEqual({
+        metodo: "GET",
+        ruta: "/api/v1/cuenta/datos",
+        cuerpo: undefined,
+      });
+      expect(clics).toEqual(["alcanzamos-mis-datos.zip|blob:archivo"]);
+      expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:archivo");
+      expect(descargar()).not.toHaveAttribute("aria-disabled");
+    });
+
+    it("mientras prepara, el botón queda deshabilitado con «Preparando tu archivo…» y «Borrar mi cuenta» sigue visible; un segundo toque no pide otra vez", async () => {
+      let soltar: (r: Response) => void = () => {};
+      const pedidos = await abrirConDescarga(
+        () => new Promise<Response>((r) => (soltar = r)),
+      );
+      fireEvent.click(descargar());
+      const preparando = await screen.findByRole("button", {
+        name: "Preparando tu archivo…",
+      });
+      expect(preparando).toHaveAttribute("aria-disabled", "true");
+      expect(botonBorrar()).toBeInTheDocument();
+      fireEvent.click(preparando);
+      soltar(zip());
+      await screen.findByText("Listo, descargamos tus datos.");
+      expect(
+        pedidos.filter((p) => p.ruta === "/api/v1/cuenta/datos"),
+      ).toHaveLength(1);
+    });
+
+    it("un error dice «No pudimos preparar tu archivo.» y la persona puede borrar igual", async () => {
+      await abrirConDescarga(() => json(500, { error: "error_interno" }));
+      fireEvent.click(descargar());
+      expect(
+        await screen.findByText("No pudimos preparar tu archivo."),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("Tu cuenta sigue igual. Intenta de nuevo."),
+      ).toBeInTheDocument();
+      expect(clics).toEqual([]);
+      expect(botonBorrar()).not.toHaveAttribute("aria-disabled");
+      escribir();
+      fireEvent.click(botonBorrar());
+      await waitFor(() => expect(window.location.pathname).toBe("/entrar"));
+    });
+
+    it("sin conexión lo dice; con 429, el texto de espera", async () => {
+      await abrirConDescarga(() => {
+        throw new TypeError("sin red");
+      });
+      fireEvent.click(descargar());
+      expect(
+        await screen.findByText(
+          "Sin conexión. Intenta de nuevo cuando vuelvas a tener internet.",
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it("un ZIP que no llega bien (200 sin cuerpo legible) cuenta como error", async () => {
+      await abrirConDescarga(() => {
+        const r = new Response("x", { status: 200 });
+        vi.spyOn(r, "blob").mockRejectedValue(new Error("cortado"));
+        return r;
+      });
+      fireEvent.click(descargar());
+      expect(
+        await screen.findByText("No pudimos preparar tu archivo."),
+      ).toBeInTheDocument();
+    });
+
+    it.each([
+      [401, { error: "sin_sesion" }, "/entrar"],
+      [403, { error: "verificacion_pendiente" }, "/revisa-tu-correo"],
+      [403, { error: "autorizacion_pendiente" }, "/privacidad"],
+    ])("%i %j lleva a %s", async (estado, cuerpo, destino) => {
+      await abrirConDescarga(() => json(estado, cuerpo));
+      fireEvent.click(descargar());
+      await waitFor(() => expect(window.location.pathname).toBe(destino));
+    });
+
+    it("un aviso de descarga anterior se quita al volver a pedir", async () => {
+      let n = 0;
+      await abrirConDescarga(() =>
+        ++n === 1 ? json(500, { error: "x" }) : zip(),
+      );
+      fireEvent.click(descargar());
+      await screen.findByText("No pudimos preparar tu archivo.");
+      fireEvent.click(descargar());
+      await screen.findByText("Listo, descargamos tus datos.");
+      expect(screen.queryByText("No pudimos preparar tu archivo.")).toBeNull();
+    });
+  });
+
   describe("al abrir", () => {
-    it("sin el resumen no se puede borrar: avisa (propuesto) y deja intentar de nuevo", async () => {
+    it("sin el resumen no se puede borrar: avisa («No pudimos cargar tus datos.», D-180) y deja intentar de nuevo", async () => {
       let intento = 0;
       const pedidos = simularApi(() =>
         ++intento === 1
@@ -426,7 +593,7 @@ describe("PN-69 · Borrar la cuenta", () => {
       );
       render(<BorrarCuenta />);
       expect(
-        await screen.findByText("No pudimos cargar lo que se borra."),
+        await screen.findByText("No pudimos cargar tus datos."),
       ).toBeInTheDocument();
       expect(
         screen.queryByRole("button", { name: "Borrar mi cuenta" }),

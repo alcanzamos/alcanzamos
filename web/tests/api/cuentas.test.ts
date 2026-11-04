@@ -4,6 +4,7 @@ import {
   cambiarCorreo,
   cerrarSesion,
   crearCuenta,
+  descargarMisDatos,
   estadoDeLaCuenta,
   reenviarCorreo,
   resumenDeBorrado,
@@ -61,5 +62,48 @@ describe("pedidos de PN-69", () => {
         cuerpo: { contrasena: "x", confirma_menores: true, menores: ["id-1"] },
       },
     ]);
+  });
+});
+
+describe("descarga de los datos (PN-69, D-180)", () => {
+  it("entrega el ZIP como blob con el nombre del encabezado", async () => {
+    simularApi(
+      () =>
+        new Response(new Uint8Array([80, 75]), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/zip",
+            "Content-Disposition": 'attachment; filename="datos.zip"',
+          },
+        }),
+    );
+    const r = await descargarMisDatos();
+    expect(r.ok && r.cuerpo.size).toBe(2);
+    expect(r.ok && r.nombre).toBe("datos.zip");
+  });
+
+  it("sin nombre en el encabezado usa el neutro; un fallo trae estado y código", async () => {
+    simularApi(() => new Response(new Uint8Array([80, 75]), { status: 200 }));
+    const r = await descargarMisDatos();
+    expect(r.ok && r.nombre).toBe("alcanzamos-mis-datos.zip");
+    simularApi(() => json(403, { error: "autorizacion_pendiente" }));
+    expect(await descargarMisDatos()).toMatchObject({
+      ok: false,
+      estado: 403,
+      codigo: "autorizacion_pendiente",
+    });
+    simularApi(() => new Response("no es json", { status: 500 }));
+    expect(await descargarMisDatos()).toMatchObject({
+      ok: false,
+      codigo: "desconocido",
+    });
+    simularApi(() => {
+      throw new TypeError("sin red");
+    });
+    expect(await descargarMisDatos()).toMatchObject({
+      ok: false,
+      estado: 0,
+      codigo: "sin_conexion",
+    });
   });
 });

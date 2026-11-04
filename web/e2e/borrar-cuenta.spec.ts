@@ -120,6 +120,73 @@ test.describe("PN-69 · Borrar la cuenta", () => {
     await sinViolaciones(page);
   });
 
+  test("«Descargar mis datos»: baja el ZIP, avisa y no cambia de pantalla; sin violaciones", async ({
+    page,
+  }) => {
+    const pedidos = await simularApi(page, {
+      "GET /api/v1/cuenta/borrado": responder(200, {
+        hogar: null,
+        menores: [],
+      }),
+      "GET /api/v1/cuenta/datos": (ruta) =>
+        ruta.fulfill({
+          status: 200,
+          contentType: "application/zip",
+          headers: {
+            "Content-Disposition":
+              'attachment; filename="alcanzamos-mis-datos.zip"',
+          },
+          body: Buffer.from("PK"),
+        }),
+    });
+    await page.goto("/cuenta/borrar");
+    const bajada = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Descargar mis datos" }).click();
+    expect((await bajada).suggestedFilename()).toBe("alcanzamos-mis-datos.zip");
+    await expect(page.getByText("Listo, descargamos tus datos.")).toBeVisible();
+    await expect(page).toHaveURL(/\/cuenta\/borrar$/);
+    await sinViolaciones(page);
+    expect(pedidos.map((p) => p.ruta)).toEqual([
+      "/api/v1/cuenta/borrado",
+      "/api/v1/cuenta/datos",
+    ]);
+  });
+
+  test("un error al descargar avisa y deja borrar igual, sin violaciones", async ({
+    page,
+  }) => {
+    await simularApi(page, {
+      "GET /api/v1/cuenta/borrado": responder(200, {
+        hogar: null,
+        menores: [],
+      }),
+      "GET /api/v1/cuenta/datos": responder(500, { error: "error_interno" }),
+    });
+    await page.goto("/cuenta/borrar");
+    await page.getByRole("button", { name: "Descargar mis datos" }).click();
+    await expect(
+      page.getByText("No pudimos preparar tu archivo."),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Borrar mi cuenta" }),
+    ).toBeEnabled();
+    await sinViolaciones(page);
+  });
+
+  test("con hogar, la tarjeta lleva el ícono y el nombre del hogar", async ({
+    page,
+  }) => {
+    await simularApi(page, {
+      "GET /api/v1/cuenta/borrado": responder(200, resumenConMenor),
+    });
+    await page.goto("/cuenta/borrar");
+    await expect(
+      page
+        .getByRole("heading", { level: 2, name: "Nuestro hogar" })
+        .locator("svg"),
+    ).toBeVisible();
+  });
+
   test("la contraseña que no coincide se queda en la pantalla, con el error en su campo", async ({
     page,
   }) => {
@@ -168,9 +235,7 @@ test.describe("PN-69 · Borrar la cuenta", () => {
       "GET /api/v1/cuenta/borrado": responder(500, { error: "error_interno" }),
     });
     await page.goto("/cuenta/borrar");
-    await expect(
-      page.getByText("No pudimos cargar lo que se borra."),
-    ).toBeVisible();
+    await expect(page.getByText("No pudimos cargar tus datos.")).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Borrar mi cuenta" }),
     ).toHaveCount(0);

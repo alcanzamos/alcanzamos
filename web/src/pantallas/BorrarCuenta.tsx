@@ -1,11 +1,16 @@
 import { useEffect, useState, type SyntheticEvent } from "react";
-import { borrarLaCuenta, resumenDeBorrado } from "../api/cuentas";
+import {
+  borrarLaCuenta,
+  descargarMisDatos,
+  resumenDeBorrado,
+} from "../api/cuentas";
 import type { ResumenDeBorrado } from "../api/cuentas";
 import { seguirPorAccesoNegado } from "../accesoNegado";
 import { Aviso } from "../componentes/Aviso";
 import { Boton, BotonEnlace } from "../componentes/Boton";
 import { Casilla } from "../componentes/Casilla";
 import { CampoDeContrasena } from "../componentes/CampoDeContrasena";
+import { IconoHogar } from "../componentes/Iconos";
 import { Pagina } from "../componentes/Pagina";
 import { useFocoPendiente } from "../enfoque";
 import { irConAviso } from "../llegada";
@@ -28,7 +33,7 @@ const t = textos.borrarCuenta;
 // La fila 4 de PN-69 cambia con el hogar (E14-PCP 4.12): quien lo administra con otra persona adulta, la única persona
 // adulta, o quien es miembro sin el papel.
 function textoDelHogar(hogar: NonNullable<ResumenDeBorrado["hogar"]>) {
-  const nombre = hogar.nombre ?? t.hogar.sinNombre;
+  const nombre = hogar.nombre ?? t.hogar.nombrePorOmision;
   if (hogar.unica_adulta)
     return formatear(t.hogar.unicaAdulta, { hogar: nombre });
   if (hogar.es_administradora && hogar.nuevo_administrador)
@@ -49,6 +54,11 @@ export function BorrarCuenta() {
   const [errores, setErrores] = useState<Record<string, string>>({});
   const [aviso, setAviso] = useState<DatosDeAviso | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [descarga, setDescarga] = useState<
+    | { fase: "libre" }
+    | { fase: "preparando" }
+    | { fase: "aviso"; aviso: DatosDeAviso }
+  >({ fase: "libre" });
   const pedirFoco = useFocoPendiente();
 
   useEffect(() => {
@@ -59,7 +69,7 @@ export function BorrarCuenta() {
       else if (!seguirPorAccesoNegado(respuesta))
         setEstado({
           fase: "error",
-          aviso: avisoDeFallo(respuesta, avisos.errorAlCargarLoQueSeBorra),
+          aviso: avisoDeFallo(respuesta, avisos.errorAlCargarTusDatos),
         });
     });
     return () => {
@@ -69,6 +79,28 @@ export function BorrarCuenta() {
 
   const menores = estado.fase === "listo" ? estado.resumen.menores : [];
   const nombres = nombresEnFrase(menores.map((m) => m.nombre));
+
+  // «Descargar mis datos» (D-102): opcional, no retrasa el borrado ni lo condiciona, y no abre otra pantalla.
+  async function descargar() {
+    if (descarga.fase === "preparando") return;
+    setDescarga({ fase: "preparando" });
+    const respuesta = await descargarMisDatos();
+    if (!respuesta.ok) {
+      if (seguirPorAccesoNegado(respuesta)) return;
+      setDescarga({
+        fase: "aviso",
+        aviso: avisoDeFallo(respuesta, avisos.errorAlDescargar),
+      });
+      return;
+    }
+    const direccion = URL.createObjectURL(respuesta.cuerpo);
+    const enlace = document.createElement("a");
+    enlace.href = direccion;
+    enlace.download = respuesta.nombre;
+    enlace.click();
+    URL.revokeObjectURL(direccion);
+    setDescarga({ fase: "aviso", aviso: avisos.descargaLista });
+  }
 
   async function enviar(evento: SyntheticEvent) {
     evento.preventDefault();
@@ -145,6 +177,9 @@ export function BorrarCuenta() {
       )}
       {estado.fase === "listo" && (
         <form className="formulario" noValidate onSubmit={enviar}>
+          {descarga.fase === "aviso" && (
+            <Aviso id="aviso-descarga" {...descarga.aviso} />
+          )}
           {aviso && <Aviso {...aviso} />}
           <Aviso
             id="aviso-borrar"
@@ -160,8 +195,9 @@ export function BorrarCuenta() {
           </section>
           {estado.resumen.hogar && (
             <section className="tarjeta" aria-labelledby="titulo-hogar">
-              <h2 id="titulo-hogar" className="titulo-3">
-                {estado.resumen.hogar.nombre ?? t.hogar.sinNombre}
+              <h2 id="titulo-hogar" className="titulo-3 titulo-con-icono">
+                <IconoHogar />
+                {estado.resumen.hogar.nombre ?? t.hogar.nombrePorOmision}
               </h2>
               <p>{textoDelHogar(estado.resumen.hogar)}</p>
             </section>
@@ -192,6 +228,19 @@ export function BorrarCuenta() {
             alCambiar={setContrasena}
             error={errores.contrasena}
           />
+          <Boton
+            variante="texto"
+            deshabilitado={descarga.fase === "preparando"}
+            descritoPor="ayuda-descarga"
+            alTocar={() => void descargar()}
+          >
+            {descarga.fase === "preparando"
+              ? textos.descargarMisDatos.preparando
+              : textos.descargarMisDatos.boton}
+          </Boton>
+          <p id="ayuda-descarga" className="ayuda">
+            {textos.descargarMisDatos.ayuda}
+          </p>
           <Boton tipo="submit" variante="destructivo" deshabilitado={enviando}>
             {t.borrarMiCuenta}
           </Boton>
