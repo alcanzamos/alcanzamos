@@ -8,7 +8,7 @@ import {
 import { describe, expect, it, vi } from "vitest";
 import type { Pendiente, Pendientes } from "../../src/api/repeticiones";
 import { PorConfirmar } from "../../src/pantallas/PorConfirmar";
-import { json, simularApi } from "../ayudas";
+import { json, porTexto, simularApi } from "../ayudas";
 
 const salario: Pendiente = {
   recurrente_id: "r1",
@@ -51,6 +51,7 @@ function abrir(datos: Pendientes = dos) {
   render(
     <PorConfirmar
       datos={datos}
+      hrefDeTodos="/movimientos?confirmar=todos"
       alEmpezar={alEmpezar}
       alTerminar={alTerminar}
       refrescar={refrescar}
@@ -65,7 +66,7 @@ const masSalario = () =>
   });
 
 describe("«Por confirmar» en PN-01 (E14-PRR 4.1)", () => {
-  it("con más de una fecha: título, texto y una fila por fecha con «Confirmar» y «Más»", () => {
+  it("con más de una fecha: título, texto, resumen, «Confirmar todos» y una fila por fecha con «Confirmar» y «Más»", () => {
     abrir();
     expect(
       screen.getByRole("heading", { level: 2, name: "Por confirmar" }),
@@ -75,6 +76,12 @@ describe("«Por confirmar» en PN-01 (E14-PRR 4.1)", () => {
         "Estos movimientos que se repiten ya llegaron a su fecha. Confírmalos con un toque, o toca «Más» si no pasaron o cambió el monto.",
       ),
     ).toBeVisible();
+    expect(
+      screen.getByText(porTexto("2 por confirmar: 1 ingreso y 1 gasto")),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: "Confirmar todos" }),
+    ).toHaveAttribute("href", "/movimientos?confirmar=todos");
     const filas = screen.getAllByRole("listitem");
     expect(filas).toHaveLength(2);
     expect(filas[0]).toHaveTextContent(
@@ -89,14 +96,26 @@ describe("«Por confirmar» en PN-01 (E14-PRR 4.1)", () => {
     expect(masSalario()).toHaveTextContent("Más");
   });
 
-  it("con una sola fecha el texto dice «Esta fecha…» y queda la fila con «Confirmar» y «Más»", () => {
+  it("con una sola fecha no hay resumen ni «Confirmar todos»: queda la fila con «Confirmar» y «Más»", () => {
     abrir(una);
     expect(
       screen.getByText(
         "Esta fecha de un movimiento que se repite ya llegó. Confírmala con un toque, o toca «Más» si no pasó o cambió el monto.",
       ),
     ).toBeVisible();
+    expect(screen.queryByText(/por confirmar:/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Confirmar todos" }),
+    ).not.toBeInTheDocument();
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
+  });
+
+  it("un solo tipo dice «2 gastos por confirmar» (D-163)", () => {
+    abrir({
+      pendientes: [arriendo, { ...arriendo, fecha: "2026-12-02" }],
+      resumen: { total: 2, ingresos: 0, gastos: 2 },
+    });
+    expect(screen.getByText(porTexto("2 gastos por confirmar"))).toBeVisible();
   });
 
   it("«Confirmar» crea el movimiento con el monto habitual y avisa con el monto que guardó el API", async () => {

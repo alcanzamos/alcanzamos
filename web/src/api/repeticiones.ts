@@ -21,6 +21,21 @@ export type Pendientes = {
   resumen: { total: number; ingresos: number; gastos: number };
 };
 
+/** Una decisión de «Confirmar todos»: el monto solo si la persona lo cambió; `omitida` es «No pasó». */
+export type Decision = {
+  recurrenteId: string;
+  fecha: string;
+  montoCentavos?: bigint;
+  omitida?: boolean;
+};
+
+export type Decididas = {
+  movimientos: Movimiento[];
+  omitidas: { recurrente_id: string; fecha: string }[];
+  siguen_pendientes: number;
+  resumen: { guardados: number; omitidas: number };
+};
+
 const ruta = (id: string, accion: string) =>
   `/api/v1/repeticiones/${encodeURIComponent(id)}/${accion}`;
 
@@ -45,3 +60,20 @@ export function confirmarFecha(
 /** «No pasó»: guarda la fecha omitida; no crea ningún movimiento. */
 export const omitirFecha = (id: string, fecha: string) =>
   pedir("POST", ruta(id, "omision"), { fecha });
+
+/** «Confirmar todos»: solo las filas marcadas y las «No pasó»; el API guarda todo o nada (D-093). */
+export function decidir(decisiones: Decision[]) {
+  const cuerpo = decisiones.map((d) => {
+    const resto = d.omitida
+      ? ',"omitida":true'
+      : d.montoCentavos === undefined
+        ? ""
+        : `,"monto_centavos":${d.montoCentavos}`;
+    return `{"recurrente_id":${JSON.stringify(d.recurrenteId)},"fecha":${JSON.stringify(d.fecha)}${resto}}`;
+  });
+  return pedir<Decididas>(
+    "POST",
+    "/api/v1/repeticiones/decisiones",
+    `{"decisiones":[${cuerpo.join(",")}]}`,
+  );
+}

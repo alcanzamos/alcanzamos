@@ -986,11 +986,14 @@ describe("PN-01 · «Por confirmar» y «Confirmar todos» (US-60)", () => {
     expect(seccion()).not.toBeInTheDocument();
   });
 
-  it("con fechas pendientes la sección va arriba de los filtros", async () => {
+  it("con fechas pendientes la sección va arriba de los filtros, con el resumen del API", async () => {
     alPedirPendientes = () => json(200, con(salario, arriendo));
     api();
     await abrir();
     expect(seccion()).toBeVisible();
+    expect(
+      screen.getByText(porTexto("2 por confirmar: 1 ingreso y 1 gasto")),
+    ).toBeVisible();
     const periodo = screen.getByRole("group", { name: "Periodo" });
     expect(
       seccion()!.compareDocumentPosition(periodo) &
@@ -1064,6 +1067,44 @@ describe("PN-01 · «Por confirmar» y «Confirmar todos» (US-60)", () => {
     ).toHaveFocus();
   });
 
+  it("«Confirmar todos» abre el panel en la dirección, sin cambiar de página; «Guardar» avisa, vuelve y refresca", async () => {
+    alPedirPendientes = () => json(200, con(salario, arriendo));
+    api();
+    await abrir();
+    fireEvent.click(screen.getByRole("link", { name: "Confirmar todos" }));
+    expect(window.location.search).toBe("?confirmar=todos");
+    const panel = await screen.findByRole("region", {
+      name: "Confirmar todos",
+    });
+    expect(panel).toBeVisible();
+    expect(screen.queryByText("Elige un movimiento para verlo.")).toBeNull();
+    expect(document.querySelector(".movimientos--abierto")).toBeInTheDocument();
+
+    const pedidos = simularApi((p) => {
+      if (p.metodo === "POST")
+        return json(200, { resumen: { guardados: 2, omitidas: 0 } });
+      return p.ruta.startsWith("/api/v1/repeticiones/pendientes")
+        ? json(200, con())
+        : json(200, lista(deNoviembre));
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Guardar 2 movimientos" }),
+    );
+    expect(
+      await screen.findByText(porTexto("Listo, guardamos 2 movimientos.")),
+    ).toBeVisible();
+    expect(window.location.pathname + window.location.search).toBe(
+      "/movimientos",
+    );
+    await waitFor(() => expect(seccion()).not.toBeInTheDocument());
+    expect(rutas(pedidos)).toEqual([
+      "POST /api/v1/repeticiones/decisiones",
+      "GET /api/v1/repeticiones/pendientes",
+      "GET /api/v1/movimientos?",
+    ]);
+    expect(screen.getByText("Elige un movimiento para verlo.")).toBeVisible();
+  });
+
   it("un 409 al confirmar vuelve a pedir lo pendiente y deja el error en la sección", async () => {
     alPedirPendientes = () => json(200, con(salario, arriendo));
     api();
@@ -1093,5 +1134,51 @@ describe("PN-01 · «Por confirmar» y «Confirmar todos» (US-60)", () => {
         }),
       ).not.toBeInTheDocument(),
     );
+  });
+
+  it("un 409 al guardar en «Confirmar todos» vuelve a pedir la lista y conserva el panel", async () => {
+    alPedirPendientes = () => json(200, con(salario, arriendo));
+    api();
+    await abrir("/movimientos?confirmar=todos");
+    const pedidos = simularApi((p) => {
+      if (p.metodo === "POST")
+        return json(409, { error: "conflicto_concurrente" });
+      return p.ruta.startsWith("/api/v1/repeticiones/pendientes")
+        ? json(200, con(salario, arriendo))
+        : json(200, lista(deNoviembre));
+    });
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Guardar 2 movimientos" }),
+    );
+    expect(
+      await screen.findByText("No pudimos guardar tus movimientos."),
+    ).toBeVisible();
+    await waitFor(() =>
+      expect(rutas(pedidos)).toContain("GET /api/v1/repeticiones/pendientes"),
+    );
+    expect(
+      screen.getByRole("region", { name: "Confirmar todos" }),
+    ).toBeVisible();
+  });
+
+  it("Atrás en el panel vuelve sin guardar y deja el foco en «Confirmar todos»", async () => {
+    alPedirPendientes = () => json(200, con(salario, arriendo));
+    const pedidos = api();
+    await abrir("/movimientos?confirmar=todos");
+    fireEvent.click(await screen.findByRole("link", { name: "Atrás" }));
+    expect(window.location.search).toBe("");
+    expect(screen.getByRole("link", { name: "Confirmar todos" })).toHaveFocus();
+    expect(pedidos.filter((p) => p.metodo === "POST")).toEqual([]);
+  });
+
+  it("con una sola fecha la dirección de «Confirmar todos» no abre el panel", async () => {
+    alPedirPendientes = () => json(200, con(salario));
+    api();
+    await abrir("/movimientos?confirmar=todos");
+    expect(seccion()).toBeVisible();
+    expect(
+      screen.queryByRole("region", { name: "Confirmar todos" }),
+    ).toBeNull();
+    expect(screen.getByText("Elige un movimiento para verlo.")).toBeVisible();
   });
 });

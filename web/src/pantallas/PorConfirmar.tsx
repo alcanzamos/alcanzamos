@@ -8,11 +8,15 @@ import {
   type Pendientes,
 } from "../api/repeticiones";
 import { Aviso } from "../componentes/Aviso";
-import { Boton } from "../componentes/Boton";
+import { Boton, BotonEnlace } from "../componentes/Boton";
 import { cifras } from "../componentes/Cifras";
 import { formatearPesos } from "../dinero";
 import { useFocoPendiente } from "../enfoque";
-import { avisoDeFallo, type DatosDeAviso } from "../textos";
+import {
+  avisoDeFallo,
+  resumenPorConfirmar,
+  type DatosDeAviso,
+} from "../textos";
 import {
   avisoDeConfirmado,
   avisosDePorConfirmar,
@@ -29,15 +33,17 @@ export const claveDe = (fila: Pendiente) =>
   `${fila.recurrente_id}-${fila.fecha}`;
 
 // La sección «Por confirmar» de PN-01 (E14-PRR 4.1, D-091 a D-093): una fila por fecha que ya llegó, con «Confirmar» a
-// la vista y «Más» (D-092) para «Cambiar el monto» y «No pasó».
+// la vista y «Más» (D-092) para «Cambiar el monto» y «No pasó». Con más de una fecha, el resumen y «Confirmar todos».
 // Qué fechas hay lo decide el API (E17-ECO 4.7): aquí solo se muestran y se mandan las decisiones.
 export function PorConfirmar({
   datos,
+  hrefDeTodos,
   alEmpezar,
   alTerminar,
   refrescar,
 }: {
   datos: Pendientes;
+  hrefDeTodos: string;
   alEmpezar: () => void;
   alTerminar: (aviso: DatosDeAviso) => void;
   refrescar: () => void;
@@ -46,7 +52,7 @@ export function PorConfirmar({
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<DatosDeAviso | null>(null);
   const pedirFoco = useFocoPendiente();
-  const { pendientes } = datos;
+  const { pendientes, resumen } = datos;
 
   const cerrar = (clave: string) => {
     setHoja(null);
@@ -103,6 +109,16 @@ export function PorConfirmar({
       <p className="ayuda">
         {pendientes.length > 1 ? p.textoVarias : p.textoUna}
       </p>
+      {pendientes.length > 1 && (
+        <>
+          <p className="fila__nombre">
+            {cifras(resumenPorConfirmar(resumen.ingresos, resumen.gastos))}
+          </p>
+          <BotonEnlace id="confirmar-todos" href={hrefDeTodos}>
+            {p.confirmarTodos}
+          </BotonEnlace>
+        </>
+      )}
       {error && <Aviso id="aviso-por-confirmar" {...error} />}
       <ul className="lista-de-filas lista-sin-relleno">
         {pendientes.map((fila) => {
