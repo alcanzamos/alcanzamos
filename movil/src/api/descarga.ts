@@ -1,7 +1,7 @@
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { urlDelApi } from '../config';
-import { leerToken } from '../sesion/token';
+import { borrarToken, leerToken } from '../sesion/token';
 import { cabeceras, SIN_CONEXION, SIN_CONFIGURACION, type Respuesta } from './cliente';
 
 /** El nombre neutro del ZIP que entrega el API (`Content-Disposition`). */
@@ -48,6 +48,8 @@ export async function descargarMisDatos(): Promise<ResultadoDeDescarga> {
   if (!respuesta.ok) {
     const cuerpo = await leerJson(respuesta);
     const codigo = typeof cuerpo === 'object' && cuerpo !== null ? (cuerpo as { error?: unknown }).error : undefined;
+    // Como en `pedir` (cliente.ts): un `401 sin_sesion` es que el token ya no sirve.
+    if (respuesta.status === 401 && codigo === 'sin_sesion') await borrarToken();
     return fallo(respuesta.status, typeof codigo === 'string' ? codigo : 'desconocido');
   }
   const archivo = new File(Paths.cache, NOMBRE_DEL_ZIP);

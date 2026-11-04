@@ -111,6 +111,16 @@ describe('«Descargar mis datos» en Android (PN-69, D-180)', () => {
     expect(mockArchivos.size).toBe(0);
   });
 
+  it('un 401 sin_sesion borra el token del Keystore, como todo pedido del cliente; los demás errores lo dejan', async () => {
+    instalarFetchFalso(respuestaJson(401, { error: 'sin_sesion' }));
+    await descargarMisDatos();
+    expect(almacen.guardado.has('sesion')).toBe(false);
+    almacen.guardado.set('sesion', 'tk-activa');
+    instalarFetchFalso(respuestaJson(403, { error: 'autorizacion_pendiente' }));
+    await descargarMisDatos();
+    expect(almacen.guardado.get('sesion')).toBe('tk-activa');
+  });
+
   it('una respuesta de error sin JSON da «desconocido»', async () => {
     instalarFetchFalso(respuestaJson(502));
     expect(await descargarMisDatos()).toMatchObject({ ok: false, estado: 502, codigo: 'desconocido' });

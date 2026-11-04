@@ -36,7 +36,8 @@ function textoDelHogar(hogar: NonNullable<ResumenDeBorrado['hogar']>) {
 
 // PN-69 · Borrar la cuenta (E14-PCP 4.12, RF-032, RN-006, RN-007): la pantalla es la confirmación. Todo lo que cambia
 // según el hogar y los menores sale del API antes de mostrar el botón: sin eso no se puede avisar lo que RN-006 pide.
-// «Descargar mis datos» (D-102) no está en esta historia. El título lo pone la barra nativa; Atrás vuelve a PN-71.
+// «Descargar mis datos» (D-102, D-180) va antes del botón de borrar y es opcional. El título lo pone la barra nativa; Atrás
+// vuelve a PN-71.
 export function BorrarCuenta({ navigation }: NativeStackScreenProps<Rutas, 'BorrarCuenta'>) {
   const [estado, setEstado] = useState<Estado>({ fase: 'cargando' });
   const [intento, setIntento] = useState(0);
