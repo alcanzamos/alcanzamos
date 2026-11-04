@@ -1325,6 +1325,20 @@
           "texto": "Falta marcar que eres mayor de edad.",
           "e14": "E14-PCP 4.1 (PN-58)"
         }
+      },
+      "borrarCuenta": {
+        "contrasena_vacia": {
+          "texto": "Falta tu contraseña.",
+          "e14": "E14-PCP 4.12 (PN-69), errores de campo"
+        },
+        "contrasena_incorrecta": {
+          "texto": "No pudimos confirmar tu contraseña. Escríbela de nuevo.",
+          "e14": "E14-PCP 4.12 (PN-69), errores de campo"
+        },
+        "confirmacion_requerida": {
+          "texto": "Falta confirmar lo de {nombres}.",
+          "e14": "E14-PCP 4.12 (PN-69), errores de campo: «Falta confirmar lo de Mateo.»; con varios menores, sus nombres juntos (propuesto, pendiente de aprobar)"
+        }
       }
     },
     "pagina": {
@@ -1388,6 +1402,120 @@
         "elegir": {
           "texto": "Elige un movimiento para verlo.",
           "e14": "E14-PRR 4.1 (PN-01), variante web"
+        }
+      }
+    },
+    "avisos": {
+      "vasABorrarTuCuenta": {
+        "titulo": {
+          "texto": "Vas a borrar tu cuenta",
+          "e14": "E14-PCP 4.12 (PN-69), fila 2"
+        },
+        "mensaje": {
+          "texto": "Se borran tus datos y no se pueden recuperar.",
+          "e14": "E14-PCP 4.12 (PN-69), fila 2"
+        }
+      },
+      "errorAlBorrarLaCuenta": {
+        "titulo": {
+          "texto": "No pudimos borrar tu cuenta.",
+          "e14": "E14-PCP 4.12 (PN-69), estado «Error»"
+        },
+        "mensaje": {
+          "texto": "Tus datos siguen ahí. Intenta de nuevo.",
+          "e14": "E14-PCP 4.12 (PN-69), estado «Error»"
+        }
+      },
+      "cuentaBorrada": {
+        "titulo": {
+          "texto": "Borramos tu cuenta.",
+          "e14": "E14-PCP 4.12 (PN-69), «Al borrar» y E14-PCP 4.3 (PN-60), estado «Cuenta borrada»"
+        },
+        "mensaje": {
+          "texto": "Gracias por haber usado Alcanzamos.",
+          "e14": "E14-PCP 4.3 (PN-60), estado «Cuenta borrada» (viene de PN-69)"
+        }
+      },
+      "errorAlCargarLoQueSeBorra": {
+        "titulo": {
+          "texto": "No pudimos cargar lo que se borra.",
+          "e14": "propuesto, pendiente de aprobar: E14 no tiene el estado de error de carga de PN-69. Sin leer el hogar y los menores no se puede mostrar lo que RN-006 pide avisar, así que no se deja borrar"
+        }
+      }
+    },
+    "borrarCuenta": {
+      "borrarMiCuenta": {
+        "texto": "Borrar mi cuenta",
+        "e14": "E14-PCP 4.12 (PN-69), filas 1 y 9; E14-PCP 4.9 (PN-66), fila 8"
+      },
+      "ahoraNo": {
+        "texto": "Ahora no",
+        "e14": "E14-PCP 4.12 (PN-69), fila 10"
+      },
+      "loQueSeBorra": {
+        "titulo": {
+          "texto": "Lo que se borra",
+          "e14": "E14-PCP 4.12 (PN-69), fila 3"
+        },
+        "detalle": {
+          "texto": "Tus movimientos, metas, deudas y presupuestos. Tu correo, tu nombre y tus preferencias.",
+          "e14": "E14-PCP 4.12 (PN-69), fila 3"
+        },
+        "prueba": {
+          "texto": "Solo guardamos una prueba mínima de tu autorización, sin tu nombre ni tu correo, durante 3 años.",
+          "e14": "E14-PCP 4.12 (PN-69), fila 3"
+        }
+      },
+      "hogar": {
+        "sinNombre": {
+          "texto": "Tu hogar",
+          "e14": "propuesto, pendiente de aprobar: el hogar puede no tener nombre y E14 no dice cómo titular la tarjeta; es el título del grupo de E14-PCP 4.9 (PN-66), fila 3"
+        },
+        "administradora": {
+          "texto": "Eres quien lo administra. El papel pasa ahora mismo a {nombre}. Lo que compartiste sigue en el hogar, sin tu nombre.",
+          "e14": "E14-PCP 4.12 (PN-69), fila 4, «Con otra persona adulta»"
+        },
+        "miembro": {
+          "texto": "Lo que compartiste sigue en el hogar, sin tu nombre.",
+          "e14": "propuesto, pendiente de aprobar: E14 solo da el texto de quien administra el hogar; es su última frase para quien es miembro sin el papel (RN-006)"
+        },
+        "unicaAdulta": {
+          "texto": "Eres la única persona adulta de «{hogar}». El hogar se cierra y lo que compartiste también se borra.",
+          "e14": "E14-PCP 4.12 (PN-69), fila 4, «Siendo la única persona adulta»"
+        }
+      },
+      "menores": {
+        "titulo": {
+          "texto": "Menores a tu cargo",
+          "e14": "E14-PCP 4.12 (PN-69), fila 5"
+        },
+        "dependen": {
+          "texto": {
+            "one": "{nombres} depende solo de ti. Su cuenta y sus datos también se borran.",
+            "other": "{nombres} dependen solo de ti. Sus cuentas y sus datos también se borran."
+          },
+          "e14": "E14-PCP 4.12 (PN-69), fila 5. Con un menor, el texto de E14; con varios E14 da solo «{nombre} y {nombre} dependen solo de ti.»: «Sus cuentas y sus datos también se borran.» es propuesto, pendiente de aprobar"
+        },
+        "casilla": {
+          "texto": {
+            "one": "Entiendo que también se borra la cuenta de {nombres}.",
+            "other": "Entiendo que también se borran las cuentas de {nombres}."
+          },
+          "e14": "E14-PCP 4.12 (PN-69), fila 6, con uno y con varios menores"
+        },
+        "union": {
+          "texto": "{anteriores} y {ultimo}",
+          "e14": "propuesto, pendiente de aprobar: E14-PCP 4.12 (PN-69), fila 5 da «Mateo y {nombre}» para dos; con tres o más, comas y «y» antes del último"
+        }
+      },
+      "contrasena": {
+        "etiqueta": {
+          "texto": "Tu contraseña",
+          "e14": "E14-PCP 4.12 (PN-69), fila 7"
+        },
+        "ayuda": {
+          "texto": "La pedimos para confirmar que eres tú.",
+          "e14": "E14-PCP 4.12 (PN-69), fila 7"
         }
       }
     }

@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  borrarLaCuenta,
   cambiarCorreo,
   cerrarSesion,
   crearCuenta,
   estadoDeLaCuenta,
   reenviarCorreo,
+  resumenDeBorrado,
   verificarCorreo,
 } from "../../src/api/cuentas";
 import { json, simularApi } from "../ayudas";
@@ -39,5 +41,21 @@ describe("pedidos de cuenta", () => {
     });
     expect(pedidos[1]?.cuerpo).toEqual({ token: "tok" });
     expect(pedidos[4]?.cuerpo).toEqual({ correo: "c@d.co" });
+  });
+});
+
+describe("pedidos de PN-69", () => {
+  it("el resumen y el borrado llaman a su ruta del contrato", async () => {
+    const pedidos = simularApi(() => json(200, {}));
+    await resumenDeBorrado();
+    await borrarLaCuenta({ contrasena: "x", confirma_menores: true });
+    expect(pedidos).toEqual([
+      { metodo: "GET", ruta: "/api/v1/cuenta/borrado", cuerpo: undefined },
+      {
+        metodo: "POST",
+        ruta: "/api/v1/cuenta/borrado",
+        cuerpo: { contrasena: "x", confirma_menores: true },
+      },
+    ]);
   });
 });

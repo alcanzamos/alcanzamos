@@ -62,6 +62,22 @@ describe("PN-71 · Seguridad de la cuenta", () => {
   });
 
   // E14-PCP 4.16 T2
+  it("«Borrar mi cuenta» es un botón de texto que abre PN-69, debajo de «Cerrar sesión»", async () => {
+    simularApi(() => json(200, { ingreso_anterior: null }));
+    render(<SeguridadDeLaCuenta />);
+    await screen.findByText("Este es tu primer ingreso.");
+    const enlace = screen.getByRole("link", { name: "Borrar mi cuenta" });
+    expect(enlace).toHaveAttribute("href", "/cuenta/borrar");
+    expect(enlace).toHaveClass("boton--texto");
+    expect(
+      screen
+        .getByRole("button", { name: "Cerrar sesión" })
+        .compareDocumentPosition(enlace) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    fireEvent.click(enlace);
+    expect(window.location.pathname).toBe("/cuenta/borrar");
+  });
+
   it("«Cerrar sesión» es un botón de texto", async () => {
     simularApi(() => json(200, { ingreso_anterior: null }));
     render(<SeguridadDeLaCuenta />);

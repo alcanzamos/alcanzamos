@@ -2,6 +2,7 @@ import { useEffect, type ReactElement } from "react";
 import { reiniciarBorrador, RUTAS_DEL_BORRADOR } from "./borradorDeRegistro";
 import { navegar, useUbicacion } from "./enrutador";
 import { Autorizacion } from "./pantallas/Autorizacion";
+import { BorrarCuenta } from "./pantallas/BorrarCuenta";
 import { CambiarContrasena } from "./pantallas/CambiarContrasena";
 import { CrearCuenta } from "./pantallas/CrearCuenta";
 import { Entrar } from "./pantallas/Entrar";
@@ -31,6 +32,7 @@ const pantallas: Record<string, () => ReactElement> = {
   "/recuperar": Recuperar,
   "/cuenta/seguridad": SeguridadDeLaCuenta,
   "/cuenta/contrasena": CambiarContrasena,
+  "/cuenta/borrar": BorrarCuenta,
   "/movimientos": Movimientos,
   "/registrar": Registrar,
   "/registrar/se-repite": SeRepite,

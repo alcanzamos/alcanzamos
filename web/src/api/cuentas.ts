@@ -25,3 +25,22 @@ export const cambiarCorreo = (correo: string) =>
   pedir("POST", "/api/v1/cuentas/correo", { correo });
 
 export const cerrarSesion = () => pedir("DELETE", "/api/v1/sesiones/actual");
+
+export type ResumenDeBorrado = {
+  hogar: {
+    nombre: string | null;
+    es_administradora: boolean;
+    unica_adulta: boolean;
+    nuevo_administrador: string | null;
+  } | null;
+  menores: string[];
+};
+
+// PN-69: lo que cambia en la pantalla según el hogar y los menores, y el borrado mismo (api/README.md, «Borrar la cuenta»).
+export const resumenDeBorrado = () =>
+  pedir<ResumenDeBorrado>("GET", "/api/v1/cuenta/borrado");
+
+export const borrarLaCuenta = (datos: {
+  contrasena: string;
+  confirma_menores: boolean;
+}) => pedir("POST", "/api/v1/cuenta/borrado", datos);
