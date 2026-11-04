@@ -154,7 +154,7 @@ Una prueba por regla en `test/seguridad/contrasena_test.go`. Las reglas miran la
 
 ### Correo (`src/correo`)
 
-SMTP de la biblioteca estándar; texto plano en español. Los dos correos (el de verificación y el aviso de D-141, E14-PCP 4.2 bis) terminan **exactamente** con «Si tienes dudas sobre tus datos, escribe a <CORREO_PRIVACIDAD>.» (D-143); una prueba compara el texto en los dos. El puerto `Correo` tiene un `Falso` para las pruebas. Nunca se registra el token, la dirección ni el cuerpo.
+SMTP de la biblioteca estándar; texto plano en español. Los dos correos (el de verificación y el aviso de D-141, E14-PCP 4.2 bis) terminan **exactamente** con «Si tienes dudas sobre tus datos, escribe a <CORREO_PRIVACIDAD>.» (D-143); una prueba compara el texto en los dos. El puerto `Correo` tiene un `Falso` para las pruebas. Nunca se registra el token, la dirección ni el cuerpo. Tampoco el texto que responde el servidor SMTP, que suele repetir la dirección (A-15): de un error con código queda solo el código, uno de la red o de la conexión cerrada se conserva y cualquier otro (por ejemplo una línea sin código) se reemplaza por «respuesta del servidor no válida». Una prueba con un servidor de mentira recorre esos casos y busca la dirección en cada línea del registro.
 
 ## Cuenta (US-49)
 
@@ -577,7 +577,7 @@ Pruebas: `test/registro/movimientos_test.go` (contrato, validación y D-168 con 
 
 ## Imagen
 
-- Tres etapas: `node:24.22.1-alpine3.24` (digest `sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53`, índice multiarquitectura, resuelto el 2026-10-22; mismo Node que `.azure-pipelines/web.yml`) hace `npm ci` y `npm run build` en `web/` (necesita `diseno/`); `golang:1.27.3-alpine3.24` (digest `sha256:b8c9b82affbbb82a020bbcf998dad2ba9516944ac7e883524642a481a9505e9c`, índice multiarquitectura, resuelto el 2026-10-22) copia ese `web/dist` a `src/web/estatico/` y compila un binario estático con la web embebida; `gcr.io/distroless/static-debian13:nonroot` lo ejecuta, fijada por digest `sha256:d62067879de890a1def9da0e7766b7d20810a5e5555cef8506b752437d7a3e88` (índice multiarquitectura, resuelto el 2026-10-22).
+- Tres etapas: `node:24.22.1-alpine3.24` (digest `sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53`, índice multiarquitectura, resuelto el 2026-10-22; mismo Node que `.azure-pipelines/web.yml`) hace `npm ci` y `npm run build` en `web/` (necesita `diseno/`); `golang:1.27.3-alpine3.24` (digest `sha256:b8c9b82affbbb82a020bbcf998dad2ba9516944ac7e883524642a481a9505e9c`, índice multiarquitectura, resuelto el 2026-10-22) copia ese `web/dist` a `src/web/estatico/` y compila un binario estático con la web embebida; `gcr.io/distroless/static-debian13:nonroot` lo ejecuta, fijada por digest `sha256:18f4cc26c9ffa7f20a359298be7deadac5c607c8e03a02b8119f1a5fc2f82c99` (índice multiarquitectura subido el 2026-10-23, D-161; se usa el más nuevo que cumple 7 días de antigüedad).
 - El contexto es la raíz del monorepo; el `.dockerignore` de la raíz deja pasar solo `api/`, `web/` y `diseno/`.
 - Distroless no trae shell, así que no hay `HEALTHCHECK` ni comandos en forma de shell; la salud se consulta por `/salud` desde fuera.
 - Corre como usuario 65532 (nonroot), sin root. El `ENTRYPOINT` es el binario.
@@ -585,7 +585,7 @@ Pruebas: `test/registro/movimientos_test.go` (contrato, validación y D-168 con 
 
 ## Base de datos y migraciones
 
-- `pgx` v5 (`pgxpool`) conecta con PostgreSQL. La URL sale de `BASE_DE_DATOS_URL`.
+- `pgx` v5 (`pgxpool`) conecta con PostgreSQL. La URL sale de `BASE_DE_DATOS_URL`. Toda conexión del pool fija `TimeZone=UTC` (`bd.Conectar`; E17 3.9), aunque la URL o `PGTZ` pidan otra zona (A-05).
 - `goose` v3 se usa como biblioteca. Las migraciones van embebidas en el binario (`embed`).
 - `api migrar` aplica las migraciones pendientes y termina.
 - `0001_esquema_inicial.sql`, `0002_catalogo.sql` y `0003_ingreso_anterior.sql` (la columna `credencial.ingreso_anterior`, D-134) son copia idéntica de las de E13 (D-122). No se editan aquí. Si hay que cambiar algo, el cambio vuelve primero a E13, con nota fechada y versión nueva.
@@ -631,6 +631,12 @@ python3 -I -B .azure-pipelines/pruebas/cobertura.py probar   # prueba del propio
 ```
 
 La salida es una tabla por grupo y por paquete; el código de salida es 1 si algo falla. `c.out` no se confirma. Sin PostgreSQL las pruebas de integración se saltan y la cobertura sale más baja de lo que el pipeline mide.
+
+## Análisis estático (golangci-lint)
+
+El pipeline `api` corre `go vet ./...` y después `go tool golangci-lint run` (v2.15.0, publicado el 2026-10-16), con la configuración `api/.golangci.yml`. La herramienta es una directiva `tool` de `go.mod` (D-161), como `govulncheck`: no se instala nada aparte, no entra en el binario del API y no está en `src/`. Activa solo los cuatro analizadores de E17-ECO 3.5 (`Q-2`, D-110): `errcheck` (con `check-blank`: también marca `_ = f()`), `staticcheck`, `asciicheck` y `depguard`. Reglas de `depguard` (E17 3.2): el núcleo (`reloj`, `fechas`) no importa paquetes del proyecto, `seguridad` no importa módulos de negocio, y ningún módulo ni `seguridad` importa `pg`, `bd`, `app` ni `pgx`. E17 no trae una lista concreta de paquetes: las reglas son las mínimas de E12 §4 (reglas 1, 3 y 4) y E17 3.10; se amplían cuando E12 §4 se actualice (D-1 de la auditoría).
+
+Excepciones de `errcheck` (A-13, D-178 (2)), todas con su razón en la configuración o junto al código: `crypto/rand.Read` (desde Go 1.24 no devuelve error: si no hay entropía, el programa se detiene); `pgx.Tx.Rollback` (el `defer tx.Rollback(ctx)` tras el `Commit` devuelve `ErrTxClosed` y no hay nada que hacer); todo `api/test/`; y cinco `//nolint:errcheck` con su razón junto al código (`EscribirJSON`: la conexión ya cerrada por la persona; `mime.AddExtensionType` con una constante válida; `SetDeadline` de una conexión TCP recién abierta; el cierre de la conexión y del cliente SMTP cuando ya se devuelve otro error). En local: `cd api && go tool golangci-lint run` (con `go vet ./...` aparte, que no está en el agregador).
 
 ## Vulnerabilidades (govulncheck)
 
