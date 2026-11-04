@@ -54,7 +54,7 @@ func (r *Cuentas) crearUnaVez(ctx context.Context, c cuenta.NuevaCuenta) (string
 	if err != nil {
 		return "", fmt.Errorf("abrir la transacción: %w", err)
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck // sin efecto tras el commit
+	defer tx.Rollback(ctx)
 
 	// Dos creaciones del mismo correo a la vez se turnan: sin esto, ninguna ve la cuenta de la otra (no hay fila que
 	// bloquear) y se pelearían borrándose la una a la otra. El candado se suelta con la transacción.
@@ -120,7 +120,7 @@ func (r *Cuentas) VerificarCorreo(ctx context.Context, huella []byte, ahora time
 	if err != nil {
 		return "", fmt.Errorf("abrir la transacción: %w", err)
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck // sin efecto tras el commit
+	defer tx.Rollback(ctx)
 
 	var persona string
 	err = tx.QueryRow(ctx,
@@ -151,7 +151,7 @@ func (r *Cuentas) NuevoEnlaceDeVerificacion(ctx context.Context, persona string,
 	if err != nil {
 		return "", fmt.Errorf("abrir la transacción: %w", err)
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck // sin efecto tras el commit
+	defer tx.Rollback(ctx)
 
 	var correo *string
 	var verificado bool
@@ -204,7 +204,7 @@ func (r *Cuentas) CambiarCorreoSinVerificar(ctx context.Context, persona, nuevo 
 	if err != nil {
 		return fmt.Errorf("abrir la transacción: %w", err)
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck // sin efecto tras el commit
+	defer tx.Rollback(ctx)
 
 	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended(lower(btrim($1)), 0))`, nuevo); err != nil {
 		return fmt.Errorf("turnarse para cambiar el correo: %w", err)
