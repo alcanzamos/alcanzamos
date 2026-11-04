@@ -236,10 +236,14 @@ export const textos = {
     confirmar: "Confirmar",
     // E14-PRR 4.1 (PN-01), «Confirmar un movimiento que se repite», fila «Más»
     mas: "Más",
+    // E14-PRR 4.1 (PN-01), fila 2a; E14-PRR 4.8, fila 1
+    confirmarTodos: "Confirmar todos",
     // E14-PRR 4.1 (PN-01), hojas «Más», «No pasó» y «Cambiar el monto»; E14-SDD 5.12
     cerrar: "Cerrar",
     // E14-PRR 4.1 (PN-01), fila «Texto de apoyo»: «Ingreso · Transferencia · 16 de noviembre de 2026»
     apoyoConMedio: "{tipo} · {medio} · {fecha}",
+    // E14-PRR 4.8 (PN-72, «Confirmar todos»), fila 4: «Gasto · 5 de noviembre de 2026»
+    apoyoSinMedio: "{tipo} · {fecha}",
     // E14-PRR 4.1 (PN-01), fila «Confirmar»: «Confirmar Salario del 16 de noviembre de 2026»
     nombreDeConfirmar: "Confirmar {nombre} del {fecha}",
     // E14-PRR 4.1 (PN-01), fila «Más»: «Más opciones de Salario del 16 de noviembre de 2026»
@@ -251,6 +255,8 @@ export const textos = {
       cambiarElMonto: "Cambiar el monto",
       // E14-PRR 4.1 (PN-01), «Hoja «Más»» y «Hoja «No pasó»»; E14-PRR 4.8 (PN-72, «Confirmar todos»), «Más» → «No pasó»
       noPaso: "No pasó",
+      // E14-PRR 4.8 (PN-72, «Confirmar todos»), «Más» en una fila «No pasó»
+      volverAIncluirla: "Volver a incluirla",
       // E14-PRR 4.1 (PN-01), «Hoja «No pasó»»
       tituloNoPaso: "¿Esta fecha no pasó?",
       // E14-PRR 4.1 (PN-01), «Hoja «No pasó»»
@@ -261,6 +267,8 @@ export const textos = {
       tituloDeGasto: "¿Cuánto pagaste?",
       // E14-PRR 4.1 (PN-01), «Hoja «Cambiar el monto»», Botón · Primario
       confirmar: "Confirmar",
+      // E14-PRR 4.8 (PN-72, «Confirmar todos»), «Más» → «Cambiar el monto», Botón · Primario
+      listo: "Listo",
     },
     avisos: {
       // E14-PRR 4.1 (PN-01), «Después de «Confirmar»»
@@ -281,6 +289,40 @@ export const textos = {
         // E14-PRR 4.1 (PN-01), estado «Error al marcar «No pasó»»
         mensaje: "Sigue por confirmar. Intenta de nuevo.",
       },
+      errorAlGuardar: {
+        // E14-PRR 4.8 (PN-72, «Confirmar todos»), estado «Error al guardar»
+        titulo: "No pudimos guardar tus movimientos.",
+        // E14-PRR 4.8 (PN-72, «Confirmar todos»), estado «Error al guardar»
+        mensaje: "No se guardó ninguno. Intenta de nuevo.",
+      },
+      // E14-PRR 4.8 (PN-72, «Confirmar todos»), «Aviso al guardar»: «Listo, guardamos 13 movimientos.» y «Listo, guardamos 1 movimiento.»
+      guardados: { one: "Listo, guardamos {n} movimiento.", other: "Listo, guardamos {n} movimientos." },
+      // E14-PRR 4.8 (PN-72, «Confirmar todos»), «Aviso al guardar»: «Listo, guardamos 12 movimientos y dejamos de contar 1 fecha.»
+      guardadosYOmitidas: "Listo, guardamos {guardados} y dejamos de contar {omitidas}.",
+      // E14-PRR 4.8 (PN-72, «Confirmar todos»), «Aviso al guardar»: «Listo, dejamos de contar 1 fecha.». propuesto: la forma «other» («Listo, dejamos de contar 2 fechas.») no está escrita en E14; sale de la regla de plurales de D-163
+      soloOmitidas: { one: "Listo, dejamos de contar {n} fecha.", other: "Listo, dejamos de contar {n} fechas." },
+    },
+    // E14-PRR 4.8 (PN-72, «Confirmar todos»), «Aviso al guardar»: «12 movimientos» y «1 movimiento»
+    movimientosGuardados: { one: "{n} movimiento", other: "{n} movimientos" },
+    // E14-PRR 4.8 (PN-72, «Confirmar todos»), «Aviso al guardar»: «1 fecha». propuesto: la forma «other» («2 fechas») no está escrita en E14; sale de la regla de plurales de D-163
+    fechasOmitidas: { one: "{n} fecha", other: "{n} fechas" },
+    todos: {
+      // E14-PRR 4.8 (PN-72, «Confirmar todos»), fila 2
+      explicacion: "Todo viene marcado. Desmarca lo que no quieras confirmar ahora, o toca «Más» si no pasó o cambió el monto.",
+      // E14-PRR 4.8 (PN-72, «Confirmar todos»), fila 3
+      marcados: "{marcados} de {total} marcados",
+      // E14-PRR 4.8 (PN-72, «Confirmar todos»), fila 5
+      aclaracion: "Lo que desmarques sigue por confirmar. Una fecha que marques «No pasó» deja de contarse.",
+      // E14-PRR 4.8 (PN-72, «Confirmar todos»), «Desmarcar la casilla»
+      siguePorConfirmar: "Sigue por confirmar",
+      // E14-PRR 4.8 (PN-72, «Confirmar todos»), «Más» → «Cambiar el monto»
+      montoCambiado: "Monto cambiado",
+      // E14-PRR 4.8 (PN-72, «Confirmar todos»), «Más» → «No pasó»
+      noPaso: "No pasó",
+      // E14-PRR 4.8 (PN-72, «Confirmar todos»), «El botón «Guardar»»: «Guardar 13 movimientos» y «Guardar 1 movimiento»; «Guardar 0 movimientos» deshabilitado
+      guardar: { one: "Guardar {n} movimiento", other: "Guardar {n} movimientos" },
+      // E14-PRR 4.8 (PN-72, «Confirmar todos»), «El botón «Guardar»», «Solo «No pasó»»
+      guardarSoloNoPaso: "Guardar",
     },
   },
   pagina: {

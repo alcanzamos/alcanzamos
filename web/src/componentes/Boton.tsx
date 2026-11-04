@@ -49,16 +49,19 @@ export function Boton({
 
 // Un enlace con aspecto de botón: lleva a otra pantalla de la app sin recargar la página.
 export function BotonEnlace({
+  id,
   href,
   variante = "secundario",
   children,
 }: {
+  id?: string;
   href: string;
   variante?: Variante;
   children: ReactNode;
 }) {
   return (
     <a
+      id={id}
       href={href}
       className={`boton boton--${variante}`}
       onClick={alTocarEnlace(href)}

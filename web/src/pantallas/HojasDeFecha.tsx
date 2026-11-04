@@ -12,25 +12,29 @@ import { textos } from "../textos/es.generated";
 const h = textos.porConfirmar.hoja;
 const ahoraNo = textos.movimientos.detalle.ahoraNo;
 
-export type Opcion = "monto" | "no_paso";
+export type Opcion = "monto" | "no_paso" | "incluir";
 
-// Las hojas de una fecha por confirmar (E14-PRR 4.1, 5.12): «Más», «No pasó» y «Cambiar el monto». Cada una avisa lo
-// que se eligió; quien las abre guarda y devuelve el foco.
+// Las hojas de una fecha por confirmar (E14-PRR 4.1, 5.12): «Más», «No pasó» y «Cambiar el monto». Las usan la sección
+// de PN-01 y «Confirmar todos» (4.8). Cada una avisa lo que se eligió; quien las abre guarda y vuelve el foco.
 
-/** «Más»: «Cambiar el monto» y «No pasó» (D-092). */
+/** «Más»: «Cambiar el monto» y «No pasó»; en una fila «No pasó» de «Confirmar todos», solo «Volver a incluirla». */
 export function HojaDeMas({
   fila,
+  conIncluir = false,
   alElegir,
   alCerrar,
 }: {
   fila: Pendiente;
+  conIncluir?: boolean;
   alElegir: (opcion: Opcion) => void;
   alCerrar: () => void;
 }) {
-  const opciones: [Opcion, string][] = [
-    ["monto", h.cambiarElMonto],
-    ["no_paso", h.noPaso],
-  ];
+  const opciones: [Opcion, string][] = conIncluir
+    ? [["incluir", h.volverAIncluirla]]
+    : [
+        ["monto", h.cambiarElMonto],
+        ["no_paso", h.noPaso],
+      ];
   return (
     <Hoja
       titulo={textosDeFilaPorConfirmar(fila).tituloDeLaHoja}

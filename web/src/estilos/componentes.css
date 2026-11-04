@@ -615,12 +615,16 @@
   }
 }
 
+/* Fila de lista · Por confirmar (E14-PRR 7.1, 3 y 4): datos y monto arriba, y «Confirmar» y «Más» (o la casilla y «Más»)
+   con caja de 48 px. La hoja de «Más» sale justo debajo de su fila. */
 .lista-sin-relleno {
   padding: 0;
 }
 
-/* Fila de lista · Por confirmar (E14-PRR 7.1, 3): los datos y el monto arriba, y «Confirmar» y «Más» (cajas de 48 px)
-   debajo. La hoja de «Más» sale justo debajo de su fila. */
+.detalle > p {
+  margin: 0;
+}
+
 .fila-por-confirmar {
   display: grid;
   gap: var(--espacio-2);
@@ -642,6 +646,14 @@
 .fila-por-confirmar__datos > :first-child {
   flex: 1;
   min-width: 0;
+}
+
+.fila-por-confirmar .casilla > span:last-child {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espacio-3);
 }
 
 /* Hoja inferior (E14-SDD 5.12). En la web, un panel junto al botón que la abre y sin velo; por debajo de 768 px, anclada
@@ -686,6 +698,15 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+/* El botón «Guardar» de «Confirmar todos» queda fijo al pie del panel (E14-PRR 4.8, variante web). */
+.pie-fijo {
+  position: sticky;
+  bottom: 0;
+  display: grid;
+  padding: var(--espacio-3) 0;
+  background: var(--color-fondo-pagina);
 }
 
 @media (max-width: 95.9ch) {

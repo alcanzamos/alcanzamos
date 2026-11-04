@@ -26,6 +26,7 @@ import {
 } from "../textos";
 import { textosDeFila, tituloDelDia } from "../textosDeMovimientos";
 import { formatear, plural, textos } from "../textos/es.generated";
+import { ConfirmarTodos } from "./ConfirmarTodos";
 import { DetalleDeMovimiento } from "./DetalleDeMovimiento";
 import { PorConfirmar } from "./PorConfirmar";
 
@@ -41,16 +42,18 @@ const CHIPS_DE_CATEGORIA = 3;
 
 const nombreDe = (id: number) => nombresDeCategoria[`c${id}`] ?? "";
 
-// Los filtros y el movimiento abierto viven en la dirección: atrás, adelante y recargar los conservan.
+// Los filtros, el movimiento abierto y «Confirmar todos» viven en la dirección: atrás, adelante y recargar los conservan.
 function direccion(
   periodo: string | null,
   categoria: number | null,
   movimiento: string | null = null,
+  confirmarTodos = false,
 ) {
   const consulta = new URLSearchParams();
   if (periodo) consulta.set("periodo", periodo);
   if (categoria) consulta.set("categoria", String(categoria));
   if (movimiento) consulta.set("movimiento", movimiento);
+  if (confirmarTodos) consulta.set("confirmar", "todos");
   return consulta.size > 0 ? `/movimientos?${consulta}` : "/movimientos";
 }
 
@@ -67,12 +70,14 @@ function porDia(movimientos: Movimiento[]) {
 
 // PN-01 · Movimientos: lista y filtros, variante web (E14-PRR 4.1). Dos columnas: la lista a la izquierda y el detalle
 // (PN-02) a la derecha, sin cambiar de página. Por debajo de 768 px es una pantalla a la vez, como en Android.
-// Con la sección «Por confirmar» (US-60, D-091 a D-093). Sin las «Horas de vida» (RF-054) ni el contexto «Nuestro hogar».
+// Con la sección «Por confirmar» (US-60, D-091 a D-093), que abre «Confirmar todos» en la columna derecha. Sin las
+// «Horas de vida» (RF-054) ni el contexto «Nuestro hogar».
 export function Movimientos() {
   const { parametros } = useUbicacion();
   const periodo = parametros.get("periodo");
   const categoria = Number(parametros.get("categoria")) || null;
   const abierto = parametros.get("movimiento");
+  const confirmarTodos = parametros.get("confirmar") === "todos";
   const [estado, setEstado] = useState<Estado>({ fase: "cargando" });
   const [intento, setIntento] = useState(0);
   const [aviso, setAviso] = useState(avisoDeLlegada);
@@ -112,10 +117,11 @@ export function Movimientos() {
     setEstado({ fase: "cargando" });
     setIntento(intento + 1);
   };
-  // Después de confirmar o marcar «No pasó» se vuelve a pedir lo pendiente y la lista, sin vaciar la pantalla.
+  // Después de confirmar o de «Guardar» se vuelve a pedir lo pendiente y la lista, sin vaciar la pantalla.
   const alTerminarPorConfirmar = (nuevo: DatosDeAviso) => {
     setAviso(nuevo);
     setIntento(intento + 1);
+    if (confirmarTodos) navegar(direccion(periodo, categoria), true);
     pedirFoco("titulo-de-pagina");
   };
   const ir = (destino: string) => {
@@ -135,12 +141,15 @@ export function Movimientos() {
   const datos = estado.fase === "listo" ? estado.datos : null;
   const elegido = datos?.movimientos.find((f) => f.id === abierto);
   const hoy = hoyEnColombia();
+  // «Confirmar todos» solo se ofrece con más de una fecha (E14-PRR 4.1); con una, la fila trae su propio «Confirmar».
   const pendientes = estado.fase === "listo" ? estado.pendientes : null;
+  const todos =
+    confirmarTodos && pendientes && pendientes.pendientes.length > 1;
 
   return (
     <Pagina titulo={m.titulo} estado={aviso} ancha>
       <div
-        className={`movimientos${abierto && datos ? " movimientos--abierto" : ""}`}
+        className={`movimientos${(abierto && datos) || todos ? " movimientos--abierto" : ""}`}
       >
         <div className="movimientos__lista">
           <BotonEnlace href="/registrar" variante="primario">
@@ -157,6 +166,7 @@ export function Movimientos() {
           {pendientes && pendientes.pendientes.length > 0 && !categoria && (
             <PorConfirmar
               datos={pendientes}
+              hrefDeTodos={direccion(periodo, categoria, null, true)}
               alEmpezar={() => setAviso(null)}
               alTerminar={alTerminarPorConfirmar}
               refrescar={() => setIntento(intento + 1)}
@@ -178,7 +188,16 @@ export function Movimientos() {
           )}
         </div>
         <div className="movimientos__detalle">
-          {elegido ? (
+          {todos ? (
+            <ConfirmarTodos
+              datos={pendientes}
+              atras={direccion(periodo, categoria)}
+              alVolver={() => pedirFoco("confirmar-todos")}
+              alEmpezar={() => setAviso(null)}
+              alTerminar={alTerminarPorConfirmar}
+              refrescar={() => setIntento(intento + 1)}
+            />
+          ) : elegido ? (
             <DetalleDeMovimiento
               key={elegido.id}
               movimiento={elegido}
