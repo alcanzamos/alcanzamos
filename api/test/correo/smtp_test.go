@@ -290,6 +290,13 @@ func TestEnviarVerificacionErrores(t *testing.T) {
 			t.Fatal("se esperaba un error")
 		}
 	})
+	t.Run("dirección del servidor sin puerto", func(t *testing.T) {
+		s := correo.NuevoSMTP(configDePrueba("sin-puerto"), relojDePrueba())
+		err := s.EnviarVerificacion(context.Background(), "laura@ejemplo.test", "abc")
+		if err == nil || !strings.Contains(err.Error(), "host:puerto") || strings.Contains(err.Error(), "laura") {
+			t.Fatalf("error inesperado: %v", err)
+		}
+	})
 	t.Run("servidor caído", func(t *testing.T) {
 		l, _ := net.Listen("tcp", "127.0.0.1:0")
 		dir := l.Addr().String()
@@ -321,6 +328,7 @@ func TestEnviarFallaEnCadaPasoDelDialogo(t *testing.T) {
 		{"remitente rechazado", "220 hola", map[string]string{"MAIL": "550 no"}, "remitente rechazado: el servidor respondió 550"},
 		{"conexión cortada al dar el remitente", "220 hola", map[string]string{"MAIL": ""}, "remitente rechazado"},
 		{"inicio de los datos rechazado", "220 hola", map[string]string{"DATA": "554 no"}, "iniciar el cuerpo del mensaje: el servidor respondió 554"},
+		{"cierre del diálogo", "220 hola", map[string]string{"QUIT": ""}, "cerrar el diálogo con el servidor de correo"},
 		{"mensaje no aceptado", "220 hola", map[string]string{".": "554 spam"}, "el servidor no aceptó el mensaje: el servidor respondió 554"},
 	}
 	for _, c := range casos {

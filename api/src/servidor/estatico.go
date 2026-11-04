@@ -2,7 +2,6 @@ package servidor
 
 import (
 	"bytes"
-	"encoding/json"
 	"io/fs"
 	"mime"
 	"net/http"
@@ -13,14 +12,13 @@ import (
 
 func init() {
 	// La imagen final (distroless) no trae tabla de tipos MIME del sistema.
-	_ = mime.AddExtensionType(".ttf", "font/ttf")
+	// Solo falla si la extensión no empieza con punto: es una constante y no hay nada que manejar en tiempo de ejecución.
+	mime.AddExtensionType(".ttf", "font/ttf") //nolint:errcheck // ver el comentario de arriba
 }
 
 // noEncontradoAPI responde 404 en JSON a cualquier ruta desconocida bajo /api/: nunca index.html.
 func noEncontradoAPI(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusNotFound)
-	_ = json.NewEncoder(w).Encode(map[string]string{"error": "no_encontrado"})
+	EscribirError(w, http.StatusNotFound, "no_encontrado")
 }
 
 // aplicacionWeb sirve los archivos de la web. Un archivo existente se entrega tal cual; cualquier

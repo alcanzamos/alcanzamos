@@ -1,4 +1,4 @@
-# Pipeline de api/: go vet, pruebas con detector de carreras, barrera de cobertura con PostgreSQL, compilación y
+# Pipeline de api/: go vet, golangci-lint, pruebas con detector de carreras, barrera de cobertura con PostgreSQL, compilación y
 # construcción de la imagen.
 # No usa conexión de servicio ni secretos. La barrera de cobertura (E17-ECO 5.5) levanta un PostgreSQL desechable en
 # Docker (datos sintéticos, solo en 127.0.0.1) para correr también las pruebas de integración.
@@ -65,6 +65,13 @@ steps:
   - script: go vet ./...
     workingDirectory: api
     displayName: go vet
+
+  # golangci-lint v2.15.0 (2026-10-16) está fijado como `tool` en api/go.mod, igual que govulncheck: no se instala nada
+  # aparte. Corre errcheck, staticcheck, asciicheck y depguard con api/.golangci.yml (E17-ECO 3.5, Q-2, D-110); falla con
+  # cualquier hallazgo (código 1). También cierra A-13: cada error se maneja o su excepción está escrita en la configuración.
+  - script: go tool golangci-lint run
+    workingDirectory: api
+    displayName: Analizador agregado (golangci-lint)
 
   # govulncheck está fijado como `tool` en api/go.mod (v1.9.0, con sus sumas en go.sum): no se instala nada aparte y no
   # entra en el binario. Con la salida por defecto solo falla (código 3) si el código llama a un símbolo vulnerable;

@@ -29,6 +29,8 @@ ESPERADO = {
     "api/test/seguridad/limitador_test.go": {"comun", "api"},
     "api/test/pgtest/pgtest.go": {"comun", "api"},
     "api/Dockerfile": {"comun", "api"},
+    "api/.golangci.yml": {"comun", "api"},
+    "api/go.mod": {"comun", "api"},
     ".azure-pipelines/api.yml": {"comun", "api"},
     ".azure-pipelines/pruebas/cobertura.py": {"comun", "api"},
     "api/test/cobertura-base.json": {"comun", "api"},

@@ -632,6 +632,12 @@ python3 -I -B .azure-pipelines/pruebas/cobertura.py probar   # prueba del propio
 
 La salida es una tabla por grupo y por paquete; el código de salida es 1 si algo falla. `c.out` no se confirma. Sin PostgreSQL las pruebas de integración se saltan y la cobertura sale más baja de lo que el pipeline mide.
 
+## Análisis estático (golangci-lint)
+
+El pipeline `api` corre `go vet ./...` y después `go tool golangci-lint run` (v2.15.0, publicado el 2026-10-16), con la configuración `api/.golangci.yml`. La herramienta es una directiva `tool` de `go.mod` (D-161), como `govulncheck`: no se instala nada aparte, no entra en el binario del API y no está en `src/`. Activa solo los cuatro analizadores de E17-ECO 3.5 (`Q-2`, D-110): `errcheck` (con `check-blank`: también marca `_ = f()`), `staticcheck`, `asciicheck` y `depguard`. Reglas de `depguard` (E17 3.2): el núcleo (`reloj`, `fechas`) no importa paquetes del proyecto, `seguridad` no importa módulos de negocio, y ningún módulo ni `seguridad` importa `pg`, `bd`, `app` ni `pgx`. E17 no trae una lista concreta de paquetes: las reglas son las mínimas de E12 §4 (reglas 1, 3 y 4) y E17 3.10; se amplían cuando E12 §4 se actualice (D-1 de la auditoría).
+
+Excepciones de `errcheck` (A-13, D-178 (2)), todas con su razón en la configuración o junto al código: `crypto/rand.Read` (desde Go 1.24 no devuelve error: si no hay entropía, el programa se detiene); `pgx.Tx.Rollback` (el `defer tx.Rollback(ctx)` tras el `Commit` devuelve `ErrTxClosed` y no hay nada que hacer); todo `api/test/`; y cinco `//nolint:errcheck` con su razón junto al código (`EscribirJSON`: la conexión ya cerrada por la persona; `mime.AddExtensionType` con una constante válida; `SetDeadline` de una conexión TCP recién abierta; el cierre de la conexión y del cliente SMTP cuando ya se devuelve otro error). En local: `cd api && go tool golangci-lint run` (con `go vet ./...` aparte, que no está en el agregador).
+
 ## Vulnerabilidades (govulncheck)
 
 El pipeline `api` corre `go tool govulncheck ./...` (v1.9.0, 2026-10-11) después de `go vet`. La herramienta está como directiva `tool` en `go.mod`, con sus sumas en `go.sum`, así que la versión queda fijada con el resto de las dependencias; no entra en el binario del API (`go version -m` lista los mismos módulos) y no está en `src/`, de modo que la barrera de cobertura no la ve. Con la salida por defecto falla (código 3) solo si el código llama a un símbolo vulnerable. En local: `cd api && go tool govulncheck ./...`.

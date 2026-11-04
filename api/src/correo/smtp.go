@@ -176,20 +176,24 @@ func (s *SMTP) enviar(ctx context.Context, destino string, mensaje []byte) error
 	ctx, cancelar := context.WithTimeout(ctx, plazoDeEnvio)
 	defer cancelar()
 
+	host, _, err := net.SplitHostPort(s.direccion)
+	if err != nil {
+		return fmt.Errorf("la dirección del servidor de correo no es host:puerto: %w", err)
+	}
 	conexion, err := (&net.Dialer{}).DialContext(ctx, "tcp", s.direccion)
 	if err != nil {
 		return fmt.Errorf("conectar con el servidor de correo: %w", err)
 	}
 	if limite, ok := ctx.Deadline(); ok {
-		_ = conexion.SetDeadline(limite)
+		// En una conexión TCP recién abierta SetDeadline no falla; y si fallara, el primer paso del diálogo devuelve el error.
+		conexion.SetDeadline(limite) //nolint:errcheck // ver el comentario de arriba
 	}
-	host, _, _ := net.SplitHostPort(s.direccion)
 	cliente, err := smtp.NewClient(conexion, host)
 	if err != nil {
-		_ = conexion.Close()
+		conexion.Close() //nolint:errcheck // ya se devuelve el error de saludar
 		return respuesta("saludar al servidor de correo", err)
 	}
-	defer cliente.Close()
+	defer cliente.Close() //nolint:errcheck // tras Quit la conexión ya está cerrada; si se sale antes, ya se devuelve el error de ese paso
 
 	if ofrece, _ := cliente.Extension("STARTTLS"); ofrece {
 		if err := cliente.StartTLS(&tls.Config{ServerName: host, MinVersion: tls.VersionTLS12}); err != nil {

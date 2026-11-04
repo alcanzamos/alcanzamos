@@ -46,7 +46,7 @@ func (r *Autenticacion) IniciarSesion(ctx context.Context, persona string, huell
 	if err != nil {
 		return fmt.Errorf("abrir la transacción: %w", err)
 	}
-	defer tx.Rollback(ctx)  //nolint:errcheck // sin efecto tras el commit
+	defer tx.Rollback(ctx)
 	var viejo, nuevo string // vacíos: el hash no cambia
 	if mejora != nil {
 		viejo, nuevo = mejora.Viejo, mejora.Nuevo
@@ -110,7 +110,7 @@ func (r *Autenticacion) NuevoEnlaceDeRecuperacion(ctx context.Context, correo st
 	if err != nil {
 		return false, fmt.Errorf("abrir la transacción: %w", err)
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck // sin efecto tras el commit
+	defer tx.Rollback(ctx)
 	var persona string
 	var verificada bool
 	err = tx.QueryRow(ctx,
@@ -168,7 +168,7 @@ func (r *Autenticacion) FijarContrasenaConEnlace(ctx context.Context, huella []b
 	if err != nil {
 		return fmt.Errorf("abrir la transacción: %w", err)
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck // sin efecto tras el commit
+	defer tx.Rollback(ctx)
 	var persona string
 	err = tx.QueryRow(ctx,
 		`UPDATE enlace_un_uso SET usado_en = $2
@@ -195,7 +195,7 @@ func (r *Autenticacion) CambiarContrasena(ctx context.Context, persona, hash str
 	if err != nil {
 		return fmt.Errorf("abrir la transacción: %w", err)
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck // sin efecto tras el commit
+	defer tx.Rollback(ctx)
 	if err := guardarHashYCerrarSesiones(ctx, tx, persona, hash, conservar); err != nil {
 		return err
 	}

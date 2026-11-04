@@ -26,7 +26,9 @@ func LeerJSON(w http.ResponseWriter, r *http.Request, destino any) bool {
 func EscribirJSON(w http.ResponseWriter, codigo int, cuerpo any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(codigo)
-	_ = json.NewEncoder(w).Encode(cuerpo)
+	// Con el encabezado ya enviado, un fallo al escribir es que la persona cerró la conexión: no hay a quién avisar. Un
+	// valor que no se pueda serializar es un error de programación y lo atrapan las pruebas de cada ruta.
+	_ = json.NewEncoder(w).Encode(cuerpo) //nolint:errcheck // ver el comentario de arriba
 }
 
 // EscribirError responde con {"error": "<código>"}. El código es estable y lo mapea el cliente a su texto (ADR-005):
