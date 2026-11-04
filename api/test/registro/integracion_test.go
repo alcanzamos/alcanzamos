@@ -93,7 +93,7 @@ func nuevoServidor(t *testing.T) *servidorDePrueba {
 	cuenta.NuevoHandler(cuentas, resolutor, log).Registrar(enr)
 	autenticacion.NuevoHandler(entrar, seguridad.NuevoRegistro(log), log).Registrar(enr)
 	autorizacion.NuevoHandler(autorizacion.NuevoServicio(pg.NuevoAutorizaciones(pool), reloj), seguridad.NuevoRegistro(log), log).Registrar(enr)
-	registro.NuevoHandler(registro.NuevoServicio(pg.NuevoMovimientos(pool), reloj), log).Registrar(enr)
+	registro.NuevoHandler(registro.NuevoServicio(pg.NuevoMovimientos(pool), reloj), log).ConURLPublica("https://app.ej.test").Registrar(enr)
 	api, err := enr.Construir()
 	if err != nil {
 		t.Fatal(err)
@@ -115,12 +115,19 @@ type respuesta struct {
 	Cache   string // Cache-Control
 }
 
-// llamar manda una petición con un origen distinto cada vez, para que los límites de intentos no estorben.
+// llamar manda una petición con un origen distinto cada vez, para que los límites de intentos no estorben. Cumple la
+// defensa contra CSRF de E17 3.15: la web manda `Sec-Fetch-Site: same-origin`, como un navegador, y cada cuerpo va como JSON.
 func (c *cliente) llamar(metodo, ruta, cuerpo string) respuesta {
 	c.s.t.Helper()
 	c.s.pedidos++
+	return c.enviar(metodo, ruta, cuerpo, fmt.Sprintf("10.0.%d.%d:1", c.s.pedidos/250, c.s.pedidos%250), true)
+}
+
+// enviar arma la petición del cliente. Sin `defensa`, no agrega `Sec-Fetch-Site` ni `Content-Type`: el llamador pone lo suyo
+// con `ajustar` (las pruebas de CSRF).
+func (c *cliente) enviar(metodo, ruta, cuerpo, direccion string, defensa bool, ajustar ...func(*http.Request)) respuesta {
 	r := httptest.NewRequest(metodo, ruta, strings.NewReader(cuerpo))
-	r.RemoteAddr = fmt.Sprintf("10.0.%d.%d:1", c.s.pedidos/250, c.s.pedidos%250)
+	r.RemoteAddr = direccion
 	if c.android {
 		r.Header.Set(sesion.EncabezadoDeCliente, sesion.ClienteAndroid)
 		if c.token != "" {
@@ -128,6 +135,17 @@ func (c *cliente) llamar(metodo, ruta, cuerpo string) respuesta {
 		}
 	} else if c.token != "" {
 		r.AddCookie(sesion.Cookie(c.token))
+	}
+	if defensa {
+		if !c.android {
+			r.Header.Set("Sec-Fetch-Site", "same-origin")
+		}
+		if cuerpo != "" {
+			r.Header.Set("Content-Type", "application/json")
+		}
+	}
+	for _, f := range ajustar {
+		f(r)
 	}
 	rr := httptest.NewRecorder()
 	c.s.h.ServeHTTP(rr, r)

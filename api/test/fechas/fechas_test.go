@@ -26,8 +26,8 @@ func iguales(t *testing.T, obtenidas []time.Time, esperadas ...string) {
 	}
 }
 
-// Los casos FP-01 a FP-16 de la prueba de escritorio de E15 5.2 (FP-17 a FP-23 son de ConfirmarVarias y de
-// FechaDelMovimiento, que no son de esta historia).
+// Los casos FP-01 a FP-16 de la prueba de escritorio de E15 5.2 (FP-17 a FP-23 están en confirmar_test.go: son de
+// ConfirmarVarias y de FechaDelMovimiento).
 func TestFechasProgramadasYPendientesSegunE15(t *testing.T) {
 	casos := []struct {
 		id          string
