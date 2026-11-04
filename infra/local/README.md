@@ -9,7 +9,7 @@ Solo se usan datos sintéticos. Ningún correo sale del equipo.
 | Servicio | Imagen | Para qué | Puerto (solo `127.0.0.1`) |
 |---|---|---|---|
 | `postgres` | `postgres:18.6-alpine` | Base de datos, la misma versión mayor que producción (18) | 5432 |
-| `mailpit` | `axllent/mailpit:v1.31.6` | Correo de prueba: verificación de cuenta, recuperación y avisos al tutor | SMTP 1025, web 8025 |
+| `mailpit` | `axllent/mailpit:v1.32.0` | Correo de prueba: verificación de cuenta, recuperación y avisos al tutor | SMTP 1025, web 8025 |
 
 Mailpit recibe todo y no reenvía nada: no tiene configurado ningún servidor de salida.
 
@@ -30,12 +30,13 @@ El API lee estos valores de variables de entorno (`BASE_DE_DATOS_URL`, `CORREO_S
 
 ## Versiones
 
-Consultadas el 2026-10-22:
+Consultadas el 2026-10-22 (Mailpit, el 2026-11-03):
 
 - PostgreSQL 18.6: etiquetas de la imagen oficial en `https://hub.docker.com/_/postgres`.
-- Mailpit v1.31.6 (publicada el 2026-10-15): `https://github.com/axllent/mailpit/releases`.
+- Mailpit v1.32.0 (publicada el 2026-10-22): `https://github.com/axllent/mailpit/releases`.
 
 ## Verificación hecha (2026-10-22)
 
 - `select version()` devolvió `PostgreSQL 18.6 on x86_64-pc-linux-musl`.
 - Un correo enviado por SMTP a `127.0.0.1:1025` apareció en `GET /api/v1/messages` de Mailpit.
+- Con Mailpit v1.32.0 (2026-11-03): el contenedor quedó sano (`readyz`) y la interfaz web respondió 200 (puerto 8025 del contenedor, publicado en un puerto local distinto durante la prueba); `GET /api/v1/info` devolvió `v1.32.0`.
