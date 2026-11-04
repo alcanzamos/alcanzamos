@@ -7,6 +7,7 @@ type Variante = "primario" | "secundario" | "texto" | "destructivo";
 // y el botón puede seguir enlazado a su explicación con aria-describedby.
 export function Boton({
   id,
+  nombre,
   variante = "primario",
   tipo = "button",
   deshabilitado = false,
@@ -16,6 +17,8 @@ export function Boton({
   children,
 }: {
   id?: string;
+  /** El nombre accesible cuando el texto visible no basta («Confirmar Salario del 16 de noviembre de 2026»). */
+  nombre?: string;
   variante?: Variante;
   tipo?: "button" | "submit";
   deshabilitado?: boolean;
@@ -29,6 +32,7 @@ export function Boton({
     <button
       id={id}
       type={tipo}
+      aria-label={nombre}
       aria-expanded={expandido}
       className={`boton boton--${variante}`}
       aria-disabled={deshabilitado || undefined}
