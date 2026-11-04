@@ -22,6 +22,8 @@ type Estado = { fase: 'cargando' } | { fase: 'error'; aviso: DatosDeAviso } | { 
 // PN-71 · Seguridad de la cuenta: el ingreso anterior, nunca el de ahora (E14-PCP 4.14, RF-062). Es la pantalla de inicio
 // provisional de quien entra con autorización, hasta que haya un Inicio. La fecha va en palabras y en la hora de Colombia.
 // «Movimientos» es su entrada a PN-01 (E14-SDD 5.9), que ya trae «Registrar» (D-164): aquí no hay botón para registrar.
+// «Cerrar sesión» y «Borrar mi cuenta» (filas 7 y 8 de PN-66, que todavía no existe) viven aquí hasta que haya un Perfil:
+// el borrado abre PN-69.
 export function SeguridadDeLaCuenta({ navigation, route }: NativeStackScreenProps<Rutas, 'SeguridadDeLaCuenta'>) {
   const [estado, setEstado] = useState<Estado>({ fase: 'cargando' });
   const [intento, setIntento] = useState(0);
@@ -103,6 +105,7 @@ export function SeguridadDeLaCuenta({ navigation, route }: NativeStackScreenProp
         {textos.movimientos.titulo}
       </Boton>
       <BotonDeTexto alTocar={() => void salir()}>{textos.acciones.cerrarSesion}</BotonDeTexto>
+      <BotonDeTexto alTocar={() => navigation.navigate('BorrarCuenta')}>{textos.borrarCuenta.borrarMiCuenta}</BotonDeTexto>
     </Pantalla>
   );
 }

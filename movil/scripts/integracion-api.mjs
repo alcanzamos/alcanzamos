@@ -106,8 +106,13 @@ paso(
 );
 
 // 3. Verificar el correo con el enlace que llegó a Mailpit (la persona lo abre en el navegador, D-155).
-const lista = await (await fetch(`${URL_MAILPIT}/api/v1/messages`)).json();
-const mensaje = lista.messages.find((m) => m.To.some((p) => p.Address === correo));
+// El correo sale de un trabajador aparte: puede tardar un instante, así que se espera un poco, como en verificarCuenta.
+let mensaje;
+for (let i = 0; i < 20 && !mensaje; i++) {
+  const lista = await (await fetch(`${URL_MAILPIT}/api/v1/messages`)).json();
+  mensaje = lista.messages.find((m) => m.To.some((p) => p.Address === correo));
+  if (!mensaje) await new Promise((r) => setTimeout(r, 250));
+}
 paso('el correo de verificación llegó a Mailpit', Boolean(mensaje), mensaje?.Subject);
 const texto = (await (await fetch(`${URL_MAILPIT}/api/v1/message/${mensaje.ID}`)).json()).Text;
 const enlace = /https?:\/\/[^\s]+\/verificar\?t=([A-Za-z0-9_-]+)/.exec(texto);
@@ -638,6 +643,47 @@ paso(
 );
 const noExiste = await movimientos.corregirMovimiento({ ...base, montoCentavos: 100n }, elRegalo);
 paso('PN-02: corregir lo que ya no existe: 404 no_encontrado', !noExiste.ok && noExiste.estado === 404);
+
+// 14b. US-53 · PN-69 · Borrar la cuenta, con la cuenta autorizada de arriba y dos sesiones abiertas.
+const sesionDelOtroTelefono = token();
+const entroDeNuevo = await acceso.iniciarSesion({ identificador: correo, contrasena: contrasenaNueva });
+paso('PN-69: una segunda sesión de la misma cuenta', entroDeNuevo.ok && token() !== sesionDelOtroTelefono);
+const resumenDeBorrado = await cuentas.resumenDeBorrado();
+paso(
+  'PN-69: el resumen de una cuenta sin hogar ni menores es {hogar: null, menores: []}',
+  resumenDeBorrado.ok && resumenDeBorrado.cuerpo.hogar === null && resumenDeBorrado.cuerpo.menores.length === 0,
+  JSON.stringify(resumenDeBorrado),
+);
+const sinClave = await cuentas.borrarLaCuenta({ contrasena: '', confirma_menores: false });
+paso(
+  'PN-69: sin contraseña: 422 con contrasena = contrasena_vacia y el token se queda',
+  !sinClave.ok && sinClave.estado === 422 && sinClave.campos.contrasena === 'contrasena_vacia' && token() !== null,
+  JSON.stringify(sinClave),
+);
+const claveMala = await cuentas.borrarLaCuenta({ contrasena: 'no es esta', confirma_menores: false });
+paso(
+  'PN-69: contraseña que no coincide: 400 contrasena_incorrecta, no se borra nada y el token se queda',
+  !claveMala.ok && claveMala.estado === 400 && claveMala.codigo === 'contrasena_incorrecta' && token() !== null,
+  JSON.stringify(claveMala),
+);
+const tokenAntesDeBorrar = token();
+const borrada = await cuentas.borrarLaCuenta({ contrasena: contrasenaNueva, confirma_menores: false });
+paso('PN-69: con la contraseña, 200 cuenta_borrada', borrada.ok && borrada.estado === 200 && borrada.cuerpo.estado === 'cuenta_borrada', JSON.stringify(borrada));
+paso('PN-69: el token se borró del almacén seguro', token() === null);
+for (const [nombre, valor] of [
+  ['la sesión de este teléfono', tokenAntesDeBorrar],
+  ['la sesión del otro teléfono', sesionDelOtroTelefono],
+]) {
+  const tras = await fetch(`${URL_API}/api/v1/cuenta/borrado`, {
+    headers: { Authorization: `Bearer ${valor}`, 'X-Alcanzamos-Cliente': 'android' },
+  });
+  paso(`PN-69: ${nombre} ya no sirve: 401 sin_sesion`, tras.status === 401 && (await tras.json()).error === 'sin_sesion');
+}
+const entrarBorrada = await acceso.iniciarSesion({ identificador: correo, contrasena: contrasenaNueva });
+paso(
+  'PN-69: entrar con la cuenta borrada: 401 credenciales_invalidas',
+  !entrarBorrada.ok && entrarBorrada.estado === 401 && entrarBorrada.codigo === 'credenciales_invalidas',
+);
 
 // 15. Sin conexión: una dirección que nadie escucha.
 process.env.EXPO_PUBLIC_URL_API = 'http://127.0.0.1:9';

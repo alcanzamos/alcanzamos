@@ -2,6 +2,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
 import { AutorizacionDeDatos } from '../pantallas/AutorizacionDeDatos';
+import { BorrarCuenta } from '../pantallas/BorrarCuenta';
 import { CambiarContrasena } from '../pantallas/CambiarContrasena';
 import { CrearCuenta } from '../pantallas/CrearCuenta';
 import { DetalleDeMovimiento } from '../pantallas/DetalleDeMovimiento';
@@ -81,6 +82,11 @@ export function Navegacion() {
           name="CambiarContrasena"
           component={CambiarContrasena}
           options={conBarra(textos.cambiarContrasena.titulo)}
+        />
+        <Pila.Screen
+          name="BorrarCuenta"
+          component={BorrarCuenta}
+          options={conBarra(textos.borrarCuenta.borrarMiCuenta)}
         />
         <Pila.Screen name="RecuperarAcceso" component={RecuperarAcceso} options={conBarra(textos.recuperarAcceso.titulo)} />
         <Pila.Screen name="ListaDeMovimientos" component={Movimientos} options={conBarra(textos.movimientos.titulo)} />

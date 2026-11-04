@@ -42,6 +42,8 @@ export type Rutas = {
   SeRepite: undefined;
   /** PN-73. */
   CambiarContrasena: undefined;
+  /** PN-69 · Borrar la cuenta; se abre desde «Borrar mi cuenta» de PN-71 y su Atrás vuelve a PN-71. */
+  BorrarCuenta: undefined;
   /** PN-61. Su Atrás vuelve a PN-60. */
   RecuperarAcceso: undefined;
 };

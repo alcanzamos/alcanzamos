@@ -167,6 +167,19 @@ describe('PN-71 · Seguridad de la cuenta (E14-PCP 4.14)', () => {
     });
   });
 
+  describe('«Borrar mi cuenta» (US-53)', () => {
+    it('es un botón de texto debajo de «Cerrar sesión» que abre PN-69', async () => {
+      instalarFetchFalso(respuestaJson(200, { ingreso_anterior: null }));
+      const navegacion = await mostrar();
+      await screen.findByText('Este es tu primer ingreso.');
+      const botones = screen.getAllByRole('button');
+      const lugar = (nombre: string) => botones.indexOf(screen.getByRole('button', { name: nombre }));
+      expect(lugar('Borrar mi cuenta')).toBe(lugar('Cerrar sesión') + 1);
+      await fireEvent.press(screen.getByRole('button', { name: 'Borrar mi cuenta' }));
+      expect(navegacion.navigate).toHaveBeenCalledWith('BorrarCuenta');
+    });
+  });
+
   describe('«Movimientos» (US-52, D-164: la entrada a PN-01 donde estaba el botón provisional)', () => {
     it('abre PN-01 y ya no hay un botón para registrar', async () => {
       instalarFetchFalso(respuestaJson(200, { ingreso_anterior: null }));

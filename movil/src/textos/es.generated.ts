@@ -170,6 +170,28 @@ export const textos = {
       // E14-PRR 4.2 (PN-02), «Tras borrar»: aviso tras borrar un ingreso, aprobado en E14-PRR 1.9 (D-170)
       titulo: "Listo, borramos el ingreso de {monto}.",
     },
+    vasABorrarTuCuenta: {
+      // E14-PCP 4.12 (PN-69), fila 2
+      titulo: "Vas a borrar tu cuenta",
+      // E14-PCP 4.12 (PN-69), fila 2
+      mensaje: "Se borran tus datos y no se pueden recuperar.",
+    },
+    errorAlBorrarLaCuenta: {
+      // E14-PCP 4.12 (PN-69), estado «Error»
+      titulo: "No pudimos borrar tu cuenta.",
+      // E14-PCP 4.12 (PN-69), estado «Error»
+      mensaje: "Tus datos siguen ahí. Intenta de nuevo.",
+    },
+    cuentaBorrada: {
+      // E14-PCP 4.12 (PN-69), «Al borrar» y E14-PCP 4.3 (PN-60), estado «Cuenta borrada»
+      titulo: "Borramos tu cuenta.",
+      // E14-PCP 4.3 (PN-60), estado «Cuenta borrada» (viene de PN-69)
+      mensaje: "Gracias por haber usado Alcanzamos.",
+    },
+    errorAlCargarLoQueSeBorra: {
+      // propuesto, pendiente de aprobar: E14 no tiene el estado de error de carga de PN-69. Sin leer el hogar y los menores no se puede mostrar lo que RN-006 pide avisar, así que no se deja borrar
+      titulo: "No pudimos cargar lo que se borra.",
+    },
     menorDeEdad: {
       // E14-PCP 4.8, PN-65: «Menos de 18 años» (D-090). Sin el botón «Ya tengo un usuario: iniciar sesión» hasta I11 (D-137).
       titulo: "Esta cuenta la crea una persona adulta.",
@@ -215,6 +237,14 @@ export const textos = {
       nombre_vacio: "Falta el nombre para mostrar.",
       // E14-PCP 4.16 T5 (D-153)
       nombre_largo: "Escribe un nombre de hasta 60 caracteres.",
+    },
+    borrarCuenta: {
+      // E14-PCP 4.12 (PN-69), errores de campo
+      contrasena_vacia: "Falta tu contraseña.",
+      // E14-PCP 4.12 (PN-69), errores de campo
+      contrasena_incorrecta: "No pudimos confirmar tu contraseña. Escríbela de nuevo.",
+      // E14-PCP 4.12 (PN-69), errores de campo: «Falta confirmar lo de Mateo.»; con varios menores, sus nombres juntos (propuesto, pendiente de aprobar)
+      confirmacion_requerida: "Falta confirmar lo de {nombres}.",
     },
   },
   porConfirmar: {
@@ -753,6 +783,46 @@ export const textos = {
       confirmar: "Borrar el movimiento",
       // E14-PRR 4.2 (PN-02), estado «Ya no existe»
       irAMovimientos: "Ir a Movimientos",
+    },
+  },
+  borrarCuenta: {
+    // E14-PCP 4.12 (PN-69), filas 1 y 9; E14-PCP 4.9 (PN-66), fila 8
+    borrarMiCuenta: "Borrar mi cuenta",
+    // E14-PCP 4.12 (PN-69), fila 10
+    ahoraNo: "Ahora no",
+    loQueSeBorra: {
+      // E14-PCP 4.12 (PN-69), fila 3
+      titulo: "Lo que se borra",
+      // E14-PCP 4.12 (PN-69), fila 3
+      detalle: "Tus movimientos, metas, deudas y presupuestos. Tu correo, tu nombre y tus preferencias.",
+      // E14-PCP 4.12 (PN-69), fila 3
+      prueba: "Solo guardamos una prueba mínima de tu autorización, sin tu nombre ni tu correo, durante 3 años.",
+    },
+    hogar: {
+      // propuesto, pendiente de aprobar: el hogar puede no tener nombre y E14 no dice cómo titular la tarjeta; es el título del grupo de E14-PCP 4.9 (PN-66), fila 3
+      sinNombre: "Tu hogar",
+      // E14-PCP 4.12 (PN-69), fila 4, «Con otra persona adulta»
+      administradora: "Eres quien lo administra. El papel pasa ahora mismo a {nombre}. Lo que compartiste sigue en el hogar, sin tu nombre.",
+      // propuesto, pendiente de aprobar: E14 solo da el texto de quien administra el hogar; es su última frase para quien es miembro sin el papel (RN-006)
+      miembro: "Lo que compartiste sigue en el hogar, sin tu nombre.",
+      // E14-PCP 4.12 (PN-69), fila 4, «Siendo la única persona adulta»
+      unicaAdulta: "Eres la única persona adulta de «{hogar}». El hogar se cierra y lo que compartiste también se borra.",
+    },
+    menores: {
+      // E14-PCP 4.12 (PN-69), fila 5
+      titulo: "Menores a tu cargo",
+      // E14-PCP 4.12 (PN-69), fila 5. Con un menor, el texto de E14; con varios E14 da solo «{nombre} y {nombre} dependen solo de ti.»: «Sus cuentas y sus datos también se borran.» es propuesto, pendiente de aprobar
+      dependen: { one: "{nombres} depende solo de ti. Su cuenta y sus datos también se borran.", other: "{nombres} dependen solo de ti. Sus cuentas y sus datos también se borran." },
+      // E14-PCP 4.12 (PN-69), fila 6, con uno y con varios menores
+      casilla: { one: "Entiendo que también se borra la cuenta de {nombres}.", other: "Entiendo que también se borran las cuentas de {nombres}." },
+      // propuesto, pendiente de aprobar: E14-PCP 4.12 (PN-69), fila 5 da «Mateo y {nombre}» para dos; con tres o más, comas y «y» antes del último
+      union: "{anteriores} y {ultimo}",
+    },
+    contrasena: {
+      // E14-PCP 4.12 (PN-69), fila 7
+      etiqueta: "Tu contraseña",
+      // E14-PCP 4.12 (PN-69), fila 7
+      ayuda: "La pedimos para confirmar que eres tú.",
     },
   },
   arranque: {

@@ -23,3 +23,26 @@ export async function cerrarSesion() {
   if (respuesta.ok || respuesta.estado !== 0) await borrarToken();
   return respuesta;
 }
+
+export type ResumenDeBorrado = {
+  hogar: {
+    nombre: string | null;
+    es_administradora: boolean;
+    unica_adulta: boolean;
+    nuevo_administrador: string | null;
+  } | null;
+  menores: string[];
+};
+
+// PN-69: lo que cambia en la pantalla según el hogar y los menores (api/README.md, «Borrar la cuenta»).
+export const resumenDeBorrado = () => pedir<ResumenDeBorrado>('GET', '/api/v1/cuenta/borrado');
+
+/**
+ * Borra la cuenta y, con ella, el token del Keystore: la sesión ya no existe en el API (las borró todas) y el token no
+ * sirve para nada. Con cualquier otra respuesta el token se queda: la cuenta sigue y la persona puede volver a intentar.
+ */
+export async function borrarLaCuenta(datos: { contrasena: string; confirma_menores: boolean }) {
+  const respuesta = await pedir('POST', '/api/v1/cuenta/borrado', datos);
+  if (respuesta.ok) await borrarToken();
+  return respuesta;
+}
