@@ -390,16 +390,18 @@ Versiones fijadas sin `~` ni `^`, verificadas en el registro de npm el 2026-10-2
 - todo aviso alto o crítico que no esté en `auditoria-excepciones.json`;
 - toda excepción que ya no se reporta (quedó obsoleta: se quita);
 - toda excepción cuyo camino de dependencias cambió, por ejemplo si el paquete pasa a ser una dependencia directa de la app;
-- toda excepción cuya fecha `revisar_antes_de` pasó (hoy en UTC, después de esa fecha). El dueño la renueva en el cierre de cada iteración (D-150), y también se revisa al subir de versión de Expo. La fecha actual es **2026-11-05**, el fin de la iteración I05.
+- toda excepción cuya fecha `revisar_antes_de` pasó (hoy en UTC, después de esa fecha). El dueño la renueva en el cierre de cada iteración (D-150), y también se revisa al subir de versión de Expo. La fecha actual es **2026-11-12** (D-182; antes 2026-11-05, el fin de I05).
 
 Cada excepción trae el GHSA, el paquete, las rutas de dependencias (que muestran que el paquete llega solo por las herramientas de construcción), el motivo, la fecha de revisión y `revisar_antes_de`.
 
-### `node-forge` y `zod` no entran en la app (`npm run comprobar-bundle`)
+### `node-forge`, `zod`, `argparse` y `caniuse-lite` no entran en la app (`npm run comprobar-bundle`)
 
-La excepción de `zod` (y, antes de D-166, la de `node-forge`) se apoya en que ningún archivo de la app los importa; el script sigue comprobando los dos. `scripts/comprobar-bundle.mjs` lo comprueba: corre `npx expo export --platform android` en una carpeta temporal fuera del repositorio y busca en el paquete de JavaScript el nombre y cadenas propias de cada paquete, porque Metro no deja las rutas de los módulos (`MARCAS_POR_PAQUETE` en `scripts/bundle-logica.mjs`):
+La excepción de `zod` (y, antes de D-166, la de `node-forge`) se apoya en que ningún archivo de la app los importa; el script sigue comprobando los dos. Desde D-182 también comprueba `argparse` y `caniuse-lite`: sus excepciones de licencia son permanentes y «no van en la app» lo prueba el pipeline. `scripts/comprobar-bundle.mjs` lo comprueba: corre `npx expo export --platform android` en una carpeta temporal fuera del repositorio y busca en el paquete de JavaScript el nombre y cadenas propias de cada paquete, porque Metro no deja las rutas de los módulos (`MARCAS_POR_PAQUETE` en `scripts/bundle-logica.mjs`):
 
 - `node-forge`: `RSASSA-PKCS1-V1_5` y el prefijo de OID `1.2.840.113549`.
 - `zod`: `ZodError`, `invalid_type`, `too_small` e `invalid_enum_value` (valores de datos, que sobreviven a la minificación y aparecen en el bytecode de Hermes).
+- `argparse`: `node_modules/argparse`, `ArgumentParser`, `ArgumentError` y `add_argument`.
+- `caniuse-lite`: `node_modules/caniuse-lite` y `caniuse-lite`.
 
 Falla, nombrando el paquete, si aparecen en algún archivo o si no se generó ningún paquete. Probado con un `import` temporal de cada paquete: falla; sin él, pasa (D-150, D-154).
 
@@ -407,7 +409,7 @@ Tarda de 3 a 6 segundos (medido el 2026-10-24, Expo 58.0.19, Node 24.22.1 en el 
 
 ### Licencias (`npm run licencias`)
 
-`scripts/licencias.mjs` es la copia de la revisión de `web/` (`web/scripts/licencias.mjs`), sin importar nada de otra carpeta: solo dependencias de producción, contra la misma lista de licencias compatibles con AGPLv3 (condición 4 de ADR-003). **La lista general no cambia.** Las excepciones (D-150) son por paquete, en `licencias-excepciones.json`, cada una con la licencia, el camino de dependencias, la razón y `revisar_antes_de` (**2026-11-05**):
+`scripts/licencias.mjs` es la copia de la revisión de `web/` (`web/scripts/licencias.mjs`), sin importar nada de otra carpeta: solo dependencias de producción, contra la misma lista de licencias compatibles con AGPLv3 (condición 4 de ADR-003). **La lista general no cambia.** Las excepciones (D-150, hechas permanentes en D-182) son por paquete **y por ruta exacta**, no una lista general de licencias permitidas, en `licencias-excepciones.json`, cada una con la licencia, el camino de dependencias y la razón, **sin fecha** (no tienen `revisar_antes_de`):
 
 | Paquete | Licencia | Camino |
 |---|---|---|
@@ -416,7 +418,7 @@ Tarda de 3 a 6 segundos (medido el 2026-10-24, Expo 58.0.19, Node 24.22.1 en el 
 
 Razón: son herramientas de compilación que no van en la app, y la FSF considera las dos licencias compatibles con la GPLv3. El camino de cada paquete es el más corto desde las dependencias directas, uno por cada paquete que depende de él.
 
-Falla si: otro paquete tiene una licencia no permitida; cambia la licencia de uno con excepción; cambia su camino; la excepción quedó obsoleta (el paquete ya no está o su licencia ahora es permitida); o pasó la fecha `revisar_antes_de`. En este último caso se revisa en el cierre de la iteración y se renueva la fecha, o se quita la excepción.
+Una excepción sin fecha solo vale con rutas exactas (`rutas` es obligatoria). Falla si: otro paquete tiene una licencia no permitida; cambia la licencia de uno con excepción; **aparece por una ruta nueva** o deja de aparecer por una listada; o la excepción quedó obsoleta (el paquete ya no está o su licencia ahora es permitida). Si una excepción trae `revisar_antes_de` (campo opcional) y esa fecha pasó, también falla. Que no vayan en la app lo comprueba `npm run comprobar-bundle` (arriba). Si al subir `expo` cambian las rutas, se revisan antes de actualizar la excepción.
 
 ## Alertas de `npm audit` (2026-10-23, actualizado el 2026-10-27)
 
@@ -431,7 +433,7 @@ Con `--omit=dev`, `npm audit` marcaba 5 alertas altas, por dos avisos:
 
 Las otras tres alertas son los paquetes que dependen de `node-forge` o `zod` (`@expo/code-signing-certificates`, `@expo/cli` y `expo`). El aviso de `braces` (GHSA-vfj7-8cjw-p6xm, `micromatch` de las herramientas de Jest y Metro) que se documentó el 2026-10-22 ya no sale: GitHub retiró ese aviso (*withdrawn*), aunque la versión instalada sigue siendo la 3.0.3 (`npm ls braces`). `@expo/cli` es la herramienta de línea de comandos de Expo, no la app que se instala en el celular: ninguno de los archivos de `src/` lo importa.
 
-`zod` no tiene corrección compatible: la solución es `zod` 4 (4.6.6 o posterior), un salto mayor que Expo 58 no usa (`@expo/cli` 58.1.15 sigue trayendo la 3.25.76), y la «corrección» de npm es bajar a expo 44 (consultado el 2026-10-23). `@expo/cli` lo usa para validar la configuración y las opciones de la CLI, en la máquina de desarrollo y en el pipeline, y ningún archivo de `src/` lo importa. Es la única excepción de `auditoria-excepciones.json` (aprobada en D-154, con revisión antes del 2026-11-05). No se fuerza `zod` 4 con `overrides`: puede romper `expo start` y `expo export`.
+`zod` no tiene corrección compatible: la solución es `zod` 4 (4.6.6 o posterior), un salto mayor que Expo 58 no usa (`@expo/cli` 58.1.15 sigue trayendo la 3.25.76), y la «corrección» de npm es bajar a expo 44 (consultado el 2026-10-23). `@expo/cli` lo usa para validar la configuración y las opciones de la CLI, en la máquina de desarrollo y en el pipeline, y ningún archivo de `src/` lo importa. Es la única excepción de `auditoria-excepciones.json` (aprobada en D-154, con revisión antes del 2026-11-05; D-182 la renovó hasta el **2026-11-12**: `@expo/cli` 58.1.18 y 58.1.19 ya no dependen de `zod` y `expo` 58.0.22 pide `@expo/cli` `^58.1.18`, publicadas el 2026-10-31 a las 10:33 UTC y admitidas por la regla de antigüedad desde el 2026-11-07 a las 10:33 UTC; con la subida de `expo` a 58.0.22 se borra la excepción completa y la auditoría pasa sin ninguna). No se fuerza `zod` 4 con `overrides`: puede romper `expo start` y `expo export`.
 
 - **No se usa `npm audit fix --force`:** bajaría Expo al SDK 44.
 - **Se revisan cada vez que se sube de versión de Expo.**
