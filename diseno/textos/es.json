@@ -1401,8 +1401,8 @@
         "e14": "E14-PRR 4.1 (PN-01), fila 2a"
       },
       "textoUna": {
-        "texto": "Esta fecha de un movimiento que se repite ya llegó. Confírmala con un toque.",
-        "e14": "E14-PPN 4.1 (Inicio), fila 3a, «Con una sola fecha»; PN-01 no trae un texto aparte para una sola fecha; su uso en PN-01 queda propuesto"
+        "texto": "Esta fecha de un movimiento que se repite ya llegó. Confírmala con un toque, o toca «Más» si no pasó o cambió el monto.",
+        "e14": "E14-PRR 4.7 (PN-72), fila 4b; aprobado para PN-01 y PN-72 en D-179. Clave única: PN-72 debe reutilizarla"
       },
       "marca": {
         "texto": "Por confirmar",
@@ -1541,7 +1541,7 @@
             "one": "Listo, dejamos de contar {n} fecha.",
             "other": "Listo, dejamos de contar {n} fechas."
           },
-          "e14": "E14-PRR 4.8 (PN-72, «Confirmar todos»), «Aviso al guardar»: «Listo, dejamos de contar 1 fecha.». propuesto: la forma «other» («Listo, dejamos de contar 2 fechas.») no está escrita en E14; sale de la regla de plurales de D-163"
+          "e14": "E14-PRR 4.8 (PN-72, «Confirmar todos»), «Aviso al guardar»: «Listo, dejamos de contar 1 fecha.»; aprobado en D-179 (plural por la regla de D-163)"
         }
       },
       "movimientosGuardados": {
@@ -1556,7 +1556,7 @@
           "one": "{n} fecha",
           "other": "{n} fechas"
         },
-        "e14": "E14-PRR 4.8 (PN-72, «Confirmar todos»), «Aviso al guardar»: «1 fecha». propuesto: la forma «other» («2 fechas») no está escrita en E14; sale de la regla de plurales de D-163"
+        "e14": "E14-PRR 4.8 (PN-72, «Confirmar todos»), «Aviso al guardar»: «1 fecha»; aprobado en D-179 (plural por la regla de D-163)"
       },
       "todos": {
         "explicacion": {

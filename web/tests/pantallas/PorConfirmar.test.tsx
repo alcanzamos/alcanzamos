@@ -100,7 +100,7 @@ describe("«Por confirmar» en PN-01 (E14-PRR 4.1)", () => {
     abrir(una);
     expect(
       screen.getByText(
-        "Esta fecha de un movimiento que se repite ya llegó. Confírmala con un toque.",
+        "Esta fecha de un movimiento que se repite ya llegó. Confírmala con un toque, o toca «Más» si no pasó o cambió el monto.",
       ),
     ).toBeVisible();
     expect(screen.queryByText(/por confirmar:/)).not.toBeInTheDocument();

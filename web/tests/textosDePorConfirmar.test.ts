@@ -92,6 +92,7 @@ describe("avisos de «Por confirmar»", () => {
     [1, 0, "Listo, guardamos 1 movimiento."],
     [0, 1, "Listo, dejamos de contar 1 fecha."],
     [1, 2, "Listo, guardamos 1 movimiento y dejamos de contar 2 fechas."],
+    [2, 1, "Listo, guardamos 2 movimientos y dejamos de contar 1 fecha."],
     [0, 2, "Listo, dejamos de contar 2 fechas."],
   ])(
     "al guardar %i movimientos y %i «No pasó»",

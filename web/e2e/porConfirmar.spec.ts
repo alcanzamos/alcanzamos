@@ -248,7 +248,7 @@ test.describe("PN-01 · «Por confirmar» (US-60)", () => {
     // Quedó una sola fecha: sin resumen ni «Confirmar todos». El movimiento entra en la lista de su día.
     await expect(
       page.getByText(
-        "Esta fecha de un movimiento que se repite ya llegó. Confírmala con un toque.",
+        "Esta fecha de un movimiento que se repite ya llegó. Confírmala con un toque, o toca «Más» si no pasó o cambió el monto.",
       ),
     ).toBeVisible();
     await expect(
@@ -487,6 +487,28 @@ test.describe("«Confirmar todos» (US-60, E14-PRR 4.8)", () => {
       page.getByRole("heading", { level: 2, name: "1 de diciembre de 2026" }),
     ).toBeVisible();
   });
+
+  for (const [noPaso, aviso] of [
+    [
+      ["Comunicaciones"],
+      "Listo, guardamos 2 movimientos y dejamos de contar 1 fecha.",
+    ],
+    [
+      ["Comunicaciones", "Salario"],
+      "Listo, guardamos 1 movimiento y dejamos de contar 2 fechas.",
+    ],
+  ] as const) {
+    test(`el aviso combinado pone cada número en su forma: «${aviso}»`, async ({
+      page,
+    }) => {
+      await hoyEs14DeDiciembre(page);
+      await api(page, [energia, celular, salario]);
+      await abrir(page);
+      for (const fila of noPaso) await elegir(page, fila, "No pasó");
+      await page.getByRole("button", { name: "Guardar" }).first().click();
+      await expect(estadoDeLaPagina(page, aviso)).toBeVisible();
+    });
+  }
 
   test("un error al guardar dice «No pudimos guardar tus movimientos.» y la lista queda como estaba", async ({
     page,

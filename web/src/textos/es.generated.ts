@@ -228,8 +228,8 @@ export const textos = {
     titulo: "Por confirmar",
     // E14-PRR 4.1 (PN-01), fila 2a
     textoVarias: "Estos movimientos que se repiten ya llegaron a su fecha. Confírmalos con un toque, o toca «Más» si no pasaron o cambió el monto.",
-    // E14-PPN 4.1 (Inicio), fila 3a, «Con una sola fecha»; PN-01 no trae un texto aparte para una sola fecha; su uso en PN-01 queda propuesto
-    textoUna: "Esta fecha de un movimiento que se repite ya llegó. Confírmala con un toque.",
+    // E14-PRR 4.7 (PN-72), fila 4b; aprobado para PN-01 y PN-72 en D-179. Clave única: PN-72 debe reutilizarla
+    textoUna: "Esta fecha de un movimiento que se repite ya llegó. Confírmala con un toque, o toca «Más» si no pasó o cambió el monto.",
     // E14-PRR 4.1 (PN-01), «Confirmar un movimiento que se repite», fila «Marca»
     marca: "Por confirmar",
     // E14-PRR 4.1 (PN-01), «Confirmar un movimiento que se repite», fila «Confirmar»
@@ -299,12 +299,12 @@ export const textos = {
       guardados: { one: "Listo, guardamos {n} movimiento.", other: "Listo, guardamos {n} movimientos." },
       // E14-PRR 4.8 (PN-72, «Confirmar todos»), «Aviso al guardar»: «Listo, guardamos 12 movimientos y dejamos de contar 1 fecha.»
       guardadosYOmitidas: "Listo, guardamos {guardados} y dejamos de contar {omitidas}.",
-      // E14-PRR 4.8 (PN-72, «Confirmar todos»), «Aviso al guardar»: «Listo, dejamos de contar 1 fecha.». propuesto: la forma «other» («Listo, dejamos de contar 2 fechas.») no está escrita en E14; sale de la regla de plurales de D-163
+      // E14-PRR 4.8 (PN-72, «Confirmar todos»), «Aviso al guardar»: «Listo, dejamos de contar 1 fecha.»; aprobado en D-179 (plural por la regla de D-163)
       soloOmitidas: { one: "Listo, dejamos de contar {n} fecha.", other: "Listo, dejamos de contar {n} fechas." },
     },
     // E14-PRR 4.8 (PN-72, «Confirmar todos»), «Aviso al guardar»: «12 movimientos» y «1 movimiento»
     movimientosGuardados: { one: "{n} movimiento", other: "{n} movimientos" },
-    // E14-PRR 4.8 (PN-72, «Confirmar todos»), «Aviso al guardar»: «1 fecha». propuesto: la forma «other» («2 fechas») no está escrita en E14; sale de la regla de plurales de D-163
+    // E14-PRR 4.8 (PN-72, «Confirmar todos»), «Aviso al guardar»: «1 fecha»; aprobado en D-179 (plural por la regla de D-163)
     fechasOmitidas: { one: "{n} fecha", other: "{n} fechas" },
     todos: {
       // E14-PRR 4.8 (PN-72, «Confirmar todos»), fila 2

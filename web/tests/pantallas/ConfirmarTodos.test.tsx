@@ -261,6 +261,23 @@ describe("«Confirmar todos» (E14-PRR 4.8, D-093)", () => {
     });
   });
 
+  it.each([
+    [1, 2, "Listo, guardamos 1 movimiento y dejamos de contar 2 fechas."],
+    [2, 1, "Listo, guardamos 2 movimientos y dejamos de contar 1 fecha."],
+  ])(
+    "el aviso combinado con %i movimientos y %i «No pasó» pone cada número en su forma",
+    async (guardados, omitidas, esperado) => {
+      simularApi(() => json(200, { resumen: { guardados, omitidas } }));
+      const { alTerminar } = abrir();
+      fireEvent.click(guardar("Guardar 3 movimientos"));
+      await waitFor(() => expect(alTerminar).toHaveBeenCalled());
+      expect(alTerminar).toHaveBeenCalledWith({
+        tipo: "informacion",
+        titulo: esperado,
+      });
+    },
+  );
+
   it("sin cambios manda todas sin monto ni «omitida»", async () => {
     const pedidos = simularApi(() =>
       json(200, { resumen: { guardados: 3, omitidas: 0 } }),
