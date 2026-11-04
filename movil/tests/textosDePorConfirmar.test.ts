@@ -1,6 +1,11 @@
 import type { Movimiento } from '../src/api/movimientos';
 import type { Pendiente } from '../src/api/repeticiones';
-import { avisoDeConfirmado, avisosDePorConfirmar, textosDeFilaPorConfirmar } from '../src/textosDePorConfirmar';
+import {
+  avisoDeConfirmado,
+  avisoDeGuardado,
+  avisosDePorConfirmar,
+  textosDeFilaPorConfirmar,
+} from '../src/textosDePorConfirmar';
 import { movimiento } from './ayudas/movimientosFalsos';
 
 const salario: Pendiente = {
@@ -26,6 +31,7 @@ describe('textos de una fila «Por confirmar» (E14-PRR 4.1 y 4.8)', () => {
       principal: 'Salario',
       fecha: '16 de noviembre de 2026',
       apoyo: 'Ingreso · Transferencia · 16 de noviembre de 2026',
+      apoyoSinMedio: 'Ingreso · 16 de noviembre de 2026',
       nombreDeConfirmar: 'Confirmar Salario del 16 de noviembre de 2026',
       nombreDeMas: 'Más opciones de Salario del 16 de noviembre de 2026',
       tituloDeLaHoja: 'Salario · 16 de noviembre de 2026',
@@ -37,6 +43,7 @@ describe('textos de una fila «Por confirmar» (E14-PRR 4.1 y 4.8)', () => {
     expect(textosDeFilaPorConfirmar(arriendo)).toMatchObject({
       principal: 'Arriendo o cuota de vivienda',
       apoyo: 'Gasto · Transferencia · 1 de diciembre de 2026',
+      apoyoSinMedio: 'Gasto · 1 de diciembre de 2026',
       tituloDelMonto: '¿Cuánto pagaste?',
     });
   });
@@ -65,6 +72,21 @@ describe('avisos de «Por confirmar»', () => {
     });
   });
 
+  it.each([
+    [12, 1, 'Listo, guardamos 12 movimientos y dejamos de contar 1 fecha.'],
+    [13, 0, 'Listo, guardamos 13 movimientos.'],
+    [1, 0, 'Listo, guardamos 1 movimiento.'],
+    [0, 1, 'Listo, dejamos de contar 1 fecha.'],
+    [1, 2, 'Listo, guardamos 1 movimiento y dejamos de contar 2 fechas.'],
+    [2, 1, 'Listo, guardamos 2 movimientos y dejamos de contar 1 fecha.'],
+    [0, 2, 'Listo, dejamos de contar 2 fechas.'],
+  ])('al guardar %i movimientos y %i «No pasó»', (guardados, omitidas, esperado) => {
+    expect(avisoDeGuardado(guardados, omitidas)).toEqual({
+      tipo: 'informacion',
+      titulo: esperado,
+    });
+  });
+
   it('los errores llevan el título y el mensaje de E14', () => {
     expect(avisosDePorConfirmar.errorAlConfirmar).toEqual({
       tipo: 'informacion',
@@ -74,6 +96,10 @@ describe('avisos de «Por confirmar»', () => {
     expect(avisosDePorConfirmar.errorAlOmitir).toMatchObject({
       titulo: 'No pudimos guardar el cambio.',
       mensaje: 'Sigue por confirmar. Intenta de nuevo.',
+    });
+    expect(avisosDePorConfirmar.errorAlGuardar).toMatchObject({
+      titulo: 'No pudimos guardar tus movimientos.',
+      mensaje: 'No se guardó ninguno. Intenta de nuevo.',
     });
     expect(avisosDePorConfirmar.yaNoContamos).toEqual({
       tipo: 'informacion',

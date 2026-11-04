@@ -226,10 +226,14 @@ export const textos = {
     confirmar: "Confirmar",
     // E14-PRR 4.1 (PN-01), «Confirmar un movimiento que se repite», fila «Más»
     mas: "Más",
+    // E14-PRR 4.1 (PN-01), fila 2a; E14-PRR 4.8, fila 1
+    confirmarTodos: "Confirmar todos",
     // E14-PRR 4.1 (PN-01), hojas «Más», «No pasó» y «Cambiar el monto»; E14-SDD 5.12
     cerrar: "Cerrar",
     // E14-PRR 4.1 (PN-01), fila «Texto de apoyo»: «Ingreso · Transferencia · 16 de noviembre de 2026»
     apoyoConMedio: "{tipo} · {medio} · {fecha}",
+    // E14-PRR 4.8 (PN-72, «Confirmar todos»), fila 4: «Gasto · 5 de noviembre de 2026»
+    apoyoSinMedio: "{tipo} · {fecha}",
     // E14-PRR 4.1 (PN-01), fila «Confirmar»: «Confirmar Salario del 16 de noviembre de 2026»
     nombreDeConfirmar: "Confirmar {nombre} del {fecha}",
     // E14-PRR 4.1 (PN-01), fila «Más»: «Más opciones de Salario del 16 de noviembre de 2026»
@@ -241,6 +245,8 @@ export const textos = {
       cambiarElMonto: "Cambiar el monto",
       // E14-PRR 4.1 (PN-01), «Hoja «Más»» y «Hoja «No pasó»»; E14-PRR 4.8 (PN-72, «Confirmar todos»), «Más» → «No pasó»
       noPaso: "No pasó",
+      // E14-PRR 4.8 (PN-72, «Confirmar todos»), «Más» en una fila «No pasó»
+      volverAIncluirla: "Volver a incluirla",
       // E14-PRR 4.1 (PN-01), «Hoja «No pasó»»
       tituloNoPaso: "¿Esta fecha no pasó?",
       // E14-PRR 4.1 (PN-01), «Hoja «No pasó»»
@@ -251,8 +257,6 @@ export const textos = {
       tituloDeGasto: "¿Cuánto pagaste?",
       // E14-PRR 4.1 (PN-01), «Hoja «Cambiar el monto»», Botón · Primario
       confirmar: "Confirmar",
-      // E14-PRR 4.8 (PN-72, «Confirmar todos»), «Más» en una fila «No pasó»
-      volverAIncluirla: "Volver a incluirla",
       // E14-PRR 4.8 (PN-72, «Confirmar todos»), «Más» → «Cambiar el monto», Botón · Primario
       listo: "Listo",
     },
@@ -288,20 +292,6 @@ export const textos = {
       // E14-PRR 4.8 (PN-72, «Confirmar todos»), «Aviso al guardar»: «Listo, dejamos de contar 1 fecha.»; aprobado en D-179 (plural por la regla de D-163)
       soloOmitidas: { one: "Listo, dejamos de contar {n} fecha.", other: "Listo, dejamos de contar {n} fechas." },
     },
-    // E14-PRR 1.6 (PN-72, D-093, aprobado en D-163): «13 por confirmar: 2 ingresos y 11 gastos»
-    resumen: "{total} por confirmar: {ingresos} y {gastos}",
-    // E14-PRR 1.6 (PN-72, D-163): «2 ingresos» y «1 ingreso», con los dos tipos
-    ingresos: { one: "{n} ingreso", other: "{n} ingresos" },
-    // E14-PRR 1.6 (PN-72, D-163): «11 gastos» y «1 gasto», con los dos tipos
-    gastos: { one: "{n} gasto", other: "{n} gastos" },
-    // E14-PRR 1.6 (PN-72, D-163): con un solo tipo, sin el cero y sin repetir el número: «13 ingresos por confirmar», «1 ingreso por confirmar»
-    soloIngresos: { one: "{n} ingreso por confirmar", other: "{n} ingresos por confirmar" },
-    // E14-PRR 1.6 (PN-72, D-163): con un solo tipo, sin el cero y sin repetir el número: «13 gastos por confirmar», «1 gasto por confirmar»
-    soloGastos: { one: "{n} gasto por confirmar", other: "{n} gastos por confirmar" },
-    // E14-PRR 4.1 (PN-01), fila 2a; E14-PRR 4.8, fila 1
-    confirmarTodos: "Confirmar todos",
-    // E14-PRR 4.8 (PN-72, «Confirmar todos»), fila 4: «Gasto · 5 de noviembre de 2026»
-    apoyoSinMedio: "{tipo} · {fecha}",
     // E14-PRR 4.8 (PN-72, «Confirmar todos»), «Aviso al guardar»: «12 movimientos» y «1 movimiento»
     movimientosGuardados: { one: "{n} movimiento", other: "{n} movimientos" },
     // E14-PRR 4.8 (PN-72, «Confirmar todos»), «Aviso al guardar»: «1 fecha»; aprobado en D-179 (plural por la regla de D-163)
@@ -324,6 +314,16 @@ export const textos = {
       // E14-PRR 4.8 (PN-72, «Confirmar todos»), «El botón «Guardar»», «Solo «No pasó»»
       guardarSoloNoPaso: "Guardar",
     },
+    // E14-PRR 1.6 (PN-72, D-093, aprobado en D-163): «13 por confirmar: 2 ingresos y 11 gastos»
+    resumen: "{total} por confirmar: {ingresos} y {gastos}",
+    // E14-PRR 1.6 (PN-72, D-163): «2 ingresos» y «1 ingreso», con los dos tipos
+    ingresos: { one: "{n} ingreso", other: "{n} ingresos" },
+    // E14-PRR 1.6 (PN-72, D-163): «11 gastos» y «1 gasto», con los dos tipos
+    gastos: { one: "{n} gasto", other: "{n} gastos" },
+    // E14-PRR 1.6 (PN-72, D-163): con un solo tipo, sin el cero y sin repetir el número: «13 ingresos por confirmar», «1 ingreso por confirmar»
+    soloIngresos: { one: "{n} ingreso por confirmar", other: "{n} ingresos por confirmar" },
+    // E14-PRR 1.6 (PN-72, D-163): con un solo tipo, sin el cero y sin repetir el número: «13 gastos por confirmar», «1 gasto por confirmar»
+    soloGastos: { one: "{n} gasto por confirmar", other: "{n} gastos por confirmar" },
   },
   pagina: {
     // E14-PCP 4.2 bis; E14-PCP 4.3 (PN-60); E14-PCP 4.4 bis; E14-PCP 4.6 (PN-63); E14-PCP 4.10 (PN-67); E14-PCP 4.11 (PN-68); E14-PCP 4.13 (PN-70); E14-PCP 4.16

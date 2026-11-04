@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { reiniciarBorrador } from '../../src/borradorDeRegistro';
 import { Navegacion } from '../../src/navegacion/Navegacion';
 import { instalarAtras } from '../ayudas/atras';
@@ -70,12 +70,16 @@ describe('PN-01 · «Por confirmar», Android (E14-PRR 4.1, US-60)', () => {
       expect(screen.getAllByText('Por confirmar')).toHaveLength(2);
       expect(screen.getByRole('button', { name: CONFIRMAR_SALARIO })).toBeOnTheScreen();
       expect(screen.getByRole('button', { name: MAS_SALARIO })).toBeOnTheScreen();
+      expect(screen.queryByText('Confirmar todos')).not.toBeOnTheScreen();
+      expect(screen.queryByText(/por confirmar: /)).not.toBeOnTheScreen();
     });
 
-    it('con más de una: el texto de varias y una fila por fecha, cada una con «Confirmar» y «Más»', async () => {
+    it('con más de una: el texto de varias, el resumen con cada número en su forma y «Confirmar todos»', async () => {
       apiFalsa(respuestaJson, { pendientes: pendientes(energia, salario, celular) });
       await abrirLista();
       expect(await screen.findByText(TEXTO_VARIAS)).toBeOnTheScreen();
+      expect(screen.getByText('3 por confirmar: 1 ingreso y 2 gastos')).toBeOnTheScreen();
+      expect(screen.getByRole('button', { name: 'Confirmar todos' })).toBeOnTheScreen();
       expect(
         screen.getAllByRole('button', { name: /^Confirmar (Servicios públicos|Salario|Comunicaciones) del/ }),
       ).toHaveLength(3);
@@ -334,6 +338,16 @@ describe('PN-01 · «Por confirmar», Android (E14-PRR 4.1, US-60)', () => {
       expect(screen.getByText('Sigue por confirmar. Intenta de nuevo.')).toBeOnTheScreen();
       expect(screen.queryByRole('header', { name: '¿Esta fecha no pasó?' })).not.toBeOnTheScreen();
       expect(screen.getByRole('button', { name: CONFIRMAR_SALARIO })).toBeOnTheScreen();
+    });
+
+    it('«Confirmar todos» abre su pantalla con la barra y su título', async () => {
+      apiFalsa(respuestaJson, { pendientes: pendientes(energia, salario) });
+      await abrirLista();
+      await fireEvent.press(await screen.findByRole('button', { name: 'Confirmar todos' }));
+      expect(await screen.findByText('2 de 2 marcados')).toBeOnTheScreen();
+      expect(
+        within(screen.getByRole('button', { name: 'Guardar 2 movimientos' })).getByText('Guardar 2 movimientos'),
+      ).toBeOnTheScreen();
     });
   });
 });

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { estiloDeTipografia } from '../fuentes';
 import { tokens } from '../tokens/tokens.generated';
@@ -8,15 +8,20 @@ import { IconoAtencion, IconoCheck } from './Iconos';
 // Casilla de verificación de E14-SDD 5.17. Nunca viene marcada: quien la usa parte de `false`. Toda la fila, con su
 // texto, es el área táctil (mínimo 48 dp). Para TalkBack es un `checkbox` con el texto como nombre y el estado
 // «marcada» o «sin marcar»; con error, el texto del error es su pista (`accessibilityHint`) y una región viva cortés
-// lo anuncia al aparecer.
+// lo anuncia al aparecer. `deshabilitada` (la fila «No pasó» de «Confirmar todos», E14-PRR 4.8) no cambia al tocarla;
+// `contenido` reemplaza el texto visible cuando la fila lleva más (nombre, apoyo y monto), y `texto` sigue siendo el nombre.
 export function Casilla({
   texto,
   marcada,
+  deshabilitada = false,
+  contenido,
   alCambiar,
   error,
 }: {
   texto: string;
   marcada: boolean;
+  deshabilitada?: boolean;
+  contenido?: ReactNode;
   alCambiar: (marcada: boolean) => void;
   error?: string;
 }) {
@@ -25,10 +30,12 @@ export function Casilla({
     <View style={estilos.grupo}>
       <Pressable
         accessibilityRole="checkbox"
-        accessibilityState={{ checked: marcada }}
+        accessibilityState={{ checked: marcada, disabled: deshabilitada }}
         accessibilityLabel={texto}
         accessibilityHint={error}
-        onPress={() => alCambiar(!marcada)}
+        onPress={() => {
+          if (!deshabilitada) alCambiar(!marcada);
+        }}
         onFocus={() => setEnFoco(true)}
         onBlur={() => setEnFoco(false)}
         style={[estilos.fila, enFoco && estilos.foco]}
@@ -36,7 +43,7 @@ export function Casilla({
         <View style={[estilos.caja, marcada && estilos.cajaMarcada, error !== undefined && estilos.cajaConError]}>
           {marcada && <IconoCheck color={tokens.color.accion.primaria.texto} />}
         </View>
-        <Text style={estilos.texto}>{cifras(texto)}</Text>
+        {contenido ?? <Text style={estilos.texto}>{cifras(texto)}</Text>}
       </Pressable>
       <View accessibilityLiveRegion="polite">
         {error && (
