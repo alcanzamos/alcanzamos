@@ -75,6 +75,8 @@ export default defineConfig(
       "playwright-report/",
       "test-results/",
       "src/estilos/tokens.css",
+      // Fixtures inválidos a propósito de tests/eslint/accesibilidad.test.ts (D-182): solo los lee esa prueba.
+      "tests/eslint/fixtures-a11y/",
     ],
   },
   js.configs.recommended,
