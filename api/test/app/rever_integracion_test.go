@@ -434,7 +434,10 @@ func TestReverCarreraCuenta(t *testing.T) {
 				}},
 				{nombre: "dec", f: rDec(e, c.tokB, c.recs, fs), desfase: rDesfase(i)},
 			}
-		}, nil},
+			// Los inicios de sesión en bucle pueden pasar el tope de sesiones por cuenta y expulsar la sesión con la que
+			// se pide el borrado: entonces el borrado responde 401 sin_sesion, que es lo correcto, y `despues` comprueba
+			// que la cuenta quedó entera. Con 2 CPU (el agente del pipeline) pasa a menudo.
+		}, func(code int, cod string) bool { return code == 200 || (code == 401 && cod == "sin_sesion") }},
 		{"cambio de contraseña", func(e *vEnt, c vCuenta, correo string, i int) []rOtro {
 			return []rOtro{
 				{nombre: "contrasena", veces: 1, f: func(int) string {
