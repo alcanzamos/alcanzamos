@@ -40,7 +40,7 @@ Base de la US-57 (Vite, React, TypeScript, tokens, fuentes propias, CSP) y, desd
 - **Logo** (D-152): se importa de `marca/logo-horizontal-color.svg` (`../marca/...`). En la imagen del API entra solo ese archivo, no la carpeta `marca/`. Sigue bajo la política de marca (`TRADEMARK.md`), no bajo la AGPLv3, también dentro de la web.
 - **Números en Figtree** (D-123, `src/componentes/Cifras.tsx`): cada número de un texto va en un `span.cifra` (Figtree, `tabular-nums`, sin `ss02`).
 - **Pantalla de prueba de la US-57 (`PantallaPrueba`):** se quitó. Servía para comprobar tipografía, tokens y foco, y esas comprobaciones ahora las hacen las pantallas reales (axe, foco visible, CSP). `src/dinero.ts` se queda: la usarán las pantallas con montos.
-- `tests/`: las pruebas de Vitest, en espejo de `src/` (D-145, E17-ECO 4.1 bis); `tests/preparar.ts` es su preparación. Las pruebas de Playwright siguen en `e2e/`.
+- `tests/`: las pruebas de Vitest, en espejo de `src/` (D-145, E17-ECO 4.1 bis); `tests/preparar.ts` es su preparación. Cada prueba tiene **15 s** de límite (`testTimeout` en `vite.config.ts`; Vitest usa 5 s por omisión): las de `tests/eslint/` corren ESLint 10 dentro de la prueba y, con cobertura y la máquina cargada, pasaban los 5 s al azar. Las pruebas de Playwright siguen en `e2e/`.
 - `src/estilos/tokens.css`: variables CSS **generadas** desde `diseno/tokens/alcanzamos.tokens.json` (no se edita a mano). No incluye la paleta primitiva: las hojas solo pueden usar tokens semánticos (`--color-*`).
 - La sirve el API: `web/dist` se embebe en la imagen (`embed` y `http.FileServerFS`), la web en `/` y el API en `/api/`. Ver [`api/README.md`](../api/README.md).
 

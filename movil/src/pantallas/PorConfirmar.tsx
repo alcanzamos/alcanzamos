@@ -12,7 +12,7 @@ import { formatearPesos } from '../dinero';
 import { estiloDeTipografia } from '../fuentes';
 import { seguirPorAccesoNegado } from '../navegacion/accesoNegado';
 import type { Rutas } from '../navegacion/rutas';
-import { avisoDeFallo, type DatosDeAviso } from '../textos';
+import { avisoDeFallo, resumenPorConfirmar, type DatosDeAviso } from '../textos';
 import { avisoDeConfirmado, avisosDePorConfirmar, textosDeFilaPorConfirmar } from '../textosDePorConfirmar';
 import { textos } from '../textos/es.generated';
 import { tokens } from '../tokens/tokens.generated';
@@ -25,8 +25,7 @@ type Hoja = { tipo: 'mas' | 'monto' | 'no_paso'; fila: Pendiente };
 export const claveDe = (fila: Pendiente) => `${fila.recurrente_id}-${fila.fecha}`;
 
 // La sección «Por confirmar» de PN-01 (E14-PRR 4.1, D-091 a D-093): una fila por fecha que ya llegó, con «Confirmar» a
-// la vista y «Más» (D-092) para «Cambiar el monto» y «No pasó». El resumen y «Confirmar todos» llegan en el corte
-// siguiente de la US-60.
+// la vista y «Más» (D-092) para «Cambiar el monto» y «No pasó». Con más de una fecha, el resumen y «Confirmar todos».
 // Qué fechas hay lo decide el API (E17-ECO 4.7): aquí solo se muestran y se mandan las decisiones.
 export function PorConfirmar({
   datos,
@@ -44,7 +43,7 @@ export function PorConfirmar({
   const [hoja, setHoja] = useState<Hoja | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<DatosDeAviso | null>(null);
-  const { pendientes } = datos;
+  const { pendientes, resumen } = datos;
 
   // Un fallo no cambia nada: la fecha sigue por confirmar. Un 409 (otra petición la resolvió o hubo un choque en la
   // base) pide la lista de nuevo: el cliente decide con lo que hay ahora (api/README.md, «Concurrencia»).
@@ -82,6 +81,14 @@ export function PorConfirmar({
   return (
     <Tarjeta titulo={p.titulo}>
       <Texto variante="ayuda">{pendientes.length > 1 ? p.textoVarias : p.textoUna}</Texto>
+      {pendientes.length > 1 && (
+        <>
+          <Text style={estilos.resumen}>{cifras(resumenPorConfirmar(resumen.ingresos, resumen.gastos), true)}</Text>
+          <Boton variante="secundario" alTocar={() => navigation.navigate('ConfirmarTodos', { pendientes: datos })}>
+            {p.confirmarTodos}
+          </Boton>
+        </>
+      )}
       {error && <Aviso {...error} />}
       {pendientes.map((fila) => {
         const t = textosDeFilaPorConfirmar(fila);
@@ -135,6 +142,7 @@ export function PorConfirmar({
 }
 
 const estilos = StyleSheet.create({
+  resumen: { ...estiloDeTipografia('cuerpo-destacado'), color: tokens.color.texto.principal },
   // Una Fila de lista · Por confirmar (E14-PRR 7.1): la Fila con valor, sin el ícono Siguiente, y «Confirmar» y «Más».
   fila: {
     gap: tokens.espacio['2'],
