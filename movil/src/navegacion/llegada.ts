@@ -10,6 +10,7 @@ const porLlegada = {
   contrasena_recuperada: avisos.contrasenaRecuperada,
   contrasena_cambiada: avisos.contrasenaCambiada,
   cuenta_borrada: avisos.correoBorrado,
+  tu_cuenta_borrada: avisos.cuentaBorrada,
 } satisfies Record<string, DatosDeAviso>;
 
 export type Llegada = keyof typeof porLlegada;

@@ -143,6 +143,36 @@ export const avisos = {
     titulo: a.errorAlCargarMovimientos.titulo,
     mensaje: a.errorAlCargarMovimientos.mensaje,
   },
+  vasABorrarTuCuenta: {
+    tipo: 'atencion',
+    titulo: a.vasABorrarTuCuenta.titulo,
+    mensaje: a.vasABorrarTuCuenta.mensaje,
+  },
+  errorAlBorrarLaCuenta: {
+    tipo: 'informacion',
+    titulo: a.errorAlBorrarLaCuenta.titulo,
+    mensaje: a.errorAlBorrarLaCuenta.mensaje,
+  },
+  errorAlCargarTusDatos: {
+    tipo: 'informacion',
+    titulo: a.errorAlCargarTusDatos.titulo,
+    mensaje: a.errorAlCargarTusDatos.mensaje,
+  },
+  descargaLista: {
+    tipo: 'informacion',
+    titulo: a.descargaLista.titulo,
+    mensaje: a.descargaLista.mensaje,
+  },
+  errorAlDescargar: {
+    tipo: 'informacion',
+    titulo: a.errorAlDescargar.titulo,
+    mensaje: a.errorAlDescargar.mensaje,
+  },
+  cuentaBorrada: {
+    tipo: 'informacion',
+    titulo: a.cuentaBorrada.titulo,
+    mensaje: a.cuentaBorrada.mensaje,
+  },
 } satisfies Record<string, DatosDeAviso>;
 
 /**
@@ -158,6 +188,7 @@ const erroresDeCampo = {
     ...textos.contrasenaNueva,
   },
   contrasenaDeAhora: textos.erroresDeCampo.contrasenaDeAhora,
+  borrarCuenta: textos.erroresDeCampo.borrarCuenta,
   crearCuenta: {
     ...textos.correo,
     ...textos.erroresDeCampo.crearCuenta,
@@ -170,6 +201,13 @@ export const textosDeArranque = textos.arranque;
 
 // E14-PCP 4.8: los dos errores de la fecha de nacimiento de PN-65. La fecha nunca sale del teléfono: se revisa aquí.
 export const textosDeEdad = textos.textosDeEdad;
+
+/** Los nombres de los menores de PN-69 en una frase: «Mateo», «Mateo y Sofía», «Mateo, Sofía y Tomás». */
+export function nombresEnFrase(nombres: readonly string[]): string {
+  const ultimo = nombres.at(-1) ?? '';
+  if (nombres.length < 2) return ultimo;
+  return formatear(textos.borrarCuenta.menores.union, { anteriores: nombres.slice(0, -1).join(', '), ultimo });
+}
 
 /** Lo que PN-64 muestra de cada finalidad que el API entrega por su `codigo` (E14-PCP 5); el API no manda textos. */
 export const finalidadesDeE14: Record<string, { nombre: string; descripcion: string; casilla?: string }> =

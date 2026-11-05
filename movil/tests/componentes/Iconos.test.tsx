@@ -5,6 +5,7 @@ import {
   IconoCerrar,
   IconoCheck,
   IconoCompartido,
+  IconoHogar,
   IconoInformacion,
   IconoLogro,
   IconoOcultar,
@@ -25,6 +26,7 @@ describe('Iconos (E14-SDD 5.1)', () => {
     ['Check', IconoCheck],
     ['Propio', IconoPropio],
     ['Compartido', IconoCompartido],
+    ['Hogar', IconoHogar],
     ['Siguiente', IconoSiguiente],
   ])('el ícono %s se dibuja y el lector de pantalla lo salta', async (_nombre, Icono) => {
     await render(<Icono color="red" />);

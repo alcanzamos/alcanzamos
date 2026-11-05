@@ -29,6 +29,15 @@ describe('dónde se guarda lo de la sesión', () => {
 
   it('no hay otro almacenamiento ni archivos en src/', () => {
     const prohibidos = /localStorage|sessionStorage|expo-file-system|node:fs|MMKV|expo-sqlite/;
-    expect(codigo.filter((c) => prohibidos.test(c.texto)).map((c) => c.ruta)).toEqual([]);
+    // Única excepción (D-180): «Descargar mis datos» escribe el ZIP en la caché, lo comparte y lo borra siempre.
+    const conArchivos = codigo.filter((c) => prohibidos.test(c.texto)).map((c) => c.ruta);
+    expect(conArchivos).toEqual(['api/descarga.ts']);
+  });
+
+  it('el ZIP de «Descargar mis datos» solo toca la caché, y lo borra en un `finally`', () => {
+    const descarga = codigo.find((c) => c.ruta === 'api/descarga.ts')?.texto ?? '';
+    expect(descarga).toContain('Paths.cache');
+    expect(descarga).not.toMatch(/Paths\.(document|bundle)|localStorage|MMKV|expo-sqlite/);
+    expect(descarga).toMatch(/finally\s*{[^}]*\.delete\(\)/s);
   });
 });

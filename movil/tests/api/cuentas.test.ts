@@ -1,6 +1,14 @@
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
 import { instalarFetchFalso, respuestaJson } from '../ayudas/fetchFalso';
-import { cambiarCorreo, cerrarSesion, crearCuenta, estadoDeLaCuenta, reenviarCorreo } from '../../src/api/cuentas';
+import {
+  borrarLaCuenta,
+  cambiarCorreo,
+  cerrarSesion,
+  crearCuenta,
+  estadoDeLaCuenta,
+  reenviarCorreo,
+  resumenDeBorrado,
+} from '../../src/api/cuentas';
 
 jest.mock('expo-secure-store', () => jest.requireActual('../ayudas/secureStoreFalso').crearSecureStoreFalso());
 const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crearSecureStoreFalso>;
@@ -73,5 +81,39 @@ describe('API de cuenta', () => {
       expect((await cerrarSesion()).ok).toBe(false);
       expect(almacen.guardado.get('sesion')).toBe('token-actual');
     });
+  });
+});
+
+describe('API de PN-69', () => {
+  beforeEach(() => {
+    process.env.EXPO_PUBLIC_URL_API = 'http://api.prueba:18090';
+    almacen.guardado.clear();
+    almacen.guardado.set('sesion', 'token-actual');
+  });
+
+  it('resumenDeBorrado pide GET /api/v1/cuenta/borrado', async () => {
+    const { pedidos } = instalarFetchFalso(respuestaJson(200, { hogar: null, menores: [] }));
+    await resumenDeBorrado();
+    expect(pedidos[0]?.init.method).toBe('GET');
+    expect(pedidos[0]?.url).toBe('http://api.prueba:18090/api/v1/cuenta/borrado');
+  });
+
+  it('borrarLaCuenta manda la contraseña y lo del menor, y con el 200 borra el token del Keystore', async () => {
+    const { pedidos } = instalarFetchFalso(respuestaJson(200, { estado: 'cuenta_borrada' }));
+    const respuesta = await borrarLaCuenta({ contrasena: 'x', confirma_menores: true, menores: ['id-1'] });
+    expect(respuesta.ok).toBe(true);
+    expect(pedidos[0]?.init.method).toBe('POST');
+    expect(JSON.parse(pedidos[0]?.init.body as string)).toEqual({ contrasena: 'x', confirma_menores: true, menores: ['id-1'] });
+    expect(almacen.guardado.has('sesion')).toBe(false);
+  });
+
+  it.each([
+    [400, { error: 'contrasena_incorrecta' }],
+    [422, { error: 'validacion', campos: { confirma_menores: 'confirmacion_requerida' } }],
+    [500, { error: 'error_interno' }],
+  ])('con un %i el token se queda: la cuenta sigue', async (estado, cuerpo) => {
+    instalarFetchFalso(respuestaJson(estado, cuerpo));
+    expect((await borrarLaCuenta({ contrasena: 'x', confirma_menores: false, menores: [] })).ok).toBe(false);
+    expect(almacen.guardado.get('sesion')).toBe('token-actual');
   });
 });
