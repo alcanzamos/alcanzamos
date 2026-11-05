@@ -42,4 +42,28 @@ describe('HojaInferior (Hoja inferior, E14-SDD 5.12)', () => {
     expect(dibujo).toContain(tokens.color.fondo.superficie);
     expect(dibujo).toContain(`"borderTopLeftRadius":${tokens.radio.grande}`);
   });
+
+  it('con título lo muestra como encabezado y trae el ícono «Cerrar», que la cierra (E14-SDD 5.12)', async () => {
+    const alCerrar = jest.fn();
+    await render(
+      <HojaInferior visible titulo="¿Esta fecha no pasó?" alCerrar={alCerrar}>
+        <Text>Contenido</Text>
+      </HojaInferior>,
+    );
+    expect(screen.getByRole('header', { name: '¿Esta fecha no pasó?' })).toBeOnTheScreen();
+    const cerrar = screen.getByRole('button', { name: 'Cerrar' });
+    expect(cerrar).toHaveStyle({ minWidth: tokens.tamano['tactil-minimo'], minHeight: tokens.tamano['tactil-minimo'] });
+    await fireEvent.press(cerrar);
+    expect(alCerrar).toHaveBeenCalledTimes(1);
+  });
+
+  it('sin título no lleva encabezado ni «Cerrar»', async () => {
+    await render(
+      <HojaInferior visible alCerrar={jest.fn()}>
+        <Text>Contenido</Text>
+      </HojaInferior>,
+    );
+    expect(screen.queryByRole('header')).not.toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Cerrar' })).not.toBeOnTheScreen();
+  });
 });
