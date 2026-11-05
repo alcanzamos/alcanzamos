@@ -1,6 +1,7 @@
 import {
   avisoDeBorrado,
   queSeBorra,
+  queSeBorraHablado,
   resumenDelDetalle,
   textosDeFila,
   tituloDelDia,
@@ -20,10 +21,20 @@ describe('textos de PN-01 y PN-02 que se arman con el movimiento (E14-PRR 4.1 y 
   });
 
   it('textosDeFila: categoría, con descripción, aporte con su meta, retiro e ingreso', () => {
-    expect(textosDeFila(gastoDeAyer)).toEqual({ principal: 'Alimentación · Mercado', apoyo: 'Gasto · Efectivo' });
-    expect(textosDeFila(ingreso)).toEqual({ principal: 'Salario', apoyo: 'Ingreso · Transferencia' });
-    expect(textosDeFila(arriendoDeEnero)).toEqual({ principal: 'Arriendo de enero', apoyo: 'Aporte a una meta · Transferencia' });
+    expect(textosDeFila(gastoDeAyer)).toMatchObject({ principal: 'Alimentación · Mercado', apoyo: 'Gasto · Efectivo' });
+    expect(textosDeFila(ingreso)).toMatchObject({ principal: 'Salario', apoyo: 'Ingreso · Transferencia' });
+    expect(textosDeFila(arriendoDeEnero)).toMatchObject({
+      principal: 'Arriendo de enero',
+      apoyo: 'Aporte a una meta · Transferencia',
+    });
     expect(textosDeFila(retiro).apoyo).toBe('Retiro de una meta · Transferencia');
+  });
+
+  it('textosDeFila: la etiqueta dice el monto en pesos (ACC-004) y la marca de «Compartido con el hogar» si la lleva', () => {
+    expect(textosDeFila(gastoDeAyer).etiqueta).toBe('Alimentación · Mercado, Gasto · Efectivo, 45000 pesos');
+    expect(textosDeFila(arriendoDeEnero).etiqueta).toBe(
+      'Arriendo de enero, Aporte a una meta · Transferencia, Compartido con el hogar, 100000 pesos',
+    );
   });
 
   it('resumenDelDetalle: «Gasto en …», «Ingreso por …», «Aporte a «meta»» y «Retiro de «meta»» (D-170)', () => {
@@ -40,8 +51,18 @@ describe('textos de PN-01 y PN-02 que se arman con el movimiento (E14-PRR 4.1 y 
     expect(queSeBorra(ingreso, hoy)).toBe('Ingreso de $1.500.000 por Salario, Ayer.');
   });
 
+  it('queSeBorraHablado: el mismo texto con el monto en pesos (ACC-004)', () => {
+    expect(queSeBorraHablado(gastoDeAyer, hoy)).toBe('Gasto de 45000 pesos en Alimentación, Ayer.');
+    expect(queSeBorraHablado(ingreso, hoy)).toBe('Ingreso de 1500000 pesos por Salario, Ayer.');
+  });
+
   it('avisoDeBorrado: el gasto y el ingreso, con el monto', () => {
-    expect(avisoDeBorrado(gastoDeAyer)).toEqual({ tipo: 'informacion', titulo: 'Listo, borramos el gasto de $45.000.' });
+    expect(avisoDeBorrado(gastoDeAyer)).toEqual({
+      tipo: 'informacion',
+      titulo: 'Listo, borramos el gasto de $45.000.',
+      tituloHablado: 'Listo, borramos el gasto de 45000 pesos.',
+    });
     expect(avisoDeBorrado(ingreso).titulo).toBe('Listo, borramos el ingreso de $1.500.000.');
+    expect(avisoDeBorrado(ingreso).tituloHablado).toBe('Listo, borramos el ingreso de 1500000 pesos.');
   });
 });

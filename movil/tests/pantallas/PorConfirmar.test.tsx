@@ -58,6 +58,14 @@ describe('PN-01 · «Por confirmar», Android (E14-PRR 4.1, US-60)', () => {
       expect(screen.queryByText('Por confirmar')).not.toBeOnTheScreen();
     });
 
+    it('ACC-004: el monto de la fila se lee «1200000 pesos» y no «$1.200.000»', async () => {
+      apiFalsa(respuestaJson, { lista: listado({ movimientos: [gastoDeAyer] }), pendientes: pendientes(salario) });
+      await abrirLista();
+      const monto = await screen.findByText('$1.200.000');
+      expect(monto.props.accessibilityLabel).toBe('1200000 pesos');
+      expect(screen.queryByLabelText(/\$/)).not.toBeOnTheScreen();
+    });
+
     it('con una fecha: título, el texto de una sola fecha (D-179), la fila y sin resumen ni «Confirmar todos»', async () => {
       apiFalsa(respuestaJson, { lista: listado({ movimientos: [gastoDeAyer] }), pendientes: pendientes(salario) });
       await abrirLista();
@@ -135,6 +143,15 @@ describe('PN-01 · «Por confirmar», Android (E14-PRR 4.1, US-60)', () => {
       });
       await waitFor(() => expect(screen.queryByRole('header', { name: 'Por confirmar' })).not.toBeOnTheScreen());
       expect(pedidos.filter((p) => p.ruta === '/api/v1/repeticiones/pendientes')).toHaveLength(2);
+    });
+
+    it('ACC-004: el aviso se lee con el monto en pesos, sin «$»', async () => {
+      apiFalsa(respuestaJson, { pendientes: pendientes(salario), publicar: () => confirmado() });
+      await abrirLista();
+      await fireEvent.press(await screen.findByRole('button', { name: CONFIRMAR_SALARIO }));
+      const aviso = await screen.findByRole('alert');
+      expect(aviso.props.accessibilityLabel).toBe('Listo, confirmamos tu ingreso de 1200000 pesos.');
+      expect(screen.getByText('Listo, confirmamos tu ingreso de $1.200.000.')).toBeOnTheScreen();
     });
 
     it('un gasto dice «Listo, confirmamos tu gasto de …»', async () => {

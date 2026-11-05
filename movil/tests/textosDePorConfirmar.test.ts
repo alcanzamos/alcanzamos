@@ -65,10 +65,12 @@ describe('avisos de «Por confirmar»', () => {
     expect(avisoDeConfirmado(mov({}))).toEqual({
       tipo: 'informacion',
       titulo: 'Listo, confirmamos tu ingreso de $1.200.000.',
+      tituloHablado: 'Listo, confirmamos tu ingreso de 1200000 pesos.',
     });
     expect(avisoDeConfirmado(mov({ tipo: 'gasto', monto_centavos: '65000000' }))).toEqual({
       tipo: 'informacion',
       titulo: 'Listo, confirmamos tu gasto de $650.000.',
+      tituloHablado: 'Listo, confirmamos tu gasto de 650000 pesos.',
     });
   });
 

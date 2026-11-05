@@ -108,8 +108,26 @@ describe('PN-02 · Detalle de un movimiento, Android (E14-PRR 4.2)', () => {
     });
   });
 
+  it('ACC-004: el monto del detalle se lee «45000 pesos», no «$45.000»', async () => {
+    apiFalsa(respuestaJson, { lista: listado({ movimientos: [gastoDeAyer] }) });
+    await abrirDetalle();
+    const monto = screen.getByText('$45.000', { exact: false });
+    expect(monto.props.accessibilityLabel).toBe('45000 pesos');
+  });
+
   describe('borrar', () => {
     const abrirLaHoja = async () => fireEvent.press(await screen.findByRole('button', { name: 'Borrar este movimiento' }));
+
+    it('ACC-004: la hoja y el aviso de después de borrar dicen el monto en pesos', async () => {
+      apiFalsa(respuestaJson, { lista: listado({ movimientos: [gastoDeAyer] }) });
+      await abrirDetalle();
+      await abrirLaHoja();
+      const queSeBorra = await screen.findByText('Gasto de $45.000 en Alimentación, Ayer.', { exact: false });
+      expect(queSeBorra.props.accessibilityLabel).toBe('Gasto de 45000 pesos en Alimentación, Ayer.');
+      await fireEvent.press(screen.getByRole('button', { name: 'Borrar el movimiento' }));
+      const aviso = await screen.findByRole('alert');
+      expect(aviso.props.accessibilityLabel).toBe('Listo, borramos el gasto de 45000 pesos.');
+    });
 
     it('la hoja dice qué se borra y qué pasa, y «Ahora no» la cierra sin borrar nada', async () => {
       const pedidos = apiFalsa(respuestaJson, { lista: listado({ movimientos: [gastoDeAyer] }) });

@@ -10,6 +10,7 @@ import { Tarjeta } from '../componentes/Tarjeta';
 import { Texto } from '../componentes/Texto';
 import { formatearPesos } from '../dinero';
 import { estiloDeTipografia } from '../fuentes';
+import { montoHablado } from '../montoHablado';
 import { seguirPorAccesoNegado } from '../navegacion/accesoNegado';
 import type { Rutas } from '../navegacion/rutas';
 import { avisoDeFallo, resumenPorConfirmar, type DatosDeAviso } from '../textos';
@@ -100,7 +101,13 @@ export function PorConfirmar({
                 <Text style={estilos.apoyo}>{cifras(t.apoyo)}</Text>
                 <Text style={estilos.apoyo}>{p.marca}</Text>
               </View>
-              <Text style={estilos.monto}>{cifras(formatearPesos(BigInt(fila.monto_habitual_centavos)), true)}</Text>
+              <Text
+                accessibilityLabel={montoHablado(BigInt(fila.monto_habitual_centavos))}
+                accessibilityHint={undefined}
+                style={estilos.monto}
+              >
+                {cifras(formatearPesos(BigInt(fila.monto_habitual_centavos)), true)}
+              </Text>
             </View>
             <View style={estilos.acciones}>
               <Boton
