@@ -948,11 +948,11 @@ export const textos = {
     preparando: "Preparando tu archivo…",
   },
   montoHablado: {
-    // E14-SDD 5.5 (los montos), con ACC-004 (E18-PDP) y D-187 (bug 224 de Azure Boards): palabra que solo se dice, nunca se ve, en el nombre accesible de un monto, para que TalkBack lea «15000 pesos» y no «15 dólares, cero, cero, cero»; propuesto: el dueño la aprueba antes de que se entregue (D-162)
+    // E14-SDD 5.5 (los montos), con ACC-004 (E18-PDP) y D-187 (bug 224 de Azure Boards): palabra que solo se dice, nunca se ve, en el nombre accesible de un monto, para que TalkBack lea «15000 pesos» y no «15 dólares, cero, cero, cero»; aprobado por el dueño el 2026-11-05 (D-162)
     pesos: { one: "{n} peso", other: "{n} pesos" },
-    // E14-SDD 5.5 (los montos), con ACC-004 y D-187, como «pesos» (palabra que solo se dice); propuesto: el dueño la aprueba antes de que se entregue (D-162)
+    // E14-SDD 5.5 (los montos), con ACC-004 y D-187, como «pesos» (palabra que solo se dice); aprobado por el dueño el 2026-11-05 (D-162)
     centavos: { one: "{n} centavo", other: "{n} centavos" },
-    // E14-SDD 5.5 (los montos), con ACC-004 y D-187, como «pesos» (palabra que solo se dice); propuesto: el dueño la aprueba antes de que se entregue (D-162)
+    // E14-SDD 5.5 (los montos), con ACC-004 y D-187, como «pesos» (palabra que solo se dice); aprobado por el dueño el 2026-11-05 (D-162)
     conCentavos: "{pesos} con {centavos}",
   },
   arranque: {
