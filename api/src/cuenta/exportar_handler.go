@@ -42,6 +42,7 @@ func (h *HandlerDeExportacion) descargar(w http.ResponseWriter, r *http.Request)
 		w.Header().Set("Content-Disposition", `attachment; filename="`+NombreDelArchivo+`"`)
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
-		_, _ = w.Write(datos)
+		// Con el encabezado ya enviado, un fallo al escribir es que la persona cerró la conexión: no hay a quién avisar.
+		_, _ = w.Write(datos) //nolint:errcheck // ver el comentario de arriba
 	}
 }

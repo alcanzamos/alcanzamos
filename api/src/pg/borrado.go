@@ -191,9 +191,12 @@ func (r *Borrado) BorrarCuenta(ctx context.Context, persona string, vistos []str
 		}
 	}
 	// La base siguió ocupada: si la cuenta ya no está, otro pedido la borró y esto es lo mismo que llegar tarde. Si no se
-	// puede mirar, se supone que sigue (y se dice «ocupado», que es seguro: no se borró nada).
-	existe := true
-	_ = r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM persona WHERE id = $1::uuid)`, persona).Scan(&existe)
+	// puede mirar, se supone que sigue (y se dice «ocupado», que es seguro: no se borró nada) y el error de la consulta
+	// se suma al que sale, para el registro.
+	var existe bool
+	if errMirar := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM persona WHERE id = $1::uuid)`, persona).Scan(&existe); errMirar != nil {
+		return fmt.Errorf("%w: %w (y no se pudo comprobar si la cuenta sigue: %w)", cuenta.ErrOcupada, conRestriccion(err), errMirar)
+	}
 	if !existe {
 		return cuenta.ErrNoExiste
 	}
