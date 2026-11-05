@@ -82,7 +82,9 @@ describe('flujo de movimientos en Android: el Atrás de PN-01, PN-02 y «Corregi
     await screen.findByText(PN71);
     await fireEvent.press(screen.getByRole('button', { name: 'Movimientos' }));
     await fireEvent.press(await screen.findByRole('radio', { name: 'Octubre' }));
-    await waitFor(() => expect(pedidos.at(-1)?.ruta).toBe('/api/v1/movimientos?periodo=2026-10'));
+    await waitFor(() =>
+      expect(pedidos.filter((p) => p.ruta.startsWith('/api/v1/movimientos?')).at(-1)?.ruta).toBe('/api/v1/movimientos?periodo=2026-10'),
+    );
     await fireEvent.press(await screen.findByText('Alimentación · Mercado', { exact: false }));
     await screen.findByRole('button', { name: 'Corregir' });
     await fireEvent.press(screen.getByRole('button', { name: 'Corregir' }));

@@ -27,7 +27,8 @@ func TestVectoresDeReferencia(t *testing.T) {
 	}
 }
 
-func TestHashearYVerificar(t *testing.T) {
+// SEG-005 (RNF-014): Argon2id con 19 MiB, 2 iteraciones y paralelismo 1; sal aleatoria; el hash no es la contraseña.
+func TestSEG_005LaContrasenaSeGuardaConArgon2idYNoSePuedeLeer(t *testing.T) {
 	h := argon2id.Predeterminado()
 	ctx := context.Background()
 	a, err := h.Hashear(ctx, "contraseña de prueba")
@@ -36,6 +37,9 @@ func TestHashearYVerificar(t *testing.T) {
 	}
 	if !strings.HasPrefix(a, "$argon2id$v=19$m=19456,t=2,p=1$") {
 		t.Fatalf("formato inesperado: %s", a)
+	}
+	if strings.Contains(a, "contraseña de prueba") {
+		t.Fatal("el hash no debe contener la contraseña")
 	}
 	b, _ := h.Hashear(ctx, "contraseña de prueba")
 	if a == b {

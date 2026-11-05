@@ -1,4 +1,5 @@
 import type { Movimiento } from '../api/movimientos';
+import type { Pendientes } from '../api/repeticiones';
 import type { DatosDeAviso } from '../textos';
 import type { Llegada } from './llegada';
 
@@ -36,6 +37,11 @@ export type Rutas = {
   DetalleDeMovimiento: { movimiento: Movimiento; noExiste?: boolean };
   /** «Corregir» de PN-02: los mismos campos del registro, llenos; su Atrás vuelve a PN-02 sin guardar. */
   CorregirMovimiento: { movimiento: Movimiento };
+  /**
+   * «Confirmar todos» (E14-PRR 4.8), de la sección «Por confirmar» de PN-01 con más de una fecha; trae las fechas que ya
+   * pidió PN-01. Su Atrás vuelve a PN-01 sin guardar; al guardar vuelve con el aviso (`popTo`).
+   */
+  ConfirmarTodos: { pendientes: Pendientes };
   /** Formulario de registro (E14-PPN 3.1); se abre desde «Registrar» de PN-01 y vuelve a PN-01 al guardar (D-164). */
   FormularioDeRegistro: undefined;
   /** PN-03: se apila sobre Registrar; su Atrás vuelve al formulario sin cambiar nada. */

@@ -53,7 +53,7 @@ No bloquean la US-44.
 Consultadas el 2026-10-22:
 
 - OpenTofu 1.13.2 (publicada el 2026-10-21): `https://github.com/opentofu/opentofu/releases`.
-- Proveedor `hashicorp/azurerm` 5.10.0 (2026-10-15): `https://github.com/hashicorp/terraform-provider-azurerm/releases`. Desde la versión 5 no registra proveedores de recursos por su cuenta.
+- Proveedor `hashicorp/azurerm` 5.11.0 (2026-10-23): `https://github.com/hashicorp/terraform-provider-azurerm/releases`. Desde la versión 5 no registra proveedores de recursos por su cuenta.
 - Proveedor `hashicorp/azuread` 3.10.0 (2026-09-24), solo en `bootstrap`.
 
 ## Validación

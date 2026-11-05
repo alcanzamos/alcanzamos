@@ -614,3 +614,119 @@
     display: none;
   }
 }
+
+/* Fila de lista · Por confirmar (E14-PRR 7.1, 3 y 4): datos y monto arriba, y «Confirmar» y «Más» (o la casilla y «Más»)
+   con caja de 48 px. La hoja de «Más» sale justo debajo de su fila. */
+.lista-sin-relleno {
+  padding: 0;
+}
+
+.detalle > p {
+  margin: 0;
+}
+
+.fila-por-confirmar {
+  display: grid;
+  gap: var(--espacio-2);
+  padding: var(--espacio-2) 0;
+}
+
+.fila-por-confirmar__datos,
+.fila-por-confirmar__acciones {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espacio-3);
+}
+
+.fila-por-confirmar__acciones {
+  justify-content: flex-start;
+}
+
+.fila-por-confirmar__datos > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.fila-por-confirmar .casilla > span:last-child {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espacio-3);
+}
+
+/* Hoja inferior (E14-SDD 5.12). En la web, un panel junto al botón que la abre y sin velo; por debajo de 768 px, anclada
+   abajo, a todo lo ancho, con su velo y hasta el 80 % del alto. */
+.hoja-contenedor {
+  display: contents;
+}
+
+.hoja__velo {
+  display: none;
+}
+
+.hoja {
+  border: var(--ancho-borde-fino) solid var(--color-borde-campo);
+}
+
+.hoja__encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espacio-3);
+}
+
+.hoja__cerrar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--tamano-tactil-minimo);
+  height: var(--tamano-tactil-minimo);
+  border: 0;
+  border-radius: var(--radio-pequeno);
+  background: transparent;
+  color: var(--color-texto-principal);
+  cursor: pointer;
+}
+
+.hoja .fila-navegable {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* El botón «Guardar» de «Confirmar todos» queda fijo al pie del panel (E14-PRR 4.8, variante web). */
+.pie-fijo {
+  position: sticky;
+  bottom: 0;
+  display: grid;
+  padding: var(--espacio-3) 0;
+  background: var(--color-fondo-pagina);
+}
+
+@media (max-width: 95.9ch) {
+  .hoja__velo {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    display: block;
+    border: 0;
+    background: var(--color-texto-principal);
+    opacity: 0.4;
+  }
+
+  .hoja {
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 2;
+    max-height: 80%;
+    overflow-y: auto;
+    border: 0;
+    border-radius: var(--radio-grande) var(--radio-grande) 0 0;
+  }
+}

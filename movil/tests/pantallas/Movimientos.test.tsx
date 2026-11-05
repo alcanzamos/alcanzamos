@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { BackHandler } from 'react-native';
 import { cambiarBorrador, reiniciarBorrador, useBorrador } from '../../src/borradorDeRegistro';
 import { Navegacion } from '../../src/navegacion/Navegacion';
-import { arriendoDeEnero, gastoDeAyer, gastoDeHoy, listado, movimiento } from '../ayudas/movimientosFalsos';
+import { arriendoDeEnero, gastoDeAyer, gastoDeHoy, listado, movimiento, pendientes } from '../ayudas/movimientosFalsos';
 import { respuestaJson } from '../ayudas/fetchFalso';
 import { fijarHoy } from '../ayudas/reloj';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
@@ -25,6 +25,7 @@ function api(responder: Responder) {
     const ruta = url.replace(BASE, '');
     if (ruta.startsWith('/api/v1/cuenta/seguridad')) return respuestaJson(200, { ingreso_anterior: null });
     if (ruta === '/api/v1/categorias') return respuestaJson(200, { gasto: [{ id: 1, nombre: 'x', general: false }], ingreso: [] });
+    if (ruta === '/api/v1/repeticiones/pendientes') return respuestaJson(200, pendientes());
     lista.push(ruta);
     return responder(ruta);
   }) as unknown as typeof fetch;
@@ -100,7 +101,7 @@ describe('PN-01 · Movimientos, Android (E14-PRR 4.1)', () => {
       expect(screen.queryByText('Compartido con el hogar')).not.toBeOnTheScreen();
     });
 
-    it('no hay sección «Por confirmar» (US-60, D-168)', async () => {
+    it('sin fechas pendientes no hay sección «Por confirmar» (US-60)', async () => {
       conLista(listado({ movimientos: [gastoDeAyer] }));
       await abrirLista();
       await screen.findByText('Mercado', { exact: false });

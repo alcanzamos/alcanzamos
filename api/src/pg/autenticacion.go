@@ -46,7 +46,7 @@ func (r *Autenticacion) IniciarSesion(ctx context.Context, persona string, huell
 	if err != nil {
 		return fmt.Errorf("abrir la transacción: %w", err)
 	}
-	defer tx.Rollback(ctx)  //nolint:errcheck // sin efecto tras el commit
+	defer tx.Rollback(ctx)
 	var viejo, nuevo string // vacíos: el hash no cambia
 	if mejora != nil {
 		viejo, nuevo = mejora.Viejo, mejora.Nuevo
@@ -114,7 +114,7 @@ func (r *Autenticacion) NuevoEnlaceDeRecuperacion(ctx context.Context, correo st
 	if err != nil {
 		return false, fmt.Errorf("abrir la transacción: %w", err)
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck // sin efecto tras el commit
+	defer tx.Rollback(ctx)
 	// Los mismos candados y en el mismo orden que el borrado de la cuenta y que elegir la contraseña con el enlace: la
 	// credencial, la persona y su perfil. Se busca la persona sin bloquear y, con los candados, se vuelve a comprobar el
 	// correo y que esté verificado (puede haber cambiado, o la cuenta haberse borrado, mientras se esperaba).
@@ -199,7 +199,7 @@ func (r *Autenticacion) FijarContrasenaConEnlace(ctx context.Context, huella []b
 	if err != nil {
 		return fmt.Errorf("abrir la transacción: %w", err)
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck // sin efecto tras el commit
+	defer tx.Rollback(ctx)
 	// Primero la cuenta del enlace y sus candados (credencial, persona), como el borrado; solo después se consume el enlace.
 	// Si el enlace no existe, o la cuenta se borró mientras se esperaba y el enlace se fue con ella, es un enlace que no sirve.
 	var persona string
@@ -240,7 +240,7 @@ func (r *Autenticacion) CambiarContrasena(ctx context.Context, persona, hash str
 	if err != nil {
 		return fmt.Errorf("abrir la transacción: %w", err)
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck // sin efecto tras el commit
+	defer tx.Rollback(ctx)
 	if err := guardarHashYCerrarSesiones(ctx, tx, persona, hash, conservar); err != nil {
 		return err
 	}

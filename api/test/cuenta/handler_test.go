@@ -63,6 +63,30 @@ func post(h http.Handler, origen, ruta, cuerpo string, encabezados ...string) *h
 
 const cuerpoValido = `{"correo":"laura@ejemplo.test","contrasena":"lluvia café tren azul","nombre":"Laura","mayor_de_edad":true}`
 
+// USA-005 (RNF-016): el registro pide solo correo, contraseña y nombre, más «Soy mayor de edad» (D-089); cualquier otro
+// campo se rechaza sin crear nada.
+func TestUSA_005ElRegistroRechazaCualquierOtroCampo(t *testing.T) {
+	for _, extra := range []string{"apellido", "telefono", "documento", "fecha_de_nacimiento", "direccion", "banco", "rol"} {
+		t.Run(extra, func(t *testing.T) {
+			e := nuevoEntorno()
+			h := apiDePrueba(t, e)
+			cuerpo := strings.Replace(cuerpoValido, `"mayor_de_edad":true}`, `"mayor_de_edad":true,"`+extra+`":"x"}`, 1)
+			rr := post(h, "203.0.113.7", "/api/v1/cuentas", cuerpo)
+			e.svc.Esperar()
+			if rr.Code != 400 || len(e.repo.creadas) != 0 || len(e.correo.Enviados()) != 0 {
+				t.Errorf("código %d, se esperaba 400 sin crear nada: %s", rr.Code, rr.Body)
+			}
+		})
+	}
+	// Con solo los cuatro campos se acepta.
+	e := nuevoEntorno()
+	rr := post(apiDePrueba(t, e), "203.0.113.7", "/api/v1/cuentas", cuerpoValido)
+	e.svc.Esperar()
+	if rr.Code != 202 {
+		t.Errorf("con correo, contraseña, nombre y mayor_de_edad: %d %s", rr.Code, rr.Body)
+	}
+}
+
 func TestPostCuentas(t *testing.T) {
 	casos := []struct {
 		nombre string
