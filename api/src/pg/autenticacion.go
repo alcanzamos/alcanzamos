@@ -79,10 +79,14 @@ func (r *Autenticacion) CerrarSesion(ctx context.Context, huella []byte) error {
 	return nil
 }
 
-// IngresoAnterior lee `credencial.ingreso_anterior`: nulo en el primer ingreso.
+// IngresoAnterior lee `credencial.ingreso_anterior`: nulo en el primer ingreso. Si la credencial ya no está (la cuenta se
+// borró entre la sesión y esta lectura), autenticacion.ErrNoExiste.
 func (r *Autenticacion) IngresoAnterior(ctx context.Context, persona string) (*time.Time, error) {
 	var anterior *time.Time
 	err := r.pool.QueryRow(ctx, `SELECT ingreso_anterior FROM credencial WHERE persona_id = $1::uuid`, persona).Scan(&anterior)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, autenticacion.ErrNoExiste
+	}
 	if err != nil {
 		return nil, fmt.Errorf("leer el ingreso anterior: %w", err)
 	}
