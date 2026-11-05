@@ -21,6 +21,32 @@ const crear = () =>
   fireEvent.click(screen.getByRole("button", { name: "Crear cuenta" }));
 
 describe("PN-58 · Crear la cuenta", () => {
+  // USA-005 (RNF-016): el formulario pide solo correo, contraseña y nombre, y la casilla «Soy mayor de edad» (D-089).
+  it("USA-005 el formulario pide solo correo, contraseña y nombre, y la casilla «Soy mayor de edad»", () => {
+    const { container } = render(<CrearCuenta />);
+    const campos = Array.from(
+      container.querySelectorAll("input, select, textarea"),
+    );
+    expect(
+      campos.map((c) => [
+        c.tagName.toLowerCase(),
+        c.getAttribute("type") ?? "",
+      ]),
+    ).toEqual([
+      ["input", "email"],
+      ["input", "password"],
+      ["input", "text"],
+      ["input", "checkbox"],
+    ]);
+    expect(screen.getByLabelText("Correo electrónico")).toBeInTheDocument();
+    expect(screen.getByLabelText("Contraseña")).toBeInTheDocument();
+    expect(screen.getByLabelText("Nombre para mostrar")).toBeInTheDocument();
+    expect(screen.getByLabelText("Soy mayor de edad")).toHaveAttribute(
+      "type",
+      "checkbox",
+    );
+  });
+
   it("lleva el logo de E14 con su texto alternativo, arriba del título", () => {
     render(<CrearCuenta />);
     const logo = screen.getByRole("img", { name: "Alcanzamos" });

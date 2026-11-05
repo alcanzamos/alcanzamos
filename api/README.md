@@ -733,6 +733,18 @@ python3 -I -B .azure-pipelines/pruebas/cobertura.py probar   # prueba del propio
 
 La salida es una tabla por grupo y por paquete; el código de salida es 1 si algo falla. `c.out` no se confirma. Sin PostgreSQL las pruebas de integración se saltan y la cobertura sale más baja de lo que el pipeline mide.
 
+## Pruebas de escritorio de E15 (EXA-006, D-111, D-181)
+
+Regla fuerte de D-111 (Q-13): cada id de E15 existe como subprueba `t.Run("<id>", …)` y pasa. EXA-006 se cumple **por algoritmo**, no de una vez (D-181): **cada historia que construye un algoritmo de E15 trae todas sus filas como subpruebas con su id, y pasan** (E17-ECO paso 41). Hoy el API implementa solo el 5.2 (`src/fechas`, con `src/registro`): sus 23 ids (FP-01 a FP-23) están en `test/fechas` bajo `TestFP` (`go test ./test/fechas -run 'TestFP/^FP-17$' -v`). Los otros 18 algoritmos (263 ids) entran con la historia que los construya.
+
+`test/e15` lo vigila (`TestEXA_006…`): lee `test/e15/ids.json`, una copia de los ids de E15 (los documentos están en otro repositorio y el pipeline no los ve), y falla si a un prefijo de `construidos` le falta una subprueba, o si alguna subprueba con forma de id de E15 usa un id que E15 no tiene. **Agregar el prefijo a `construidos` en `ids.json` es parte de la historia que construye el algoritmo.** Si cambia E15 (una fila nueva o retirada), se regenera la copia con el repositorio de documentos al lado:
+
+```sh
+python3 -I -B api/test/e15/generar_ids.py <documentos>/docs/adso/proyecto/03-diseno/E15-diseno-algoritmico/01-diseno-algoritmico.md > /tmp/ids.json && mv /tmp/ids.json api/test/e15/ids.json
+```
+
+El generador solo lee E15, usa la lógica de `e18-ids-e15.py` y conserva la lista `construidos` del archivo actual.
+
 ## Análisis estático (golangci-lint)
 
 El pipeline `api` corre `go vet ./...` y después `go tool golangci-lint run` (v2.15.0, publicado el 2026-10-16), con la configuración `api/.golangci.yml`. La herramienta es una directiva `tool` de `go.mod` (D-161), como `govulncheck`: no se instala nada aparte, no entra en el binario del API y no está en `src/`. Activa solo los cuatro analizadores de E17-ECO 3.5 (`Q-2`, D-110): `errcheck` (con `check-blank`: también marca `_ = f()`), `staticcheck`, `asciicheck` y `depguard`. Reglas de `depguard` (E17 3.2): el núcleo (`reloj`, `fechas`) no importa paquetes del proyecto, `seguridad` no importa módulos de negocio, y ningún módulo ni `seguridad` importa `pg`, `bd`, `app` ni `pgx`. E17 no trae una lista concreta de paquetes: las reglas son las mínimas de E12 §4 (reglas 1, 3 y 4) y E17 3.10; se amplían cuando E12 §4 se actualice (D-1 de la auditoría).
