@@ -136,7 +136,7 @@ describe('PN-69 · Borrar la cuenta (E14-PCP 4.12)', () => {
     expect(screen.getByRole('header', { name: 'Menores a tu cargo' })).toBeOnTheScreen();
     expect(screen.getByText('Mateo depende solo de ti. Su cuenta y sus datos también se borran.')).toBeOnTheScreen();
     const casilla = screen.getByRole('checkbox', { name: 'Entiendo que también se borra la cuenta de Mateo.' });
-    expect(casilla.props.accessibilityState).toEqual({ checked: false });
+    expect(casilla.props.accessibilityState).toMatchObject({ checked: false, disabled: false });
   });
 
   it.each([
@@ -225,7 +225,7 @@ describe('PN-69 · Borrar la cuenta (E14-PCP 4.12)', () => {
       await screen.findByText('Mateo y Sofía dependen solo de ti. Sus cuentas y sus datos también se borran.'),
     ).toBeOnTheScreen();
     expect(screen.getByText('No pudimos borrar tu cuenta.')).toBeOnTheScreen();
-    expect(screen.getByRole('checkbox').props.accessibilityState).toEqual({ checked: false });
+    expect(screen.getByRole('checkbox').props.accessibilityState).toMatchObject({ checked: false, disabled: false });
     expect(screen.getByLabelText('Tu contraseña').props.value).toBe('lluvia café tren azul');
     expect(navegacion.dispatch).not.toHaveBeenCalled();
     expect(almacen.guardado.get('sesion')).toBe('tk-activa');
