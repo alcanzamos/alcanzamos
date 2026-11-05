@@ -153,7 +153,7 @@ Sin dependencias nuevas.
 - **Borrar.** `POST /api/v1/cuenta/borrado` con `{contrasena, confirma_menores}`: con el `200` borra el token del Keystore (`borrarLaCuenta`, la sesión ya no existe) y va a PN-60 con `reemplazarPila` y «Borramos tu cuenta.», así el Atrás no vuelve a la cuenta. Con cualquier otra respuesta el token se queda. `400 contrasena_incorrecta` y `422` salen en su campo (el foco va a la contraseña; la casilla no se puede enfocar por código, como en las demás pantallas), `429`, `5xx` y sin conexión como siempre.
 - **Los menores se confirman uno a uno (RN-006).** El borrado manda los ids de los menores que mostró (`menores`) y la casilla; con `409 menores_cambiaron` no se borró nada: vuelve a leer el resumen, deja la casilla sin marcar y muestra «No pudimos borrar tu cuenta.» (texto de E14, sin texto nuevo). `503 ocupado` es el error de siempre: la cuenta sigue.
 - **«Descargar mis datos» (RF-032, D-102, D-180).** `src/api/descarga.ts` pide `GET /api/v1/cuenta/datos` (Bearer y `X-Alcanzamos-Cliente: android`), escribe el ZIP en la carpeta de **caché** de la app, abre la hoja de compartir de Android (`mimeType: application/zip`) y **borra el archivo siempre**, al compartir, al cancelar y ante cualquier error: dentro de la app no queda copia. Va antes del botón de borrar, es opcional y no condiciona el borrado. Estados de E14: «Preparando tu archivo…», «Listo, descargamos tus datos.» y «No pudimos preparar tu archivo.». Sus textos pasaron de `solo_web` a `comun`.
-- **Dependencias nuevas (D-180, con permiso del dueño), en versión exacta:** `expo-file-system` 58.0.12, la misma versión que trae `expo` 58.0.20, así que hay una sola copia (regla de D-180: va la que trae expo, no un número fijo; al subir expo se ajusta y se comprueba con `npm ls expo-file-system`) y `expo-sharing` 58.0.20. Se instalaron con `npm install --save-exact`, no con `expo install` ni con `~`, porque eso habría tomado `expo-sharing` 58.0.22, publicada el 2026-11-03 y que no pasa antigüedad; la 58.0.20 es del 2026-10-21. Por eso `expo-doctor` las marca como desactualizadas (`~58.0.13` y `~58.0.22`): es lo esperado, no un error. Las dos son MIT.
+- **Dependencias nuevas (D-180, con permiso del dueño), en versión exacta:** `expo-file-system` 58.0.13, la misma versión que trae `expo` 58.0.22 (antes 58.0.12 con expo 58.0.20), así que hay una sola copia (regla de D-180: va la que trae expo, no un número fijo; al subir expo se ajusta y se comprueba con `npm ls expo-file-system`) y `expo-sharing` 58.0.20. Se instalaron con `npm install --save-exact`, no con `expo install` ni con `~`, porque eso habría tomado `expo-sharing` 58.0.22, publicada el 2026-11-03 y que no pasa antigüedad; la 58.0.20 es del 2026-10-21. Por eso `expo-doctor` las marca como desactualizadas (`~58.0.13` y `~58.0.22`): es lo esperado, no un error. Las dos son MIT.
 - **Textos.** Los de PN-69 pasaron de `solo_web` a `comun` (los usan las dos apps y la prueba de claves lo exige). Los de varios menores y de quien es miembro sin el papel los aprobó el dueño (D-180); el hogar sin nombre se titula «Nuestro hogar» (D-098 (7)) y el error de carga reutiliza «No pudimos cargar tus datos. Intenta de nuevo.». La tarjeta del hogar lleva el ícono Hogar (`IconoHogar`, trazo del «Ícono / Hogar» de Penpot).
 - **Prueba de integración.** `npm run integracion:api` borra la cuenta contra el API de verdad: el resumen, sin contraseña (`422`), contraseña mal (`400`), el `200`, el token borrado, las dos sesiones en `401` y entrar en `401`. También espera el correo de verificación en vez de leer Mailpit una sola vez (la lectura única fallaba si el correo tardaba).
 
@@ -261,7 +261,7 @@ Versiones fijadas sin `~` ni `^`, verificadas en el registro de npm el 2026-10-2
 
 ## Versión de Expo
 
-**Expo SDK 58** (`expo` 58.0.20, React Native 0.88.0, React 19.3.0), subido desde el SDK 57 con `npx expo install expo@58.0.19` y `npx expo install --fix`, y el 2026-11-03 a 58.0.20 (D-166); `npx expo-doctor` da 19 de 20 comprobaciones: la que falla compara contra las últimas versiones de Expo (`expo` ~58.0.23, publicada ese mismo día, y parches de `expo-font`, `react-native`, `react-native-screens`, `jest-expo` y `react-native-safe-area-context`), no contra las de `bundledNativeModules.json` de 58.0.20, que el proyecto cumple. Las versiones están fijadas sin `~` ni `^` (Expo las pide con `~`, pero el proyecto las fija exactas); la tabla de abajo es la de `expo/bundledNativeModules.json` del SDK 58.
+**Expo SDK 58** (`expo` 58.0.22, React Native 0.88.0, React 19.3.0), subido desde el SDK 57 con `npx expo install expo@58.0.19` y `npx expo install --fix`, el 2026-11-03 a 58.0.20 (D-166) y el 2026-11-05 a 58.0.22, que quita `zod` de `@expo/cli` (D-185, con `expo-font` 58.0.11 y `expo-file-system` 58.0.13 en versión exacta); antes de 58.0.22, `npx expo-doctor` da 19 de 20 comprobaciones: la que falla compara contra las últimas versiones de Expo (`expo` ~58.0.23, publicada ese mismo día, y parches de `expo-font`, `react-native`, `react-native-screens`, `jest-expo` y `react-native-safe-area-context`), no contra las de `bundledNativeModules.json` de 58.0.20, que el proyecto cumple. Las versiones están fijadas sin `~` ni `^` (Expo las pide con `~`, pero el proyecto las fija exactas); la tabla de abajo es la de `expo/bundledNativeModules.json` del SDK 58.
 
 Por qué el SDK 58: el Expo Go de Google Play ya es la **58.0.5** y solo abre proyectos del SDK 58 (el dueño no instala una versión anterior). Referencias: <https://expo.dev/changelog/sdk-58> (15 de octubre de 2026) y `https://api.expo.dev/v2/versions/latest`, que el 2026-10-24 todavía informaba `expoGoSdkVersion: 57.0.0` (la tienda va antes que ese dato).
 
@@ -269,13 +269,13 @@ Versiones del SDK 58, verificadas en el registro de npm el 2026-10-24 (fecha de 
 
 | Paquete | SDK 57 | SDK 58 |
 |---|---|---|
-| `expo` | 57.0.31 | 58.0.20 (2026-10-27) |
+| `expo` | 57.0.31 | 58.0.22 (2026-10-31, D-185) |
 | `react-native` | 0.86.3 | 0.88.0 (2026-10-15) |
 | `react` | 19.2.3 | 19.3.0 (2026-09-09; existe la 19.3.1, pero Expo pide la 19.3.0) |
 | `@types/react` | 19.2.4 | 19.3.0 (la única 19.3) |
 | `@react-native-community/datetimepicker` | 9.1.0 | 9.2.1 (2026-09-07) |
 | `expo-secure-store` | 57.0.4 | 58.0.2 (2026-10-01) |
-| `expo-font` | 57.0.4 | 58.0.10 (2026-10-23) |
+| `expo-font` | 57.0.4 | 58.0.11 (2026-10-28, D-185) |
 | `expo-status-bar` | 57.0.1 | 58.0.4 (2026-10-21) |
 | `react-native-screens` | 4.26.2 | 4.30.0 (2026-10-13) |
 | `react-native-safe-area-context` | 5.7.0 | 5.10.1 (2026-09-29) |
@@ -377,6 +377,8 @@ npm 12.2.1 pide Node `^22.22.2 || ^24.15.0 || >=26`. Con un gestor de versiones 
 
 Las excepciones van en `antiguedad-excepciones.json`, una por versión, con `paquete`, `version`, `motivo` y `revisar_antes_de` (la fecha de vencimiento), como las de auditoría. Una excepción de una versión que ya cumple la edad se informa como sobrante, pero no falla hasta vencer. Para instalar una versión joven por una corrección de seguridad urgente hacen falta dos cosas: `min-release-age-exclude[]` en `.npmrc` (para que npm la resuelva) y su excepción aquí (para que pase esta revisión).
 
+**expo 58.0.22 (D-185, 2026-11-05):** se instaló con `--min-release-age=4` en la línea de comandos de esa única instalación (sin tocar `.npmrc`), para que entraran las versiones del 2026-10-31 que quitan `zod` y no las del 2026-11-03. Las 18 versiones que todavía no cumplían 7 días tienen excepción en `antiguedad-excepciones.json` con el motivo «llega con expo 58.0.22, que quita zod (D-182)» y `revisar_antes_de` **2026-11-07**: la última (`@expo/cli` 58.1.18) cumple 7 días ese día a las 10:33 UTC. Ese mismo día, después de las 10:33 UTC, un PR chico vacía el archivo; el 2026-11-08 vencen y el pipeline falla.
+
 **Transición (D-158):** el archivo arrancó con 63 excepciones, las versiones que ya estaban en el lockfile de `main` el 2026-10-24 con menos de 7 días (la mayoría entró con el SDK 58). Todas vencen el 2026-11-01 (D-159): el motivo de cada una dice el día en que esa versión cumple 7 días (entre el 2026-10-25 y el 2026-10-30), y el archivo se vació el 2026-11-03 (`[]`): al subir `expo` a 58.0.20 y refrescar el lockfile, todas las versiones cumplen ya los 7 días. Una excepción vencida hace fallar el pipeline.
 
 **node-forge 1.4.2 (D-166):** el 2026-10-27 se subió `node-forge` a 1.4.2 (corrección de GHSA-86w9-cpqp-85rv, publicada ese día) con `--min-release-age-exclude=node-forge` en la línea de comandos de esa única instalación, sin tocar `.npmrc`, y con una excepción de antigüedad que vence el **2026-11-03**, cuando cumple 7 días. La excepción se quitó el 2026-11-03.
@@ -412,7 +414,7 @@ Versiones fijadas sin `~` ni `^`, verificadas en el registro de npm el 2026-10-2
 
 ### Vulnerabilidades (`npm run auditoria`)
 
-`npm audit --omit=dev --audit-level=high` falla con el aviso de `zod` (abajo). En vez de silenciarlo para todo el proyecto, `scripts/auditoria.mjs` corre `npm audit --omit=dev --json` y falla con:
+**Desde D-182 (expo 58.0.22, `@expo/cli` 58.1.18) `zod` ya no llega por `expo`: `auditoria-excepciones.json` está vacío y la auditoría pasa sin excepciones. `npm ls zod` solo lo muestra por `eslint-plugin-react-hooks`, que es de desarrollo. Lo que sigue es la historia de la excepción.** Antes, `npm audit --omit=dev --audit-level=high` falla con el aviso de `zod` (abajo). En vez de silenciarlo para todo el proyecto, `scripts/auditoria.mjs` corre `npm audit --omit=dev --json` y falla con:
 
 - todo aviso alto o crítico que no esté en `auditoria-excepciones.json`;
 - toda excepción que ya no se reporta (quedó obsoleta: se quita);

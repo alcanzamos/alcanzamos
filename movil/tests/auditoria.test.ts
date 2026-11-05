@@ -243,23 +243,8 @@ describe("revisar", () => {
 describe("auditoria-excepciones.json", () => {
   const real = excepcionesReales as Excepcion[];
 
-  it("la de zod se renovó hasta el 2026-11-12 y dice por qué (D-182)", () => {
-    expect(real[0].revisar_antes_de).toBe("2026-11-12");
-    for (const frase of ["@expo/cli 58.1.18", "expo 58.0.22", "2026-11-07", "D-182"]) {
-      expect(real[0].motivo).toContain(frase);
-    }
-  });
-
-  it("tiene la forma válida y la excepción de zod", () => {
+  it("está vacía: expo 58.0.22 quita zod de la app y la auditoría pasa sin excepciones (D-182)", () => {
     expect(validarExcepciones(real)).toEqual([]);
-    expect(real.map((e) => [e.ghsa, e.paquete, e.rutas])).toEqual([
-      [
-        "GHSA-mrhx-c7xc-m3w5",
-        "zod",
-        [
-          "expo > @expo/cli > zod",
-        ],
-      ],
-    ]);
+    expect(real).toEqual([]);
   });
 });
