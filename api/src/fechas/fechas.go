@@ -5,6 +5,7 @@ package fechas
 
 import (
 	"errors"
+	"math/big"
 	"slices"
 	"time"
 )
@@ -26,6 +27,8 @@ var (
 	ErrPeriodicidadDesconocida = errors.New("periodicidad desconocida")
 	ErrPeriodoInvalido         = errors.New("el periodo no empieza el día 1")
 	ErrFechaConfirmadaYOmitida = errors.New("una fecha no puede estar confirmada y omitida a la vez")
+	ErrFechaNoPendiente        = errors.New("la fecha no está pendiente, o tiene dos decisiones")
+	ErrMontoInvalido           = errors.New("el monto debe ser mayor que cero, y una fecha «No pasó» no lleva monto")
 )
 
 // Valida dice si es una de las cinco periodicidades.
@@ -166,4 +169,87 @@ func Proximas(p Periodicidad, inicio, hoy time.Time, n int) ([]time.Time, error)
 		}
 	}
 	return proximas, nil
+}
+
+// FechaPorConfirmar es una fecha pendiente que ya llegó, con el monto habitual de su recurrente (E15 5.2).
+type FechaPorConfirmar struct {
+	Recurrente string // identificador del recurrente
+	Fecha      time.Time
+	Monto      int64 // centavos: el habitual
+	EsIngreso  bool
+}
+
+// DecisionDeFecha es lo que la persona decide de una fecha pendiente en «Confirmar todos» (D-093).
+type DecisionDeFecha struct {
+	Recurrente string
+	Fecha      time.Time
+	Monto      *int64 // centavos; nil: el monto habitual
+	Omitida    bool   // «No pasó» (D-092)
+}
+
+// ConfirmacionEnBloque es el resultado de ConfirmarVarias. Ingresos y Gastos suman las confirmadas con el monto que
+// quedó registrado; son big.Int porque la suma de montos válidos de int64 puede no caber en un int64.
+type ConfirmacionEnBloque struct {
+	Confirmadas []FechaPorConfirmar // con el monto que quedó registrado, en el orden de las decisiones
+	Omitidas    []FechaPorConfirmar
+	Pendientes  []FechaPorConfirmar // sin decisión: siguen pendientes
+	Ingresos    *big.Int
+	Gastos      *big.Int
+}
+
+// FechaDelMovimiento es la fecha con la que se guarda la ocurrencia confirmada: su fecha programada, nunca `hoy`
+// (E15 5.2, D-094): así un movimiento confirmado con atraso no pasa de un mes a otro.
+func FechaDelMovimiento(p FechaPorConfirmar, _ time.Time) time.Time { return p.Fecha }
+
+// claveDeFecha identifica una ocurrencia; la fecha va como texto para no depender de la zona ni del reloj de `time`.
+type claveDeFecha struct{ recurrente, fecha string }
+
+func claveDe(recurrente string, f time.Time) claveDeFecha {
+	return claveDeFecha{recurrente, f.Format(time.DateOnly)}
+}
+
+// ConfirmarVarias aplica las decisiones de «Confirmar todos» a las fechas pendientes (E15 5.2 `confirmarVarias`,
+// D-093). Es todo o nada: si una decisión no vale devuelve el error y ningún resultado. ErrFechaNoPendiente si una
+// decisión es de una fecha que no está en `pendientes` o si una fecha trae dos decisiones; ErrMontoInvalido si un monto
+// no es mayor que cero o si una fecha «No pasó» lleva monto. Lo que no tiene decisión sigue pendiente.
+func ConfirmarVarias(pendientes []FechaPorConfirmar, decisiones []DecisionDeFecha) (ConfirmacionEnBloque, error) {
+	porClave := make(map[claveDeFecha]FechaPorConfirmar, len(pendientes))
+	for _, p := range pendientes {
+		porClave[claveDe(p.Recurrente, p.Fecha)] = p
+	}
+	vistas := make(map[claveDeFecha]bool, len(decisiones))
+	r := ConfirmacionEnBloque{Ingresos: new(big.Int), Gastos: new(big.Int)}
+	for _, d := range decisiones {
+		clave := claveDe(d.Recurrente, d.Fecha)
+		p, esta := porClave[clave]
+		if !esta || vistas[clave] {
+			return ConfirmacionEnBloque{}, ErrFechaNoPendiente
+		}
+		vistas[clave] = true
+		if d.Omitida {
+			if d.Monto != nil {
+				return ConfirmacionEnBloque{}, ErrMontoInvalido
+			}
+			r.Omitidas = append(r.Omitidas, p)
+			continue
+		}
+		if d.Monto != nil {
+			if *d.Monto <= 0 {
+				return ConfirmacionEnBloque{}, ErrMontoInvalido
+			}
+			p.Monto = *d.Monto
+		}
+		r.Confirmadas = append(r.Confirmadas, p)
+		if p.EsIngreso {
+			r.Ingresos.Add(r.Ingresos, big.NewInt(p.Monto))
+		} else {
+			r.Gastos.Add(r.Gastos, big.NewInt(p.Monto))
+		}
+	}
+	for _, p := range pendientes {
+		if !vistas[claveDe(p.Recurrente, p.Fecha)] {
+			r.Pendientes = append(r.Pendientes, p)
+		}
+	}
+	return r, nil
 }

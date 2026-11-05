@@ -161,6 +161,8 @@ const intentosDeBorrado = 3
 //     Así dos tutores de la misma menor que borran a la vez se turnan (la segunda ve a la menor a cargo solo de ella),
 //     una tutoría nueva espera, y lo que escriba la menor espera.
 //  4. Los miembros del hogar, para no pasar el papel de administrador a quien se está borrando.
+//     4b. Las repeticiones de ella, de sus menores y del hogar, ordenadas por id y antes de borrar nada. Es el mismo orden
+//     que sigue `Decidir` (la persona y luego sus repeticiones por id).
 //
 // Con eso:
 //
@@ -191,9 +193,12 @@ func (r *Borrado) BorrarCuenta(ctx context.Context, persona string, vistos []str
 		}
 	}
 	// La base siguió ocupada: si la cuenta ya no está, otro pedido la borró y esto es lo mismo que llegar tarde. Si no se
-	// puede mirar, se supone que sigue (y se dice «ocupado», que es seguro: no se borró nada).
-	existe := true
-	_ = r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM persona WHERE id = $1::uuid)`, persona).Scan(&existe)
+	// puede mirar, se supone que sigue (y se dice «ocupado», que es seguro: no se borró nada) y el error de la consulta
+	// se suma al que sale, para el registro.
+	var existe bool
+	if errMirar := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM persona WHERE id = $1::uuid)`, persona).Scan(&existe); errMirar != nil {
+		return fmt.Errorf("%w: %w (y no se pudo comprobar si la cuenta sigue: %w)", cuenta.ErrOcupada, conRestriccion(err), errMirar)
+	}
 	if !existe {
 		return cuenta.ErrNoExiste
 	}
@@ -273,7 +278,8 @@ func leerHogar(ctx context.Context, q consultor, persona string) (*string, error
 }
 
 // bloquearParaBorrar toma los candados del borrado en un orden global fijo: 0 el hogar, 1 la credencial, la persona y su
-// perfil de adulta, 2 los menores que tutela (persona, perfil y todas sus tutorías), 3 los miembros del hogar. El hogar va
+// perfil de adulta, 2 los menores que tutela (persona, perfil y todas sus tutorías), 3 los miembros del hogar, 4 las
+// repeticiones que se borran o quedan sin nombre, por id (después de la persona, como `Decidir`). El hogar va
 // primero para que dos personas del mismo hogar se turnen enteras y no se crucen (una pasando el papel de administrador a
 // la otra, que ya tiene bloqueado su perfil); y la credencial antes que la persona es el orden de `IniciarSesion`, de
 // elegir la contraseña con un enlace y de pedir un enlace, que llegan a la persona por ahí. Cada sentencia ordena sus filas.
@@ -297,6 +303,14 @@ func bloquearParaBorrar(ctx context.Context, tx pgx.Tx, persona string) error {
 		{"las tutorías de los menores", `SELECT 1 FROM tutoria WHERE menor_id IN (SELECT menor_id FROM tutoria WHERE tutor_id = $1::uuid) ORDER BY menor_id, tutor_id FOR UPDATE`},
 		// Quienes forman su hogar.
 		{"los miembros del hogar", `SELECT 1 FROM miembro_hogar WHERE hogar_id IN (SELECT hogar_id FROM miembro_hogar WHERE persona_id = $1::uuid) ORDER BY persona_id FOR UPDATE`},
+		// Las repeticiones que se borrarán o quedarán sin nombre (SET NULL), todas por id y antes de cualquier DELETE: así
+		// el borrado y `Decidir` (que bloquea la persona y luego sus repeticiones por id) siguen el mismo orden y no se
+		// esperan en círculo; borrarlas después, una a una en el orden del montón, cruzaba el orden por id.
+		{"las repeticiones", `SELECT 1 FROM movimiento_recurrente
+			WHERE persona_id = $1::uuid
+			   OR persona_id IN (SELECT menor_id FROM tutoria WHERE tutor_id = $1::uuid)
+			   OR hogar_id IN (SELECT hogar_id FROM miembro_hogar WHERE persona_id = $1::uuid)
+			ORDER BY id FOR UPDATE`},
 	} {
 		if _, err := tx.Exec(ctx, q.sql, persona); err != nil {
 			return fmt.Errorf("bloquear %s: %w", q.que, err)

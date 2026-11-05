@@ -227,3 +227,15 @@ func TestCambiarLaContrasenaDeUnaCuentaBorradaDa401(t *testing.T) {
 		}
 	}
 }
+
+// Si la cuenta se borró entre la sesión y la lectura, el ingreso anterior no existe: 401 `sin_sesion` como en cualquier
+// ruta, no un 500 ni una línea de ERROR.
+func TestSeguridadConLaCuentaBorradaMientrasTantoEsUn401(t *testing.T) {
+	e := nuevoEntorno(t)
+	e.repo.errores = map[string]error{"IngresoAnterior": autenticacion.ErrNoExiste}
+	h := e.api(t, &seguridad.Sujeto{Persona: personaDePrueba, Verificada: true, Autorizada: true})
+	rr := llamar(h, "GET", "/api/v1/cuenta/seguridad", "", "203.0.113.7")
+	if rr.Code != 401 || strings.TrimSpace(rr.Body.String()) != `{"error":"sin_sesion"}` {
+		t.Errorf("%d %s", rr.Code, rr.Body)
+	}
+}

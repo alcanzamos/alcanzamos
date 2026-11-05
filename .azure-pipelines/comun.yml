@@ -4,12 +4,12 @@
 # del lockfile antes de `npm ci`, firmas después, y las reglas de .azure-pipelines/commitlint/.npmrc.
 # Sin `paths`: corre con cualquier cambio, también el de web/scripts/antiguedad*.mjs que usa commitlint (D-161); la prueba
 # de pruebas/filtros.py lo cubre. Si se le agrega un filtro, esas rutas deben entrar en él.
-trigger:
-  branches:
-    include:
-      - main
-
+# D-183: no corre al fusionar en main. Con la rama al día (protección `strict`) y squash, main queda igual a lo
+# que ya se probó en el PR; volver a correrlo solo gasta minutos. Se vuelve a poner cuando haya despliegue.
+trigger: none
 pr:
+  # D-183: un PR borrador no corre; corre cuando se marca «listo para revisar», ya al día con main.
+  drafts: false
   branches:
     include:
       - main

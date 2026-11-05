@@ -30,7 +30,9 @@ export const campoDeApi: Record<string, Campo> = {
 
 const e = textos.registro.errores;
 
-function textoDelMonto(m: Extract<LecturaDeMonto, { ok: false }>): string {
+export function textoDelMonto(
+  m: Extract<LecturaDeMonto, { ok: false }>,
+): string {
   switch (m.motivo) {
     case "vacio":
       return e.montoVacio;

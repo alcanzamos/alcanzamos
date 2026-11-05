@@ -12,12 +12,20 @@ import (
 // Handler traduce HTTP a las operaciones del Servicio (E12 `RegistroHandler`). No manda textos: los códigos de error
 // los traduce cada app.
 type Handler struct {
-	servicio *Servicio
-	log      *slog.Logger
+	servicio   *Servicio
+	log        *slog.Logger
+	urlPublica string
 }
 
 // NuevoHandler crea el manejador de las rutas del formulario de registro.
 func NuevoHandler(s *Servicio, log *slog.Logger) *Handler { return &Handler{servicio: s, log: log} }
+
+// ConURLPublica dice cuál es el `Origin` de la web (`URL_PUBLICA`) para la defensa contra CSRF de los POST de las fechas
+// por confirmar (E17 3.15, D-173). Sin ella, ningún `Origin` vale.
+func (h *Handler) ConURLPublica(urlPublica string) *Handler {
+	h.urlPublica = urlPublica
+	return h
+}
 
 // Registrar añade las rutas. Todas son `requiere_autorizacion`: guardan, leen, corrigen y borran datos financieros de la
 // persona (las próximas fechas no tocan datos, pero solo las usa el formulario de quien ya autorizó).
@@ -29,7 +37,15 @@ func (h *Handler) Registrar(e *servidor.Enrutador) {
 	e.Registrar(seguridad.RequiereAutorizacion, "PUT /api/v1/movimientos/{id}", http.HandlerFunc(h.corregir))
 	e.Registrar(seguridad.RequiereAutorizacion, "DELETE /api/v1/movimientos/{id}", http.HandlerFunc(h.borrar))
 	e.Registrar(seguridad.RequiereAutorizacion, "GET /api/v1/repeticiones/proximas", http.HandlerFunc(h.proximas))
+	// US-60: las fechas por confirmar. Los POST cambian datos: llevan la defensa contra CSRF de E17 3.15.
+	e.Registrar(seguridad.RequiereAutorizacion, "GET /api/v1/repeticiones/pendientes", http.HandlerFunc(h.pendientes))
+	e.Registrar(seguridad.RequiereAutorizacion, "POST /api/v1/repeticiones/{id}/confirmacion", servidor.DefensaCSRF(h.urlPublica, http.HandlerFunc(h.confirmar)))
+	e.Registrar(seguridad.RequiereAutorizacion, "POST /api/v1/repeticiones/{id}/omision", servidor.DefensaCSRF(h.urlPublica, http.HandlerFunc(h.omitir)))
+	e.Registrar(seguridad.RequiereAutorizacion, "POST /api/v1/repeticiones/decisiones", servidor.DefensaCSRF(h.urlPublica, http.HandlerFunc(h.decidir)))
 }
+
+// tamanoMaximoDeLasDecisiones deja caber DecisionesMaximas decisiones de ~130 bytes cada una.
+const tamanoMaximoDeLasDecisiones = 72 << 10
 
 func (h *Handler) fallar(w http.ResponseWriter, r *http.Request, que string, err error) {
 	h.log.ErrorContext(r.Context(), que, "peticion", seguridad.PeticionDe(r.Context()), "error", err)
@@ -92,9 +108,11 @@ func (h *Handler) proximas(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// responder escribe lo común de las rutas de un movimiento: `422 datos_invalidos`, `404 no_encontrado` (el movimiento no
-// existe o es de otra persona: el mismo código para los dos), `409 movimiento_no_editable` (un aporte o un retiro de una
-// meta no se corrige ni se borra, D-170) o un fallo. Devuelve true si ya respondió.
+// responder escribe lo común de las rutas de movimientos y de fechas por confirmar: `422 datos_invalidos`, `404
+// no_encontrado` (el movimiento o la repetición no existe o es de otra persona: el mismo código para los dos), `409
+// movimiento_no_editable` (un aporte o un retiro de una meta no se corrige ni se borra, D-170), `409 fecha_no_pendiente`
+// (la fecha no se puede confirmar ni omitir), `401 sin_sesion` (la cuenta se borró mientras tanto, como al registrar) o un
+// fallo. Devuelve true si ya respondió.
 func (h *Handler) responder(w http.ResponseWriter, r *http.Request, que string, err error) bool {
 	var invalido *ErrValidacion
 	switch {
@@ -104,8 +122,14 @@ func (h *Handler) responder(w http.ResponseWriter, r *http.Request, que string, 
 		servidor.EscribirJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": "datos_invalidos", "campos": invalido.Campos})
 	case errors.Is(err, ErrNoEncontrado):
 		servidor.EscribirError(w, http.StatusNotFound, "no_encontrado")
+	case errors.Is(err, ErrSinCuenta):
+		servidor.EscribirError(w, http.StatusUnauthorized, servidor.CodigoSinSesion)
 	case errors.Is(err, ErrNoEditable):
 		servidor.EscribirError(w, http.StatusConflict, "movimiento_no_editable")
+	case errors.Is(err, ErrConflictoConcurrente):
+		servidor.EscribirError(w, http.StatusConflict, "conflicto_concurrente")
+	case errors.Is(err, ErrFechaNoPendiente):
+		servidor.EscribirError(w, http.StatusConflict, "fecha_no_pendiente")
 	default:
 		h.fallar(w, r, que, err)
 	}
@@ -164,4 +188,68 @@ func (h *Handler) borrar(w http.ResponseWriter, r *http.Request) {
 	h.log.InfoContext(r.Context(), "movimiento borrado", "peticion", seguridad.PeticionDe(r.Context()))
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// pendientes atiende GET /api/v1/repeticiones/pendientes (PN-01 «Por confirmar» y 4.8): `200` con `ListaPorConfirmar`, las
+// fechas que ya llegaron de la más antigua a la más reciente y las cuentas del resumen. Solo las repeticiones de la persona.
+func (h *Handler) pendientes(w http.ResponseWriter, r *http.Request) {
+	sujeto, _ := servidor.SujetoDe(r.Context())
+	l, err := h.servicio.PorConfirmar(r.Context(), sujeto.Persona)
+	if h.responder(w, r, "no se pudieron listar las fechas por confirmar", err) {
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	servidor.EscribirJSON(w, http.StatusOK, l)
+}
+
+// confirmar atiende POST /api/v1/repeticiones/{id}/confirmacion con `{"fecha":"AAAA-MM-DD","monto_centavos":<opcional>}`:
+// `201` con el `Movimiento`, guardado con la fecha programada (D-094). `404` si la repetición no es de la persona; `409
+// fecha_no_pendiente`; `422 datos_invalidos` con `fecha` y `monto_centavos`; `400 solicitud_invalida` con un campo fuera del contrato.
+func (h *Handler) confirmar(w http.ResponseWriter, r *http.Request) {
+	var sol SolicitudDeConfirmacion
+	if !servidor.LeerJSON(w, r, &sol) {
+		return
+	}
+	sujeto, _ := servidor.SujetoDe(r.Context())
+	m, err := h.servicio.ConfirmarOcurrencia(r.Context(), sujeto.Persona, r.PathValue("id"), sol)
+	if h.responder(w, r, "no se pudo confirmar la fecha", err) {
+		return
+	}
+	h.log.InfoContext(r.Context(), "fecha confirmada", "peticion", seguridad.PeticionDe(r.Context()))
+	w.Header().Set("Cache-Control", "no-store")
+	servidor.EscribirJSON(w, http.StatusCreated, m)
+}
+
+// omitir atiende POST /api/v1/repeticiones/{id}/omision con `{"fecha":"AAAA-MM-DD"}` («No pasó», D-092): `204`, sin crear
+// ningún movimiento. Los mismos errores que confirmar.
+func (h *Handler) omitir(w http.ResponseWriter, r *http.Request) {
+	var sol SolicitudDeOmision
+	if !servidor.LeerJSON(w, r, &sol) {
+		return
+	}
+	sujeto, _ := servidor.SujetoDe(r.Context())
+	if h.responder(w, r, "no se pudo omitir la fecha", h.servicio.OmitirOcurrencia(r.Context(), sujeto.Persona, r.PathValue("id"), sol)) {
+		return
+	}
+	h.log.InfoContext(r.Context(), "fecha omitida", "peticion", seguridad.PeticionDe(r.Context()))
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// decidir atiende POST /api/v1/repeticiones/decisiones (4.8 «Confirmar todos»): `200` con `ResultadoDeDecisiones`. Todo o
+// nada: si una decisión falla no se guarda ninguna («No se guardó ninguno»). `422 datos_invalidos` con las claves
+// `decisiones[i].<campo>`; `404` si alguna repetición no es de la persona; `409 fecha_no_pendiente`.
+func (h *Handler) decidir(w http.ResponseWriter, r *http.Request) {
+	var sol SolicitudDeDecisiones
+	if !servidor.LeerJSONHasta(w, r, &sol, tamanoMaximoDeLasDecisiones) {
+		return
+	}
+	sujeto, _ := servidor.SujetoDe(r.Context())
+	res, err := h.servicio.ConfirmarVarias(r.Context(), sujeto.Persona, sol)
+	if h.responder(w, r, "no se pudieron guardar las decisiones", err) {
+		return
+	}
+	h.log.InfoContext(r.Context(), "fechas decididas", "peticion", seguridad.PeticionDe(r.Context()), "guardados", res.Resumen.Guardados, "omitidas", res.Resumen.Omitidas)
+	w.Header().Set("Cache-Control", "no-store")
+	servidor.EscribirJSON(w, http.StatusOK, res)
 }

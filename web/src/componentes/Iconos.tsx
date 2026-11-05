@@ -68,6 +68,13 @@ export const IconoAtras = () => (
   </Icono>
 );
 
+// Cerrar, de la Hoja inferior (E14-SDD 5.12): una equis.
+export const IconoCerrar = () => (
+  <Icono>
+    <path d="M6 6l12 12M18 6 6 18" />
+  </Icono>
+);
+
 // Propio, de la Marca de propiedad (E14-SDD 5.16): una persona dentro de un círculo.
 export const IconoPropio = () => (
   <Icono>

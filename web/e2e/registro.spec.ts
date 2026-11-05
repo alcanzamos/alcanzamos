@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { responder, simularApi, sinViolaciones } from "./ayudas";
+import { responder, simularApi, sinPendientes, sinViolaciones } from "./ayudas";
 
 // Los nombres de `nombre` son los del catálogo de la base; la pantalla pone el texto de E14 por `id` (api/README.md).
 const catalogo = {
@@ -42,6 +42,7 @@ function api(
   return simularApi(page, {
     "GET /api/v1/cuenta/seguridad": responder(200, { ingreso_anterior: null }),
     "GET /api/v1/movimientos": responder(200, sinMovimientos),
+    "GET /api/v1/repeticiones/pendientes": responder(200, sinPendientes),
     "GET /api/v1/categorias": responder(200, catalogo),
     "GET /api/v1/repeticiones/proximas": (ruta) => {
       const { searchParams, search } = new URL(ruta.request().url());
@@ -70,8 +71,8 @@ const guardados = (pedidos: { metodo: string; cuerpo: unknown }[]) =>
   pedidos.filter((p) => p.metodo === "POST").map((p) => p.cuerpo);
 
 test.describe("PN-01 · Formulario de registro (US-51)", () => {
-  // USA-004 (registrar un gasto en efectivo en menos de 20 s) no se cronometra aquí: lo mide una persona con la app.
-  // Lo que sí se puede fijar es cuántas interacciones cuesta: son cinco desde PN-01, con «Hoy»: la categoría
+  // Control del número de pasos del registro (RNF-001, D-165): el tiempo no se cronometra aquí. Lo que se fija es
+  // cuántas interacciones cuesta: son cinco desde PN-01, con «Hoy»: la categoría
   // cuenta porque todavía no existe el motor de reglas que la sugiere (D-165).
   test("un gasto en efectivo: desde PN-01, cinco interacciones, y vuelve a PN-01 con «Listo, registramos tu gasto de $45.000.»", async ({
     page,
@@ -420,6 +421,7 @@ test.describe("Borrador del registro (L10)", () => {
       }),
       "GET /api/v1/categorias": responder(200, catalogo),
       "GET /api/v1/movimientos": responder(200, sinMovimientos),
+      "GET /api/v1/repeticiones/pendientes": responder(200, sinPendientes),
       "DELETE /api/v1/sesiones/actual": responder(204),
       "POST /api/v1/sesiones": responder(200, { estado: "activa" }),
     });

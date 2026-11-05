@@ -32,6 +32,12 @@ type repoFalso struct {
 	corregidos      []registro.Correccion
 	borrados        []string
 	errorAlCorregir error
+
+	// US-60: las repeticiones de la persona y lo que el servicio le pidió decidir.
+	recurrentes    []registro.Recurrente
+	decisiones     []pedidoDeDecision
+	errorAlDecidir error
+	idsDeMenos     bool // Decidir devuelve un id menos de los pedidos
 }
 
 type pedidoDeLista struct {
@@ -107,7 +113,7 @@ func api(t *testing.T, repo *repoFalso, ahora string) http.Handler {
 	}
 	log := slog.New(slog.NewJSONHandler(io.Discard, nil))
 	e := servidor.NuevoEnrutador(sesionFalsa{}, seguridad.NuevoRegistro(log), log)
-	registro.NuevoHandler(registro.NuevoServicio(repo, &relojtest.Fijo{T: hora}), log).Registrar(e)
+	registro.NuevoHandler(registro.NuevoServicio(repo, &relojtest.Fijo{T: hora}), log).ConURLPublica(urlPublica).Registrar(e)
 	h, err := e.Construir()
 	if err != nil {
 		t.Fatal(err)

@@ -7,6 +7,7 @@ type Variante = "primario" | "secundario" | "texto" | "destructivo";
 // y el botón puede seguir enlazado a su explicación con aria-describedby.
 export function Boton({
   id,
+  nombre,
   variante = "primario",
   tipo = "button",
   deshabilitado = false,
@@ -16,6 +17,8 @@ export function Boton({
   children,
 }: {
   id?: string;
+  /** El nombre accesible cuando el texto visible no basta («Confirmar Salario del 16 de noviembre de 2026»). */
+  nombre?: string;
   variante?: Variante;
   tipo?: "button" | "submit";
   deshabilitado?: boolean;
@@ -29,6 +32,7 @@ export function Boton({
     <button
       id={id}
       type={tipo}
+      aria-label={nombre}
       aria-expanded={expandido}
       className={`boton boton--${variante}`}
       aria-disabled={deshabilitado || undefined}
@@ -45,16 +49,19 @@ export function Boton({
 
 // Un enlace con aspecto de botón: lleva a otra pantalla de la app sin recargar la página.
 export function BotonEnlace({
+  id,
   href,
   variante = "secundario",
   children,
 }: {
+  id?: string;
   href: string;
   variante?: Variante;
   children: ReactNode;
 }) {
   return (
     <a
+      id={id}
       href={href}
       className={`boton boton--${variante}`}
       onClick={alTocarEnlace(href)}

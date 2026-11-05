@@ -26,9 +26,9 @@ func iguales(t *testing.T, obtenidas []time.Time, esperadas ...string) {
 	}
 }
 
-// Los casos FP-01 a FP-16 de la prueba de escritorio de E15 5.2 (FP-17 a FP-23 son de ConfirmarVarias y de
-// FechaDelMovimiento, que no son de esta historia).
-func TestFechasProgramadasYPendientesSegunE15(t *testing.T) {
+// Los 23 casos FP-01 a FP-23 de la prueba de escritorio de E15 5.2, cada uno como subprueba con su id (D-111, Q-13).
+// Los de FP-17 a FP-23 (ConfirmarVarias y FechaDelMovimiento) están en confirmar_test.go como funciones `fpNN`.
+func TestFP(t *testing.T) {
 	casos := []struct {
 		id          string
 		p           fechas.Periodicidad
@@ -86,6 +86,13 @@ func TestFechasProgramadasYPendientesSegunE15(t *testing.T) {
 			}
 		})
 	}
+	t.Run("FP-17", fp17)
+	t.Run("FP-18", fp18)
+	t.Run("FP-19", fp19)
+	t.Run("FP-20", fp20)
+	t.Run("FP-21", fp21)
+	t.Run("FP-22", fp22)
+	t.Run("FP-23", fp23)
 }
 
 // Las fechas anteriores al día en que se creó el recurrente son historia (E15 5.2, D-164); `detenido_en` corta desde ese día.

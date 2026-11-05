@@ -107,4 +107,10 @@ describe('Boton · Destructivo (E14-SDD 5.2)', () => {
       backgroundColor: tokens.color.accion.deshabilitada.fondo,
     });
   });
+
+  it('con `nombre` el lector de pantalla dice ese nombre en vez del texto visible', async () => {
+    await render(<Boton nombre="Confirmar Salario del 16 de noviembre de 2026">Confirmar</Boton>);
+    expect(screen.getByRole('button', { name: 'Confirmar Salario del 16 de noviembre de 2026' })).toBeOnTheScreen();
+    expect(screen.getByText('Confirmar')).toBeOnTheScreen();
+  });
 });
