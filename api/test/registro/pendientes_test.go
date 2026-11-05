@@ -584,3 +584,17 @@ func TestUnConflictoConcurrenteDelRepositorioEsUn409Reintentable(t *testing.T) {
 		}
 	}
 }
+
+// Si la cuenta se borró mientras se decidía, es lo mismo que cualquier otra ruta con la cuenta borrada: 401 `sin_sesion`, no un 500.
+func TestUnaCuentaBorradaMientrasSeDecideEsUn401SinSesion(t *testing.T) {
+	repo := repoConRepeticiones()
+	repo.errorAlDecidir = registro.ErrSinCuenta
+	for ruta, cuerpo := range map[string]string{
+		confirmacion(recSalario): `{"fecha":"2026-10-16"}`, omision(recSalario): `{"fecha":"2026-10-16"}`,
+		rutaDecisiones: decisiones(decision(recSalario, "2026-10-16", ``)),
+	} {
+		if codigo, resp, _ := post(api(t, repo, hoy), ruta, cuerpo); codigo != 401 || resp != `{"error":"sin_sesion"}` {
+			t.Errorf("%s: %d %s", ruta, codigo, resp)
+		}
+	}
+}

@@ -472,3 +472,12 @@ func TestLaValidacionDelServicioSeLeeComoDatosInvalidos(t *testing.T) {
 		t.Errorf("error: %v", err)
 	}
 }
+
+// US-53: la cuenta se borró mientras se guardaba. Es una sesión que ya no sirve: 401 sin_sesion, como en cualquier ruta.
+func TestGuardarConLaCuentaBorradaDa401(t *testing.T) {
+	repo := &repoFalso{error: registro.ErrSinCuenta}
+	codigo, cuerpoRespuesta, _ := llamar(api(t, repo, hoy), "POST", "/api/v1/movimientos", cuerpo(""))
+	if codigo != 401 || cuerpoRespuesta != `{"error":"sin_sesion"}` {
+		t.Fatalf("%d %s", codigo, cuerpoRespuesta)
+	}
+}

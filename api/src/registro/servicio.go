@@ -54,6 +54,10 @@ const (
 	PeriodicidadDesconocida = "periodicidad_invalida"
 )
 
+// ErrSinCuenta lo devuelve el repositorio cuando la persona ya no existe: la cuenta se borró entre la sesión y este
+// pedido. La ruta responde 401, como a cualquier sesión que ya no sirve.
+var ErrSinCuenta = errors.New("la cuenta ya no existe")
+
 // ErrCategoriaInvalida lo devuelve el repositorio cuando la categoría no existe, no es del tipo del movimiento o la
 // persona no la ve (la misma regla del catálogo: no apta para un menor, u oculta por ella).
 var ErrCategoriaInvalida = errors.New("categoría inexistente, de otro tipo o que la persona no ve")

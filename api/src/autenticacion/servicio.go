@@ -193,6 +193,11 @@ func (s *Servicio) IniciarSesion(ctx context.Context, identificador, contrasena,
 	mejora := s.hashMejorado(ctx, contrasena, cred)
 	token, huella := seguridad.NuevoTokenOpaco()
 	if err := s.d.Repo.IniciarSesion(ctx, cred.Persona, huella, s.d.Reloj.Ahora(), mejora); err != nil {
+		if errors.Is(err, ErrNoExiste) {
+			// La cuenta se borró entre buscarla y entrar: igual que una que no existe, con el mismo 401.
+			s.d.Limitador.RegistrarFalloDeIngreso(identificador, origen)
+			return SesionIniciada{}, ErrCredencialesInvalidas
+		}
 		return SesionIniciada{}, err
 	}
 	return SesionIniciada{Token: token, Verificada: cred.Verificada}, nil

@@ -83,6 +83,19 @@ func (m *Movimientos) Decidir(ctx context.Context, persona string, confirmar []r
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck // sin efecto tras el commit
 
+	// Orden global de candados (el mismo del borrado de la cuenta, `bloquearParaBorrar`): primero la persona y después las
+	// repeticiones por id. Los INSERT de abajo toman un candado compartido sobre la persona por la llave foránea; si ya se
+	// tuvieran bloqueadas las repeticiones, el borrado de la cuenta (que bloquea la persona y luego las repeticiones) y esta
+	// operación se esperarían entre sí. Con la persona ya borrada, la cuenta no existe.
+	if len(confirmar)+len(omitir) > 0 {
+		var existe int
+		if err := tx.QueryRow(ctx, `SELECT 1 FROM persona WHERE id = $1::uuid FOR KEY SHARE`, persona).Scan(&existe); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, registro.ErrSinCuenta
+			}
+			return nil, errorDeDecidir("bloquear la persona", err)
+		}
+	}
 	// Los disparadores de E13 bloquean la fila de la repetición en el orden de las decisiones: dos operaciones que tocan las
 	// mismas repeticiones en orden contrario se bloquearían entre sí. Se bloquean todas desde el principio, siempre por id.
 	if err := bloquearRepeticiones(ctx, tx, persona, confirmar, omitir); err != nil {
@@ -148,10 +161,14 @@ func bloquearRepeticiones(ctx context.Context, tx pgx.Tx, persona string, confir
 }
 
 // errorDeDecidir traduce lo que la base rechaza: el bloqueo mutuo y el fallo de serialización (reintentables), la fecha
-// repetida y los disparadores de exclusión entre confirmada y omitida.
+// repetida, los disparadores de exclusión entre confirmada y omitida y la llave de `persona` o de la repetición (la cuenta
+// se borró mientras se decidía: ErrSinCuenta, como al guardar un movimiento; con la persona bloqueada al empezar no pasa).
 func errorDeDecidir(que string, err error) error {
 	var pgErr *pgconn.PgError
 	switch {
+	case errors.As(err, &pgErr) && pgErr.Code == "23503" &&
+		(pgErr.ConstraintName == "fk_movimiento_persona_id" || pgErr.ConstraintName == "fk_movimiento_recurrente_id"):
+		return registro.ErrSinCuenta
 	case errors.As(err, &pgErr) && (pgErr.Code == "40P01" || pgErr.Code == "40001"):
 		return registro.ErrConflictoConcurrente
 	case errors.As(err, &pgErr) && pgErr.Code == "23505" &&

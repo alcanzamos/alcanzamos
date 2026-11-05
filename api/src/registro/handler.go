@@ -80,6 +80,8 @@ func (h *Handler) crear(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case errors.As(err, &invalido):
 		servidor.EscribirJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": "datos_invalidos", "campos": invalido.Campos})
+	case errors.Is(err, ErrSinCuenta):
+		servidor.EscribirError(w, http.StatusUnauthorized, servidor.CodigoSinSesion)
 	case err != nil:
 		h.fallar(w, r, "no se pudo guardar el movimiento", err)
 	default:
@@ -109,7 +111,8 @@ func (h *Handler) proximas(w http.ResponseWriter, r *http.Request) {
 // responder escribe lo común de las rutas de movimientos y de fechas por confirmar: `422 datos_invalidos`, `404
 // no_encontrado` (el movimiento o la repetición no existe o es de otra persona: el mismo código para los dos), `409
 // movimiento_no_editable` (un aporte o un retiro de una meta no se corrige ni se borra, D-170), `409 fecha_no_pendiente`
-// (la fecha no se puede confirmar ni omitir) o un fallo. Devuelve true si ya respondió.
+// (la fecha no se puede confirmar ni omitir), `401 sin_sesion` (la cuenta se borró mientras tanto, como al registrar) o un
+// fallo. Devuelve true si ya respondió.
 func (h *Handler) responder(w http.ResponseWriter, r *http.Request, que string, err error) bool {
 	var invalido *ErrValidacion
 	switch {
@@ -119,6 +122,8 @@ func (h *Handler) responder(w http.ResponseWriter, r *http.Request, que string, 
 		servidor.EscribirJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": "datos_invalidos", "campos": invalido.Campos})
 	case errors.Is(err, ErrNoEncontrado):
 		servidor.EscribirError(w, http.StatusNotFound, "no_encontrado")
+	case errors.Is(err, ErrSinCuenta):
+		servidor.EscribirError(w, http.StatusUnauthorized, servidor.CodigoSinSesion)
 	case errors.Is(err, ErrNoEditable):
 		servidor.EscribirError(w, http.StatusConflict, "movimiento_no_editable")
 	case errors.Is(err, ErrConflictoConcurrente):

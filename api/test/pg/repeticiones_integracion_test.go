@@ -23,6 +23,22 @@ const (
 func TestDecidirUnaRepeticionAjenaDaNoEncontradoYNoGuardaNada(t *testing.T) {
 	pool := pgtest.Nueva(t)
 	repo := pg.NuevoMovimientos(pool)
+	// La persona existe (una adulta con su perfil): la repetición es la que no es suya.
+	tx, err := pool.Begin(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		`INSERT INTO persona (id, nombre, etapa, creada_en) VALUES ($1::uuid, 'Laura', 'adulta', now())`,
+		`INSERT INTO perfil_adulto (persona_id, correo) VALUES ($1::uuid, 'laura@ejemplo.test')`,
+	} {
+		if _, err := tx.Exec(context.Background(), q, personaDePrueba); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := tx.Commit(context.Background()); err != nil {
+		t.Fatal(err)
+	}
 	dia := time.Date(2026, 11, 11, 0, 0, 0, 0, time.UTC)
 	confirmar := []registro.Confirmacion{{RecurrenteID: recurrenteAjeno, Fecha: dia, Tipo: "gasto", Monto: 100, CategoriaID: 4, Medio: "efectivo"}}
 	omitir := []registro.Omision{{RecurrenteID: recurrenteAjeno, Fecha: dia}}
@@ -38,6 +54,26 @@ func TestDecidirUnaRepeticionAjenaDaNoEncontradoYNoGuardaNada(t *testing.T) {
 	}
 	if lista, err := repo.Recurrentes(context.Background(), personaDePrueba); err != nil || len(lista) != 0 {
 		t.Errorf("Recurrentes de quien no tiene: %v %v", lista, err)
+	}
+}
+
+// Si la cuenta ya no existe (se borró), no hay nada que decidir: ErrSinCuenta y no queda nada guardado, aunque la repetición
+// ni siquiera exista (`Decidir` bloquea primero la persona, y la llave compartida solo sobrevive si la fila sigue).
+func TestDecidirSinLaCuentaDaSinCuentaYNoGuardaNada(t *testing.T) {
+	pool := pgtest.Nueva(t)
+	dia := time.Date(2026, 11, 11, 0, 0, 0, 0, time.UTC)
+	confirmar := []registro.Confirmacion{{RecurrenteID: recurrenteAjeno, Fecha: dia, Tipo: "gasto", Monto: 100, CategoriaID: 4, Medio: "efectivo"}}
+	omitir := []registro.Omision{{RecurrenteID: recurrenteAjeno, Fecha: dia}}
+	repo := pg.NuevoMovimientos(pool)
+	if _, err := repo.Decidir(context.Background(), personaDePrueba, confirmar, nil, ahora); !errors.Is(err, registro.ErrSinCuenta) {
+		t.Errorf("confirmar: %v", err)
+	}
+	if _, err := repo.Decidir(context.Background(), personaDePrueba, nil, omitir, ahora); !errors.Is(err, registro.ErrSinCuenta) {
+		t.Errorf("omitir: %v", err)
+	}
+	var n int
+	if err := pool.QueryRow(context.Background(), `SELECT (SELECT count(*) FROM movimiento) + (SELECT count(*) FROM ocurrencia_omitida)`).Scan(&n); err != nil || n != 0 {
+		t.Errorf("no queda nada guardado: %d %v", n, err)
 	}
 }
 

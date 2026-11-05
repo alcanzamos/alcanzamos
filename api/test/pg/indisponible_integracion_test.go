@@ -81,6 +81,12 @@ func TestConLaBaseCaidaCadaOperacionFallaConUnErrorDeInfraestructura(t *testing.
 		{"autorizaciones.Rechazar", func() error {
 			return autorizaciones.Rechazar(ctx, persona, []string{"cuenta_y_acceso"}, ahora, ahora)
 		}},
+		{"borrado.CredencialDe", func() error { _, err := pg.NuevoBorrado(pool).CredencialDe(ctx, persona); return err }},
+		{"borrado.Resumen", func() error { _, err := pg.NuevoBorrado(pool).Resumen(ctx, persona); return err }},
+		{"borrado.MovimientosDe", func() error { _, err := pg.NuevoBorrado(pool).MovimientosDe(ctx, persona); return err }},
+		{"borrado.BorrarCuenta", func() error {
+			return pg.NuevoBorrado(pool).BorrarCuenta(ctx, persona, nil, true, ahora, ahora)
+		}},
 		{"limpieza.LimpiarSesionesYEnlaces", func() error { _, _, err := limpieza.LimpiarSesionesYEnlaces(ctx, ahora); return err }},
 	}
 	for _, c := range casos {
@@ -89,7 +95,7 @@ func TestConLaBaseCaidaCadaOperacionFallaConUnErrorDeInfraestructura(t *testing.
 			if err == nil {
 				t.Fatal("se esperaba un error")
 			}
-			for _, deNegocio := range []error{autenticacion.ErrNoExiste, seguridad.ErrSinSesion, cuenta.ErrEnlaceInvalido, cuenta.ErrCorreoYaRegistrado, autorizacion.ErrSinCuenta, autorizacion.ErrYaAutorizada} {
+			for _, deNegocio := range []error{autenticacion.ErrNoExiste, seguridad.ErrSinSesion, cuenta.ErrEnlaceInvalido, cuenta.ErrCorreoYaRegistrado, autorizacion.ErrSinCuenta, autorizacion.ErrYaAutorizada, cuenta.ErrNoExiste} {
 				if errors.Is(err, deNegocio) {
 					t.Fatalf("una base caída se confundió con una respuesta de negocio (%v): %v", deNegocio, err)
 				}

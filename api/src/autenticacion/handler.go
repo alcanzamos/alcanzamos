@@ -108,10 +108,15 @@ func (h *Handler) cerrar(w http.ResponseWriter, r *http.Request) {
 }
 
 // seguridad atiende GET /api/v1/cuenta/seguridad (PN-71): `{"ingreso_anterior": <RFC 3339 en UTC> | null}`. Es el
-// inicio de sesión anterior al de ahora; `null` es el primer ingreso y el cliente dice que lo es.
+// inicio de sesión anterior al de ahora; `null` es el primer ingreso y el cliente dice que lo es.  `401 sin_sesion` si la cuenta ya no existe.
 func (h *Handler) seguridad(w http.ResponseWriter, r *http.Request) {
 	sujeto, _ := servidor.SujetoDe(r.Context())
 	anterior, err := h.servicio.IngresoAnterior(r.Context(), sujeto.Persona)
+	if errors.Is(err, ErrNoExiste) {
+		// La cuenta se borró mientras tanto: la sesión ya no sirve, como en cualquier ruta (401 sin_sesion).
+		servidor.EscribirError(w, http.StatusUnauthorized, servidor.CodigoSinSesion)
+		return
+	}
 	if err != nil {
 		h.fallar(w, r, "no se pudo leer el ingreso anterior", err)
 		return
@@ -205,6 +210,9 @@ func (h *Handler) cambiarContrasena(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, ErrDemasiadosIntentos):
 		h.eventos.Registrar(r.Context(), seguridad.InicioSesionFallido, sujeto.Persona, r.Pattern, http.StatusTooManyRequests)
 		servidor.EscribirError(w, http.StatusTooManyRequests, "demasiados_intentos")
+	case errors.Is(err, ErrNoExiste):
+		// La cuenta se borró mientras tanto: la sesión ya no sirve, como en cualquier ruta (401 sin_sesion).
+		servidor.EscribirError(w, http.StatusUnauthorized, servidor.CodigoSinSesion)
 	case errors.Is(err, ErrContrasenaActualIncorrecta):
 		h.eventos.Registrar(r.Context(), seguridad.InicioSesionFallido, sujeto.Persona, r.Pattern, http.StatusBadRequest)
 		servidor.EscribirError(w, http.StatusBadRequest, "contrasena_actual_incorrecta")
