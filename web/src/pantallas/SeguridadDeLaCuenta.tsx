@@ -21,7 +21,8 @@ type Estado =
 
 // PN-71 · Seguridad de la cuenta: el ingreso anterior, nunca el de ahora (E14-PCP 4.14, RF-062).
 // Es la pantalla de inicio provisional de quien entra con autorización, hasta que haya un Inicio. «Movimientos» es su
-// entrada a PN-01 (E14-SDD 5.9), que ya trae «Registrar» (D-164): aquí no hay botón para registrar.
+// entrada a PN-01 (E14-SDD 5.9), que ya trae «Registrar» (D-164): aquí no hay botón para registrar. «Cerrar sesión» y
+// «Borrar mi cuenta» (filas 7 y 8 de PN-66, que todavía no existe) viven aquí hasta que haya un Perfil: el borrado abre PN-69.
 export function SeguridadDeLaCuenta() {
   const [estado, setEstado] = useState<Estado>({ fase: "cargando" });
   const [intento, setIntento] = useState(0);
@@ -120,6 +121,9 @@ export function SeguridadDeLaCuenta() {
       <Boton variante="texto" alTocar={() => void salir()}>
         {textos.acciones.cerrarSesion}
       </Boton>
+      <BotonEnlace href="/cuenta/borrar" variante="texto">
+        {textos.borrarCuenta.borrarMiCuenta}
+      </BotonEnlace>
     </Pagina>
   );
 }

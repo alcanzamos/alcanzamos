@@ -30,6 +30,13 @@
   gap: var(--espacio-4);
 }
 
+/* Título de tarjeta con un ícono a la izquierda (PN-69, fila 4: ícono Hogar). */
+.titulo-con-icono {
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-2);
+}
+
 .icono {
   flex: none;
   width: var(--tamano-icono);
