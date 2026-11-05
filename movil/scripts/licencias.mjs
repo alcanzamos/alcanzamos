@@ -1,6 +1,6 @@
 // Revisa que las dependencias de producción de movil/ tengan licencias compatibles con AGPLv3
 // (condición 4 de ADR-003). Sin dependencias: solo lee package-lock.json y licencias-excepciones.json.
-// La lista general de licencias no cambia; las excepciones son por paquete, con camino y fecha de revisión (D-150).
+// La lista general de licencias no cambia; las excepciones son por paquete, por camino exacto, permanentes y sin fecha (D-150, D-182).
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { revisarConExcepciones } from "./licencias-logica.mjs";
@@ -22,7 +22,7 @@ for (const [licencia, cantidad] of [...conteo].sort()) {
   console.log(`  ${licencia}: ${cantidad}`);
 }
 for (const a of aceptados) {
-  console.log(`Excepción: ${a.nombre}@${a.version} (${a.licencia}), vigente hasta el ${a.revisarAntesDe}`);
+  console.log(`Excepción: ${a.nombre}@${a.version} (${a.licencia}), ${a.revisarAntesDe ? `vigente hasta el ${a.revisarAntesDe}` : "permanente, solo por su camino"}`);
 }
 
 if (fallas.length > 0) {

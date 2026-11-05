@@ -66,7 +66,7 @@ func (m *Movimientos) Listar(ctx context.Context, persona string, mes time.Time,
 	if err != nil {
 		return l, fmt.Errorf("abrir la lectura: %w", err)
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck // solo lectura
+	defer tx.Rollback(ctx)
 
 	hasta := mes.AddDate(0, 1, 0)
 	if l.Movimientos, err = filasDe(ctx, tx, "los movimientos", func(f pgx.CollectableRow) (registro.Movimiento, error) { return leerMovimiento(f) },

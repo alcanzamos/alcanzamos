@@ -153,10 +153,13 @@ func nuevoEntorno() *entorno {
 	e.senuelos = &senuelosContados{Senuelos: real}
 	e.svc = cuenta.NuevoServicio(cuenta.Dependencias{
 		Repo: e.repo, Correo: e.correo, Politica: seguridad.NuevaPoliticaDeContrasena(), Hasher: e.hasher,
-		Reloj: e.reloj, Limitador: e.limitador, Senuelos: e.senuelos, Log: slog.New(slog.NewJSONHandler(e.registro, nil)),
+		Reloj: e.reloj, Limitador: e.limitador, Senuelos: e.senuelos, Log: e.log(),
 	})
 	return e
 }
+
+// log es el registro del servicio: JSON sobre el búfer del entorno.
+func (e *entorno) log() *slog.Logger { return slog.New(slog.NewJSONHandler(e.registro, nil)) }
 
 func solicitudValida() cuenta.SolicitudDeCuenta {
 	return cuenta.SolicitudDeCuenta{Correo: "  Laura@Ejemplo.TEST ", Contrasena: "lluvia café tren azul", Nombre: " Laura ", MayorDeEdad: true}
