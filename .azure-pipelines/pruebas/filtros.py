@@ -6,6 +6,9 @@ los YAML de esta carpeta es fijo y se lee con un analizador mínimo.
 
 Reglas de coincidencia (como Azure Pipelines): `carpeta/*` cubre todo lo que está debajo de la
 carpeta; una ruta sin comodín cubre ese archivo. Un pipeline sin `paths` corre con cualquier cambio.
+
+También comprueba los disparadores de D-183: ningún pipeline corre al fusionar en main (`trigger: none`)
+ni en un PR borrador (`pr.drafts: false`).
 """
 import pathlib
 import sys
@@ -26,6 +29,8 @@ ESPERADO = {
     "api/test/seguridad/limitador_test.go": {"comun", "api"},
     "api/test/pgtest/pgtest.go": {"comun", "api"},
     "api/Dockerfile": {"comun", "api"},
+    "api/.golangci.yml": {"comun", "api"},
+    "api/go.mod": {"comun", "api"},
     ".azure-pipelines/api.yml": {"comun", "api"},
     ".azure-pipelines/pruebas/cobertura.py": {"comun", "api"},
     "api/test/cobertura-base.json": {"comun", "api"},
@@ -99,6 +104,25 @@ def filtros_pr(texto):
     return incluye or None
 
 
+def disparadores(texto):
+    """D-183: cada pipeline no corre al fusionar en main (`trigger: none`) ni en un PR borrador
+    (`pr.drafts: false`). Devuelve la lista de lo que falta."""
+    lineas = [l for l in texto.splitlines() if l.strip() and not l.lstrip().startswith("#")]
+    faltan = []
+    if "trigger: none" not in lineas:
+        faltan.append("trigger: none")
+    en_pr = False
+    drafts = False
+    for linea in lineas:
+        if not linea.startswith(" "):
+            en_pr = linea.strip() == "pr:"
+        elif en_pr and linea == "  drafts: false":
+            drafts = True
+    if not drafts:
+        faltan.append("pr.drafts: false")
+    return faltan
+
+
 def coincide(patron, ruta):
     if patron.endswith("/*"):
         return ruta.startswith(patron[:-1])
@@ -114,6 +138,11 @@ def main():
         print(f"{estado:5} {ruta}: corren {sorted(corren)}; se esperaba {sorted(esperado)}")
         if corren != esperado:
             fallas.append(ruta)
+    for p in sorted(CARPETA.glob("*.yml")):
+        faltan = disparadores(p.read_text(encoding="utf-8"))
+        print(f"{'ok' if not faltan else 'FALLA':5} {p.name}: disparadores (D-183){'' if not faltan else '; falta ' + ', '.join(faltan)}")
+        if faltan:
+            fallas.append(f"{p.name}: {faltan}")
     sin_caso = set(pipelines) - set().union(*ESPERADO.values())
     if sin_caso:
         fallas.append(f"pipelines sin caso en ESPERADO: {sorted(sin_caso)}")

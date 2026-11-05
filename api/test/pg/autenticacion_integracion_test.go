@@ -6,6 +6,7 @@ package pg_test
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -333,5 +334,15 @@ func TestLaMejoraDelHashNoPisaUnHashQueCambio(t *testing.T) {
 	}
 	if n := contar(t, e.pool, `SELECT count(*) FROM sesion WHERE hash_token = $1`, huella); n != 1 {
 		t.Errorf("la sesión no se guardó: %d", n)
+	}
+}
+
+// Una persona que ya no existe (la cuenta se borró) no tiene ingreso anterior que leer: autenticacion.ErrNoExiste, no un
+// error de infraestructura.
+func TestIngresoAnteriorDeUnaCuentaBorradaEsNoExiste(t *testing.T) {
+	e := nuevoEntornoDeAcceso(t)
+	_, err := pg.NuevoAutenticacion(e.pool).IngresoAnterior(context.Background(), "0192f3c4-0000-7000-8000-0000000000ee")
+	if !errors.Is(err, autenticacion.ErrNoExiste) {
+		t.Errorf("se esperaba autenticacion.ErrNoExiste y salió %v", err)
 	}
 }

@@ -1,3 +1,4 @@
+import excepcionesReales from "../licencias-excepciones.json";
 import {
   caminosDeProduccion,
   esPermitida,
@@ -240,6 +241,49 @@ describe("revisarConExcepciones", () => {
     expect(fallas[0]).toContain("cierre de la iteración");
   });
 
+  describe("excepciones permanentes (sin fecha, con rutas exactas)", () => {
+    const permanentes = buenas.map((e) => ({ ...e, revisar_antes_de: undefined }));
+
+    it("pasan sin importar la fecha de hoy", () => {
+      expect(validarExcepciones(permanentes)).toEqual([]);
+      const { fallas, aceptados } = revisarCon(permanentes, lock, "2099-01-01");
+      expect(fallas).toEqual([]);
+      expect(aceptados.map((p) => p.revisarAntesDe)).toEqual([undefined, undefined]);
+    });
+
+    it("sin fecha exigen rutas exactas", () => {
+      const sinRutas = permanentes.map((e) => ({ ...e, rutas: [] }));
+      expect(validarExcepciones(sinRutas)).toEqual([
+        "la excepción 1 no tiene «rutas»",
+        "la excepción 2 no tiene «rutas»",
+      ]);
+    });
+
+    it("una ruta nueva del mismo paquete falla", () => {
+      const nuevo = {
+        packages: {
+          ...lock.packages,
+          "node_modules/b": { version: "1.0.0", license: "MIT", dependencies: { a: "1" } },
+        },
+      };
+      const { fallas } = revisarCon(permanentes, nuevo, "2099-01-01");
+      expect(fallas).toHaveLength(1);
+      expect(fallas[0]).toContain("Nuevos: expo > b > a");
+    });
+
+    it("otra licencia del mismo paquete falla", () => {
+      const otra = {
+        packages: { ...lock.packages, "node_modules/a": { version: "1.0.0", license: "GPL-2.0", dependencies: { c: "1" } } },
+      };
+      expect(revisarCon(permanentes, otra, "2099-01-01").fallas[0]).toContain("la licencia cambió");
+    });
+
+    it("una fecha mal escrita sigue fallando", () => {
+      expect(validarExcepciones([{ ...permanentes[0], revisar_antes_de: "5/11/2026" }])[0]).toContain("fecha");
+      expect(validarExcepciones([{ ...permanentes[0], revisar_antes_de: "" }])[0]).toContain("fecha");
+    });
+  });
+
   it("una excepción mal formada falla antes de revisar", () => {
     expect(revisarCon([{ ...buenas[0], motivo: "" }]).fallas).toEqual([
       "la excepción 1 no tiene «motivo»",
@@ -249,5 +293,22 @@ describe("revisarConExcepciones", () => {
     ).toContain("fecha");
     expect(validarExcepciones({})).toHaveLength(1);
     expect(hoyUtc()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+describe("licencias-excepciones.json", () => {
+  const real = excepcionesReales as Record<string, unknown>[];
+
+  it("son permanentes, por paquete y por ruta exacta (D-150, D-182)", () => {
+    expect(validarExcepciones(real)).toEqual([]);
+    expect(real.map((e) => [e.paquete, e.licencia, e.rutas])).toEqual([
+      ["argparse", "Python-2.0", ["expo > @expo/cli > @expo/xcpretty > js-yaml > argparse"]],
+      ["caniuse-lite", "CC-BY-4.0", ["expo > @expo/metro-config > browserslist > caniuse-lite"]],
+    ]);
+    for (const e of real) {
+      expect(e).not.toHaveProperty("revisar_antes_de");
+      expect(e.motivo).toContain("D-150");
+      expect(e.motivo).toContain("D-182");
+    }
   });
 });

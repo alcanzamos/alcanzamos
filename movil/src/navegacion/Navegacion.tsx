@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { AutorizacionDeDatos } from '../pantallas/AutorizacionDeDatos';
 import { BorrarCuenta } from '../pantallas/BorrarCuenta';
 import { CambiarContrasena } from '../pantallas/CambiarContrasena';
+import { ConfirmarTodos } from '../pantallas/ConfirmarTodos';
 import { CrearCuenta } from '../pantallas/CrearCuenta';
 import { DetalleDeMovimiento } from '../pantallas/DetalleDeMovimiento';
 import { Edad } from '../pantallas/Edad';
@@ -46,8 +47,9 @@ async function pantallaInicial(): Promise<keyof Rutas> {
 // enlace del correo abre la web (D-155) y la app no recibe enlaces hasta los App Links de I08. PN-01 («Movimientos») se apila
 // sobre PN-71 (su Atrás vuelve a PN-71) y «Registrar» sobre PN-01 (su Atrás vuelve a PN-01 sin guardar); PN-03 se apila
 // sobre «Registrar» (su Atrás vuelve al formulario). PN-02 se apila sobre PN-01 (su Atrás vuelve a PN-01) y «Corregir»
-// sobre PN-02 (su Atrás vuelve a PN-02 sin guardar). Tras guardar, corregir o borrar se vuelve a PN-01 con `popTo` y el
-// aviso como mensaje de estado: el formulario y PN-02 salen de la pila y el Atrás no vuelve a ellos.
+// sobre PN-02 (su Atrás vuelve a PN-02 sin guardar). «Confirmar todos» se apila sobre PN-01 (su Atrás vuelve a PN-01 sin
+// guardar nada). Tras guardar, corregir o borrar se vuelve a PN-01 con `popTo` y el aviso como mensaje de estado: el
+// formulario, PN-02 y «Confirmar todos» salen de la pila y el Atrás no vuelve a ellos.
 export function Navegacion() {
   const [inicial, setInicial] = useState<keyof Rutas | null>(null);
   useEffect(() => {
@@ -99,6 +101,11 @@ export function Navegacion() {
           name="CorregirMovimiento"
           component={CorregirMovimiento}
           options={conBarra(textos.movimientos.detalle.corregirTitulo)}
+        />
+        <Pila.Screen
+          name="ConfirmarTodos"
+          component={ConfirmarTodos}
+          options={conBarra(textos.porConfirmar.confirmarTodos)}
         />
         <Pila.Screen name="FormularioDeRegistro" component={Registrar} options={conBarra(textos.registro.titulo)} />
         <Pila.Screen name="SeRepite" component={SeRepite} options={conBarra(textos.periodicidad.titulo)} />

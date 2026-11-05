@@ -22,7 +22,8 @@ export const campoDeApi: Record<string, Campo> = {
 
 const e = textos.registro.errores;
 
-function textoDelMonto(m: Extract<LecturaDeMonto, { ok: false }>): string {
+/** El texto de E14-PPN 3.1 de un monto que no se pudo leer; lo usan el formulario y «Cambiar el monto» de «Por confirmar». */
+export function textoDelMonto(m: Extract<LecturaDeMonto, { ok: false }>): string {
   switch (m.motivo) {
     case 'vacio':
       return e.montoVacio;

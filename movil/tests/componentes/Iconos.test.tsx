@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react-native';
 import {
   IconoAtencion,
   IconoCalendario,
+  IconoCerrar,
   IconoCheck,
   IconoCompartido,
   IconoHogar,
@@ -21,6 +22,7 @@ describe('Iconos (E14-SDD 5.1)', () => {
     ['Ver', IconoVer],
     ['Ocultar', IconoOcultar],
     ['Calendario', IconoCalendario],
+    ['Cerrar', IconoCerrar],
     ['Check', IconoCheck],
     ['Propio', IconoPropio],
     ['Compartido', IconoCompartido],

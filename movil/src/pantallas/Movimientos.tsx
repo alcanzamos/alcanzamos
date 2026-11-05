@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { listarMovimientos, type Listado, type Movimiento } from '../api/movimientos';
+import { listarPendientes, type Pendientes } from '../api/repeticiones';
 import { reiniciarBorrador } from '../borradorDeRegistro';
 import { Aviso } from '../componentes/Aviso';
 import { Boton, BotonDeTexto } from '../componentes/Boton';
@@ -24,8 +25,12 @@ import { avisoDeFallo, avisos, type DatosDeAviso } from '../textos';
 import { nombreDeCategoria, textosDeFila, tituloDelDia } from '../textosDeMovimientos';
 import { formatear, plural, textos } from '../textos/es.generated';
 import { tokens } from '../tokens/tokens.generated';
+import { PorConfirmar } from './PorConfirmar';
 
-type Estado = { fase: 'cargando' } | { fase: 'error'; aviso: DatosDeAviso } | { fase: 'listo'; datos: Listado };
+type Estado =
+  | { fase: 'cargando' }
+  | { fase: 'error'; aviso: DatosDeAviso }
+  | { fase: 'listo'; datos: Listado; pendientes: Pendientes };
 
 const m = textos.movimientos;
 const TODAS = 0;
@@ -44,9 +49,10 @@ function porDia(movimientos: Movimiento[]) {
 }
 
 // PN-01 · Movimientos: lista y filtros, variante Android (E14-PRR 4.1). Una columna, con «Registrar» fijo abajo. Los
-// filtros viven en los parámetros de la ruta: así sobreviven a abrir un movimiento y volver. Sin la sección «Por
-// confirmar» (US-60, D-168), sin las «Horas de vida» (RF-054), sin el contexto «Nuestro hogar» y sin «Sin conexión.
-// Mostramos lo último que cargó.» (la app no guarda lo último que cargó): sin conexión sale el aviso de siempre.
+// filtros viven en los parámetros de la ruta: así sobreviven a abrir un movimiento y volver. Con la sección «Por
+// confirmar» arriba (US-60, D-091 a D-093), que abre «Confirmar todos»; sin las «Horas de vida» (RF-054), sin el
+// contexto «Nuestro hogar» y sin «Sin conexión. Mostramos lo último que cargó.» (la app no guarda lo último que
+// cargó): sin conexión sale el aviso de siempre.
 export function Movimientos({ navigation, route }: NativeStackScreenProps<Rutas, 'ListaDeMovimientos'>) {
   const periodo = route.params?.periodo ?? null;
   const categoria = route.params?.categoria ?? null;
@@ -59,11 +65,15 @@ export function Movimientos({ navigation, route }: NativeStackScreenProps<Rutas,
   const ultimo = useRef(0);
   const cargar = useCallback(() => {
     const numero = ++ultimo.current;
-    void listarMovimientos(periodo, categoria).then((respuesta) => {
+    // «Por confirmar» no depende de los filtros (E14-PRR 4.1): se pide junto con la lista.
+    void Promise.all([listarMovimientos(periodo, categoria), listarPendientes()]).then(([lista, porConfirmar]) => {
       if (numero !== ultimo.current) return;
-      if (respuesta.ok) setEstado({ fase: 'listo', datos: respuesta.cuerpo });
-      else if (!seguirPorAccesoNegado(navigation, respuesta))
-        setEstado({ fase: 'error', aviso: avisoDeFallo(respuesta, avisos.errorAlCargarMovimientos) });
+      if (lista.ok && porConfirmar.ok) setEstado({ fase: 'listo', datos: lista.cuerpo, pendientes: porConfirmar.cuerpo });
+      else {
+        const fallo = lista.ok ? porConfirmar : lista;
+        if (!fallo.ok && !seguirPorAccesoNegado(navigation, fallo))
+          setEstado({ fase: 'error', aviso: avisoDeFallo(fallo, avisos.errorAlCargarMovimientos) });
+      }
     });
   }, [navigation, periodo, categoria]);
   // Al volver de PN-02 o del formulario se pide la lista otra vez: lo corregido o borrado ya cambió.
@@ -79,6 +89,7 @@ export function Movimientos({ navigation, route }: NativeStackScreenProps<Rutas,
   };
 
   const datos = estado.fase === 'listo' ? estado.datos : null;
+  const porConfirmar = estado.fase === 'listo' ? estado.pendientes : null;
   const actual = datos?.periodo_actual ?? '';
   const periodoElegido = periodo ?? actual;
   const visibles = datos?.categorias.filter((c) => !c.oculta) ?? [];
@@ -105,6 +116,19 @@ export function Movimientos({ navigation, route }: NativeStackScreenProps<Rutas,
               {textos.acciones.intentarDeNuevo}
             </Boton>
           </>
+        )}
+        {porConfirmar && porConfirmar.pendientes.length > 0 && !categoria && (
+          <PorConfirmar
+            datos={porConfirmar}
+            navigation={navigation}
+            alEmpezar={() => navigation.setParams({ aviso: undefined })}
+            // Después de confirmar se vuelve a pedir lo pendiente y la lista, sin vaciar la pantalla.
+            alTerminar={(aviso) => {
+              navigation.setParams({ aviso });
+              cargar();
+            }}
+            refrescar={cargar}
+          />
         )}
         {datos && (
           <>

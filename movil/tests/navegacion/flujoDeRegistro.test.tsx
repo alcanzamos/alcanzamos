@@ -80,9 +80,9 @@ describe('flujo de registrar un movimiento en Android (PN-71 → PN-01 → Regis
     await screen.findByLabelText('Monto');
   }
 
-  // USA-004 (D-165, punto 2): sin categoría sugerida (no hay motor de reglas), un gasto en efectivo cuesta CINCO
+  // Control del número de pasos del registro (RNF-001, D-165, punto 2): sin categoría sugerida (no hay motor de reglas), un gasto en efectivo cuesta CINCO
   // interacciones desde PN-01 (D-164): «Registrar», monto, categoría, «Efectivo» y «Guardar». «Gasto» y «Hoy» ya vienen elegidos.
-  it('USA-004: un gasto en efectivo desde PN-01 cuesta cinco interacciones y vuelve a PN-01 con «Listo, registramos tu gasto de $45.000.»', async () => {
+  it('control de pasos (RNF-001, D-165): un gasto en efectivo desde PN-01 cuesta cinco interacciones y vuelve a PN-01 con «Listo, registramos tu gasto de $45.000.»', async () => {
     const pedidos = api();
     let interacciones = 0;
     const tocar = async (accion: () => Promise<unknown> | unknown) => {

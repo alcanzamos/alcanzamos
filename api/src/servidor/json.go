@@ -13,7 +13,12 @@ const tamanoMaximoDelCuerpo = 16 << 10
 // que mande la fecha de nacimiento recibe 400 y el API nunca la lee (D-089). Si falla, ya respondió 400
 // `solicitud_invalida` y devuelve false.
 func LeerJSON(w http.ResponseWriter, r *http.Request, destino any) bool {
-	d := json.NewDecoder(http.MaxBytesReader(w, r.Body, tamanoMaximoDelCuerpo))
+	return LeerJSONHasta(w, r, destino, tamanoMaximoDelCuerpo)
+}
+
+// LeerJSONHasta es LeerJSON con otro tamaño máximo del cuerpo, en bytes, para las pocas rutas que reciben una lista.
+func LeerJSONHasta(w http.ResponseWriter, r *http.Request, destino any, maximo int64) bool {
+	d := json.NewDecoder(http.MaxBytesReader(w, r.Body, maximo))
 	d.DisallowUnknownFields()
 	if err := d.Decode(destino); err != nil || d.Decode(&struct{}{}) != io.EOF {
 		EscribirError(w, http.StatusBadRequest, "solicitud_invalida")
@@ -26,7 +31,9 @@ func LeerJSON(w http.ResponseWriter, r *http.Request, destino any) bool {
 func EscribirJSON(w http.ResponseWriter, codigo int, cuerpo any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(codigo)
-	_ = json.NewEncoder(w).Encode(cuerpo)
+	// Con el encabezado ya enviado, un fallo al escribir es que la persona cerró la conexión: no hay a quién avisar. Un
+	// valor que no se pueda serializar es un error de programación y lo atrapan las pruebas de cada ruta.
+	_ = json.NewEncoder(w).Encode(cuerpo) //nolint:errcheck // ver el comentario de arriba
 }
 
 // EscribirError responde con {"error": "<código>"}. El código es estable y lo mapea el cliente a su texto (ADR-005):

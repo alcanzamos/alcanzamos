@@ -32,7 +32,7 @@ func (s *Sesiones) Crear(ctx context.Context, persona string, huella []byte, aho
 	if err != nil {
 		return fmt.Errorf("abrir la transacción: %w", err)
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck // sin efecto tras el commit
+	defer tx.Rollback(ctx)
 	if err := insertarSesion(ctx, tx, persona, huella, ahora); err != nil {
 		return err
 	}
@@ -78,6 +78,18 @@ func (s *Sesiones) Sujeto(ctx context.Context, huella []byte, ahora time.Time) (
 	autorizada, err := s.autorizada(ctx, persona, etapa)
 	if err != nil {
 		return seguridad.Sujeto{}, err
+	}
+	if !autorizada {
+		// Si el borrado de la cuenta se confirmó entre leer la sesión y leer las autorizaciones, estas ya están retiradas:
+		// «autorización pendiente» sería falso. La sesión se borra en la misma transacción, así que si ya no está, la
+		// cuenta no existe (401), y si sigue, la cuenta de verdad no tiene lo necesario.
+		var sigue bool
+		if err := s.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM sesion WHERE hash_token = $1)`, huella).Scan(&sigue); err != nil {
+			return seguridad.Sujeto{}, fmt.Errorf("volver a buscar la sesión: %w", err)
+		}
+		if !sigue {
+			return seguridad.Sujeto{}, seguridad.ErrSinSesion
+		}
 	}
 	return seguridad.Sujeto{Persona: persona, Verificada: verificada, Autorizada: autorizada}, nil
 }

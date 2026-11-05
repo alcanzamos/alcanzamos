@@ -55,6 +55,15 @@ describe('PN-58 · Crear la cuenta, Android (E14-PCP 4.1)', () => {
     expect(screen.queryByText(/mayor de edad|nacimiento/i)).not.toBeOnTheScreen();
   });
 
+  it('USA-005 el formulario pide solo correo, contraseña y nombre, sin casilla de edad ni otro campo', async () => {
+    await mostrar();
+    expect(screen.getAllByDisplayValue(/^/)).toHaveLength(3);
+    expect(screen.getByLabelText('Correo electrónico')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Contraseña')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Nombre para mostrar')).toBeOnTheScreen();
+    expect(screen.queryByRole('checkbox')).not.toBeOnTheScreen();
+  });
+
   it('los campos piden el autocompletado de Android: email, new-password y name', async () => {
     await mostrar();
     expect(screen.getByLabelText('Correo electrónico').props.autoComplete).toBe('email');

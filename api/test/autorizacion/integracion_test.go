@@ -586,7 +586,7 @@ func TestOtorgarYRechazarAlMismoTiempoQuedanCoherentes(t *testing.T) {
 		wg.Wait()
 		cuentas := s.contar(`SELECT count(*) FROM persona WHERE id = $1::uuid`, persona)
 		vigentes := s.contar(`SELECT count(*) FROM autorizacion WHERE titular_id = $1::uuid AND retirada_en IS NULL`, persona)
-		if !(cuentas == 1 && vigentes == 2) && !(cuentas == 0 && vigentes == 0) {
+		if (cuentas != 1 || vigentes != 2) && (cuentas != 0 || vigentes != 0) {
 			t.Fatalf("ronda %d: %d cuentas y %d autorizaciones vigentes", i, cuentas, vigentes)
 		}
 	}
@@ -600,7 +600,7 @@ func (s *servidorDePrueba) cuentaSinAutorizar(i int) string {
 	if err != nil {
 		s.t.Fatal(err)
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck // sin efecto tras el commit
+	defer tx.Rollback(ctx)
 	var id string
 	if err := tx.QueryRow(ctx, `INSERT INTO persona (nombre, etapa, creada_en) VALUES ('Laura', 'adulta', now()) RETURNING id::text`).Scan(&id); err != nil {
 		s.t.Fatal(err)

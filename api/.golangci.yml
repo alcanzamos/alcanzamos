@@ -1,0 +1,84 @@
+# Analizador de Go del pipeline api (E17-ECO 3.5, Q-2, D-110): agregador golangci-lint con errcheck, staticcheck,
+# asciicheck y depguard. Se corre desde api/ con `go tool golangci-lint run` (herramienta fijada en go.mod, D-161).
+version: "2"
+
+run:
+  # Las pruebas de integración (`//go:build integration`) también se analizan.
+  build-tags:
+    - integration
+
+linters:
+  # Solo los cuatro de Q-2: nada de los que trae por defecto (govet corre aparte, como `go vet ./...`).
+  default: none
+  enable:
+    - errcheck     # 3.6: «Ningún error se ignora»
+    - staticcheck  # incluye gosimple y stylecheck
+    - asciicheck   # 3.7: identificadores ASCII
+    - depguard     # 3.2: dependencias entre paquetes
+  settings:
+    errcheck:
+      # `_ = f()` y `_, _ = f()` también cuentan como error ignorado (A-13).
+      check-blank: true
+      # `v, _ := x.(T)` es la forma «coma ok» a propósito (el valor cero es la respuesta cuando no es del tipo): no se marca.
+      check-type-assertions: false
+      exclude-functions:
+        # Desde Go 1.24 crypto/rand.Read no devuelve nunca un error: si no puede leer, el programa se detiene
+        # (documentación de crypto/rand.Read). No hay nada que manejar.
+        - crypto/rand.Read
+        # `defer tx.Rollback(ctx)` es la red de seguridad de toda transacción: tras `Commit` devuelve
+        # pgx.ErrTxClosed y no hay nada que hacer, y si el Commit falló ese es el error que se devuelve.
+        - (github.com/jackc/pgx/v5.Tx).Rollback
+    depguard:
+      rules:
+        # E12 §4 regla 1: el núcleo (Reloj y Fechas) no importa ningún otro paquete del proyecto.
+        nucleo:
+          files:
+            - "**/src/reloj/**"
+            - "**/src/fechas/**"
+          deny:
+            - pkg: github.com/alcanzamos/alcanzamos/api
+              desc: el núcleo no importa otros paquetes del proyecto (E12 §4 regla 1)
+        # E12 §4 regla 3: Seguridad no depende de ningún módulo de negocio ni de un adaptador.
+        seguridad:
+          files:
+            - "**/src/seguridad/**"
+          deny:
+            - pkg: github.com/alcanzamos/alcanzamos/api/src/autenticacion
+              desc: Seguridad no importa módulos de negocio (E12 §4 regla 3)
+            - pkg: github.com/alcanzamos/alcanzamos/api/src/autorizacion
+              desc: Seguridad no importa módulos de negocio (E12 §4 regla 3)
+            - pkg: github.com/alcanzamos/alcanzamos/api/src/cuenta
+              desc: Seguridad no importa módulos de negocio (E12 §4 regla 3)
+            - pkg: github.com/alcanzamos/alcanzamos/api/src/registro
+              desc: Seguridad no importa módulos de negocio (E12 §4 regla 3)
+            - pkg: github.com/alcanzamos/alcanzamos/api/src/pg
+              desc: Seguridad no importa adaptadores (E12 §4 regla 4)
+        # E12 §4 regla 4 y E17 3.10: ninguna pieza que no sea un adaptador depende de uno (PostgreSQL, la conexión y
+        # el compositor), y pgx solo vive en `pg`, `bd` y `app`.
+        sin-adaptadores:
+          files:
+            - "**/src/autenticacion/**"
+            - "**/src/autorizacion/**"
+            - "**/src/cuenta/**"
+            - "**/src/registro/**"
+            - "**/src/seguridad/**"
+            - "**/src/reloj/**"
+            - "**/src/fechas/**"
+          deny:
+            - pkg: github.com/alcanzamos/alcanzamos/api/src/pg
+              desc: solo los adaptadores y el compositor importan `pg` (E12 §4 regla 4)
+            - pkg: github.com/alcanzamos/alcanzamos/api/src/bd
+              desc: solo los adaptadores y el compositor importan `bd` (E12 §4 regla 4)
+            - pkg: github.com/alcanzamos/alcanzamos/api/src/app
+              desc: solo `cmd` importa el compositor `app` (E17 3.2)
+            - pkg: github.com/jackc/pgx
+              desc: pgx solo en `pg`, `bd` y `app` (E17 3.10)
+
+  exclusions:
+    rules:
+      # Código de pruebas (api/test, incluidos sus ayudantes): `json.Marshal` de datos fijos, `Close` de servidores
+      # falsos y `_ =` de la limpieza. Si algo de eso falla, la comprobación de la propia prueba lo muestra. El código
+      # de producción (api/src) no tiene esta excepción.
+      - path: ^test/
+        linters:
+          - errcheck

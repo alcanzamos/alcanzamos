@@ -34,7 +34,7 @@ export function Pagina({
     if (llegoNavegando()) encabezado.current?.focus();
   }, [titulo]);
   const h1 = (
-    <h1 ref={encabezado} tabIndex={-1} className="titulo">
+    <h1 id="titulo-de-pagina" ref={encabezado} tabIndex={-1} className="titulo">
       {titulo}
     </h1>
   );

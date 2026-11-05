@@ -14,7 +14,7 @@ Tokens de diseño (JSON en formato W3C) y textos de la interfaz, compartidos por
 
 ## Conversión para React Native (US-45, S1)
 
-[`style-dictionary.config.mjs`](style-dictionary.config.mjs) con Style Dictionary 5.7.0 (fijado en `movil/package.json`). Desde `movil/`:
+[`style-dictionary.config.mjs`](style-dictionary.config.mjs) con Style Dictionary 5.7.1 (fijado en `movil/package.json`). Desde `movil/`:
 
 ```
 npm run tokens
@@ -30,7 +30,7 @@ Genera `movil/src/tokens/tokens.generated.ts` (no se edita a mano) con un solo o
 
 ## Conversión para la web (US-57, S1)
 
-[`style-dictionary.web.config.mjs`](style-dictionary.web.config.mjs) con el mismo Style Dictionary 5.7.0 (fijado en `web/package.json`). Desde `web/`:
+[`style-dictionary.web.config.mjs`](style-dictionary.web.config.mjs) con el mismo Style Dictionary 5.7.1 (fijado en `web/package.json`). Desde `web/`:
 
 ```
 npm run tokens

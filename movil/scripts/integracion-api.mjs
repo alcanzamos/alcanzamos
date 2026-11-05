@@ -4,7 +4,7 @@
 // imports sin extensión se resuelven como `.ts` (Node quita los tipos solo, sin compilar nada).
 //
 // Desde la US-51 también prueba el registro (categorías, un gasto en efectivo, el arriendo, PN-03) con la sesión ya autorizada
-// y, desde la US-52, la lista de movimientos de PN-01 con sus filtros y PN-02 (corregir, D-168, y borrar, D-169).
+// y, desde la US-52, la lista de movimientos de PN-01 con sus filtros y PN-02 (corregir, D-168, y borrar, D-169) y, desde la US-60, «Por confirmar».
 // Uso (el API, PostgreSQL y Mailpit ya arriba; ver README, «Probar en el celular»):
 //   EXPO_PUBLIC_URL_API=http://127.0.0.1:18090 URL_MAILPIT=http://127.0.0.1:58025 npm run integracion:api
 // Las autorizaciones se dan por el API (GET y POST /api/v1/autorizaciones), no por SQL. Datos sintéticos; nada sale del equipo.
@@ -47,6 +47,7 @@ const acceso = await import('../src/api/acceso.ts');
 const autorizaciones = await import('../src/api/autorizaciones.ts');
 const registro = await import('../src/api/registro.ts');
 const movimientos = await import('../src/api/movimientos.ts');
+const repeticiones = await import('../src/api/repeticiones.ts');
 const { hoyEnColombia } = await import('../src/fechas.ts');
 
 let fallas = 0;
@@ -644,7 +645,98 @@ paso(
 const noExiste = await movimientos.corregirMovimiento({ ...base, montoCentavos: 100n }, elRegalo);
 paso('PN-02: corregir lo que ya no existe: 404 no_encontrado', !noExiste.ok && noExiste.estado === 404);
 
-// 14b. US-53 · PN-69 · Borrar la cuenta, con la cuenta autorizada de arriba y dos sesiones abiertas.
+// 14d. «Por confirmar» (US-60): el API calcula las fechas pendientes (E15 5.2); la app las pide y manda sus decisiones, con
+// Content-Type JSON en cada POST (defensa CSRF) y los centavos como dígitos exactos. Cuatro repeticiones semanales que
+// empezaron hace una semana tienen hoy como fecha pendiente.
+const inicioSemanal = new Date(`${hoy}T12:00:00Z`);
+inicioSemanal.setUTCDate(inicioSemanal.getUTCDate() - 7);
+const haceUnaSemana = inicioSemanal.toISOString().slice(0, 10);
+const semanal = (descripcion, tipo, categoriaId, montoCentavos) =>
+  registro.guardarMovimiento({
+    ...base,
+    tipo,
+    categoriaId,
+    montoCentavos,
+    medio: 'transferencia',
+    fecha: haceUnaSemana,
+    descripcion,
+    periodicidad: 'semanal',
+  });
+const [aConfirmar, aOmitir, aMarcar, aDescartar] = await Promise.all([
+  semanal('Pendiente A', 'gasto', 16, 3000000n),
+  semanal('Pendiente B', 'ingreso', 17, 120000000n),
+  semanal('Pendiente C', 'gasto', 16, 5500000n),
+  semanal('Pendiente D', 'gasto', 16, 700000n),
+]);
+paso(
+  `«Por confirmar»: cuatro repeticiones semanales desde ${haceUnaSemana} quedan con ${hoy} pendiente`,
+  [aConfirmar, aOmitir, aMarcar, aDescartar].every(
+    (r) => r.ok && r.estado === 201 && JSON.stringify(r.cuerpo.pendientes) === JSON.stringify([hoy]),
+  ),
+  JSON.stringify([aConfirmar, aOmitir, aMarcar, aDescartar].map((r) => r.cuerpo)),
+);
+const idDe = (r) => r.cuerpo.recurrente_id;
+const pendientesAhora = async () => {
+  const r = await repeticiones.listarPendientes();
+  return r.ok ? r.cuerpo : { pendientes: [], resumen: null };
+};
+const antesDePendientes = await pendientesAhora();
+const filaDe = (lista, r) => lista.pendientes.find((f) => f.recurrente_id === idDe(r));
+paso(
+  '«Por confirmar»: la lista trae las cuatro fechas de hoy con el monto habitual como texto, y el resumen cuadra',
+  filaDe(antesDePendientes, aConfirmar)?.fecha === hoy &&
+    filaDe(antesDePendientes, aConfirmar)?.monto_habitual_centavos === '3000000' &&
+    filaDe(antesDePendientes, aOmitir)?.tipo === 'ingreso' &&
+    filaDe(antesDePendientes, aOmitir)?.monto_habitual_centavos === '120000000' &&
+    antesDePendientes.resumen?.total === antesDePendientes.pendientes.length &&
+    antesDePendientes.resumen.ingresos + antesDePendientes.resumen.gastos === antesDePendientes.resumen.total,
+  JSON.stringify(antesDePendientes),
+);
+const confirmada = await repeticiones.confirmarFecha(idDe(aConfirmar), hoy, 3500000n);
+paso(
+  '«Confirmar» con otro monto: 201, el movimiento queda con $35.000 y la fecha programada',
+  confirmada.ok &&
+    confirmada.estado === 201 &&
+    confirmada.cuerpo.monto_centavos === '3500000' &&
+    confirmada.cuerpo.fecha === hoy &&
+    confirmada.cuerpo.tipo === 'gasto',
+  JSON.stringify(confirmada),
+);
+const otraVezConfirmada = await repeticiones.confirmarFecha(idDe(aConfirmar), hoy);
+paso(
+  '«Confirmar» una fecha que ya no está pendiente: 409 fecha_no_pendiente',
+  !otraVezConfirmada.ok && otraVezConfirmada.estado === 409 && otraVezConfirmada.codigo === 'fecha_no_pendiente',
+  JSON.stringify(otraVezConfirmada),
+);
+const omitida = await repeticiones.omitirFecha(idDe(aOmitir), hoy);
+paso('«No pasó»: 204 y la fecha sale de las pendientes', omitida.ok && omitida.estado === 204 && !filaDe(await pendientesAhora(), aOmitir));
+const decididas = await repeticiones.decidir([
+  { recurrenteId: idDe(aMarcar), fecha: hoy, montoCentavos: 6000000n },
+  { recurrenteId: idDe(aDescartar), fecha: hoy, omitida: true },
+]);
+paso(
+  '«Confirmar todos»: 200, guarda el movimiento con el monto cambiado y omite la otra fecha, en una sola operación',
+  decididas.ok &&
+    decididas.estado === 200 &&
+    decididas.cuerpo.resumen.guardados === 1 &&
+    decididas.cuerpo.resumen.omitidas === 1 &&
+    decididas.cuerpo.movimientos[0]?.monto_centavos === '6000000' &&
+    decididas.cuerpo.omitidas[0]?.recurrente_id === idDe(aDescartar),
+  JSON.stringify(decididas),
+);
+const despuesDePendientes = await pendientesAhora();
+paso(
+  '«Por confirmar»: ninguna de las cuatro sigue pendiente',
+  [aConfirmar, aOmitir, aMarcar, aDescartar].every((r) => !filaDe(despuesDePendientes, r)),
+);
+const sinPendiente = await repeticiones.decidir([{ recurrenteId: idDe(aMarcar), fecha: hoy }]);
+paso(
+  '«Confirmar todos» con una fecha que ya no está pendiente: 409 fecha_no_pendiente y no guarda nada',
+  !sinPendiente.ok && sinPendiente.estado === 409 && sinPendiente.codigo === 'fecha_no_pendiente',
+  JSON.stringify(sinPendiente),
+);
+
+// 14e. US-53 · PN-69 · Borrar la cuenta (al final: después la cuenta ya no existe), con la cuenta autorizada de arriba y dos sesiones abiertas.
 const sesionDelOtroTelefono = token();
 const entroDeNuevo = await acceso.iniciarSesion({ identificador: correo, contrasena: contrasenaNueva });
 paso('PN-69: una segunda sesión de la misma cuenta', entroDeNuevo.ok && token() !== sesionDelOtroTelefono);

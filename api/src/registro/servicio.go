@@ -129,6 +129,13 @@ type Repositorio interface {
 	Corregir(ctx context.Context, persona, id string, c Correccion) error
 	// Borrar quita un movimiento de la persona, sin tocar su repetición. ErrNoEncontrado si no existe o es de otra persona.
 	Borrar(ctx context.Context, persona, id string) error
+	// Recurrentes devuelve las repeticiones de la persona, cada una con sus fechas confirmadas y omitidas.
+	Recurrentes(ctx context.Context, persona string) ([]Recurrente, error)
+	// Decidir guarda en una sola transacción los movimientos de `confirmar` (con la fecha programada, enlazados a su
+	// repetición) y las fechas de `omitir`, y devuelve el id de cada movimiento, en el orden de `confirmar`. Todo o nada.
+	// ErrNoEncontrado si una repetición no es de la persona; ErrFechaNoPendiente si una fecha ya está confirmada u omitida,
+	// también si otra petición la resolvió a la vez (restricción única y disparadores de E13).
+	Decidir(ctx context.Context, persona string, confirmar []Confirmacion, omitir []Omision, ahora time.Time) ([]string, error)
 }
 
 // Resultado es la respuesta 201. Las fechas van como AAAA-MM-DD.

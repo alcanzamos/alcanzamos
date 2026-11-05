@@ -7,9 +7,14 @@
 // - node-forge: el algoritmo RSASSA-PKCS1-V1_5 y el prefijo de OID 1.2.840.113549.
 // - zod: los nombres de clase y los códigos de error (`ZodError`, `invalid_type`, `too_small`, `invalid_enum_value`),
 //   que sobreviven a la minificación porque son valores de datos y no identificadores.
+// - argparse y caniuse-lite (D-182): las excepciones de licencia son permanentes porque «no van en la app», y esto lo
+//   comprueba el pipeline. argparse: los nombres de clase y de método (`ArgumentParser`, `ArgumentError`, `add_argument`);
+//   caniuse-lite: su nombre y la ruta de su desempaquetador de datos.
 export const MARCAS_POR_PAQUETE = {
   "node-forge": ["node_modules/node-forge", "node-forge", "RSASSA-PKCS1-V1_5", "1.2.840.113549"],
   zod: ["node_modules/zod", "ZodError", "invalid_type", "too_small", "invalid_enum_value"],
+  argparse: ["node_modules/argparse", "ArgumentParser", "ArgumentError", "add_argument"],
+  "caniuse-lite": ["node_modules/caniuse-lite", "caniuse-lite"],
 };
 
 // Se conserva para quien use solo las marcas de node-forge.
