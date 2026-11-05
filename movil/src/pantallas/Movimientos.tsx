@@ -19,6 +19,7 @@ import { Texto } from '../componentes/Texto';
 import { formatearPesos } from '../dinero';
 import { hoyEnColombia, mesAnterior, mesEnPalabras } from '../fechas';
 import { estiloDeTipografia } from '../fuentes';
+import { montoHablado } from '../montoHablado';
 import { seguirPorAccesoNegado } from '../navegacion/accesoNegado';
 import type { Rutas } from '../navegacion/rutas';
 import { avisoDeFallo, avisos, type DatosDeAviso } from '../textos';
@@ -99,6 +100,9 @@ export function Movimientos({ navigation, route }: NativeStackScreenProps<Rutas,
   const periodos = [...new Set([actual, mesAnterior(actual), periodoElegido])];
   const hoy = hoyEnColombia();
   const cuantos = datos ? plural(m.resumen, datos.resumen.movimientos) : '';
+  const totalCentavos = BigInt(datos?.resumen.total_centavos ?? 0);
+  const resumenDeCategoria = (total: string) =>
+    formatear(m.resumenDeCategoria, { categoria: nombreDeCategoria(categoria), movimientos: cuantos, total });
 
   return (
     <View style={estilos.pantalla}>
@@ -163,14 +167,11 @@ export function Movimientos({ navigation, route }: NativeStackScreenProps<Rutas,
               alElegir={(id) => filtrar(periodoElegido, id)}
             />
             {datos.resumen.movimientos > 0 && (
-              <Texto variante="ayuda">
-                {categoria
-                  ? formatear(m.resumenDeCategoria, {
-                      categoria: nombreDeCategoria(categoria),
-                      movimientos: cuantos,
-                      total: formatearPesos(BigInt(datos.resumen.total_centavos ?? 0)),
-                    })
-                  : cuantos}
+              <Texto
+                variante="ayuda"
+                etiqueta={categoria ? resumenDeCategoria(montoHablado(totalCentavos)) : undefined}
+              >
+                {categoria ? resumenDeCategoria(formatearPesos(totalCentavos)) : cuantos}
               </Texto>
             )}
             {porDia(datos.movimientos).map(({ fecha, filas }) => (
@@ -216,9 +217,9 @@ export function Movimientos({ navigation, route }: NativeStackScreenProps<Rutas,
 
 // Una Fila de lista navegable con valor (E14-SDD 5.20): toda la fila es el área táctil y abre PN-02.
 function Fila({ fila, alTocar }: { fila: Movimiento; alTocar: () => void }) {
-  const { principal, apoyo } = textosDeFila(fila);
+  const { principal, apoyo, etiqueta } = textosDeFila(fila);
   return (
-    <Pressable accessibilityRole="button" onPress={alTocar} style={estilos.fila}>
+    <Pressable accessibilityRole="button" accessibilityLabel={etiqueta} accessibilityHint={undefined} onPress={alTocar} style={estilos.fila}>
       <View style={estilos.columna}>
         <Text style={estilos.principal}>{cifras(principal, true)}</Text>
         <Text style={estilos.apoyo}>{cifras(apoyo)}</Text>

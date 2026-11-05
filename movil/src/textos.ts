@@ -1,6 +1,7 @@
 import { SIN_CONEXION, SIN_CONFIGURACION, type Respuesta } from './api/cliente';
 import type { Periodicidad, Tipo } from './api/registro';
 import { formatearPesos } from './dinero';
+import { montoHablado } from './montoHablado';
 import { diaEnPalabras } from './fechas';
 import { formatear, plural, textos } from './textos/es.generated';
 
@@ -11,6 +12,8 @@ export type TipoAviso = 'informacion' | 'atencion' | 'logro';
 export type DatosDeAviso = {
   tipo: TipoAviso;
   titulo: string;
+  /** El título con el monto dicho en pesos para el lector de pantalla (ACC-004): «de 45000 pesos» y no «de $45.000». */
+  tituloHablado?: string;
   mensaje?: string;
 };
 
@@ -275,15 +278,15 @@ export const textosDeErrorDeRegistro: Record<string, string> = {
  * repetición (fecha futura, D-091) el movimiento todavía no pasó: «queda por confirmar el {fecha}», en palabras.
  */
 export function avisoDeRegistro(tipo: Tipo, fecha: string, seRegistro: boolean, centavos: bigint): DatosDeAviso {
-  const monto = formatearPesos(centavos);
   const gasto = tipo === 'gasto';
-  const titulo = seRegistro
-    ? formatear(gasto ? textos.registro.avisos.registramosGasto : textos.registro.avisos.registramosIngreso, { monto })
-    : formatear(
-        gasto ? textos.registro.avisos.quedaPorConfirmarGasto : textos.registro.avisos.quedaPorConfirmarIngreso,
-        { monto, fecha: diaEnPalabras(fecha) ?? fecha },
-      );
-  return { tipo: 'informacion', titulo };
+  const titulo = (monto: string) =>
+    seRegistro
+      ? formatear(gasto ? textos.registro.avisos.registramosGasto : textos.registro.avisos.registramosIngreso, { monto })
+      : formatear(
+          gasto ? textos.registro.avisos.quedaPorConfirmarGasto : textos.registro.avisos.quedaPorConfirmarIngreso,
+          { monto, fecha: diaEnPalabras(fecha) ?? fecha },
+        );
+  return { tipo: 'informacion', titulo: titulo(formatearPesos(centavos)), tituloHablado: titulo(montoHablado(centavos)) };
 }
 
 export const avisoErrorAlGuardarMovimiento = (tipo: Tipo): DatosDeAviso => ({

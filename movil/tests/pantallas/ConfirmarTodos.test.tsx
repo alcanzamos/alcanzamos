@@ -80,6 +80,27 @@ describe('«Confirmar todos», Android (E14-PRR 4.8, US-60)', () => {
       expect(screen.getByText('Ingreso · 1 de diciembre de 2026')).toBeOnTheScreen();
     });
 
+    it('ACC-004: el nombre de cada casilla dice el monto en pesos, sin «$» ni puntos de miles', async () => {
+      apiFalsa(respuestaJson, { pendientes: pendientes(energia, celular, salario) });
+      await abrirTodos();
+      const etiquetas = screen.getAllByRole('checkbox').map((c) => c.props.accessibilityLabel);
+      expect(etiquetas).toEqual([
+        'Servicios públicos, Gasto · 5 de noviembre de 2026, 120000 pesos',
+        'Comunicaciones, Gasto · 12 de noviembre de 2026, 60000 pesos',
+        'Salario, Ingreso · 1 de diciembre de 2026, 1200000 pesos',
+      ]);
+      expect(screen.getByText('$120.000')).toBeOnTheScreen();
+    });
+
+    it('ACC-004: con «Cambiar el monto» la casilla dice el monto nuevo en pesos', async () => {
+      apiFalsa(respuestaJson, { pendientes: pendientes(energia, celular, salario) });
+      await abrirTodos();
+      await cambiarMonto('Salario', '1.250.000,50');
+      expect(casilla('Salario').props.accessibilityLabel).toBe(
+        'Salario, Ingreso · 1 de diciembre de 2026, Monto cambiado, 1250000 pesos con 50 centavos',
+      );
+    });
+
     it('desmarcar deja la fila en «Sigue por confirmar» y sale de la cuenta; volver a marcar la cuenta otra vez', async () => {
       apiFalsa(respuestaJson, { pendientes: pendientes(energia, celular, salario) });
       await abrirTodos();

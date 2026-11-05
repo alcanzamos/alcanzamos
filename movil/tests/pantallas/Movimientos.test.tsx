@@ -67,6 +67,21 @@ describe('PN-01 · Movimientos, Android (E14-PRR 4.1)', () => {
       expect(screen.getAllByRole('header', { name: /de noviembre de 2026/ })).toHaveLength(2);
     });
 
+    // ACC-004 (bug 224, D-187): TalkBack lee «$15.000» como «15 dólares, cero, cero, cero». El nombre de la fila dice el monto
+    // en pesos y sin puntos de miles; el texto que se ve sigue siendo «$15.000».
+    it('ACC-004: el nombre accesible de la fila dice «15000 pesos», no «$15.000»', async () => {
+      conLista(listado({ movimientos: [gastoDeHoy, arriendoDeEnero], categorias: [] }));
+      await abrirLista();
+      const fila = await screen.findByRole('button', { name: /^Transporte/ });
+      expect(fila.props.accessibilityLabel).toBe('Transporte, Gasto · Efectivo, 15000 pesos');
+      expect(screen.getByText('$15.000', { exact: false })).toBeOnTheScreen();
+      const compartida = screen.getByRole('button', { name: /^Arriendo de enero/ });
+      expect(compartida.props.accessibilityLabel).toBe(
+        'Arriendo de enero, Aporte a una meta · Transferencia, Compartido con el hogar, 100000 pesos',
+      );
+      expect(compartida.props.accessibilityLabel).not.toContain('$');
+    });
+
     it('un día anterior a ayer dice solo la fecha en palabras, como «5 de octubre de 2026»', async () => {
       conLista(listado({ movimientos: [movimiento({ fecha: '2026-10-05', categoria_id: 10, monto_centavos: '1990000' })] }));
       await abrirLista();
@@ -172,6 +187,19 @@ describe('PN-01 · Movimientos, Android (E14-PRR 4.1)', () => {
       await fireEvent.press(screen.getByRole('button', { name: 'Ver todas' }));
       expect(await screen.findByRole('radio', { name: 'Ropa y calzado' })).toBeOnTheScreen();
       expect(screen.getByRole('radio', { name: 'Suscripciones' })).toBeOnTheScreen();
+    });
+
+    it('ACC-004: el resumen de una categoría dice el total en pesos para el lector de pantalla', async () => {
+      const filtrada = listado({
+        movimientos: [gastoDeAyer],
+        resumen: { movimientos: 2, total_centavos: '12000000' },
+        categorias,
+      });
+      api((ruta) => respuestaJson(200, ruta.includes('categoria=1') ? filtrada : base));
+      await abrirLista();
+      await fireEvent.press(await screen.findByRole('radio', { name: 'Alimentación' }));
+      const resumen = await screen.findByText('Alimentación: 2 movimientos, $120.000');
+      expect(resumen.props.accessibilityLabel).toBe('Alimentación: 2 movimientos, 120000 pesos');
     });
 
     it('elegir una categoría la pide y el resumen dice «Alimentación: 2 movimientos, $120.000»', async () => {

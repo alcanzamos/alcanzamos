@@ -12,6 +12,19 @@ describe('Aviso (E14-SDD 5.4)', () => {
     expect(aviso.props.accessible).toBe(true);
   });
 
+  it('ACC-004: con un título hablado, el nombre del elemento lo usa y deja el texto que se ve', async () => {
+    await render(<Aviso tipo="informacion" titulo="Listo, borramos el gasto de $45.000." tituloHablado="Listo, borramos el gasto de 45000 pesos." mensaje="Intenta de nuevo." />);
+    expect(screen.getByRole('alert').props.accessibilityLabel).toBe('Listo, borramos el gasto de 45000 pesos. Intenta de nuevo.');
+    expect(screen.getByText('Intenta de nuevo.')).toBeOnTheScreen();
+    await screen.rerender(<Aviso tipo="informacion" titulo="Listo $1." tituloHablado="Listo 1 peso." />);
+    expect(screen.getByRole('alert').props.accessibilityLabel).toBe('Listo 1 peso.');
+  });
+
+  it('sin título hablado no pone nombre propio: el lector lee los textos', async () => {
+    await render(<Aviso tipo="informacion" titulo="Texto" />);
+    expect(screen.getByRole('alert').props.accessibilityLabel).toBeUndefined();
+  });
+
   it('es una región viva cortés, salvo si lo envuelve otra', async () => {
     await render(<Aviso tipo="logro" titulo="Listo." />);
     expect(screen.getByRole('alert').props.accessibilityLiveRegion).toBe('polite');
