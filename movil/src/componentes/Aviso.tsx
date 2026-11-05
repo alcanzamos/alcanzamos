@@ -14,14 +14,17 @@ const iconos: Record<TipoAviso, ComponentType<{ color: string }>> = {
 
 // Aviso de E14-SDD 5.4: ícono + título + mensaje, un solo elemento para el lector de pantalla. Es una región viva
 // cortés (`accessibilityLiveRegion="polite"`): lo que aparece o cambia se anuncia sin mover el foco. Con `viva` en
-// falso no lo es: lo envuelve quien ya lo es (MensajeDeEstado).
-export function Aviso({ tipo, titulo, mensaje, viva = true }: DatosDeAviso & { viva?: boolean }) {
+// falso no lo es: lo envuelve quien ya lo es (MensajeDeEstado). Con `tituloHablado` (un título con un monto, ACC-004) el
+// nombre del elemento es ese título más el mensaje, para que TalkBack diga los pesos y no «$».
+export function Aviso({ tipo, titulo, tituloHablado, mensaje, viva = true }: DatosDeAviso & { viva?: boolean }) {
   const Icono = iconos[tipo];
   const estado = tokens.color.estado[tipo];
   return (
     <View
       accessible
       accessibilityRole="alert"
+      accessibilityLabel={tituloHablado && [tituloHablado, mensaje].filter(Boolean).join(' ')}
+      accessibilityHint={undefined}
       accessibilityLiveRegion={viva ? 'polite' : 'none'}
       style={[estilos.aviso, { backgroundColor: estado.fondo }]}
     >

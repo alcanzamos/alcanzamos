@@ -12,12 +12,14 @@ import { Texto } from '../componentes/Texto';
 import { formatearPesos } from '../dinero';
 import { hoyEnColombia } from '../fechas';
 import { estiloDeTipografia } from '../fuentes';
+import { montoHablado } from '../montoHablado';
 import { seguirPorAccesoNegado } from '../navegacion/accesoNegado';
 import type { Rutas } from '../navegacion/rutas';
 import { avisoDeFallo, avisos, etiquetasDePeriodicidad, type DatosDeAviso } from '../textos';
 import {
   avisoDeBorrado,
   mediosEnPalabras,
+  queSeBorraHablado,
   queSeBorra,
   resumenDelDetalle,
   tituloDelDia,
@@ -71,7 +73,13 @@ export function DetalleDeMovimiento({ navigation, route }: NativeStackScreenProp
   return (
     <Pantalla conBarra>
       <View style={estilos.tarjeta}>
-        <Text style={estilos.monto}>{cifras(formatearPesos(BigInt(m.monto_centavos)))}</Text>
+        <Text
+          accessibilityLabel={montoHablado(BigInt(m.monto_centavos))}
+          accessibilityHint={undefined}
+          style={estilos.monto}
+        >
+          {cifras(formatearPesos(BigInt(m.monto_centavos)))}
+        </Text>
         <Texto>{resumenDelDetalle(m)}</Texto>
       </View>
       <View style={estilos.tarjeta}>
@@ -109,7 +117,7 @@ export function DetalleDeMovimiento({ navigation, route }: NativeStackScreenProp
             </Text>
             {aviso && <Aviso {...aviso} />}
             <View style={estilos.tarjeta}>
-              <Texto>{queSeBorra(m, hoy)}</Texto>
+              <Texto etiqueta={queSeBorraHablado(m, hoy)}>{queSeBorra(m, hoy)}</Texto>
             </View>
             <Texto>{b.quePasa}</Texto>
             {m.recurrente?.vuelve_a_pendiente && <Texto>{d.volveraPorConfirmar}</Texto>}

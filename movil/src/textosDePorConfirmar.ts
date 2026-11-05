@@ -2,6 +2,7 @@ import type { Movimiento } from './api/movimientos';
 import type { Pendiente } from './api/repeticiones';
 import { formatearPesos } from './dinero';
 import { diaEnPalabras } from './fechas';
+import { montoHablado } from './montoHablado';
 import { mediosEnPalabras } from './textosDeMovimientos';
 import { nombresDeCategoria, type DatosDeAviso } from './textos';
 import { formatear, plural, textos } from './textos/es.generated';
@@ -57,11 +58,11 @@ export const avisosDePorConfirmar = {
 /** «Listo, confirmamos tu ingreso de $1.200.000.»: el tipo y el monto son los del movimiento que guardó el API. */
 export function avisoDeConfirmado(movimiento: Movimiento): DatosDeAviso {
   const texto = movimiento.tipo === 'ingreso' ? a.confirmamosIngreso : a.confirmamosGasto;
-  return informacion(
-    formatear(texto, {
-      monto: formatearPesos(BigInt(movimiento.monto_centavos)),
-    }),
-  );
+  const centavos = BigInt(movimiento.monto_centavos);
+  return {
+    ...informacion(formatear(texto, { monto: formatearPesos(centavos) })),
+    tituloHablado: formatear(texto, { monto: montoHablado(centavos) }),
+  };
 }
 
 /** El aviso de después de «Guardar» (E14-PRR 4.8): los números son los que cuenta el API. */

@@ -330,7 +330,13 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
       // Vuelve a PN-01 con los filtros que tenía (`merge`): el formulario sale de la pila, el Atrás no vuelve a él.
       expect(navegacion.popTo).toHaveBeenCalledWith(
         'ListaDeMovimientos',
-        { aviso: { tipo: 'informacion', titulo: 'Listo, registramos tu gasto de $45.000.' } },
+        {
+          aviso: {
+            tipo: 'informacion',
+            titulo: 'Listo, registramos tu gasto de $45.000.',
+            tituloHablado: 'Listo, registramos tu gasto de 45000 pesos.',
+          },
+        },
         { merge: true },
       );
     });

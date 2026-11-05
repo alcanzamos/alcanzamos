@@ -2,6 +2,7 @@ import type { Movimiento } from './api/movimientos';
 import type { Medio } from './api/registro';
 import { formatearPesos } from './dinero';
 import { diaEnPalabras, relativoDelDia } from './fechas';
+import { montoHablado } from './montoHablado';
 import { nombresDeCategoria, type DatosDeAviso } from './textos';
 import { formatear, textos } from './textos/es.generated';
 
@@ -17,6 +18,7 @@ export const mediosEnPalabras: Record<Medio, string> = {
 };
 
 const montoDe = (m: Movimiento) => formatearPesos(BigInt(m.monto_centavos));
+const montoDichoDe = (m: Movimiento) => montoHablado(BigInt(m.monto_centavos));
 const metaDe = (m: Movimiento) => m.meta?.nombre ?? '';
 
 /** El tipo de una fila en palabras: un retiro de una meta es un aporte con sentido de salida. */
@@ -26,13 +28,16 @@ function tipoEnPalabras(m: Movimiento): string {
   return m.sentido === 'salida' ? mv.fila.retiro : mv.fila.aporte;
 }
 
-/** Las dos líneas de una fila de PN-01 (E14-PRR 4.1, «Cómo se arma cada fila»): un aporte lleva su meta, no categoría. */
+/**
+ * Las dos líneas de una fila de PN-01 (E14-PRR 4.1, «Cómo se arma cada fila»): un aporte lleva su meta, no categoría.
+ * `etiqueta` es el nombre accesible de toda la fila, con el monto en pesos (ACC-004).
+ */
 export function textosDeFila(m: Movimiento) {
   const nombre = m.tipo === 'aporte' ? metaDe(m) : nombreDeCategoria(m.categoria_id);
-  return {
-    principal: m.descripcion ? formatear(mv.fila.conDescripcion, { nombre, descripcion: m.descripcion }) : nombre,
-    apoyo: formatear(mv.fila.apoyo, { tipo: tipoEnPalabras(m), medio: mediosEnPalabras[m.medio] }),
-  };
+  const principal = m.descripcion ? formatear(mv.fila.conDescripcion, { nombre, descripcion: m.descripcion }) : nombre;
+  const apoyo = formatear(mv.fila.apoyo, { tipo: tipoEnPalabras(m), medio: mediosEnPalabras[m.medio] });
+  const marca = m.compartido ? mv.fila.compartido : '';
+  return { principal, apoyo, etiqueta: [principal, apoyo, marca, montoDichoDe(m)].filter(Boolean).join(', ') };
 }
 
 const relativo = (fecha: string, hoy: string) => {
@@ -57,8 +62,12 @@ export function resumenDelDetalle(m: Movimiento): string {
 }
 
 /** «Gasto de $45.000 en Alimentación, Ayer.»: lo que se borra, en la hoja de PN-02. */
-export function queSeBorra(m: Movimiento, hoy: string): string {
-  const monto = montoDe(m);
+export const queSeBorra = (m: Movimiento, hoy: string) => armarQueSeBorra(m, hoy, montoDe(m));
+
+/** Lo mismo con el monto en pesos para el lector de pantalla (ACC-004): «Gasto de 45000 pesos en Alimentación, Ayer.» */
+export const queSeBorraHablado = (m: Movimiento, hoy: string) => armarQueSeBorra(m, hoy, montoDichoDe(m));
+
+function armarQueSeBorra(m: Movimiento, hoy: string, monto: string): string {
   const dia = relativo(m.fecha, hoy) ?? diaEnPalabras(m.fecha) ?? m.fecha;
   const categoria = nombreDeCategoria(m.categoria_id);
   return formatear(m.tipo === 'gasto' ? mv.borrar.gasto : mv.borrar.ingreso, { monto, categoria, dia });
@@ -68,5 +77,9 @@ export function queSeBorra(m: Movimiento, hoy: string): string {
 export function avisoDeBorrado(m: Movimiento): DatosDeAviso {
   const t = textos.avisos;
   const titulo = m.tipo === 'ingreso' ? t.borramosIngreso.titulo : t.borramosGasto.titulo;
-  return { tipo: 'informacion', titulo: formatear(titulo, { monto: montoDe(m) }) };
+  return {
+    tipo: 'informacion',
+    titulo: formatear(titulo, { monto: montoDe(m) }),
+    tituloHablado: formatear(titulo, { monto: montoDichoDe(m) }),
+  };
 }

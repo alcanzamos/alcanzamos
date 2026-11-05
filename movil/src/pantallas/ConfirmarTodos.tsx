@@ -11,6 +11,7 @@ import { Pantalla } from '../componentes/Pantalla';
 import { Texto } from '../componentes/Texto';
 import { formatearPesos } from '../dinero';
 import { estiloDeTipografia } from '../fuentes';
+import { montoHablado } from '../montoHablado';
 import { seguirPorAccesoNegado } from '../navegacion/accesoNegado';
 import type { Rutas } from '../navegacion/rutas';
 import { avisoDeFallo, type DatosDeAviso } from '../textos';
@@ -87,7 +88,8 @@ export function ConfirmarTodos({ navigation, route }: NativeStackScreenProps<Rut
           {pendientes.map((fila) => {
             const eleccion = de(fila);
             const tf = textosDeFilaPorConfirmar(fila);
-            const monto = formatearPesos(eleccion.monto ?? BigInt(fila.monto_habitual_centavos));
+            const centavos = eleccion.monto ?? BigInt(fila.monto_habitual_centavos);
+            const monto = formatearPesos(centavos);
             const estado = eleccion.omitida
               ? t.todos.noPaso
               : !eleccion.marcada
@@ -99,7 +101,7 @@ export function ConfirmarTodos({ navigation, route }: NativeStackScreenProps<Rut
               <View key={claveDe(fila)} style={estilos.fila}>
                 <View style={estilos.casilla}>
                   <Casilla
-                    texto={[tf.principal, tf.apoyoSinMedio, estado, monto].filter(Boolean).join(', ')}
+                    texto={[tf.principal, tf.apoyoSinMedio, estado, montoHablado(centavos)].filter(Boolean).join(', ')}
                     marcada={eleccion.marcada && !eleccion.omitida}
                     deshabilitada={eleccion.omitida}
                     alCambiar={(marcada) => cambiar(fila, { marcada })}

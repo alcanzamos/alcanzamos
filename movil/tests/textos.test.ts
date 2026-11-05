@@ -149,6 +149,7 @@ describe('avisos del registro (E14-PPN 3.1 y 1.11, D-165)', () => {
     expect(avisoDeRegistro('gasto', '2026-10-26', true, 4500000n)).toEqual({
       tipo: 'informacion',
       titulo: 'Listo, registramos tu gasto de $45.000.',
+      tituloHablado: 'Listo, registramos tu gasto de 45000 pesos.',
     });
     expect(avisoDeRegistro('ingreso', '2026-10-26', true, 12345678n).titulo).toBe(
       'Listo, registramos tu ingreso de $123.456,78.',
@@ -158,6 +159,9 @@ describe('avisos del registro (E14-PPN 3.1 y 1.11, D-165)', () => {
   it('con la repetición sola (fecha futura): «queda por confirmar el {fecha}», en palabras', () => {
     expect(avisoDeRegistro('gasto', '2026-12-20', false, 9000000n).titulo).toBe(
       'Listo. Tu gasto de $90.000 queda por confirmar el 20 de diciembre de 2026.',
+    );
+    expect(avisoDeRegistro('gasto', '2026-12-20', false, 9000000n).tituloHablado).toBe(
+      'Listo. Tu gasto de 90000 pesos queda por confirmar el 20 de diciembre de 2026.',
     );
     expect(avisoDeRegistro('ingreso', '2027-01-05', false, 9000000n).titulo).toBe(
       'Listo. Tu ingreso de $90.000 queda por confirmar el 5 de enero de 2027.',
