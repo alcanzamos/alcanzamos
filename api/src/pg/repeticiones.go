@@ -87,12 +87,14 @@ func (m *Movimientos) Decidir(ctx context.Context, persona string, confirmar []r
 	// repeticiones por id. Los INSERT de abajo toman un candado compartido sobre la persona por la llave foránea; si ya se
 	// tuvieran bloqueadas las repeticiones, el borrado de la cuenta (que bloquea la persona y luego las repeticiones) y esta
 	// operación se esperarían entre sí. Con la persona ya borrada, la cuenta no existe.
-	var existe int
-	if err := tx.QueryRow(ctx, `SELECT 1 FROM persona WHERE id = $1::uuid FOR KEY SHARE`, persona).Scan(&existe); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, registro.ErrSinCuenta
+	if len(confirmar)+len(omitir) > 0 {
+		var existe int
+		if err := tx.QueryRow(ctx, `SELECT 1 FROM persona WHERE id = $1::uuid FOR KEY SHARE`, persona).Scan(&existe); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, registro.ErrSinCuenta
+			}
+			return nil, errorDeDecidir("bloquear la persona", err)
 		}
-		return nil, errorDeDecidir("bloquear la persona", err)
 	}
 	// Los disparadores de E13 bloquean la fila de la repetición en el orden de las decisiones: dos operaciones que tocan las
 	// mismas repeticiones en orden contrario se bloquearían entre sí. Se bloquean todas desde el principio, siempre por id.
