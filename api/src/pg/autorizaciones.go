@@ -53,7 +53,7 @@ func (a *Autorizaciones) Otorgar(ctx context.Context, persona string, finalidade
 	if err != nil {
 		return fmt.Errorf("abrir la transacción: %w", err)
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck // sin efecto tras el commit
+	defer tx.Rollback(ctx)
 	if err := bloquear(ctx, tx, persona); err != nil {
 		return err
 	}
@@ -78,7 +78,7 @@ func (a *Autorizaciones) Rechazar(ctx context.Context, persona string, necesaria
 	if err != nil {
 		return fmt.Errorf("abrir la transacción: %w", err)
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck // sin efecto tras el commit
+	defer tx.Rollback(ctx)
 	if err := bloquear(ctx, tx, persona); err != nil {
 		return err
 	}

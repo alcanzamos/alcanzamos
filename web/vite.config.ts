@@ -41,6 +41,9 @@ export default mergeConfig(
       environment: "jsdom",
       setupFiles: ["tests/preparar.ts"],
       include: ["tests/**/*.test.{ts,tsx}"],
+      // Las pruebas de tests/eslint/ corren ESLint 10 dentro de la prueba: con cobertura y la máquina cargada pasan
+      // los 5 s por omisión y fallan al azar (pasó en el #73). Una prueba que de verdad se cuelga falla igual a los 15 s.
+      testTimeout: 15_000,
       coverage: {
         provider: "v8",
         include: ["src/**/*.{ts,tsx}"],

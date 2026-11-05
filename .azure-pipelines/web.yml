@@ -1,18 +1,12 @@
 # Pipeline de web/: tipos, ESLint, Prettier, tokens y textos sin diff, pruebas con cobertura, build y Playwright con axe-core.
 # No usa conexión de servicio ni secretos. Corre cuando cambia web/, diseno/ (tokens, textos y fuentes) o este archivo
 # (ADR-001, filtros por carpeta). También corre cuando cambia el logo que la web importa (marca/logo-horizontal-color.svg, D-152).
-trigger:
-  branches:
-    include:
-      - main
-  paths:
-    include:
-      - web/*
-      - diseno/*
-      - marca/logo-horizontal-color.svg
-      - .azure-pipelines/web.yml
-
+# D-183: no corre al fusionar en main. Con la rama al día (protección `strict`) y squash, main queda igual a lo
+# que ya se probó en el PR; volver a correrlo solo gasta minutos. Se vuelve a poner cuando haya despliegue.
+trigger: none
 pr:
+  # D-183: un PR borrador no corre; corre cuando se marca «listo para revisar», ya al día con main.
+  drafts: false
   branches:
     include:
       - main
