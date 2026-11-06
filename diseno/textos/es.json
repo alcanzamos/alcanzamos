@@ -351,20 +351,6 @@
           "e14": "E14-PCP 4.15 (PN-73)"
         }
       },
-      "crearCuenta": {
-        "contrasena_vacia": {
-          "texto": "Falta la contraseña.",
-          "e14": "E14-PCP 4.2 ter (PN-74), errores de campo (antes de PN-58)"
-        },
-        "nombre_vacio": {
-          "texto": "Falta el nombre para mostrar.",
-          "e14": "E14-PCP 4.2 ter (PN-74), errores de campo (antes de PN-58)"
-        },
-        "nombre_largo": {
-          "texto": "Escribe un nombre de hasta 60 caracteres.",
-          "e14": "E14-PCP 4.16 T5 (D-153)"
-        }
-      },
       "borrarCuenta": {
         "contrasena_vacia": {
           "texto": "Falta tu contraseña.",
@@ -639,6 +625,10 @@
       "guardarLaContrasena": {
         "texto": "Guardar la contraseña",
         "e14": "E14-PCP 4.5 (PN-62); E14-PCP 4.15 (PN-73)"
+      },
+      "usarOtroCorreo": {
+        "texto": "Usar otro correo",
+        "e14": "E14-PCP 4.2 (PN-59), fila 5, aprobado (D-176): reemplaza «Cambiar el correo»; vuelve a PN-58"
       }
     },
     "campos": {
@@ -646,6 +636,10 @@
         "etiqueta": {
           "texto": "Correo electrónico",
           "e14": "E14-PCP 4.1 (PN-58); E14-PCP 4.3 (PN-60); E14-PCP 4.4 (PN-61); E14-PCP 4.16"
+        },
+        "ayuda": {
+          "texto": "Te enviaremos un enlace para confirmarlo y elegir tu contraseña.",
+          "e14": "E14-PCP 4.1 (PN-58), fila 4, aprobado (D-176): reemplaza «Te enviaremos un enlace para confirmarlo.»; también en el formulario de «Reenviar el correo» de PN-59 (4.16 T3)"
         }
       },
       "contrasena": {
@@ -677,16 +671,6 @@
           "texto": "Tu contraseña de ahora",
           "e14": "E14-PCP 4.15 (PN-73)"
         }
-      },
-      "nombre": {
-        "etiqueta": {
-          "texto": "Nombre para mostrar",
-          "e14": "E14-PCP 4.1 (PN-58)"
-        },
-        "ayuda": {
-          "texto": "Es el nombre que verás en la app. Puede ser un apodo.",
-          "e14": "E14-PCP 4.1 (PN-58)"
-        }
       }
     },
     "crearCuenta": {
@@ -701,6 +685,14 @@
       "yaTengoCuenta": {
         "texto": "Ya tengo una cuenta",
         "e14": "E14-PCP 4.1 (PN-58)"
+      },
+      "intro": {
+        "texto": "Empecemos por tu correo.",
+        "e14": "E14-PCP 4.1 (PN-58), fila 3, aprobado (D-176): reemplaza «Solo necesitamos tres datos.»"
+      },
+      "nota": {
+        "texto": "Después de confirmar tu correo elegirás tu contraseña, verás cómo cuidamos tus datos y decidirás si los autorizas.",
+        "e14": "E14-PCP 4.1 (PN-58), fila 8, aprobado (D-176): reemplaza «Después de confirmar tu correo verás cómo cuidamos tus datos y decidirás si los autorizas.»"
       }
     },
     "entrar": {
@@ -769,6 +761,14 @@
       "espera": {
         "texto": "Puedes pedir otro en un momento.",
         "e14": "E14-PCP 4.2 (PN-59)"
+      },
+      "enviadoA": {
+        "texto": "Te enviamos un correo a {correo}. Ábrelo y sigue el enlace para elegir tu contraseña y confirmar tu cuenta.",
+        "e14": "E14-PCP 4.2 (PN-59), fila 2, aprobado (D-176)"
+      },
+      "enviado": {
+        "texto": "Te enviamos un correo. Ábrelo y sigue el enlace para elegir tu contraseña y confirmar tu cuenta.",
+        "e14": "E14-PCP 4.2 (PN-59), estado «Sin dirección» y 4.16 T4, aprobado (D-176)"
       }
     },
     "seguridadDeLaCuenta": {
@@ -1633,6 +1633,18 @@
         "mayor_de_edad_requerido": {
           "texto": "Falta marcar que eres mayor de edad.",
           "e14": "E14-PCP 4.1 (PN-58)"
+        },
+        "contrasena_vacia": {
+          "texto": "Falta la contraseña.",
+          "e14": "E14-PCP 4.2 ter (PN-74), errores de campo (antes de PN-58)"
+        },
+        "nombre_vacio": {
+          "texto": "Falta el nombre para mostrar.",
+          "e14": "E14-PCP 4.2 ter (PN-74), errores de campo (antes de PN-58)"
+        },
+        "nombre_largo": {
+          "texto": "Escribe un nombre de hasta 60 caracteres.",
+          "e14": "E14-PCP 4.16 T5 (D-153)"
         }
       }
     },
@@ -1661,6 +1673,16 @@
         "etiqueta": {
           "texto": "Soy mayor de edad",
           "e14": "E14-PCP 4.1 (PN-58); E14-PCP 4.8 (PN-65); E14-PCP 4.16"
+        }
+      },
+      "nombre": {
+        "etiqueta": {
+          "texto": "Nombre para mostrar",
+          "e14": "E14-PCP 4.1 (PN-58)"
+        },
+        "ayuda": {
+          "texto": "Es el nombre que verás en la app. Puede ser un apodo.",
+          "e14": "E14-PCP 4.1 (PN-58)"
         }
       }
     },
@@ -1700,12 +1722,6 @@
         }
       }
     },
-    "acciones": {
-      "usarOtroCorreo": {
-        "texto": "Usar otro correo",
-        "e14": "E14-PCP 4.2 (PN-59), fila 5, aprobado (D-176): reemplaza «Cambiar el correo»; vuelve a PN-58"
-      }
-    },
     "eligeTuContrasena": {
       "titulo": {
         "texto": "Elige tu contraseña",
@@ -1718,30 +1734,6 @@
       "pedirOtro": {
         "texto": "Pedir otro enlace",
         "e14": "E14-PCP 4.2 ter (PN-74), estado «Enlace vencido o ya usado» (D-192); mismo botón que PN-62 (4.5), con otro destino"
-      }
-    },
-    "crearCuentaSoloCorreo": {
-      "intro": {
-        "texto": "Empecemos por tu correo.",
-        "e14": "E14-PCP 4.1 (PN-58), fila 3, aprobado (D-176): reemplaza «Solo necesitamos tres datos.»"
-      },
-      "nota": {
-        "texto": "Después de confirmar tu correo elegirás tu contraseña, verás cómo cuidamos tus datos y decidirás si los autorizas.",
-        "e14": "E14-PCP 4.1 (PN-58), fila 8, aprobado (D-176): reemplaza «Después de confirmar tu correo verás cómo cuidamos tus datos y decidirás si los autorizas.»"
-      },
-      "ayudaDelCorreo": {
-        "texto": "Te enviaremos un enlace para confirmarlo y elegir tu contraseña.",
-        "e14": "E14-PCP 4.1 (PN-58), fila 4, aprobado (D-176): reemplaza «Te enviaremos un enlace para confirmarlo.»; también en el formulario de «Reenviar el correo» de PN-59 (4.16 T3)"
-      }
-    },
-    "revisaTuCorreoSinSesion": {
-      "enviadoA": {
-        "texto": "Te enviamos un correo a {correo}. Ábrelo y sigue el enlace para elegir tu contraseña y confirmar tu cuenta.",
-        "e14": "E14-PCP 4.2 (PN-59), fila 2, aprobado (D-176)"
-      },
-      "enviado": {
-        "texto": "Te enviamos un correo. Ábrelo y sigue el enlace para elegir tu contraseña y confirmar tu cuenta.",
-        "e14": "E14-PCP 4.2 (PN-59), estado «Sin dirección» y 4.16 T4, aprobado (D-176)"
       }
     }
   },
@@ -1786,36 +1778,6 @@
           "texto": "Tu mamá, papá o tutor crea tu cuenta desde la suya y te da tu usuario.",
           "e14": "E14-PCP 4.8, PN-65: «Menos de 18 años» (D-090). Sin el botón «Ya tengo un usuario: iniciar sesión» hasta I11 (D-137)."
         }
-      },
-      "sinConfirmarTodavia": {
-        "titulo": {
-          "texto": "Todavía no confirmaste tu correo.",
-          "e14": "E14-PCP 4.2, «Ya lo confirmé» sin confirmar"
-        },
-        "mensaje": {
-          "texto": "Abre el enlace que te enviamos.",
-          "e14": "E14-PCP 4.2, «Ya lo confirmé» sin confirmar"
-        }
-      },
-      "errorAlRevisarElCorreo": {
-        "titulo": {
-          "texto": "No pudimos revisar si confirmaste tu correo.",
-          "e14": "E14-PCP 4.16 T8: «Ya lo confirmé» no pudo revisar el estado (5xx)"
-        },
-        "mensaje": {
-          "texto": "Intenta de nuevo.",
-          "e14": "E14-PCP 4.16 T8: «Ya lo confirmé» no pudo revisar el estado (5xx)"
-        }
-      },
-      "errorAlConfirmarElCorreo": {
-        "titulo": {
-          "texto": "No pudimos confirmar tu correo.",
-          "e14": "E14-PCP 4.16 T9: el enlace de verificación falló del lado del servidor (5xx), distinto del enlace vencido"
-        },
-        "mensaje": {
-          "texto": "Intenta de nuevo.",
-          "e14": "E14-PCP 4.16 T9: el enlace de verificación falló del lado del servidor (5xx), distinto del enlace vencido"
-        }
       }
     },
     "textosDeEdad": {
@@ -1853,41 +1815,9 @@
       }
     },
     "revisaTuCorreo": {
-      "yaLoConfirme": {
-        "texto": "Ya lo confirmé",
-        "e14": "E14-PCP 4.2 (PN-59)"
-      },
-      "enviadoA": {
-        "texto": "Te enviamos un enlace a {correo}. Ábrelo para confirmar tu cuenta.",
-        "e14": "E14-PCP 4.2 (PN-59)"
-      },
-      "enviado": {
-        "texto": "Te enviamos un enlace a tu correo. Ábrelo para confirmar tu cuenta.",
-        "e14": "E14-PCP 4.2 (PN-59)"
-      }
-    },
-    "acciones": {
-      "cambiarElCorreo": {
-        "texto": "Cambiar el correo",
-        "e14": "E14-PCP 4.2 (PN-59); E14-PCP 4.16"
-      }
-    },
-    "crearCuenta": {
-      "intro": {
-        "texto": "Solo necesitamos tres datos.",
-        "e14": "E14-PCP 4.1 (PN-58)"
-      },
-      "nota": {
-        "texto": "Después de confirmar tu correo verás cómo cuidamos tus datos y decidirás si los autorizas.",
-        "e14": "E14-PCP 4.1 (PN-58)"
-      }
-    },
-    "campos": {
-      "correo": {
-        "ayuda": {
-          "texto": "Te enviaremos un enlace para confirmarlo.",
-          "e14": "E14-PCP 4.1 (PN-58)"
-        }
+      "yaEligiMiContrasena": {
+        "texto": "Ya elegí mi contraseña",
+        "e14": "E14-PCP 4.2 (PN-59, fila 4 bis, solo Android hasta I08); D-184"
       }
     }
   }

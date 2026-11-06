@@ -189,7 +189,6 @@ describe('PN-64 · Autorización de datos (E14-PCP 4.7)', () => {
 
     it.each([
       [401, { error: 'sin_sesion' }, reinicio('Entrar', { llegada: 'sesion_cerrada' })],
-      [403, { error: 'verificacion_pendiente' }, reinicio('RevisaTuCorreo', undefined)],
     ])('un %s lleva a la pantalla que corresponde', async (estado, cuerpo, accion) => {
       const { navegacion } = await mostrar(respuestaJson(estado, cuerpo));
       await fireEvent.press(screen.getByLabelText(NECESARIAS));
@@ -292,9 +291,5 @@ describe('PN-64 · Autorización de datos (E14-PCP 4.7)', () => {
       );
     });
 
-    it('un 403 verificacion_pendiente lleva a PN-59', async () => {
-      const { navegacion } = await mostrarConError(respuestaJson(403, { error: 'verificacion_pendiente' }));
-      await waitFor(() => expect(navegacion.dispatch).toHaveBeenCalledWith(reinicio('RevisaTuCorreo', undefined)));
-    });
   });
 });

@@ -95,8 +95,8 @@ export function RevisaTuCorreo() {
       <p>
         {cifras(
           correo
-            ? formatear(textos.revisaTuCorreoSinSesion.enviadoA, { correo })
-            : textos.revisaTuCorreoSinSesion.enviado,
+            ? formatear(textos.revisaTuCorreo.enviadoA, { correo })
+            : textos.revisaTuCorreo.enviado,
         )}
       </p>
       <p className="nota">
@@ -110,7 +110,7 @@ export function RevisaTuCorreo() {
           <CampoDeTexto
             id="nuevo-correo"
             etiqueta={textos.campos.correo.etiqueta}
-            ayuda={textos.crearCuentaSoloCorreo.ayudaDelCorreo}
+            ayuda={textos.campos.correo.ayuda}
             tipo="email"
             autocompletar="email"
             valor={nuevoCorreo}

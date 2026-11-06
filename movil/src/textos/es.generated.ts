@@ -194,24 +194,6 @@ export const textos = {
       // E14-PCP 4.8, PN-65: «Menos de 18 años» (D-090). Sin el botón «Ya tengo un usuario: iniciar sesión» hasta I11 (D-137).
       mensaje: "Tu mamá, papá o tutor crea tu cuenta desde la suya y te da tu usuario.",
     },
-    sinConfirmarTodavia: {
-      // E14-PCP 4.2, «Ya lo confirmé» sin confirmar
-      titulo: "Todavía no confirmaste tu correo.",
-      // E14-PCP 4.2, «Ya lo confirmé» sin confirmar
-      mensaje: "Abre el enlace que te enviamos.",
-    },
-    errorAlRevisarElCorreo: {
-      // E14-PCP 4.16 T8: «Ya lo confirmé» no pudo revisar el estado (5xx)
-      titulo: "No pudimos revisar si confirmaste tu correo.",
-      // E14-PCP 4.16 T8: «Ya lo confirmé» no pudo revisar el estado (5xx)
-      mensaje: "Intenta de nuevo.",
-    },
-    errorAlConfirmarElCorreo: {
-      // E14-PCP 4.16 T9: el enlace de verificación falló del lado del servidor (5xx), distinto del enlace vencido
-      titulo: "No pudimos confirmar tu correo.",
-      // E14-PCP 4.16 T9: el enlace de verificación falló del lado del servidor (5xx), distinto del enlace vencido
-      mensaje: "Intenta de nuevo.",
-    },
   },
   correo: {
     // E14-PCP 4.1 (errores de campo de PN-58): el campo del correo es el mismo en PN-58, en «Cambiar el correo» de PN-59 (4.16 T3) y en PN-61.
@@ -243,14 +225,6 @@ export const textos = {
       contrasena_vacia: "Falta tu contraseña de ahora.",
       // E14-PCP 4.15 (PN-73)
       contrasena_actual_incorrecta: "No pudimos confirmar tu contraseña de ahora. Escríbela de nuevo.",
-    },
-    crearCuenta: {
-      // E14-PCP 4.2 ter (PN-74), errores de campo (antes de PN-58)
-      contrasena_vacia: "Falta la contraseña.",
-      // E14-PCP 4.2 ter (PN-74), errores de campo (antes de PN-58)
-      nombre_vacio: "Falta el nombre para mostrar.",
-      // E14-PCP 4.16 T5 (D-153)
-      nombre_largo: "Escribe un nombre de hasta 60 caracteres.",
     },
     borrarCuenta: {
       // E14-PCP 4.12 (PN-69), errores de campo
@@ -386,15 +360,15 @@ export const textos = {
     reenviarElCorreo: "Reenviar el correo",
     // E14-PCP 4.5 (PN-62); E14-PCP 4.15 (PN-73)
     guardarLaContrasena: "Guardar la contraseña",
-    // E14-PCP 4.2 (PN-59); E14-PCP 4.16
-    cambiarElCorreo: "Cambiar el correo",
+    // E14-PCP 4.2 (PN-59), fila 5, aprobado (D-176): reemplaza «Cambiar el correo»; vuelve a PN-58
+    usarOtroCorreo: "Usar otro correo",
   },
   campos: {
     correo: {
       // E14-PCP 4.1 (PN-58); E14-PCP 4.3 (PN-60); E14-PCP 4.4 (PN-61); E14-PCP 4.16
       etiqueta: "Correo electrónico",
-      // E14-PCP 4.1 (PN-58)
-      ayuda: "Te enviaremos un enlace para confirmarlo.",
+      // E14-PCP 4.1 (PN-58), fila 4, aprobado (D-176): reemplaza «Te enviaremos un enlace para confirmarlo.»; también en el formulario de «Reenviar el correo» de PN-59 (4.16 T3)
+      ayuda: "Te enviaremos un enlace para confirmarlo y elegir tu contraseña.",
     },
     contrasena: {
       // E14-PCP 4.1 (PN-58); E14-PCP 4.3 (PN-60); E14-PCP 4.5 (PN-62); E14-PCP 4.12 (PN-69); E14-PCP 4.14 (PN-71); E14-PCP 4.15 (PN-73); E14-PCP 4.16
@@ -414,12 +388,6 @@ export const textos = {
       // E14-PCP 4.15 (PN-73)
       etiqueta: "Tu contraseña de ahora",
     },
-    nombre: {
-      // E14-PCP 4.1 (PN-58)
-      etiqueta: "Nombre para mostrar",
-      // E14-PCP 4.1 (PN-58)
-      ayuda: "Es el nombre que verás en la app. Puede ser un apodo.",
-    },
   },
   crearCuenta: {
     // E14-PCP 4.1 (PN-58)
@@ -428,10 +396,10 @@ export const textos = {
     crear: "Crear cuenta",
     // E14-PCP 4.1 (PN-58)
     yaTengoCuenta: "Ya tengo una cuenta",
-    // E14-PCP 4.1 (PN-58)
-    intro: "Solo necesitamos tres datos.",
-    // E14-PCP 4.1 (PN-58)
-    nota: "Después de confirmar tu correo verás cómo cuidamos tus datos y decidirás si los autorizas.",
+    // E14-PCP 4.1 (PN-58), fila 3, aprobado (D-176): reemplaza «Solo necesitamos tres datos.»
+    intro: "Empecemos por tu correo.",
+    // E14-PCP 4.1 (PN-58), fila 8, aprobado (D-176): reemplaza «Después de confirmar tu correo verás cómo cuidamos tus datos y decidirás si los autorizas.»
+    nota: "Después de confirmar tu correo elegirás tu contraseña, verás cómo cuidamos tus datos y decidirás si los autorizas.",
   },
   entrar: {
     // E14-PCP 4.3 (PN-60)
@@ -470,12 +438,12 @@ export const textos = {
     plazo: "Si no lo confirmas en 7 días, borramos esta cuenta.",
     // E14-PCP 4.2 (PN-59)
     espera: "Puedes pedir otro en un momento.",
-    // E14-PCP 4.2 (PN-59)
-    yaLoConfirme: "Ya lo confirmé",
-    // E14-PCP 4.2 (PN-59)
-    enviadoA: "Te enviamos un enlace a {correo}. Ábrelo para confirmar tu cuenta.",
-    // E14-PCP 4.2 (PN-59)
-    enviado: "Te enviamos un enlace a tu correo. Ábrelo para confirmar tu cuenta.",
+    // E14-PCP 4.2 (PN-59), fila 2, aprobado (D-176)
+    enviadoA: "Te enviamos un correo a {correo}. Ábrelo y sigue el enlace para elegir tu contraseña y confirmar tu cuenta.",
+    // E14-PCP 4.2 (PN-59), estado «Sin dirección» y 4.16 T4, aprobado (D-176)
+    enviado: "Te enviamos un correo. Ábrelo y sigue el enlace para elegir tu contraseña y confirmar tu cuenta.",
+    // E14-PCP 4.2 (PN-59, fila 4 bis, solo Android hasta I08); D-184
+    yaEligiMiContrasena: "Ya elegí mi contraseña",
   },
   seguridadDeLaCuenta: {
     // E14-PCP 4.14 (PN-71)

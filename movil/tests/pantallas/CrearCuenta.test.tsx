@@ -13,16 +13,16 @@ const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crear
 const reinicio = (nombre: string, params?: object) =>
   CommonActions.reset({ index: 0, routes: [{ name: nombre, params }] });
 
-async function mostrar() {
+async function mostrar(correo?: string) {
   const navegacion = navegacionFalsa();
-  await render(<CrearCuenta {...propiedades('CrearCuenta', navegacion, { mayorDeEdad: true })} />);
+  await render(
+    <CrearCuenta {...propiedades('CrearCuenta', navegacion, correo ? { mayorDeEdad: true, correo } : { mayorDeEdad: true })} />,
+  );
   return navegacion;
 }
 
-async function llenar(correo = 'laura@ejemplo.com', contrasena = 'lluvia café tren azul', nombre = 'Laura') {
+async function llenar(correo = 'laura@ejemplo.com') {
   await fireEvent.changeText(screen.getByLabelText('Correo electrónico'), correo);
-  await fireEvent.changeText(screen.getByLabelText('Contraseña'), contrasena);
-  await fireEvent.changeText(screen.getByLabelText('Nombre para mostrar'), nombre);
 }
 
 const crear = () => fireEvent.press(screen.getByRole('button', { name: 'Crear cuenta' }));
@@ -35,40 +35,41 @@ describe('PN-58 · Crear la cuenta, Android (E14-PCP 4.1)', () => {
     jest.clearAllMocks();
   });
 
-  it('muestra los textos de E14 y solo tres datos, sin casilla de edad', async () => {
+  it('muestra los textos de E14 con solo el correo, sin casilla de edad', async () => {
     await mostrar();
     expect(screen.getByRole('image', { name: 'Alcanzamos' })).toBeOnTheScreen();
     expect(screen.getByRole('header', { name: 'Crea tu cuenta' })).toBeOnTheScreen();
-    expect(screen.getByText('Solo necesitamos tres datos.')).toBeOnTheScreen();
+    expect(screen.getByText('Empecemos por tu correo.')).toBeOnTheScreen();
     expect(screen.getByText('Correo electrónico')).toBeOnTheScreen();
-    expect(screen.getByText('Te enviaremos un enlace para confirmarlo.')).toBeOnTheScreen();
-    expect(screen.getByText('Contraseña')).toBeOnTheScreen();
-    expect(screen.getByText('Usa una frase de tres o cuatro palabras.')).toBeOnTheScreen();
-    expect(screen.getByText('Nombre para mostrar')).toBeOnTheScreen();
-    expect(screen.getByText('Es el nombre que verás en la app. Puede ser un apodo.')).toBeOnTheScreen();
+    expect(screen.getByText('Te enviaremos un enlace para confirmarlo y elegir tu contraseña.')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Crear cuenta' })).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Ya tengo una cuenta' })).toBeOnTheScreen();
     expect(
-      screen.getByText('Después de confirmar tu correo verás cómo cuidamos tus datos y decidirás si los autorizas.'),
+      screen.getByText(
+        'Después de confirmar tu correo elegirás tu contraseña, verás cómo cuidamos tus datos y decidirás si los autorizas.',
+      ),
     ).toBeOnTheScreen();
     expect(screen.queryByRole('checkbox')).not.toBeOnTheScreen();
     expect(screen.queryByText(/mayor de edad|nacimiento/i)).not.toBeOnTheScreen();
   });
 
-  it('USA-005 el formulario pide solo correo, contraseña y nombre, sin casilla de edad ni otro campo', async () => {
+  it('USA-005 el formulario pide solo el correo: sin contraseña, nombre, casilla de edad ni otro campo', async () => {
     await mostrar();
-    expect(screen.getAllByDisplayValue(/^/)).toHaveLength(3);
+    expect(screen.getAllByDisplayValue(/^/)).toHaveLength(1);
     expect(screen.getByLabelText('Correo electrónico')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Contraseña')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Nombre para mostrar')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Contraseña')).not.toBeOnTheScreen();
+    expect(screen.queryByLabelText('Nombre para mostrar')).not.toBeOnTheScreen();
     expect(screen.queryByRole('checkbox')).not.toBeOnTheScreen();
   });
 
-  it('los campos piden el autocompletado de Android: email, new-password y name', async () => {
+  it('el campo pide el autocompletado de Android: email', async () => {
     await mostrar();
     expect(screen.getByLabelText('Correo electrónico').props.autoComplete).toBe('email');
-    expect(screen.getByLabelText('Contraseña').props.autoComplete).toBe('new-password');
-    expect(screen.getByLabelText('Nombre para mostrar').props.autoComplete).toBe('name');
+  });
+
+  it('con el correo que trae PN-59 («Usar otro correo») el campo viene con lo escrito', async () => {
+    await mostrar('laura@ejemplo.com');
+    expect(screen.getByLabelText('Correo electrónico').props.value).toBe('laura@ejemplo.com');
   });
 
   it('«Ya tengo una cuenta» vuelve a PN-60', async () => {
@@ -89,10 +90,8 @@ describe('PN-58 · Crear la cuenta, Android (E14-PCP 4.1)', () => {
   });
 
   describe('crear', () => {
-    it('manda correo, contraseña, nombre y mayor_de_edad: true, y nada más (sin fecha ni edad)', async () => {
-      const { pedidos } = instalarFetchFalso(
-        respuestaJson(202, { estado: 'verificacion_pendiente', token: 'token-de-prueba' }),
-      );
+    it('manda solo el correo y mayor_de_edad: true, sin sesión (sin fecha, edad, contraseña ni nombre)', async () => {
+      const { pedidos } = instalarFetchFalso(respuestaJson(202, { estado: 'verificacion_pendiente' }));
       await mostrar();
       await llenar();
       await crear();
@@ -101,8 +100,6 @@ describe('PN-58 · Crear la cuenta, Android (E14-PCP 4.1)', () => {
       expect(pedidos[0]?.init.method).toBe('POST');
       expect(JSON.parse(pedidos[0]?.init.body as string)).toEqual({
         correo: 'laura@ejemplo.com',
-        contrasena: 'lluvia café tren azul',
-        nombre: 'Laura',
         mayor_de_edad: true,
       });
       const cabeceras = pedidos[0]?.init.headers as Record<string, string>;
@@ -110,19 +107,19 @@ describe('PN-58 · Crear la cuenta, Android (E14-PCP 4.1)', () => {
       expect(Object.keys(cabeceras).map((c) => c.toLowerCase())).not.toContain('origin');
     });
 
-    it('guarda el token solo en el Keystore (SecureStore) y nunca en AsyncStorage', async () => {
-      instalarFetchFalso(respuestaJson(202, { estado: 'verificacion_pendiente', token: 'token-de-prueba' }));
-      await mostrar();
+    it('no guarda ningún token: crear la cuenta no da sesión (D-172), ni en el Keystore ni en AsyncStorage', async () => {
+      instalarFetchFalso(respuestaJson(202, { estado: 'verificacion_pendiente' }));
+      const navegacion = await mostrar();
       await llenar();
       await crear();
-      await waitFor(() => expect(almacen.setItemAsync).toHaveBeenCalledWith('sesion', 'token-de-prueba'));
+      await waitFor(() => expect(navegacion.dispatch).toHaveBeenCalled());
+      expect(almacen.setItemAsync).not.toHaveBeenCalled();
       expect(AsyncStorage.setItem).not.toHaveBeenCalled();
-      expect(AsyncStorage.multiSet).not.toHaveBeenCalled();
       expect(await AsyncStorage.getAllKeys()).toEqual([]);
     });
 
     it('con éxito sigue a PN-59 con el correo, como la única pantalla de la pila', async () => {
-      instalarFetchFalso(respuestaJson(202, { estado: 'verificacion_pendiente', token: 'x' }));
+      instalarFetchFalso(respuestaJson(202, { estado: 'verificacion_pendiente' }));
       const navegacion = await mostrar();
       await llenar();
       await crear();
@@ -141,50 +138,24 @@ describe('PN-58 · Crear la cuenta, Android (E14-PCP 4.1)', () => {
       await crear();
       expect(fetchFalso).toHaveBeenCalledTimes(1);
       expect(screen.getByRole('button', { name: 'Crear cuenta', disabled: true })).toBeOnTheScreen();
-      await act(async () => responder(respuestaJson(202, { token: 'x' })));
+      await act(async () => responder(respuestaJson(202, { estado: 'verificacion_pendiente' })));
     });
   });
 
   describe('errores de campo (422)', () => {
     it.each([
-      ['correo', 'correo_vacio', 'Falta el correo electrónico.'],
-      ['correo', 'correo_invalido', 'Falta completar el correo. Por ejemplo, nombre@correo.com.'],
-      ['contrasena', 'contrasena_vacia', 'Falta la contraseña.'],
-      ['contrasena', 'contrasena_corta', 'Falta que la contraseña tenga al menos 15 caracteres.'],
-      [
-        'contrasena',
-        'contrasena_comun',
-        'Falta una contraseña que no sea tan común. Prueba con una frase de tres o cuatro palabras.',
-      ],
-      ['contrasena', 'contrasena_personal', 'Falta una contraseña que no incluya tu correo ni la palabra «Alcanzamos».'],
-      ['nombre', 'nombre_vacio', 'Falta el nombre para mostrar.'],
-      ['nombre', 'nombre_largo', 'Escribe un nombre de hasta 60 caracteres.'],
-    ])('%s %s → «%s»', async (campo, codigo, texto) => {
-      instalarFetchFalso(respuestaJson(422, { error: 'validacion', campos: { [campo]: codigo } }));
-      await mostrar();
-      await llenar();
-      await crear();
-      expect(await screen.findByText(texto)).toBeOnTheScreen();
-      expect(screen.queryByText('No pudimos crear la cuenta.')).not.toBeOnTheScreen();
-    });
-
-    it('con varios errores los muestra todos a la vez, conserva lo escrito y lleva el foco al primero', async () => {
-      instalarFetchFalso(
-        respuestaJson(422, {
-          error: 'validacion',
-          campos: { nombre: 'nombre_vacio', correo: 'correo_invalido', contrasena: 'contrasena_corta' },
-        }),
-      );
+      ['correo_vacio', 'Falta el correo electrónico.'],
+      ['correo_invalido', 'Falta completar el correo. Por ejemplo, nombre@correo.com.'],
+    ])('correo %s → «%s», conserva lo escrito y lleva el foco al campo', async (codigo, texto) => {
+      instalarFetchFalso(respuestaJson(422, { error: 'validacion', campos: { correo: codigo } }));
       await mostrar();
       const foco = TextInput.prototype.focus as jest.Mock;
       foco.mockClear();
-      await llenar('mal', 'corta', '');
+      await llenar('mal');
       await crear();
-      expect(await screen.findByText('Falta completar el correo. Por ejemplo, nombre@correo.com.')).toBeOnTheScreen();
-      expect(screen.getByText('Falta que la contraseña tenga al menos 15 caracteres.')).toBeOnTheScreen();
-      expect(screen.getByText('Falta el nombre para mostrar.')).toBeOnTheScreen();
+      expect(await screen.findByText(texto)).toBeOnTheScreen();
+      expect(screen.queryByText('No pudimos crear la cuenta.')).not.toBeOnTheScreen();
       expect(screen.getByLabelText('Correo electrónico').props.value).toBe('mal');
-      expect(screen.getByLabelText('Contraseña').props.value).toBe('corta');
       expect(foco).toHaveBeenCalledTimes(1);
       expect(foco.mock.contexts[0].props.accessibilityLabel).toBe('Correo electrónico');
     });
@@ -210,7 +181,7 @@ describe('PN-58 · Crear la cuenta, Android (E14-PCP 4.1)', () => {
 
   describe('otros fallos', () => {
     it('un 500 muestra «No pudimos crear la cuenta.» con «Intentar de nuevo», que repite el pedido', async () => {
-      const { fetchFalso } = instalarFetchFalso(respuestaJson(500), respuestaJson(202, { token: 'x' }));
+      const { fetchFalso } = instalarFetchFalso(respuestaJson(500), respuestaJson(202, { estado: 'verificacion_pendiente' }));
       const navegacion = await mostrar();
       await llenar();
       await crear();
@@ -249,7 +220,7 @@ describe('PN-58 · Crear la cuenta, Android (E14-PCP 4.1)', () => {
       expect(
         await screen.findByText('Sin conexión. Intenta de nuevo cuando vuelvas a tener internet.'),
       ).toBeOnTheScreen();
-      expect(screen.getByLabelText('Contraseña').props.value).toBe('lluvia café tren azul');
+      expect(screen.getByLabelText('Correo electrónico').props.value).toBe('laura@ejemplo.com');
     });
 
     it('sin la dirección del API muestra «Sin conexión…» y no hace pedidos', async () => {
