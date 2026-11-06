@@ -34,7 +34,7 @@ from pathlib import Path
 NUCLEO_Y_SEGURIDAD = "nucleo_y_seguridad"
 RESTO = "resto"
 # Listas explícitas de E17-ECO 5.5 (D-149). Un paquete que no esté en ninguna hace fallar la barrera.
-PAQUETES_DEL_GRUPO_DE_90 = ("nucleo", "seguridad", "argon2id", "sesion", "servidor", "autenticacion", "cuenta", "autorizacion", "fechas", "registro")
+PAQUETES_DEL_GRUPO_DE_90 = ("nucleo", "seguridad", "argon2id", "sesion", "servidor", "autenticacion", "cuenta", "autorizacion", "fechas", "registro", "interpretacion")
 PAQUETES_DEL_RESTO = ("app", "bd", "cmd/api", "config", "correo", "pg", "reloj", "tareas", "web")
 MINIMOS = {NUCLEO_Y_SEGURIDAD: 90.0, RESTO: 75.0}
 NOMBRES = {NUCLEO_Y_SEGURIDAD: "núcleo y seguridad", RESTO: "resto del API"}
@@ -230,10 +230,10 @@ def casos():
          ["núcleo y seguridad: 100.0 % está bajo la base de 100.1 %"]),
         ("los dos grupos fallan a la vez", _perfil(("sesion/a.go", 1, 0), ("tareas/a.go", 1, 0)), _base(0, 0),
          ["núcleo y seguridad: 0.0 %", "resto del API: 0.0 %"]),
-        ("cada uno de los diez paquetes del grupo de 90 cuenta en él",
+        ("cada uno de los once paquetes del grupo de 90 cuenta en él",
          _perfil(("nucleo/a.go", 1, 0), ("seguridad/a.go", 1, 0), ("argon2id/a.go", 1, 0), ("sesion/a.go", 1, 0),
                  ("servidor/a.go", 1, 0), ("autenticacion/a.go", 1, 0), ("cuenta/a.go", 1, 0), ("autorizacion/a.go", 1, 0),
-                 ("fechas/a.go", 1, 0), ("registro/a.go", 1, 0), ("pg/a.go", 100, 1)),
+                 ("fechas/a.go", 1, 0), ("registro/a.go", 1, 0), ("interpretacion/a.go", 1, 0), ("pg/a.go", 100, 1)),
          _base(0, 0), ["núcleo y seguridad: 0.0 %"]),
         ("cada uno de los nueve paquetes del resto cuenta en él",
          _perfil(("seguridad/a.go", 100, 1), ("app/a.go", 1, 0), ("bd/a.go", 1, 0), ("cmd/api/a.go", 1, 0), ("config/a.go", 1, 0),

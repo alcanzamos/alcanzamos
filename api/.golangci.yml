@@ -61,6 +61,7 @@ linters:
             - "**/src/autorizacion/**"
             - "**/src/cuenta/**"
             - "**/src/registro/**"
+            - "**/src/interpretacion/**"
             - "**/src/seguridad/**"
             - "**/src/reloj/**"
             - "**/src/fechas/**"

@@ -1,4 +1,5 @@
-# Pipeline de reglas/: verifica el SHA-256 de los conjuntos congelados (D-083).
+# Pipeline de reglas/: verifica el SHA-256 de los conjuntos congelados (D-083), de reglas.json (D-1.0) y de la salida
+# congelada del prototipo (IAR-004), y que la copia de reglas.json dentro de api/ sea idéntica.
 # Corre solo cuando cambia reglas/ o este archivo (ADR-001, filtros por carpeta).
 # D-183: no corre al fusionar en main. Con la rama al día (protección `strict`) y squash, main queda igual a lo
 # que ya se probó en el PR; volver a correrlo solo gasta minutos. Se vuelve a poner cuando haya despliegue.
@@ -12,6 +13,7 @@ pr:
   paths:
     include:
       - reglas/*
+      - api/src/interpretacion/reglas.json
       - .azure-pipelines/reglas.yml
 
 pool:
@@ -34,3 +36,22 @@ steps:
       echo "$esperado" | sed 's/^ *//' | sha256sum --check --strict
     workingDirectory: reglas/conjuntos
     displayName: Los conjuntos coinciden con los SHA-256 congelados
+
+  # reglas.json (versión D-1.0, D-075 (4)) y la referencia de IAR-004: la salida del prototipo de Python para cada mensaje
+  # de los dos conjuntos. Ninguno se edita: un cambio crea una versión nueva con su propio hash.
+  - script: sha256sum --check --strict SHA256SUMS
+    workingDirectory: reglas
+    displayName: reglas.json y la referencia coinciden con SHA256SUMS
+
+  - script: |
+      set -eu
+      esperado="5d130dbc945679c3f8ad52f17c8cdabda89fb64f074fb6abde637d0ec5f3153c  reglas.json
+      f54b9b3c6f409212ba909f0ee3f5579de9f5ea69638197d64ae34cf76e7c1574  referencia/referencia-prueba.jsonl
+      d58f1b0a3456f1c7243a24f1d879320e25f997bd3091edc90712835ef0631368  referencia/referencia-confirmacion.jsonl"
+      echo "$esperado" | sed 's/^ *//' | sha256sum --check --strict
+    workingDirectory: reglas
+    displayName: reglas.json y la referencia coinciden con los SHA-256 congelados
+
+  # Go no puede embeber archivos de fuera de api/ y la imagen solo copia api/: el motor lleva una copia idéntica.
+  - script: cmp reglas/reglas.json api/src/interpretacion/reglas.json
+    displayName: La copia de reglas.json dentro de api/ es idéntica

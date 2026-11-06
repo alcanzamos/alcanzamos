@@ -1,0 +1,540 @@
+{
+ "version": "D-1.0",
+ "descripcion": "Reglas de la opción D (solo reglas), E11-PDC-D. Todo el conocimiento del dominio está aquí; motor.py solo aplica operaciones genéricas. Los patrones usan el subconjunto portable de expresiones regulares (README de la opción D) y se leen sobre texto ASCII en minúsculas. <<NOMBRE>> es una macro de «definiciones».",
+ "prioridades": "Intención (recomendación, pregunta, registro) > fecha (se tapa antes del monto) > monto (corrección, total, cantidad por precio, primer importe) > tipo (ingreso si hay pista; si no, gasto) > categoría (primera entrada de la lista del tipo que coincida; la lista va de lo específico a lo general; sin coincidencia, la general del tipo).",
+ "definiciones": {
+  "INI": "(?:^|[^a-z0-9])",
+  "FIN": "(?:[^a-z0-9]|$)",
+  "NUMW": "cuatrocientos|veinticuatro|novecientos|ochocientos|seiscientos|setecientos|trescientos|veinticinco|veintinueve|veintisiete|diecinueve|diecisiete|doscientos|quinientos|veintiocho|veintiseis|veintitres|cincuenta|dieciocho|dieciseis|veintidos|veintiuno|cuarenta|veintiun|catorce|noventa|ochenta|sesenta|setenta|treinta|ciento|cuatro|quince|veinte|cinco|nueve|siete|trece|cien|diez|doce|ocho|once|seis|tres|dos|una|uno|un",
+  "ESC": "millones|millon|lucas|lukas|palos|luca|luka|palo|mil|k",
+  "TOK": "(?:[0-9]+(?:\\.[0-9]+)?|<<NUMW>>|<<ESC>>|medio|media)",
+  "CADENA": "<<TOK>>(?:(?: y | con |[ ])<<TOK>>)*",
+  "CANTIDAD": "(?:[0-9]+|<<NUMW>>)",
+  "MES": "septiembre|diciembre|noviembre|setiembre|febrero|octubre|agosto|abril|enero|julio|junio|marzo|mayo|sept|abr|ago|dic|ene|feb|jul|jun|mar|may|nov|oct|sep|set",
+  "DIA_SEMANA": "miercoles|domingo|viernes|jueves|martes|sabado|lunes"
+ },
+ "normalizacion": {
+  "nota": "El motor pasa el texto a minúsculas, aplica las equivalencias, quita las tildes (la ñ queda n) y luego aplica las sustituciones en orden (con «repetir» hasta que no cambien); al final colapsa los espacios. Los patrones son ASCII en minúsculas. El reemplazo usa $1, $2.",
+  "equivalencias": {
+   "’": "'",
+   "‘": "'",
+   "¿": " ",
+   "¡": " ",
+   "“": " ",
+   "”": " "
+  },
+  "sustituciones": [
+   {
+    "id": "quitar-signo-peso",
+    "patron": "[$]",
+    "reemplazo": ""
+   },
+   {
+    "id": "millones-con-apostrofe",
+    "patron": "([0-9])'([0-9]{3})",
+    "reemplazo": "$1$2",
+    "repetir": true
+   },
+   {
+    "id": "punto-de-miles",
+    "patron": "([0-9])\\.([0-9]{3})",
+    "reemplazo": "$1$2",
+    "repetir": true
+   },
+   {
+    "id": "coma-decimal",
+    "patron": "([0-9]),([0-9])",
+    "reemplazo": "$1.$2"
+   },
+   {
+    "id": "separar-numero-y-letras",
+    "patron": "([0-9])([a-z])",
+    "reemplazo": "$1 $2",
+    "repetir": true
+   }
+  ]
+ },
+ "numeros": {
+  "nota": "Importes en letras, jerga y compuestos. Palabras suman dentro de un grupo; una escala multiplica el grupo (sin grupo, 1); «medio» antes de una escala vale 0,5 de ella; después de una escala suma la mitad de esa escala; un dígito suelto menor que minimo_resto_digitos después de una escala empieza otro importe.",
+  "tokenizador": {
+   "patron": "[0-9]+(?:\\.[0-9]+)?|[a-z]+"
+  },
+  "palabras": {
+   "uno": 1,
+   "un": 1,
+   "una": 1,
+   "dos": 2,
+   "tres": 3,
+   "cuatro": 4,
+   "cinco": 5,
+   "seis": 6,
+   "siete": 7,
+   "ocho": 8,
+   "nueve": 9,
+   "diez": 10,
+   "once": 11,
+   "doce": 12,
+   "trece": 13,
+   "catorce": 14,
+   "quince": 15,
+   "dieciseis": 16,
+   "diecisiete": 17,
+   "dieciocho": 18,
+   "diecinueve": 19,
+   "veinte": 20,
+   "veintiuno": 21,
+   "veintiun": 21,
+   "veintidos": 22,
+   "veintitres": 23,
+   "veinticuatro": 24,
+   "veinticinco": 25,
+   "veintiseis": 26,
+   "veintisiete": 27,
+   "veintiocho": 28,
+   "veintinueve": 29,
+   "treinta": 30,
+   "cuarenta": 40,
+   "cincuenta": 50,
+   "sesenta": 60,
+   "setenta": 70,
+   "ochenta": 80,
+   "noventa": 90,
+   "cien": 100,
+   "ciento": 100,
+   "doscientos": 200,
+   "trescientos": 300,
+   "cuatrocientos": 400,
+   "quinientos": 500,
+   "seiscientos": 600,
+   "setecientos": 700,
+   "ochocientos": 800,
+   "novecientos": 900
+  },
+  "escalas": {
+   "mil": 1000,
+   "k": 1000,
+   "luca": 1000,
+   "lucas": 1000,
+   "luka": 1000,
+   "lukas": 1000,
+   "millon": 1000000,
+   "millones": 1000000,
+   "palo": 1000000,
+   "palos": 1000000
+  },
+  "mitades": [
+   "medio",
+   "media"
+  ],
+  "conectores": [
+   "y",
+   "con"
+  ],
+  "minimo_resto_digitos": 100
+ },
+ "monto": {
+  "nota": "Orden de prioridad: corrección (gana lo que sigue al aviso), total explícito, cantidad por precio (incluye cuotas) y, si ninguna aplica, el primer importe del mensaje (los de 100 o más pesos o con escala antes que los menores). Antes se tapan la fecha y los números con unidad (noches, días, kilos…).",
+  "minimo_fuerte": 100,
+  "reglas": [
+   {
+    "id": "correccion-aviso",
+    "clase": "ultimo",
+    "patron": "<<INI>>(?:no mentira|mentira|perdon|perdona|perdone|mejor dicho|corrijo|correccion|me equivoque|en realidad|realmente|ay no|uy no|no no|no espera|espera no|rectifico)[ ,.:;]*(?:fue|fueron|era|eran|son|es|serian|seria|quedo|quedaron)?[ ]*(?:de |en )?(<<CADENA>>)<<FIN>>"
+   },
+   {
+    "id": "correccion-no-fueron",
+    "clase": "ultimo",
+    "patron": "<<INI>>no[ ,]+(?:fue|fueron|eran|era|son) (?:de )?(<<CADENA>>)<<FIN>>"
+   },
+   {
+    "id": "total-palabra",
+    "clase": "ultimo",
+    "patron": "<<INI>>total(?: fue| fueron| es| son| seria| quedo| salio| de| me costo| costo)*[ :]*(<<CADENA>>)<<FIN>>"
+   },
+   {
+    "id": "total-todo-salio",
+    "clase": "ultimo",
+    "patron": "<<INI>>(?:todo|en total|entre todo|sumando todo|sumado)(?: me)? (?:quedo|quedaron|salio|salieron|fue|fueron|sumo|sumaron|costo|costaron)(?: en| de| por)? (<<CADENA>>)<<FIN>>"
+   },
+   {
+    "id": "total-en-total",
+    "clase": "ultimo",
+    "patron": "<<INI>>(<<CADENA>>) en total<<FIN>>"
+   },
+   {
+    "id": "cuotas",
+    "clase": "producto",
+    "minimo": 100,
+    "patron": "<<INI>>(<<CANTIDAD>>) cuotas (?:mensuales )?(?:de|a|por) (<<CADENA>>)<<FIN>>"
+   },
+   {
+    "id": "cantidad-por-precio",
+    "clase": "producto",
+    "minimo": 100,
+    "patron": "<<INI>>([0-9]{1,2}) (?:[a-z]+ ){0,3}(?:a|de) (<<CADENA>>)<<FIN>>"
+   }
+  ],
+  "ignorar": {
+   "patrones": [
+    "<<INI>>[0-9]+ (?:noches?|dias?|semanas?|meses|mes|anos?|personas?|veces|horas?|kilos?|kg|libras?|litros?|unidades?|cuotas?|por ciento)<<FIN>>",
+    "<<INI>>[0-9]+ ?%"
+   ]
+  },
+  "candidatas": {
+   "patron": "<<INI>>(<<CADENA>>)<<FIN>>"
+  }
+ },
+ "fecha": {
+  "nota": "Convención del conjunto (README 5.3): sin fecha, la de referencia; el año de un día y mes es el de la referencia; un día de la semana es su última ocurrencia anterior (7 días si coincide con la referencia). La fecha de referencia es un dato de entrada, no está aquí.",
+  "meses": {
+   "enero": 1,
+   "febrero": 2,
+   "marzo": 3,
+   "abril": 4,
+   "mayo": 5,
+   "junio": 6,
+   "julio": 7,
+   "agosto": 8,
+   "septiembre": 9,
+   "setiembre": 9,
+   "octubre": 10,
+   "noviembre": 11,
+   "diciembre": 12,
+   "ene": 1,
+   "feb": 2,
+   "mar": 3,
+   "abr": 4,
+   "may": 5,
+   "jun": 6,
+   "jul": 7,
+   "ago": 8,
+   "sept": 9,
+   "sep": 9,
+   "set": 9,
+   "oct": 10,
+   "nov": 11,
+   "dic": 12
+  },
+  "dias_semana": {
+   "lunes": 0,
+   "martes": 1,
+   "miercoles": 2,
+   "jueves": 3,
+   "viernes": 4,
+   "sabado": 5,
+   "domingo": 6
+  },
+  "unidades_dias": {
+   "dia": 1,
+   "dias": 1,
+   "semana": 7,
+   "semanas": 7
+  },
+  "reglas": [
+   {
+    "id": "dia-mes-anio",
+    "clase": "dia_mes_anio",
+    "patron": "<<INI>>([0-9]{1,2}) (?:de |del )?(<<MES>>) (?:de |del )?([0-9]{4})<<FIN>>"
+   },
+   {
+    "id": "dia-y-mes",
+    "clase": "dia_y_mes",
+    "patron": "<<INI>>([0-9]{1,2}) (?:de |del )?(<<MES>>)<<FIN>>"
+   },
+   {
+    "id": "dd-mm",
+    "clase": "dd_mm",
+    "patron": "<<INI>>([0-9]{1,2})/([0-9]{1,2})(?:/([0-9]{2,4}))?<<FIN>>"
+   },
+   {
+    "id": "hace-n",
+    "clase": "desplazamiento_n",
+    "patron": "<<INI>>hace (<<CANTIDAD>>) (dias?|semanas?)<<FIN>>"
+   },
+   {
+    "id": "antier",
+    "clase": "desplazamiento",
+    "dias": 2,
+    "patron": "<<INI>>(?:antier|anteayer|antes de ayer|anteanoche)<<FIN>>"
+   },
+   {
+    "id": "ayer",
+    "clase": "desplazamiento",
+    "dias": 1,
+    "patron": "<<INI>>(?:ayer|anoche)<<FIN>>"
+   },
+   {
+    "id": "hoy",
+    "clase": "desplazamiento",
+    "dias": 0,
+    "patron": "<<INI>>(?:hoy|esta manana|esta tarde|esta noche|ahorita|hace un rato)<<FIN>>"
+   },
+   {
+    "id": "dia-de-la-semana",
+    "clase": "dia_semana",
+    "patron": "<<INI>>(?:el )?(<<DIA_SEMANA>>)(?: pasado)?<<FIN>>"
+   },
+   {
+    "id": "semana-pasada",
+    "clase": "desplazamiento",
+    "dias": 7,
+    "patron": "<<INI>>(?:la )?semana pasada<<FIN>>"
+   },
+   {
+    "id": "dia-numero",
+    "clase": "dia_mes",
+    "patron": "<<INI>>(?:el |ese )?dia ([0-9]{1,2})<<FIN>>"
+   },
+   {
+    "id": "el-numero",
+    "clase": "dia_mes",
+    "patron": "<<INI>>el ([0-9]{1,2})<<FIN>>"
+   }
+  ]
+ },
+ "tipo": {
+  "nota": "Si nada indica un ingreso, el tipo es gasto (README 5.2). Las pistas de ingreso son verbos y sustantivos de dinero recibido.",
+  "por_defecto": "gasto",
+  "ingreso": {
+   "patrones": [
+    "<<INI>>(?:me pagaron|me pago|me giraron|me giro|me consignaron|me consigno|me depositaron|me deposito|me transfirieron|me transfirio|me abonaron|me abono|me dieron|me dio|me regalaron|me regalo|me devolvieron|me devolvio|me mando|me mandaron|me envio|me enviaron|me entregaron|me entrego|me aprobaron|me gane|me gano|me ganaron|vendi|vendimos|cobre|cobramos|recibi|recibimos|ingrese|ganamos|ganancia|reembolso|reintegro|devolucion|cesantias)",
+    "<<INI>>(?:me )?(?:llego|llegaron|cayo|cayeron|entro|entraron) (?:el |la |mi |mis |los |las |un |una )?(?:sueldo|salario|nomina|quincena|prima|subsidio|plata|pago|mesada|cesantias|intereses|giro|remesa|dinero|bono|auxilio|ayuda|devolucion|reembolso|premio|ganancias?)<<FIN>>",
+    "<<INI>>me (?:da|dan|daba|daban) (?:la |mi )?(?:mesada|plata|dinero)<<FIN>>",
+    "<<INI>>gane<<FIN>>",
+    "<<INI>>(?:sueldo|salario|nomina|quincena|prima|subsidio|mesada)(?: [a-z]+){0,3} (?:me )?(?:llego|llegaron|cayo|cayeron|pagaron|consignaron)<<FIN>>",
+    "<<INI>>(?:remesa|remesas)<<FIN>>"
+   ]
+  }
+ },
+ "categorias": {
+  "por_defecto": {
+   "gasto": "Otros gastos",
+   "ingreso": "Otros ingresos"
+  },
+  "gasto": [
+   {
+    "categoria": "Mesada",
+    "patrones": [
+     "<<INI>>(?:mesada)"
+    ]
+   },
+   {
+    "categoria": "Hogar y mantenimiento",
+    "patrones": [
+     "<<INI>>(?:detergente|limpido|cloro|suavizante|lavaplatos|desinfectante|ambientador|trapero|escoba|esponja|bolsas de basura|jabon rey|jabon para la ropa|jabon para ropa|jabon de loza|jabon para la loza|jabon liquido)"
+    ]
+   },
+   {
+    "categoria": "Otros gastos",
+    "patrones": [
+     "<<INI>>(?:corte de pelo|cortada de pelo|peluquer|barber|jabon|desodorante|champu|lavander|multa|comparendo|tramite|notari|colecta|cepillo de dientes|crema dental|manicur|depilacion)"
+    ]
+   },
+   {
+    "categoria": "Salud",
+    "patrones": [
+     "<<INI>>(?:cuota moderadora)"
+    ]
+   },
+   {
+    "categoria": "Arriendo o cuota de vivienda",
+    "patrones": [
+     "<<INI>>(?:arriendo|arrendo|alquiler|administracion|hipoteca|cuota de la casa|cuota del apartamento|cuota del apto|cuota de vivienda|canon)"
+    ]
+   },
+   {
+    "categoria": "Pagos de deudas",
+    "patrones": [
+     "<<INI>>(?:cuota del credito|cuota de credito|cuota del carro|cuota de la moto|cuota de la tarjeta|cuota del prestamo|cuota de la libranza|libranza|gota a gota|gota gota|gotagota|prestamista|deuda|abono a la tarjeta|abono al credito|abono a la deuda|pago de la tarjeta|pague la tarjeta|pago de tarjeta|pago de credito|credito|prestamo|me presto|me prestaron|le debia|le debo|que debia|intereses del credito)"
+    ]
+   },
+   {
+    "categoria": "Servicios públicos",
+    "patrones": [
+     "<<INI>>(?:luz|energia|gas|gas natural|acueducto|alcantarillado|alumbrado|epm|enel|codensa|vanti|efigas|surtigas)<<FIN>>",
+     "<<INI>>(?:recibo de la luz|recibo del agua|recibo de agua|recibos publicos|recibo publico|servicios publicos|factura de la luz|factura del agua|factura de la energia|recibo del aseo|tarifa de aseo|pipeta|gases del caribe)",
+     "<<INI>>(?:el|del|mi|pague|pago) agua<<FIN>>"
+    ]
+   },
+   {
+    "categoria": "Bebidas alcohólicas y tabaco",
+    "patrones": [
+     "<<INI>>(?:ron|pola|polas|guaro|trago|tragos|chela|chelas|vino tinto|vino blanco)<<FIN>>",
+     "<<INI>>(?:cerveza|cerve|aguardiente|whisky|wisky|vodka|tequila|cigarr|vape|tabaco|licor|chorro|botella de vino|copa de vino)"
+    ]
+   },
+   {
+    "categoria": "Ropa y calzado",
+    "patrones": [
+     "<<INI>>(?:ropa|camisa|camiseta|pantalon|jean|zapato|tenis|chancla|sandalia|medias|vestido|chaqueta|calzado|falda|uniforme|gorra|cinturon|sudadera|blusa|pijama|sueter|abrigo|bufanda|brasier|calzoncillo)",
+     "<<INI>>(?:buso|busos|botas|bota|short|shorts|traje)<<FIN>>"
+    ]
+   },
+   {
+    "categoria": "Suscripciones",
+    "patrones": [
+     "<<INI>>(?:gym|hbo|max)<<FIN>>",
+     "<<INI>>(?:netflix|spotify|disney|prime video|amazon prime|youtube premium|youtube music|apple music|icloud|chatgpt|crunchyroll|paramount|star plus|gimnasio|suscripcion|membresia|playstation plus|ps plus|game pass|duolingo|deezer|claro video|win sports)"
+    ]
+   },
+   {
+    "categoria": "Transporte",
+    "patrones": [
+     "<<INI>>(?:bus|buses|buseta|busetas|taxi|taxis|moto|motos|metro|sitp|cicla|carro|carros|uber|didi|tren|avion|vuelo|tiquete|tiquetes|pasaje|pasajes|peaje|peajes|llanta|llantas)<<FIN>>",
+     "<<INI>>(?:transmilenio|gasolin|tanquee|tanqueo|tanquear|tanqueada|parqueadero|soat|tecnomecanica|mecanico|indriver|cabify|aceite de la moto|cambio de aceite|mototaxi|tullave|civica|combustible|transporte|pico y placa|bicicleta|lavada del carro|lavado del carro)"
+    ]
+   },
+   {
+    "categoria": "Educación",
+    "patrones": [
+     "<<INI>>(?:colegio|matricula|universidad|semestre|pension|curso|clase|inscripcion|jardin|guarderia|fotocopia|copias|utiles|cuaderno|lapiz|lapices|papeleria|libro de texto|libros de texto|libros del colegio|libro del colegio|libros de la u|tutor|icfes|diplomado|escolar|tarea)"
+    ]
+   },
+   {
+    "categoria": "Salud",
+    "patrones": [
+     "<<INI>>(?:medic|doctor|droga|drogueria|farmacia|pastilla|cita medica|cita con el|cita con la|examen medic|examenes medic|examen de sangre|examenes de sangre|examenes de laboratorio|odont|dentist|copago|optometr|gafas|lentes|laborator|vacuna|inyeccion|terapia|psicolog|urgencias|hospital|clinica|acetaminofen|ibuprofeno|formula medica|dolex|antibiotic|jarabe|vitamina|tratamiento|ortodoncia|brackets|radiograf|ecograf|cirugia|fisioterapia)",
+     "<<INI>>(?:eps|consulta|consultas)<<FIN>>"
+    ]
+   },
+   {
+    "categoria": "Recreación y cultura",
+    "patrones": [
+     "<<INI>>(?:free fire|fortnite|robux|roblox|pavos|videojuego|minecraft|xbox|playstation|nintendo|skin)"
+    ]
+   },
+   {
+    "categoria": "Comunicaciones",
+    "patrones": [
+     "<<INI>>(?:internet|wifi|wi fi|plan de datos|datos moviles|paquete de datos|plan de celular|plan de minutos|recarg|minutos|paquete de internet|fibra|saldo del celular|telefono)",
+     "<<INI>>(?:claro|movistar|tigo|wom|etb|datos)<<FIN>>"
+    ]
+   },
+   {
+    "categoria": "Hogar y mantenimiento",
+    "patrones": [
+     "<<INI>>(?:bombillo|nevera|licuadora|estufa|lavadora|plomer|electricista|pintura|colchon|cobija|almohada|olla|sabana|ventilador|televisor|cerradura|mueble|sofa|lampara|microondas|plancha|reparacion de la casa|arreglo de la casa|arreglos de la casa|arreglo de la nevera|gotera|fumigacion|cortina|tapete|vajilla|herramienta|ferreteria|cemento)",
+     "<<INI>>(?:cama|camas|platos|vasos|tubo|tubos|tv)<<FIN>>"
+    ]
+   },
+   {
+    "categoria": "Restaurantes y hoteles",
+    "patrones": [
+     "<<INI>>(?:perro caliente|perros calientes)"
+    ]
+   },
+   {
+    "categoria": "Recreación y cultura",
+    "patrones": [
+     "<<INI>>(?:mascota|concentrado|croquetas|veterinari|purina|dog chow|pecera|arena para gato|arena para el gato)",
+     "<<INI>>(?:perro|perros|perra|gato|gatos|gata)<<FIN>>"
+    ]
+   },
+   {
+    "categoria": "Restaurantes y hoteles",
+    "patrones": [
+     "<<INI>>(?:almuerz|almorz|corrientazo|desayun|cena|comida corrida|restaurante|domicilio|rappi|pizza|hamburgues|empanada|tinto|cafe|helado|hotel|hostal|airbnb|cabana|salchipapa|pollo asado|broaster|sushi|mcdonald|kfc|frisby|crepes|jugo|fritanga|bunuelo|tamal|mazorca|obleas|paleta|heladeria|comida rapida|asadero|parrilla|buffet|menu|sandwich|pasteleria|postre|torta|brownie|cafeteria|ceviche|arepa|chuzo|churrasco|picada|pasabocas|almuerso|almuerzo)"
+    ]
+   },
+   {
+    "categoria": "Alimentación",
+    "patrones": [
+     "<<INI>>(?:mercado|supermercado|viveres|exito|jumbo|olimpica|carulla|arroz|leche|huevo|carne|pollo|verdura|fruta|panaderia|gaseosa|aceite|azucar|lenteja|frijol|queso|mantequilla|cereal|galleta|pescado|cerdo|platano|yuca|tomate|cebolla|harina|pasta|atun|salchicha|jamon|yogur|granos|abarrotes|legumbres|ancheta|comida|alimento|dulce|golosina|chocolate)",
+     "<<INI>>(?:ara|d1|pan|sal|res|papa|papas|tienda)<<FIN>>"
+    ]
+   },
+   {
+    "categoria": "Recreación y cultura",
+    "patrones": [
+     "<<INI>>(?:cine|boleta|entrada|concierto|partido|estadio|juego|fiesta|parque|paseo|piscina|libro|novela|juguete|balon|pelota|futbol|cancha|karaoke|teatro|museo|zoologico|bolos|billar|revista|comic|manga|excursion|vacaciones|viaje|discoteca|rumba|salida|pasadia|balneario|festival|feria)"
+    ]
+   },
+   {
+    "categoria": "Pagos de deudas",
+    "patrones": [
+     "<<INI>>(?:cuota)"
+    ]
+   }
+  ],
+  "ingreso": [
+   {
+    "categoria": "Intereses de cesantías",
+    "patrones": [
+     "<<INI>>(?:intereses de las cesantias|intereses de cesantias|intereses sobre las cesantias|intereses sobre cesantias|intereses de mis cesantias|intereses de la cesantia)"
+    ]
+   },
+   {
+    "categoria": "Retiro de cesantías",
+    "patrones": [
+     "<<INI>>(?:cesantia)"
+    ]
+   },
+   {
+    "categoria": "Prima de servicios",
+    "patrones": [
+     "<<INI>>(?:de prima|prima de servicios|prima de junio|prima de diciembre|prima de navidad|prima semestral|la prima|prima legal)<<FIN>>"
+    ]
+   },
+   {
+    "categoria": "Ayudas y subsidios",
+    "patrones": [
+     "<<INI>>(?:subsidio|familias en accion|jovenes en accion|renta ciudadana|ingreso solidario|colombia mayor|devolucion del iva|devolucion de iva|devolucion iva|del iva|de iva|ayuda del gobierno|ayuda humanitaria|adulto mayor|bono del gobierno|auxilio|sisben|prosperidad social|ayuda estatal)"
+    ]
+   },
+   {
+    "categoria": "Mesada",
+    "patrones": [
+     "<<INI>>(?:mesada)"
+    ]
+   },
+   {
+    "categoria": "Remesas o giros familiares",
+    "patrones": [
+     "<<INI>>(?:remesa|giro|giraron|desde espana|desde estados unidos|desde el exterior)",
+     "<<INI>>me (?:consigno|transfirio|deposito|envio|mando|giro|mandaron|enviaron) (?:mi |la |el |una |un )?(?:mama|papa|madre|padre|hermano|hermana|tio|tia|abuela|abuelo|hijo|hija|primo|prima|esposo|esposa|novio|novia|familia|familiar|cunado|cunada|suegra|suegro|sobrino|sobrina)<<FIN>>",
+     "<<INI>>(?:mi|el|la) (?:mama|papa|madre|padre|hermano|hermana|tio|tia|abuela|abuelo|hijo|hija|primo|prima|esposo|esposa|novio|novia|familia|familiar|cunado|cunada|suegra|suegro|sobrino|sobrina) me (?:consigno|transfirio|deposito|envio|mando|giro|mandaron|enviaron|giraron)<<FIN>>"
+    ]
+   },
+   {
+    "categoria": "Otros ingresos",
+    "patrones": [
+     "<<INI>>(?:usado|usada|de segunda|reembolso|reintegro|natillera|rifa|chance|baloto|premio|regalo|me regalaron|me regalo|devolvieron|devolvio|arriendo|alquiler|me gane|me gano|herencia|dividendos|vendi (?:mi|mis|el|la|un|una|unos|unas) (?:bicicleta|moto|carro|celular|computador|portatil|tv|televisor|consola|play|nevera|lavadora|estufa|cama|colchon|ropa|zapatos|tenis|libros|bici|cicla|maquina|casa|lote|finca))"
+    ]
+   },
+   {
+    "categoria": "Trabajo independiente o ventas",
+    "patrones": [
+     "<<INI>>(?:vendi|vendimos|venta|cliente|encargo|trabajito|trabajo por|propina|negocio|freelance|rebusque|por arreglar|arreglar|por hacer|jale|comision|cobre|cobramos|domicilios|diseno|clase particular|clases particulares|por cuidar|por lavar|por pintar|por limpiar|por trabajar|ganancia)"
+    ]
+   },
+   {
+    "categoria": "Salario",
+    "patrones": [
+     "<<INI>>(?:salario|sueldo|nomina|quincena|pago de la empresa|pago del mes|pago de mi trabajo|pago del trabajo|horas extra|turnos extra|turno extra|jornal|bonificacion|empleador|pago mensual|pago quincenal)"
+    ]
+   }
+  ]
+ },
+ "intencion": {
+  "nota": "Orden: pedido de recomendación financiera, pregunta y, si ninguna aplica, registro (RF-021, RF-044). Un mensaje que no es registro devuelve monto, tipo, fecha y categoría en null.",
+  "por_defecto": "registro",
+  "reglas": [
+   {
+    "intencion": "recomendacion",
+    "patrones": [
+     "<<INI>>(?:recomiend|recomend|aconsej|invert|inversion|invierto|me conviene|conviene|convendria|vale la pena|es buena idea|mejor credito|mejor tarjeta|mejor banco|mejor cdt|mejor inversion|que credito|que tarjeta|que banco|cual banco|cual tarjeta|cual credito|sacar un credito|pedir un credito|sacar un prestamo|pedir un prestamo|abrir un cdt|abrir una cuenta|comprar acciones|debo sacar|deberia sacar|deberia pedir|deberia abrir|deberia comprar|deberia meter|debo meter|meter la plata|donde meto|donde invierto|donde pongo la plata|donde ahorrar|tasa de interes|mejor interes|interes por ahorrar)",
+     "<<INI>>(?:cdt|cdts|etf|fic|fiducia|bitcoin|criptomoneda|criptomonedas|cripto|acciones)<<FIN>>"
+    ]
+   },
+   {
+    "intencion": "pregunta",
+    "patrones": [
+     "\\?[ ]*$",
+     "^(?:cuanto|cuanta|cuantos|cuantas|como|cual|cuales|donde|cuando|quien|quienes|por que|para que|en que|puedo|podria|podemos|se puede|me alcanza|alcanza|alcanzo|sera que)<<FIN>>",
+     "^que (?:gastos|gasto|deuda|deudas|meta|metas|puedo|debo|me|categoria|dia|monto|pasa|hago)<<FIN>>",
+     "<<INI>>(?:muestrame|mostrar|dime|quiero ver|quiero saber|quiero consultar|necesito ver|necesito saber|quisiera ver|quisiera saber|ensename|borra|borrar|elimina|eliminar|edita|editar|cambia la categoria|cambiar la categoria|deshacer|cuanto debo|cuanto llevo|cuanto me queda|cuanto me falta|cuanto he gastado|cuanto gane|cuanto tengo|como van|como voy|como vamos|recortar|en que gasto|en que se me va|saldo disponible|resumen de|reporte de|listado de|historial de)"
+    ]
+   }
+  ]
+ }
+}
