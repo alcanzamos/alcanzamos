@@ -22,6 +22,7 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/src/seguridad"
 	"github.com/alcanzamos/alcanzamos/api/src/servidor"
 	"github.com/alcanzamos/alcanzamos/api/src/sesion"
+	"github.com/alcanzamos/alcanzamos/api/test/servidor/csrftest"
 )
 
 var (
@@ -81,7 +82,7 @@ func nuevoEntornoDeAccesoSinTrabajadores(t *testing.T) *entornoDeAcceso {
 	if err != nil {
 		t.Fatal(err)
 	}
-	e.api = servidor.ManejadorConAPI(api)
+	e.api = csrftest.ConCabeceras(servidor.ManejadorConAPI(api))
 	return e
 }
 

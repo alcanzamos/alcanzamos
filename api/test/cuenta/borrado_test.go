@@ -18,6 +18,7 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/src/servidor"
 	"github.com/alcanzamos/alcanzamos/api/src/sesion"
 	"github.com/alcanzamos/alcanzamos/api/test/reloj/relojtest"
+	"github.com/alcanzamos/alcanzamos/api/test/servidor/csrftest"
 )
 
 const (
@@ -208,7 +209,7 @@ func (e *entornoDeBorrado) api(t *testing.T) http.Handler {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return servidor.ManejadorConAPI(h)
+	return csrftest.ConCabeceras(servidor.ManejadorConAPI(h))
 }
 
 // pedir llama con la sesión de una cuenta verificada y autorizada.

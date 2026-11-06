@@ -31,6 +31,7 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/src/seguridad"
 	"github.com/alcanzamos/alcanzamos/api/src/servidor"
 	"github.com/alcanzamos/alcanzamos/api/test/pgtest"
+	"github.com/alcanzamos/alcanzamos/api/test/servidor/csrftest"
 )
 
 const vClave = "lluvia café tren azul"
@@ -74,7 +75,7 @@ func vArmar(t *testing.T) *vEnt {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := httptest.NewServer(servidor.ManejadorConAPI(h))
+	srv := httptest.NewServer(csrftest.ConCabeceras(servidor.ManejadorConAPI(h)))
 	t.Cleanup(srv.Close)
 	hash, err := argon2id.Predeterminado().Hashear(context.Background(), vClave)
 	if err != nil {

@@ -19,6 +19,7 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/src/servidor"
 	"github.com/alcanzamos/alcanzamos/api/src/sesion"
 	"github.com/alcanzamos/alcanzamos/api/test/reloj/relojtest"
+	"github.com/alcanzamos/alcanzamos/api/test/servidor/csrftest"
 )
 
 // leerZIP devuelve cada archivo del ZIP como filas de CSV, sin la marca de orden de bytes.
@@ -152,7 +153,7 @@ func apiDeExportacion(t *testing.T, repo *repoDeExportacionFalso, registro *byte
 	if err != nil {
 		t.Fatal(err)
 	}
-	return servidor.ManejadorConAPI(h), func() string {
+	return csrftest.ConCabeceras(servidor.ManejadorConAPI(h)), func() string {
 		token, huella := seguridad.NuevoTokenOpaco()
 		almacen[string(huella)] = seguridad.Sujeto{Persona: personaQueBorra, Verificada: true, Autorizada: true}
 		return token

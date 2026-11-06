@@ -12,20 +12,12 @@ import (
 // Handler traduce HTTP a las operaciones del Servicio (E12 `RegistroHandler`). No manda textos: los códigos de error
 // los traduce cada app.
 type Handler struct {
-	servicio   *Servicio
-	log        *slog.Logger
-	urlPublica string
+	servicio *Servicio
+	log      *slog.Logger
 }
 
 // NuevoHandler crea el manejador de las rutas del formulario de registro.
 func NuevoHandler(s *Servicio, log *slog.Logger) *Handler { return &Handler{servicio: s, log: log} }
-
-// ConURLPublica dice cuál es el `Origin` de la web (`URL_PUBLICA`) para la defensa contra CSRF de los POST de las fechas
-// por confirmar (E17 3.15, D-173). Sin ella, ningún `Origin` vale.
-func (h *Handler) ConURLPublica(urlPublica string) *Handler {
-	h.urlPublica = urlPublica
-	return h
-}
 
 // Registrar añade las rutas. Todas son `requiere_autorizacion`: guardan, leen, corrigen y borran datos financieros de la
 // persona (las próximas fechas no tocan datos, pero solo las usa el formulario de quien ya autorizó).
@@ -37,11 +29,11 @@ func (h *Handler) Registrar(e *servidor.Enrutador) {
 	e.Registrar(seguridad.RequiereAutorizacion, "PUT /api/v1/movimientos/{id}", http.HandlerFunc(h.corregir))
 	e.Registrar(seguridad.RequiereAutorizacion, "DELETE /api/v1/movimientos/{id}", http.HandlerFunc(h.borrar))
 	e.Registrar(seguridad.RequiereAutorizacion, "GET /api/v1/repeticiones/proximas", http.HandlerFunc(h.proximas))
-	// US-60: las fechas por confirmar. Los POST cambian datos: llevan la defensa contra CSRF de E17 3.15.
+	// US-60: las fechas por confirmar.
 	e.Registrar(seguridad.RequiereAutorizacion, "GET /api/v1/repeticiones/pendientes", http.HandlerFunc(h.pendientes))
-	e.Registrar(seguridad.RequiereAutorizacion, "POST /api/v1/repeticiones/{id}/confirmacion", servidor.DefensaCSRF(h.urlPublica, http.HandlerFunc(h.confirmar)))
-	e.Registrar(seguridad.RequiereAutorizacion, "POST /api/v1/repeticiones/{id}/omision", servidor.DefensaCSRF(h.urlPublica, http.HandlerFunc(h.omitir)))
-	e.Registrar(seguridad.RequiereAutorizacion, "POST /api/v1/repeticiones/decisiones", servidor.DefensaCSRF(h.urlPublica, http.HandlerFunc(h.decidir)))
+	e.Registrar(seguridad.RequiereAutorizacion, "POST /api/v1/repeticiones/{id}/confirmacion", http.HandlerFunc(h.confirmar))
+	e.Registrar(seguridad.RequiereAutorizacion, "POST /api/v1/repeticiones/{id}/omision", http.HandlerFunc(h.omitir))
+	e.Registrar(seguridad.RequiereAutorizacion, "POST /api/v1/repeticiones/decisiones", http.HandlerFunc(h.decidir))
 }
 
 // tamanoMaximoDeLasDecisiones deja caber DecisionesMaximas decisiones de ~130 bytes cada una.

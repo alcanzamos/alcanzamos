@@ -135,11 +135,11 @@ func ArmarEnrutador(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, 
 	sesiones := sesion.NuevoResolutor(pg.NuevoSesiones(pool), senuelos, hora)
 
 	eventos := seguridad.NuevoRegistro(log)
-	enrutador := servidor.NuevoEnrutador(sesiones, eventos, log)
+	enrutador := servidor.NuevoEnrutador(sesiones, eventos, log).ConURLPublica(cfg.URLPublica)
 	cuenta.NuevoHandler(cuentas, sesiones, log).Registrar(enrutador)
 	autenticacion.NuevoHandler(autenticaciones, eventos, log).Registrar(enrutador)
 	autorizacion.NuevoHandler(autorizacion.NuevoServicio(pg.NuevoAutorizaciones(pool), hora), eventos, log).Registrar(enrutador)
-	registro.NuevoHandler(registro.NuevoServicio(pg.NuevoMovimientos(pool), hora), log).ConURLPublica(cfg.URLPublica).Registrar(enrutador)
+	registro.NuevoHandler(registro.NuevoServicio(pg.NuevoMovimientos(pool), hora), log).Registrar(enrutador)
 	repoDeBorrado := pg.NuevoBorrado(pool)
 	cuenta.NuevoHandlerDeBorrado(cuenta.NuevoBorrado(repoDeBorrado, hasher, limitador, hora), eventos, log).Registrar(enrutador)
 	cuenta.NuevoHandlerDeExportacion(cuenta.NuevoExportador(repoDeBorrado), log).Registrar(enrutador)
