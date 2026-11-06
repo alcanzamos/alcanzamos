@@ -79,7 +79,7 @@ func TestMensajeDeVerificacion(t *testing.T) {
 		})
 	}
 	asunto, err := new(mime.WordDecoder).DecodeHeader(enc.Get("Subject"))
-	if err != nil || asunto != "Confirma tu correo en Alcanzamos" {
+	if err != nil || asunto != "Elige tu contraseña para tu cuenta de Alcanzamos" {
 		t.Fatalf("asunto %q (%v)", asunto, err)
 	}
 	if !strings.HasSuffix(enc.Get("Message-ID"), "@avisos.ejemplo.test>") {
@@ -87,8 +87,10 @@ func TestMensajeDeVerificacion(t *testing.T) {
 	}
 	for _, fragmento := range []string{
 		"https://app.ejemplo.test/verificar?t=tok-en_123",
-		"24 horas",
-		"ignora este mensaje",
+		// E14-PCP 4.2 quater, palabra por palabra (D-176; la duración, D-192, aprobada por el dueño el 2026-11-06).
+		"Hola,\r\n\r\nPediste crear una cuenta en Alcanzamos con este correo. Para confirmarlo y elegir tu contraseña, abre este enlace. Sirve durante 24 horas y una sola vez:\r\n\r\n",
+		"Si no lo pediste, ignora este mensaje: no se crea ninguna cuenta.\r\n",
+		"Este mensaje sale de una dirección que no recibe respuestas.\r\n",
 	} {
 		if !strings.Contains(cuerpo, fragmento) {
 			t.Errorf("el cuerpo no contiene %q:\n%s", fragmento, cuerpo)
