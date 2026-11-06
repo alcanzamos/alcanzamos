@@ -32,6 +32,8 @@ func (h *Handler) ConURLPublica(urlPublica string) *Handler {
 func (h *Handler) Registrar(e *servidor.Enrutador) {
 	e.Registrar(seguridad.RequiereAutorizacion, "GET /api/v1/categorias", http.HandlerFunc(h.categorias))
 	e.Registrar(seguridad.RequiereAutorizacion, "POST /api/v1/movimientos", http.HandlerFunc(h.crear))
+	// La interpretación no guarda nada (RN-001), pero es un POST con el texto de la persona: lleva la misma defensa contra CSRF.
+	e.Registrar(seguridad.RequiereAutorizacion, "POST /api/v1/movimientos/interpretacion", servidor.DefensaCSRF(h.urlPublica, http.HandlerFunc(h.interpretar)))
 	e.Registrar(seguridad.RequiereAutorizacion, "GET /api/v1/movimientos", http.HandlerFunc(h.listar))
 	e.Registrar(seguridad.RequiereAutorizacion, "GET /api/v1/movimientos/{id}", http.HandlerFunc(h.detalle))
 	e.Registrar(seguridad.RequiereAutorizacion, "PUT /api/v1/movimientos/{id}", http.HandlerFunc(h.corregir))
@@ -88,6 +90,30 @@ func (h *Handler) crear(w http.ResponseWriter, r *http.Request) {
 		h.log.InfoContext(r.Context(), "movimiento registrado", "peticion", seguridad.PeticionDe(r.Context()))
 		w.Header().Set("Cache-Control", "no-store")
 		servidor.EscribirJSON(w, http.StatusCreated, res)
+	}
+}
+
+// interpretar atiende POST /api/v1/movimientos/interpretacion con `{"texto":"…"}` (CU-03): `200` con `Interpretada`, que
+// no guarda nada (RN-001: guardar es el POST de /movimientos con lo que la persona confirmó). El resultado va en
+// `resultado`, también cuando no hay propuesta. `422 datos_invalidos` con `texto` (`texto_requerido`, `texto_largo`);
+// `400 solicitud_invalida` con un campo fuera del contrato. El texto no se registra (E12 §6.2, RNF-005).
+func (h *Handler) interpretar(w http.ResponseWriter, r *http.Request) {
+	var sol SolicitudDeInterpretacion
+	if !servidor.LeerJSON(w, r, &sol) {
+		return
+	}
+	sujeto, _ := servidor.SujetoDe(r.Context())
+	res, err := h.servicio.InterpretarTexto(r.Context(), sujeto.Persona, sol.Texto)
+	var invalido *ErrValidacion
+	switch {
+	case errors.As(err, &invalido):
+		servidor.EscribirJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": "datos_invalidos", "campos": invalido.Campos})
+	case err != nil:
+		h.fallar(w, r, "no se pudo interpretar el texto", err)
+	default:
+		h.log.InfoContext(r.Context(), "texto interpretado", "peticion", seguridad.PeticionDe(r.Context()), "resultado", res.Resultado)
+		w.Header().Set("Cache-Control", "no-store")
+		servidor.EscribirJSON(w, http.StatusOK, res)
 	}
 }
 

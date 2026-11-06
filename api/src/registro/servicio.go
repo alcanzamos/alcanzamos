@@ -14,6 +14,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/alcanzamos/alcanzamos/api/src/fechas"
+	"github.com/alcanzamos/alcanzamos/api/src/interpretacion"
 	"github.com/alcanzamos/alcanzamos/api/src/reloj"
 )
 
@@ -148,8 +149,9 @@ type Resultado struct {
 
 // Servicio son los casos de uso del formulario de registro.
 type Servicio struct {
-	repo  Repositorio
-	reloj reloj.Reloj
+	repo          Repositorio
+	reloj         reloj.Reloj
+	interpretador interpretacion.Interpretador // nil si el servicio no interpreta texto (ConInterpretador)
 }
 
 // NuevoServicio arma el servicio.
