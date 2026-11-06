@@ -1757,6 +1757,106 @@
           "e14": "E14-PRR 4.1 (PN-01), variante web"
         }
       }
+    },
+    "registro": {
+      "revisarYGuardar": {
+        "texto": "Revisar y guardar",
+        "e14": "E14-PPN 3.1, fila 13 (el botón cuando el cuadro llenó el formulario; sin el cuadro es «Guardar»)"
+      },
+      "cuadro": {
+        "etiqueta": {
+          "texto": "Escribe el gasto o el ingreso",
+          "e14": "E14-PPN 3.1, fila 3"
+        },
+        "ayuda": {
+          "texto": "Por ejemplo: mercado 45 mil ayer.",
+          "e14": "E14-PPN 3.1, fila 3"
+        },
+        "privacidad": {
+          "texto": "No escribas datos de salud, religión ni de otras personas.",
+          "e14": "E14-PPN 3.1, fila 4 (NM-12)"
+        },
+        "llenar": {
+          "texto": "Llenar el formulario",
+          "e14": "E14-PPN 3.1, fila 5"
+        },
+        "lleno": {
+          "texto": "Llenamos el formulario con tu texto. Cambia lo que quieras.",
+          "e14": "E14-PPN 3.1, fila 4a y estado «Lleno por el cuadro» (D-084)"
+        },
+        "noEntendido": {
+          "titulo": {
+            "texto": "No pudimos entender el texto.",
+            "e14": "E14-PPN 3.1, estado «No se entendió» (CU-03, 2c); también con tiempo agotado (D-084 (2), api/README «Interpretar un texto»)"
+          },
+          "mensaje": {
+            "texto": "Llena el formulario: lo que escribiste sigue ahí.",
+            "e14": "E14-PPN 3.1, estado «No se entendió» (CU-03, 2c)"
+          }
+        },
+        "pregunta": {
+          "texto": "Aquí solo registramos movimientos.",
+          "e14": "E14-PPN 3.1, estado «Pregunta o pedido de recomendación» (RF-044); sin la segunda frase «Tu pregunta se responde en {pantalla}.» hasta que exista esa pantalla"
+        },
+        "recomendacion": {
+          "titulo": {
+            "texto": "Aquí no damos recomendaciones sobre créditos ni inversiones.",
+            "e14": "E14-PPN 3.1, estado «Pregunta o pedido de recomendación» (RF-021)"
+          },
+          "mensaje": {
+            "texto": "Puedes registrar un movimiento cuando quieras.",
+            "e14": "E14-PPN 3.1, estado «Pregunta o pedido de recomendación» (RF-021)"
+          }
+        },
+        "sinConexion": {
+          "texto": "Sin conexión, puedes registrar con el formulario.",
+          "e14": "E14-PPN 3.1, estado «Sin conexión» (ADR-005, sección 6)"
+        },
+        "textoRequerido": {
+          "texto": "Falta escribir el gasto o el ingreso.",
+          "e14": "PROPUESTO, no está en E14 (pendiente de aprobación del dueño): E14-PPN 3.1, errores de campo del cuadro: 422 texto_requerido"
+        },
+        "textoLargo": {
+          "texto": "El texto es demasiado largo. Usa hasta 280 caracteres.",
+          "e14": "PROPUESTO, no está en E14 (pendiente de aprobación del dueño): E14-PPN 3.1, errores de campo del cuadro: 422 texto_largo (280 caracteres, D-084 (2))"
+        },
+        "errorAlInterpretar": {
+          "titulo": {
+            "texto": "No pudimos llenar el formulario.",
+            "e14": "PROPUESTO, no está en E14 (pendiente de aprobación del dueño): E14-PPN 3.1, estados del cuadro: fallo inesperado del servidor al interpretar"
+          },
+          "mensaje": {
+            "texto": "Llénalo tú: lo que escribiste sigue ahí.",
+            "e14": "PROPUESTO, no está en E14 (pendiente de aprobación del dueño): E14-PPN 3.1, estados del cuadro: fallo inesperado del servidor al interpretar"
+          }
+        }
+      },
+      "revisa": {
+        "titulo": {
+          "texto": "Revisa y confirma",
+          "e14": "E14-PPN 3.1, paso «Revisa y confirma», fila 1"
+        },
+        "cambiar": {
+          "texto": "Cambiar",
+          "e14": "E14-PPN 3.1, paso «Revisa y confirma», fila 2 (enlace en cada fila)"
+        },
+        "confirmar": {
+          "texto": "Confirmar y guardar",
+          "e14": "E14-PPN 3.1, paso «Revisa y confirma», fila 4"
+        },
+        "volver": {
+          "texto": "Volver al formulario",
+          "e14": "E14-PPN 3.1, paso «Revisa y confirma», fila 5"
+        },
+        "variosTitulo": {
+          "texto": "Encontramos más de un movimiento",
+          "e14": "E14-PPN 3.1, aviso de varios movimientos (D-077, decisión 5)"
+        },
+        "variosMensaje": {
+          "texto": "Tomamos solo el primer movimiento. Registra los otros por separado.",
+          "e14": "E14-PPN 3.1, aviso de varios movimientos (D-077, decisión 5)"
+        }
+      }
     }
   },
   "solo_android": {

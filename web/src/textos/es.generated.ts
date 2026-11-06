@@ -764,6 +764,60 @@ export const textos = {
       // E14-PPN 3.1, fila 9: categoría del catálogo de E09 (02-catalogo-de-categorias.md, gasto), id 26 del API
       c26: "Ayuda a la familia",
     },
+    // E14-PPN 3.1, fila 13 (el botón cuando el cuadro llenó el formulario; sin el cuadro es «Guardar»)
+    revisarYGuardar: "Revisar y guardar",
+    cuadro: {
+      // E14-PPN 3.1, fila 3
+      etiqueta: "Escribe el gasto o el ingreso",
+      // E14-PPN 3.1, fila 3
+      ayuda: "Por ejemplo: mercado 45 mil ayer.",
+      // E14-PPN 3.1, fila 4 (NM-12)
+      privacidad: "No escribas datos de salud, religión ni de otras personas.",
+      // E14-PPN 3.1, fila 5
+      llenar: "Llenar el formulario",
+      // E14-PPN 3.1, fila 4a y estado «Lleno por el cuadro» (D-084)
+      lleno: "Llenamos el formulario con tu texto. Cambia lo que quieras.",
+      noEntendido: {
+        // E14-PPN 3.1, estado «No se entendió» (CU-03, 2c); también con tiempo agotado (D-084 (2), api/README «Interpretar un texto»)
+        titulo: "No pudimos entender el texto.",
+        // E14-PPN 3.1, estado «No se entendió» (CU-03, 2c)
+        mensaje: "Llena el formulario: lo que escribiste sigue ahí.",
+      },
+      // E14-PPN 3.1, estado «Pregunta o pedido de recomendación» (RF-044); sin la segunda frase «Tu pregunta se responde en {pantalla}.» hasta que exista esa pantalla
+      pregunta: "Aquí solo registramos movimientos.",
+      recomendacion: {
+        // E14-PPN 3.1, estado «Pregunta o pedido de recomendación» (RF-021)
+        titulo: "Aquí no damos recomendaciones sobre créditos ni inversiones.",
+        // E14-PPN 3.1, estado «Pregunta o pedido de recomendación» (RF-021)
+        mensaje: "Puedes registrar un movimiento cuando quieras.",
+      },
+      // E14-PPN 3.1, estado «Sin conexión» (ADR-005, sección 6)
+      sinConexion: "Sin conexión, puedes registrar con el formulario.",
+      // PROPUESTO, no está en E14 (pendiente de aprobación del dueño): E14-PPN 3.1, errores de campo del cuadro: 422 texto_requerido
+      textoRequerido: "Falta escribir el gasto o el ingreso.",
+      // PROPUESTO, no está en E14 (pendiente de aprobación del dueño): E14-PPN 3.1, errores de campo del cuadro: 422 texto_largo (280 caracteres, D-084 (2))
+      textoLargo: "El texto es demasiado largo. Usa hasta 280 caracteres.",
+      errorAlInterpretar: {
+        // PROPUESTO, no está en E14 (pendiente de aprobación del dueño): E14-PPN 3.1, estados del cuadro: fallo inesperado del servidor al interpretar
+        titulo: "No pudimos llenar el formulario.",
+        // PROPUESTO, no está en E14 (pendiente de aprobación del dueño): E14-PPN 3.1, estados del cuadro: fallo inesperado del servidor al interpretar
+        mensaje: "Llénalo tú: lo que escribiste sigue ahí.",
+      },
+    },
+    revisa: {
+      // E14-PPN 3.1, paso «Revisa y confirma», fila 1
+      titulo: "Revisa y confirma",
+      // E14-PPN 3.1, paso «Revisa y confirma», fila 2 (enlace en cada fila)
+      cambiar: "Cambiar",
+      // E14-PPN 3.1, paso «Revisa y confirma», fila 4
+      confirmar: "Confirmar y guardar",
+      // E14-PPN 3.1, paso «Revisa y confirma», fila 5
+      volver: "Volver al formulario",
+      // E14-PPN 3.1, aviso de varios movimientos (D-077, decisión 5)
+      variosTitulo: "Encontramos más de un movimiento",
+      // E14-PPN 3.1, aviso de varios movimientos (D-077, decisión 5)
+      variosMensaje: "Tomamos solo el primer movimiento. Registra los otros por separado.",
+    },
   },
   periodicidad: {
     // E14-PRR 4.3 (PN-03), fila 1 (barra)

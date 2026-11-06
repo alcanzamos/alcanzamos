@@ -10,6 +10,7 @@ import { formatear, textos } from "../textos/es.generated";
 // - `estado`: el mensaje de estado de la llegada (E14-PCP 4.16 T11); va arriba de todo.
 // - `conLogo`: el Logo horizontal en color de 40 px arriba (PN-58 y PN-60).
 // - `ancha`: sin el ancho máximo de 560 px, para las dos columnas de PN-01 (E14-PRR 4.1, variante web).
+// - `registro`: el contenedor de 960 px del formulario de registro en la web, con sus dos columnas (E14-PPN 3.1).
 // - `atras`: la Barra superior de E14-SDD 5.10, con el ícono Atrás de 48 px y su nombre accesible junto al título.
 // Al llegar por una navegación el foco pasa al título, para que el lector de pantalla anuncie la pantalla nueva.
 export function Pagina({
@@ -18,6 +19,7 @@ export function Pagina({
   atras,
   estado,
   ancha = false,
+  registro = false,
   children,
 }: {
   titulo: string;
@@ -26,6 +28,7 @@ export function Pagina({
   estado?: DatosDeAviso | null;
   /** Dos columnas, sin el ancho máximo de la columna de lectura (PN-01 en la web). */
   ancha?: boolean;
+  registro?: boolean;
   children?: ReactNode;
 }) {
   const encabezado = useRef<HTMLHeadingElement>(null);
@@ -39,7 +42,9 @@ export function Pagina({
     </h1>
   );
   return (
-    <main className={`columna${ancha ? " columna--ancha" : ""}`}>
+    <main
+      className={`columna${ancha ? " columna--ancha" : ""}${registro ? " columna--registro" : ""}`}
+    >
       {estado && <MensajeDeEstado aviso={estado} />}
       {conLogo && <img src={logo} alt={textos.pagina.logo} className="logo" />}
       {atras ? (

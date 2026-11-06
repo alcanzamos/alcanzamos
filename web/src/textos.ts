@@ -313,3 +313,39 @@ export const avisoErrorAlGuardarMovimiento = (tipo: Tipo): DatosDeAviso => ({
       : textos.registro.avisos.errorAlGuardarIngreso,
   mensaje: textos.registro.avisos.errorAlGuardarMensaje,
 });
+
+const cuadro = textos.registro.cuadro;
+
+/** Lo que el cuadro de lenguaje natural contesta cuando no propone un movimiento (E14-PPN 3.1, estados). */
+export const avisosDelCuadro = {
+  recomendacion: {
+    tipo: "informacion",
+    titulo: cuadro.recomendacion.titulo,
+    mensaje: cuadro.recomendacion.mensaje,
+  },
+  pregunta: { tipo: "informacion", titulo: cuadro.pregunta },
+  // El tiempo agotado se dice igual: la persona sigue con el formulario (RF-002, api/README.md).
+  noEntendido: {
+    tipo: "informacion",
+    titulo: cuadro.noEntendido.titulo,
+    mensaje: cuadro.noEntendido.mensaje,
+  },
+  sinConexion: { tipo: "informacion", titulo: cuadro.sinConexion },
+  errorAlInterpretar: {
+    tipo: "informacion",
+    titulo: cuadro.errorAlInterpretar.titulo,
+    mensaje: cuadro.errorAlInterpretar.mensaje,
+  },
+  lleno: { tipo: "informacion", titulo: cuadro.lleno },
+  variosMovimientos: {
+    tipo: "informacion",
+    titulo: textos.registro.revisa.variosTitulo,
+    mensaje: textos.registro.revisa.variosMensaje,
+  },
+} satisfies Record<string, DatosDeAviso>;
+
+/** Los errores del campo `texto` del API (422 `datos_invalidos`) con su texto en el cuadro. */
+export const textosDeErrorDelCuadro: Record<string, string> = {
+  texto_requerido: cuadro.textoRequerido,
+  texto_largo: cuadro.textoLargo,
+};

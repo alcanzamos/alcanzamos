@@ -737,3 +737,65 @@
     border-radius: var(--radio-grande) var(--radio-grande) 0 0;
   }
 }
+
+/* F-1 en la web (E14-PPN 3.1, variante web): por debajo de 768 px la columna de Android; desde ahí un contenedor de
+   960 px (12/7 de la columna de lectura: la derecha, de 7/12, queda como ella) con el cuadro de lenguaje natural a la
+   izquierda (5/12) y el formulario, o «Revisa y confirma», a la derecha (7/12). El corte se escribe en ch, como el de PN-01. */
+.registro {
+  display: grid;
+  gap: var(--espacio-6);
+}
+
+.registro__cuadro,
+.registro__formulario {
+  display: grid;
+  gap: var(--espacio-4);
+  align-content: start;
+  min-width: 0;
+}
+
+@media (min-width: 96ch) {
+  .columna--registro {
+    max-width: calc(var(--tamano-columna-contenido) * 12 / 7);
+  }
+
+  .registro {
+    grid-template-columns: 5fr 7fr;
+    gap: var(--espacio-8);
+  }
+}
+
+/* El cuadro de lenguaje natural: alto mínimo de 96 px (cuatro líneas de cuerpo) y a lo alto si la persona lo estira */
+.campo__caja textarea {
+  flex: 1;
+  min-width: 0;
+  padding: var(--espacio-3);
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-texto-principal);
+  font-family: var(--tipografia-cuerpo-font-family), sans-serif;
+  font-size: var(--tipografia-cuerpo-font-size);
+  resize: vertical;
+}
+
+/* «Revisa y confirma» (E14-PPN 3.1): las seis filas en una tarjeta, cada una con su «Cambiar» de 48 px */
+.paso {
+  display: grid;
+  gap: var(--espacio-4);
+}
+
+.paso__lista {
+  display: grid;
+  gap: var(--espacio-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.paso__fila {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espacio-2);
+}
