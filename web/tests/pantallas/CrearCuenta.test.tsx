@@ -1,18 +1,12 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { leerCorreo } from "../../src/correoPendiente";
+import { guardarCorreo, leerCorreo } from "../../src/correoPendiente";
 import { CrearCuenta } from "../../src/pantallas/CrearCuenta";
-import { json, porTexto, simularApi } from "../ayudas";
+import { json, simularApi } from "../ayudas";
 
 function llenar({ marcar = true } = {}) {
   fireEvent.change(screen.getByLabelText("Correo electrónico"), {
     target: { value: "laura@ejemplo.com" },
-  });
-  fireEvent.change(screen.getByLabelText("Contraseña"), {
-    target: { value: "lluvia café tren azul" },
-  });
-  fireEvent.change(screen.getByLabelText("Nombre para mostrar"), {
-    target: { value: "Laura" },
   });
   if (marcar) fireEvent.click(screen.getByLabelText("Soy mayor de edad"));
 }
@@ -21,8 +15,8 @@ const crear = () =>
   fireEvent.click(screen.getByRole("button", { name: "Crear cuenta" }));
 
 describe("PN-58 · Crear la cuenta", () => {
-  // USA-005 (RNF-016): el formulario pide solo correo, contraseña y nombre, y la casilla «Soy mayor de edad» (D-089).
-  it("USA-005 el formulario pide solo correo, contraseña y nombre, y la casilla «Soy mayor de edad»", () => {
+  // USA-005 (RNF-016): el formulario pide solo el correo y la casilla «Soy mayor de edad» (D-089, D-172 (1)).
+  it("USA-005 el formulario pide solo el correo y la casilla «Soy mayor de edad»", () => {
     const { container } = render(<CrearCuenta />);
     const campos = Array.from(
       container.querySelectorAll("input, select, textarea"),
@@ -34,13 +28,13 @@ describe("PN-58 · Crear la cuenta", () => {
       ]),
     ).toEqual([
       ["input", "email"],
-      ["input", "password"],
-      ["input", "text"],
       ["input", "checkbox"],
     ]);
     expect(screen.getByLabelText("Correo electrónico")).toBeInTheDocument();
-    expect(screen.getByLabelText("Contraseña")).toBeInTheDocument();
-    expect(screen.getByLabelText("Nombre para mostrar")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Contraseña")).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Nombre para mostrar"),
+    ).not.toBeInTheDocument();
     expect(screen.getByLabelText("Soy mayor de edad")).toHaveAttribute(
       "type",
       "checkbox",
@@ -62,21 +56,15 @@ describe("PN-58 · Crear la cuenta", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "Crea tu cuenta" }),
     ).toBeInTheDocument();
+    expect(screen.getByText("Empecemos por tu correo.")).toBeInTheDocument();
     expect(
-      screen.getByText("Solo necesitamos tres datos."),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Te enviaremos un enlace para confirmarlo."),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Usa una frase de tres o cuatro palabras."),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Es el nombre que verás en la app. Puede ser un apodo."),
+      screen.getByText(
+        "Te enviaremos un enlace para confirmarlo y elegir tu contraseña.",
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Después de confirmar tu correo verás cómo cuidamos tus datos y decidirás si los autorizas.",
+        "Después de confirmar tu correo elegirás tu contraseña, verás cómo cuidamos tus datos y decidirás si los autorizas.",
       ),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Soy mayor de edad")).not.toBeChecked();
@@ -85,23 +73,25 @@ describe("PN-58 · Crear la cuenta", () => {
     ).toHaveAttribute("href", "/entrar");
   });
 
-  it("los campos llevan su autocompletar", () => {
+  it("el campo lleva su autocompletar", () => {
     render(<CrearCuenta />);
     expect(screen.getByLabelText("Correo electrónico")).toHaveAttribute(
       "autocomplete",
       "email",
     );
-    expect(screen.getByLabelText("Contraseña")).toHaveAttribute(
-      "autocomplete",
-      "new-password",
-    );
-    expect(screen.getByLabelText("Nombre para mostrar")).toHaveAttribute(
-      "autocomplete",
-      "name",
-    );
   });
 
-  it("con 202 manda los cuatro datos, guarda el correo para mostrarlo y va a PN-59", async () => {
+  // E14-PCP 4.2: «Usar otro correo» vuelve a PN-58 con lo escrito, para corregirlo.
+  it("al volver de PN-59 trae el correo escrito, con la casilla sin marcar", () => {
+    guardarCorreo("laura@ejemplo.com");
+    render(<CrearCuenta />);
+    expect(screen.getByLabelText("Correo electrónico")).toHaveValue(
+      "laura@ejemplo.com",
+    );
+    expect(screen.getByLabelText("Soy mayor de edad")).not.toBeChecked();
+  });
+
+  it("con 202 manda solo el correo y la casilla, guarda el correo para mostrarlo y va a PN-59", async () => {
     const pedidos = simularApi(() =>
       json(202, { estado: "verificacion_pendiente" }),
     );
@@ -117,8 +107,6 @@ describe("PN-58 · Crear la cuenta", () => {
         ruta: "/api/v1/cuentas",
         cuerpo: {
           correo: "laura@ejemplo.com",
-          contrasena: "lluvia café tren azul",
-          nombre: "Laura",
           mayor_de_edad: true,
         },
       },
@@ -146,19 +134,18 @@ describe("PN-58 · Crear la cuenta", () => {
     expect(window.location.pathname).toBe("/");
   });
 
-  it("muestra todos los errores de campo a la vez, lleva el foco al primero y conserva lo escrito", async () => {
+  it("muestra los errores de campo a la vez, lleva el foco al primero y conserva lo escrito", async () => {
     simularApi(() =>
       json(422, {
         error: "validacion",
         campos: {
           correo: "correo_invalido",
-          contrasena: "contrasena_corta",
-          nombre: "nombre_vacio",
+          mayor_de_edad: "mayor_de_edad_requerido",
         },
       }),
     );
     render(<CrearCuenta />);
-    llenar();
+    llenar({ marcar: false });
     crear();
     expect(
       await screen.findByText(
@@ -166,62 +153,28 @@ describe("PN-58 · Crear la cuenta", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
-        porTexto("Falta que la contraseña tenga al menos 15 caracteres."),
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Falta el nombre para mostrar."),
+      screen.getByText("Falta marcar que eres mayor de edad."),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Correo electrónico")).toHaveFocus();
     expect(screen.getByLabelText("Correo electrónico")).toHaveValue(
       "laura@ejemplo.com",
     );
-    expect(screen.getByLabelText("Contraseña")).toHaveValue(
-      "lluvia café tren azul",
-    );
   });
 
-  it.each([
-    ["correo_vacio", "Falta el correo electrónico."],
-    ["contrasena_vacia", "Falta la contraseña."],
-    [
-      "contrasena_comun",
-      "Falta una contraseña que no sea tan común. Prueba con una frase de tres o cuatro palabras.",
-    ],
-    [
-      "contrasena_personal",
-      "Falta una contraseña que no incluya tu correo ni el nombre de la app.",
-    ],
-  ])("el código %s se muestra con el texto de E14", async (codigo, texto) => {
-    const campo = codigo.startsWith("correo") ? "correo" : "contrasena";
+  it("el correo vacío muestra el texto de E14", async () => {
     simularApi(() =>
-      json(422, { error: "validacion", campos: { [campo]: codigo } }),
-    );
-    render(<CrearCuenta />);
-    crear();
-    expect(await screen.findByText(texto)).toBeInTheDocument();
-  });
-
-  // E14-PCP 4.16 T5 (D-153)
-  it("nombre_largo da el error del campo, con el foco en el nombre", async () => {
-    simularApi(() =>
-      json(422, { error: "validacion", campos: { nombre: "nombre_largo" } }),
+      json(422, { error: "validacion", campos: { correo: "correo_vacio" } }),
     );
     render(<CrearCuenta />);
     crear();
     expect(
-      await screen.findByText(
-        porTexto("Escribe un nombre de hasta 60 caracteres."),
-      ),
+      await screen.findByText("Falta el correo electrónico."),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Nombre para mostrar")).toHaveFocus();
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
   it("un código de campo que no conoce cae al aviso de error de envío", async () => {
     simularApi(() =>
-      json(422, { error: "validacion", campos: { nombre: "otro_codigo" } }),
+      json(422, { error: "validacion", campos: { correo: "otro_codigo" } }),
     );
     render(<CrearCuenta />);
     crear();
@@ -259,7 +212,9 @@ describe("PN-58 · Crear la cuenta", () => {
         "Sin conexión. Intenta de nuevo cuando vuelvas a tener internet.",
       ),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Nombre para mostrar")).toHaveValue("Laura");
+    expect(screen.getByLabelText("Correo electrónico")).toHaveValue(
+      "laura@ejemplo.com",
+    );
   });
 
   it("un error del servidor da «No pudimos crear la cuenta» y «Intentar de nuevo» reenvía", async () => {

@@ -20,7 +20,7 @@ describe('textoDeErrorDeCampo (E14-PCP 4.1, 4.3, 4.5 y 4.15)', () => {
     ['contrasena_vacia', 'Falta la contraseña.'],
     ['contrasena_corta', 'Falta que la contraseña tenga al menos 15 caracteres.'],
     ['contrasena_comun', 'Falta una contraseña que no sea tan común. Prueba con una frase de tres o cuatro palabras.'],
-    ['contrasena_personal', 'Falta una contraseña que no incluya tu correo ni el nombre de la app.'],
+    ['contrasena_personal', 'Falta una contraseña que no incluya tu correo ni la palabra «Alcanzamos».'],
     ['nombre_vacio', 'Falta el nombre para mostrar.'],
     ['nombre_largo', 'Escribe un nombre de hasta 60 caracteres.'],
   ])('PN-58: %s', (codigo, texto) => {
@@ -38,7 +38,7 @@ describe('textoDeErrorDeCampo (E14-PCP 4.1, 4.3, 4.5 y 4.15)', () => {
     ['contrasena_vacia', 'Falta la contraseña nueva.'],
     ['contrasena_corta', 'Falta que la contraseña tenga al menos 15 caracteres.'],
     ['contrasena_comun', 'Falta una contraseña que no sea tan común. Prueba con una frase de tres o cuatro palabras.'],
-    ['contrasena_personal', 'Falta una contraseña que no incluya tu correo ni el nombre de la app.'],
+    ['contrasena_personal', 'Falta una contraseña que no incluya tu correo ni la palabra «Alcanzamos».'],
   ])('PN-62 y PN-73 (contraseña nueva): %s', (codigo, texto) => {
     expect(textoDeErrorDeCampo(codigo, 'contrasenaNueva')).toBe(texto);
   });

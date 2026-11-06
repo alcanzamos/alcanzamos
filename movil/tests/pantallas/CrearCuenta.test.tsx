@@ -156,7 +156,7 @@ describe('PN-58 · Crear la cuenta, Android (E14-PCP 4.1)', () => {
         'contrasena_comun',
         'Falta una contraseña que no sea tan común. Prueba con una frase de tres o cuatro palabras.',
       ],
-      ['contrasena', 'contrasena_personal', 'Falta una contraseña que no incluya tu correo ni el nombre de la app.'],
+      ['contrasena', 'contrasena_personal', 'Falta una contraseña que no incluya tu correo ni la palabra «Alcanzamos».'],
       ['nombre', 'nombre_vacio', 'Falta el nombre para mostrar.'],
       ['nombre', 'nombre_largo', 'Escribe un nombre de hasta 60 caracteres.'],
     ])('%s %s → «%s»', async (campo, codigo, texto) => {

@@ -1,28 +1,25 @@
 import { pedir, SIN_CONEXION, type Respuesta } from "./cliente";
 
-// Rutas de cuenta y sesión (api/README.md, «Cuenta (US-49)»). Cada función es un pedido; el API valida.
+// Rutas de cuenta y sesión (api/README.md, «Cuenta (US-49, US-61)»). Cada función es un pedido; el API valida.
+// Crear una cuenta verifica primero (D-172): PN-58 y PN-59 no tienen sesión; la contraseña y el nombre se mandan
+// con el token del enlace (PN-74) y ahí empieza la sesión.
+
+/** PN-58: pide la verificación del correo. Responde siempre igual, con o sin cuenta, y nunca da sesión. */
 export const crearCuenta = (datos: {
   correo: string;
-  contrasena: string;
-  nombre: string;
   mayor_de_edad: boolean;
 }) => pedir("POST", "/api/v1/cuentas", datos);
 
-export const verificarCorreo = (token: string) =>
-  pedir<{ estado: string; con_sesion: boolean }>(
-    "POST",
-    "/api/v1/cuentas/verificacion",
-    { token },
-  );
+/** PN-59, «Reenviar el correo»: público, por la dirección escrita; el API no crea cuentas aquí. */
+export const reenviarCorreo = (correo: string) =>
+  pedir("POST", "/api/v1/cuentas/verificacion/reenvio", { correo });
 
-export const estadoDeLaCuenta = () =>
-  pedir<{ verificada: boolean }>("GET", "/api/v1/cuentas/estado");
-
-export const reenviarCorreo = () =>
-  pedir("POST", "/api/v1/cuentas/verificacion/reenvio");
-
-export const cambiarCorreo = (correo: string) =>
-  pedir("POST", "/api/v1/cuentas/correo", { correo });
+/** PN-74: completa la cuenta con el token del enlace y empieza la sesión (cookie). El enlace sirve una vez. */
+export const completarCuenta = (datos: {
+  token: string;
+  contrasena: string;
+  nombre: string;
+}) => pedir<{ estado: string }>("POST", "/api/v1/cuentas/verificacion", datos);
 
 export const cerrarSesion = () => pedir("DELETE", "/api/v1/sesiones/actual");
 

@@ -2,12 +2,11 @@ import { useState, type SyntheticEvent } from "react";
 import { crearCuenta } from "../api/cuentas";
 import { Aviso } from "../componentes/Aviso";
 import { Boton, BotonEnlace } from "../componentes/Boton";
-import { CampoDeContrasena } from "../componentes/CampoDeContrasena";
 import { CampoDeTexto } from "../componentes/CampoDeTexto";
 import { Casilla } from "../componentes/Casilla";
 import { IconoInformacion } from "../componentes/Iconos";
 import { Pagina } from "../componentes/Pagina";
-import { guardarCorreo } from "../correoPendiente";
+import { guardarCorreo, leerCorreo } from "../correoPendiente";
 import { navegar } from "../enrutador";
 import { useFocoPendiente } from "../enfoque";
 import {
@@ -21,16 +20,14 @@ import { textos } from "../textos/es.generated";
 // Del cuerpo del pedido al id del control, en el orden de la pantalla (el foco va al primero con error).
 const orden = [
   ["correo", "correo"],
-  ["contrasena", "contrasena"],
-  ["nombre", "nombre"],
   ["mayor_de_edad", "mayor-de-edad"],
 ] as const;
 
-// PN-58 · Crear la cuenta, variante web (E14-PCP 4.1). El API valida todo y devuelve el código de cada campo.
+// PN-58 · Crear la cuenta, variante web (E14-PCP 4.1, D-172): solo el correo y la casilla «Soy mayor de edad».
+// Nunca da sesión: la contraseña y el nombre se piden al abrir el enlace del correo (PN-74). El API valida todo y
+// devuelve el código de cada campo. Trae el correo que PN-59 guardó («Usar otro correo» vuelve aquí con lo escrito).
 export function CrearCuenta() {
-  const [correo, setCorreo] = useState("");
-  const [contrasena, setContrasena] = useState("");
-  const [nombre, setNombre] = useState("");
+  const [correo, setCorreo] = useState(() => leerCorreo() ?? "");
   const [mayorDeEdad, setMayorDeEdad] = useState(false);
   const [errores, setErrores] = useState<Record<string, string>>({});
   const [aviso, setAviso] = useState<DatosDeAviso | null>(null);
@@ -43,8 +40,6 @@ export function CrearCuenta() {
     setEnviando(true);
     const respuesta = await crearCuenta({
       correo,
-      contrasena,
-      nombre,
       mayor_de_edad: mayorDeEdad,
     });
     setEnviando(false);
@@ -75,36 +70,18 @@ export function CrearCuenta() {
 
   return (
     <Pagina titulo={textos.crearCuenta.titulo} conLogo>
-      <p>{textos.crearCuenta.intro}</p>
+      <p>{textos.crearCuentaSoloCorreo.intro}</p>
       <form className="formulario" noValidate onSubmit={enviar}>
         {aviso && <Aviso {...aviso} />}
         <CampoDeTexto
           id="correo"
           etiqueta={textos.campos.correo.etiqueta}
-          ayuda={textos.campos.correo.ayuda}
+          ayuda={textos.crearCuentaSoloCorreo.ayudaDelCorreo}
           tipo="email"
           autocompletar="email"
           valor={correo}
           alCambiar={setCorreo}
           error={errores.correo}
-        />
-        <CampoDeContrasena
-          id="contrasena"
-          etiqueta={textos.campos.contrasena.etiqueta}
-          ayuda={textos.campos.contrasena.ayuda}
-          autocompletar="new-password"
-          valor={contrasena}
-          alCambiar={setContrasena}
-          error={errores.contrasena}
-        />
-        <CampoDeTexto
-          id="nombre"
-          etiqueta={textos.campos.nombre.etiqueta}
-          ayuda={textos.campos.nombre.ayuda}
-          autocompletar="name"
-          valor={nombre}
-          alCambiar={setNombre}
-          error={errores.nombre}
         />
         <Casilla
           id="mayor-de-edad"
@@ -127,7 +104,7 @@ export function CrearCuenta() {
       </BotonEnlace>
       <p className="nota">
         <IconoInformacion />
-        <span>{textos.crearCuenta.nota}</span>
+        <span>{textos.crearCuentaSoloCorreo.nota}</span>
       </p>
     </Pagina>
   );
