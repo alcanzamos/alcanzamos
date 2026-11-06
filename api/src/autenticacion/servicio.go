@@ -134,11 +134,10 @@ func NuevoServicio(d Dependencias) (*Servicio, error) {
 	return &Servicio{d: d, hashDeRelleno: hash, recuperaciones: nuevaColaDeRecuperacion(largo), trabajadores: trabajadores}, nil
 }
 
-// SesionIniciada es la sesión nueva: el token, que el cliente guarda (cookie en la web, Bearer en Android), y si la
-// cuenta ya confirmó el correo. Si no, la sesión es la limitada de D-138 y el cliente sigue a PN-59.
+// SesionIniciada es la sesión nueva: el token, que el cliente guarda (cookie en la web, Bearer en Android). Solo las
+// cuentas con el correo verificado tienen contraseña y pueden entrar (D-172).
 type SesionIniciada struct {
-	Token      string
-	Verificada bool
+	Token string
 }
 
 // IniciarSesion entra con un identificador y una contraseña (CU-52, PN-60). Hoy el identificador solo puede ser un
@@ -200,7 +199,7 @@ func (s *Servicio) IniciarSesion(ctx context.Context, identificador, contrasena,
 		}
 		return SesionIniciada{}, err
 	}
-	return SesionIniciada{Token: token, Verificada: cred.Verificada}, nil
+	return SesionIniciada{Token: token}, nil
 }
 
 // hashMejorado devuelve el reemplazo del hash si el guardado quedó con parámetros viejos, o nil si no hace
@@ -218,8 +217,7 @@ func (s *Servicio) hashMejorado(ctx context.Context, contrasena string, cred Cre
 	return &MejoraDeHash{Viejo: cred.Hash, Nuevo: nuevo}
 }
 
-// CerrarSesion borra la sesión del token (CU-52). Con un token de mentira o ya borrado no hace nada y no falla:
-// la respuesta es la misma (D-141).
+// CerrarSesion borra la sesión del token (CU-52). Con un token mal formado o ya borrado no hace nada y no falla.
 func (s *Servicio) CerrarSesion(ctx context.Context, token string) error {
 	huella, err := seguridad.HuellaDeToken(token)
 	if err != nil {

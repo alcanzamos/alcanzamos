@@ -251,7 +251,7 @@ func TestSujetoSegunElEstadoDeLaCuenta(t *testing.T) {
 	paso := func(descripcion string, verificada, autorizada bool) {
 		t.Helper()
 		s, err := e.sesiones.Sujeto(ctx, h, ahora.Add(time.Second))
-		if err != nil || s.Persona != persona || s.Verificada != verificada || s.Autorizada != autorizada || s.Senuelo {
+		if err != nil || s.Persona != persona || s.Verificada != verificada || s.Autorizada != autorizada {
 			t.Fatalf("%s: %+v %v; se esperaba verificada=%v autorizada=%v", descripcion, s, err, verificada, autorizada)
 		}
 	}
@@ -371,28 +371,17 @@ func TestSujetoDeUnMenorExigeLaAutorizacionDeSuTutor(t *testing.T) {
 	}
 }
 
-// Prueba de punta a punta con la base: el enrutador real con el almacén real y el reconocimiento de la sesión de mentira
-// (SEG-010, SEG-013). Una sesión real sin verificar y una de mentira reciben lo mismo en cada ruta; solo la real cambia
-// al verificar y autorizar. La de mentira, creada por una instancia, la reconoce otra con la misma clave.
+// Prueba de punta a punta con la base: el enrutador real con el almacén real (SEG-010). Un token que ninguna sesión
+// tiene no llega a ninguna ruta con sesión (401); la sesión real cambia de nivel al verificar y al autorizar.
 func TestPuntaAPuntaConElEnrutadorYLaBase(t *testing.T) {
 	e := nuevoEntorno(t)
 	log := slog.New(slog.NewJSONHandler(io.Discard, nil))
-	clave := bytes.Repeat([]byte{7}, 32)
-	creadora, err := sesion.NuevosSenuelos(clave, e.reloj)
-	if err != nil {
-		t.Fatal(err)
-	}
-	reconocedora, err := sesion.NuevosSenuelos(clave, e.reloj) // otra réplica, o el API tras un reinicio
-	if err != nil {
-		t.Fatal(err)
-	}
-	enr := servidor.NuevoEnrutador(sesion.NuevoResolutor(e.sesiones, reconocedora, e.reloj), seguridad.NuevoRegistro(log), log)
+	enr := servidor.NuevoEnrutador(sesion.NuevoResolutor(e.sesiones, e.reloj), seguridad.NuevoRegistro(log), log)
 	ok := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		servidor.EscribirJSON(w, 200, map[string]string{"estado": "ok"})
 	})
 	rutas := map[seguridad.NivelDeAcceso]string{
-		seguridad.SinVerificar: "/api/v1/prueba/sin-verificar", seguridad.SinAutorizacion: "/api/v1/prueba/sin-autorizacion",
-		seguridad.RequiereAutorizacion: "/api/v1/prueba/requiere-autorizacion",
+		seguridad.SinAutorizacion: "/api/v1/prueba/sin-autorizacion", seguridad.RequiereAutorizacion: "/api/v1/prueba/requiere-autorizacion",
 	}
 	for nivel, ruta := range rutas {
 		enr.Registrar(nivel, "GET "+ruta, ok)
@@ -409,34 +398,15 @@ func TestPuntaAPuntaConElEnrutadorYLaBase(t *testing.T) {
 		h.ServeHTTP(rr, r)
 		return rr.Code, strings.TrimSpace(rr.Body.String())
 	}
-	nueva := func(persona string) string {
-		t.Helper()
-		token, huella := seguridad.NuevoTokenOpaco()
-		if err := e.sesiones.Crear(context.Background(), persona, huella, ahora); err != nil {
-			t.Fatal(err)
-		}
-		return token
-	}
-
 	laura := e.sembrar(t, "laura@ejemplo.test")
-	real := nueva(laura)
-	limitada := nueva(e.sembrar(t, "otra@ejemplo.test"))
-	senuelo := creadora.Crear()
-	if len(real) != len(senuelo) {
-		t.Fatal("los tokens deben tener el mismo largo")
+	real, huella := seguridad.NuevoTokenOpaco()
+	if err := e.sesiones.Crear(context.Background(), laura, huella, ahora); err != nil {
+		t.Fatal(err)
 	}
 
-	// La limitada y la de mentira reciben lo mismo en cada ruta (D-138, D-141).
-	for nivel, ruta := range rutas {
-		c1, b1 := pedir(ruta, limitada)
-		c2, b2 := pedir(ruta, senuelo)
-		if c1 != c2 || b1 != b2 {
-			t.Errorf("%s: la limitada recibe %d %s y la de mentira %d %s", nivel, c1, b1, c2, b2)
-		}
-	}
-	for ruta, esperado := range map[string]int{rutas[seguridad.SinVerificar]: 200, rutas[seguridad.SinAutorizacion]: 403, rutas[seguridad.RequiereAutorizacion]: 403} {
-		if c, b := pedir(ruta, senuelo); c != esperado || (esperado == 403 && !strings.Contains(b, "verificacion_pendiente")) {
-			t.Errorf("sesión de mentira en %s: %d %s", ruta, c, b)
+	for _, ruta := range rutas {
+		if c, b := pedir(ruta, real); c != 403 || !strings.Contains(b, "verificacion_pendiente") {
+			t.Errorf("sin verificar en %s: %d %s", ruta, c, b)
 		}
 	}
 	verificar(t, e.pool, laura)
@@ -451,17 +421,11 @@ func TestPuntaAPuntaConElEnrutadorYLaBase(t *testing.T) {
 	if c, _ := pedir(rutas[seguridad.RequiereAutorizacion], real); c != 200 {
 		t.Errorf("autorizada en requiere_autorizacion: %d", c)
 	}
-	if c, _ := pedir(rutas[seguridad.RequiereAutorizacion], senuelo); c != 403 {
-		t.Errorf("la sesión de mentira nunca llega a requiere_autorizacion: %d", c)
-	}
-	// Un token que nadie creó no tiene sesión.
+	// Un token que nadie creó no tiene sesión, tampoco uno que parezca de mentira (D-172 (5)).
 	desconocido, _ := seguridad.NuevoTokenOpaco()
-	if c, _ := pedir(rutas[seguridad.SinVerificar], desconocido); c != 401 {
-		t.Errorf("token desconocido: %d", c)
-	}
-	// Pasada la ventana la sesión de mentira deja de existir.
-	e.reloj.T = ahora.AddDate(0, 0, sesion.DiasDeVidaDelSenuelo+1)
-	if c, _ := pedir(rutas[seguridad.SinVerificar], senuelo); c != 401 {
-		t.Errorf("sesión de mentira vencida: %d", c)
+	for ruta := range map[string]bool{rutas[seguridad.SinAutorizacion]: true, rutas[seguridad.RequiereAutorizacion]: true} {
+		if c, b := pedir(ruta, desconocido); c != 401 || b != `{"error":"sin_sesion"}` {
+			t.Errorf("token desconocido en %s: %d %s", ruta, c, b)
+		}
 	}
 }

@@ -144,8 +144,7 @@ func (e *Enrutador) Construir() (http.Handler, error) {
 //
 //   - Sin sesión: 401 y evento error_autorizacion.
 //   - Con sesión que no alcanza el nivel: 403 con verificacion_pendiente o autorizacion_pendiente, y evento
-//     acceso_denegado de la cuenta. La sesión de mentira (D-141) recibe lo mismo que la limitada real, con cuenta
-//     «desconocida» en el evento: el registro no la distingue por fuera.
+//     acceso_denegado de la cuenta.
 func (e *Enrutador) proteger(n seguridad.NivelDeAcceso, h http.Handler) http.Handler {
 	if n == seguridad.Publica {
 		return h
@@ -162,7 +161,7 @@ func (e *Enrutador) proteger(n seguridad.NivelDeAcceso, h http.Handler) http.Han
 			return
 		}
 		ctx := ConSujeto(r.Context(), sujeto)
-		if sujeto.Persona != "" && !sujeto.Senuelo {
+		if sujeto.Persona != "" {
 			ctx = seguridad.ConPersona(ctx, sujeto.Persona)
 		}
 		r = r.WithContext(ctx)

@@ -72,16 +72,12 @@ func nuevoServidor(t *testing.T) *servidorDePrueba {
 	eventos := &bytes.Buffer{}
 	log := slog.New(slog.NewJSONHandler(eventos, nil))
 	reloj := &relojtest.Fijo{T: time.Date(2026, 11, 10, 12, 0, 0, 0, time.UTC)}
-	senuelos, err := sesion.NuevosSenuelos(bytes.Repeat([]byte{5}, 32), reloj)
-	if err != nil {
-		t.Fatal(err)
-	}
 	limitador := seguridad.NuevoLimitadorDeIntentos(reloj)
 	politica := seguridad.NuevaPoliticaDeContrasena()
 	correo := &correotest.Falso{}
 	cuentas := cuenta.NuevoServicio(cuenta.Dependencias{
 		Repo: pg.NuevoCuentas(pool), Correo: correo, Politica: politica, Hasher: hasheadorRapido{}, Reloj: reloj,
-		Limitador: limitador, Senuelos: senuelos, Log: log,
+		Limitador: limitador, Log: log,
 	})
 	entrar, err := autenticacion.NuevoServicio(autenticacion.Dependencias{
 		Repo: pg.NuevoAutenticacion(pool), Hasher: hasheadorRapido{}, Limitador: limitador, Reloj: reloj, Correo: correo,
@@ -90,10 +86,10 @@ func nuevoServidor(t *testing.T) *servidorDePrueba {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resolutor := sesion.NuevoResolutor(pg.NuevoSesiones(pool), senuelos, reloj)
+	resolutor := sesion.NuevoResolutor(pg.NuevoSesiones(pool), reloj)
 	registro := seguridad.NuevoRegistro(log)
 	enr := servidor.NuevoEnrutador(resolutor, registro, log)
-	cuenta.NuevoHandler(cuentas, resolutor, log).Registrar(enr)
+	cuenta.NuevoHandler(cuentas, log).Registrar(enr)
 	autenticacion.NuevoHandler(entrar, registro, log).Registrar(enr)
 	autorizacion.NuevoHandler(autorizacion.NuevoServicio(pg.NuevoAutorizaciones(pool), reloj), registro, log).Registrar(enr)
 	api, err := enr.Construir()
@@ -157,7 +153,7 @@ func (c *cliente) tokenDe(r respuesta) string {
 func (s *servidorDePrueba) nuevaCuentaVerificada(correo string, android bool) (*cliente, string) {
 	s.t.Helper()
 	c := &cliente{s: s, android: android}
-	r := c.llamar("POST", "/api/v1/cuentas", `{"correo":"`+correo+`","contrasena":"`+contrasena+`","nombre":"Laura","mayor_de_edad":true}`)
+	r := c.llamar("POST", "/api/v1/cuentas", `{"correo":"`+correo+`","mayor_de_edad":true}`)
 	if r.Codigo != 202 {
 		s.t.Fatalf("crear la cuenta: %d %s", r.Codigo, r.Cuerpo)
 	}
@@ -167,7 +163,7 @@ func (s *servidorDePrueba) nuevaCuentaVerificada(correo string, android bool) (*
 	if enlace.Destino != correo {
 		s.t.Fatalf("el correo de verificación fue a %s", enlace.Destino)
 	}
-	if v := (&cliente{s: s}).llamar("POST", "/api/v1/cuentas/verificacion", `{"token":"`+enlace.Token+`"}`); v.Codigo != 200 {
+	if v := (&cliente{s: s}).llamar("POST", "/api/v1/cuentas/verificacion", `{"token":"`+enlace.Token+`","contrasena":"`+contrasena+`","nombre":"Laura"}`); v.Codigo != 200 {
 		s.t.Fatalf("verificar: %d %s", v.Codigo, v.Cuerpo)
 	}
 	r = c.llamar("POST", "/api/v1/sesiones", `{"identificador":"`+correo+`","contrasena":"`+contrasena+`"}`)

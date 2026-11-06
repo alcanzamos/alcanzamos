@@ -70,16 +70,12 @@ func nuevoServidor(t *testing.T) *servidorDePrueba {
 	pool := pgtest.Nueva(t)
 	log := slog.New(slog.NewJSONHandler(&bytes.Buffer{}, nil))
 	reloj := &relojtest.Fijo{T: time.Date(2026, 10, 26, 15, 0, 0, 0, time.UTC)}
-	senuelos, err := sesion.NuevosSenuelos(bytes.Repeat([]byte{5}, 32), reloj)
-	if err != nil {
-		t.Fatal(err)
-	}
 	limitador := seguridad.NuevoLimitadorDeIntentos(reloj)
 	politica := seguridad.NuevaPoliticaDeContrasena()
 	correo := &correotest.Falso{}
 	cuentas := cuenta.NuevoServicio(cuenta.Dependencias{
 		Repo: pg.NuevoCuentas(pool), Correo: correo, Politica: politica, Hasher: hasheadorRapido{}, Reloj: reloj,
-		Limitador: limitador, Senuelos: senuelos, Log: log,
+		Limitador: limitador, Log: log,
 	})
 	entrar, err := autenticacion.NuevoServicio(autenticacion.Dependencias{
 		Repo: pg.NuevoAutenticacion(pool), Hasher: hasheadorRapido{}, Limitador: limitador, Reloj: reloj, Correo: correo,
@@ -88,9 +84,9 @@ func nuevoServidor(t *testing.T) *servidorDePrueba {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resolutor := sesion.NuevoResolutor(pg.NuevoSesiones(pool), senuelos, reloj)
+	resolutor := sesion.NuevoResolutor(pg.NuevoSesiones(pool), reloj)
 	enr := servidor.NuevoEnrutador(resolutor, seguridad.NuevoRegistro(log), log).ConURLPublica("https://app.ej.test")
-	cuenta.NuevoHandler(cuentas, resolutor, log).Registrar(enr)
+	cuenta.NuevoHandler(cuentas, log).Registrar(enr)
 	autenticacion.NuevoHandler(entrar, seguridad.NuevoRegistro(log), log).Registrar(enr)
 	autorizacion.NuevoHandler(autorizacion.NuevoServicio(pg.NuevoAutorizaciones(pool), reloj), seguridad.NuevoRegistro(log), log).Registrar(enr)
 	registro.NuevoHandler(registro.NuevoServicio(pg.NuevoMovimientos(pool), reloj), log).Registrar(enr)
@@ -172,12 +168,12 @@ func (c *cliente) tokenDe(r respuesta) string {
 func (s *servidorDePrueba) nuevaCuenta(correo string, android, autorizar bool) (*cliente, string) {
 	s.t.Helper()
 	c := &cliente{s: s, android: android}
-	if r := c.llamar("POST", "/api/v1/cuentas", `{"correo":"`+correo+`","contrasena":"`+contrasena+`","nombre":"Laura","mayor_de_edad":true}`); r.Codigo != 202 {
+	if r := c.llamar("POST", "/api/v1/cuentas", `{"correo":"`+correo+`","mayor_de_edad":true}`); r.Codigo != 202 {
 		s.t.Fatalf("crear la cuenta: %d %s", r.Codigo, r.Cuerpo)
 	}
 	s.cuentas.Esperar()
 	enlaces := s.correo.Enviados()
-	if v := (&cliente{s: s}).llamar("POST", "/api/v1/cuentas/verificacion", `{"token":"`+enlaces[len(enlaces)-1].Token+`"}`); v.Codigo != 200 {
+	if v := (&cliente{s: s}).llamar("POST", "/api/v1/cuentas/verificacion", `{"token":"`+enlaces[len(enlaces)-1].Token+`","contrasena":"`+contrasena+`","nombre":"Laura"}`); v.Codigo != 200 {
 		s.t.Fatalf("verificar: %d %s", v.Codigo, v.Cuerpo)
 	}
 	r := c.llamar("POST", "/api/v1/sesiones", `{"identificador":"`+correo+`","contrasena":"`+contrasena+`"}`)

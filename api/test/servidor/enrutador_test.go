@@ -26,8 +26,8 @@ const personaDePrueba = "0192f3c4-0000-7000-8000-000000000001"
 
 var alcanzado = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	// Un manejador que sí se alcanzó: devuelve lo que el guard dejó en el contexto.
-	s, ok := servidor.SujetoDe(r.Context())
-	servidor.EscribirJSON(w, http.StatusOK, map[string]any{"persona": seguridad.PersonaDe(r.Context()), "hay_sujeto": ok, "senuelo": s.Senuelo})
+	_, ok := servidor.SujetoDe(r.Context())
+	servidor.EscribirJSON(w, http.StatusOK, map[string]any{"persona": seguridad.PersonaDe(r.Context()), "hay_sujeto": ok})
 })
 
 // api arma un Enrutador con una ruta por nivel y devuelve el manejador completo, con CSP y petición.
@@ -36,7 +36,6 @@ func api(t *testing.T, s servidor.Sesiones, salida io.Writer) http.Handler {
 	log := slog.New(slog.NewJSONHandler(salida, nil))
 	e := servidor.NuevoEnrutador(s, seguridad.NuevoRegistro(log), log)
 	e.Registrar(seguridad.Publica, "GET /api/v1/prueba/publica", alcanzado)
-	e.Registrar(seguridad.SinVerificar, "GET /api/v1/prueba/sin-verificar", alcanzado)
 	e.Registrar(seguridad.SinAutorizacion, "GET /api/v1/prueba/sin-autorizacion", alcanzado)
 	e.Registrar(seguridad.RequiereAutorizacion, "GET /api/v1/prueba/autorizada/{id}", alcanzado)
 	h, err := e.Construir()
@@ -47,7 +46,7 @@ func api(t *testing.T, s servidor.Sesiones, salida io.Writer) http.Handler {
 }
 
 func TestGuardPorNivel(t *testing.T) {
-	limitada := seguridad.Sujeto{Persona: personaDePrueba}
+	sinCorreo := seguridad.Sujeto{Persona: personaDePrueba} // solo un menor, hasta I11
 	verificada := seguridad.Sujeto{Persona: personaDePrueba, Verificada: true}
 	autorizada := seguridad.Sujeto{Persona: personaDePrueba, Verificada: true, Autorizada: true}
 	casos := []struct {
@@ -61,18 +60,14 @@ func TestGuardPorNivel(t *testing.T) {
 		patron string // ruta (patrón) esperada en el evento
 	}{
 		{"pública sin sesión pasa", "/api/v1/prueba/publica", sesionFalsa{err: servidor.ErrSinSesion}, 200, "", "", "", ""},
-		{"sin verificar: sin sesión da 401", "/api/v1/prueba/sin-verificar", sesionFalsa{err: servidor.ErrSinSesion}, 401, "sin_sesion", "error_autorizacion", "desconocida", "GET /api/v1/prueba/sin-verificar"},
-		{"sin verificar: la sesión limitada pasa", "/api/v1/prueba/sin-verificar", sesionFalsa{sujeto: limitada}, 200, "", "", "", ""},
-		{"sin verificar: la cuenta ya verificada también pasa (revisar el estado)", "/api/v1/prueba/sin-verificar", sesionFalsa{sujeto: verificada}, 200, "", "", "", ""},
-		{"sin autorización: la limitada da 403 verificacion_pendiente", "/api/v1/prueba/sin-autorizacion", sesionFalsa{sujeto: limitada}, 403, "verificacion_pendiente", "acceso_denegado", personaDePrueba, "GET /api/v1/prueba/sin-autorizacion"},
+		{"sin autorización: sin correo verificado da 403 verificacion_pendiente", "/api/v1/prueba/sin-autorizacion", sesionFalsa{sujeto: sinCorreo}, 403, "verificacion_pendiente", "acceso_denegado", personaDePrueba, "GET /api/v1/prueba/sin-autorizacion"},
 		{"sin autorización: la verificada pasa", "/api/v1/prueba/sin-autorizacion", sesionFalsa{sujeto: verificada}, 200, "", "", "", ""},
 		{"requiere autorización: sin sesión da 401", "/api/v1/prueba/autorizada/7", sesionFalsa{err: servidor.ErrSinSesion}, 401, "sin_sesion", "error_autorizacion", "desconocida", "GET /api/v1/prueba/autorizada/{id}"},
-		{"requiere autorización: la limitada da 403 verificacion_pendiente", "/api/v1/prueba/autorizada/7", sesionFalsa{sujeto: limitada}, 403, "verificacion_pendiente", "acceso_denegado", personaDePrueba, "GET /api/v1/prueba/autorizada/{id}"},
+		{"requiere autorización: sin correo verificado da 403 verificacion_pendiente", "/api/v1/prueba/autorizada/7", sesionFalsa{sujeto: sinCorreo}, 403, "verificacion_pendiente", "acceso_denegado", personaDePrueba, "GET /api/v1/prueba/autorizada/{id}"},
 		{"requiere autorización: verificada sin autorizar da 403 autorizacion_pendiente", "/api/v1/prueba/autorizada/7", sesionFalsa{sujeto: verificada}, 403, "autorizacion_pendiente", "acceso_denegado", personaDePrueba, "GET /api/v1/prueba/autorizada/{id}"},
 		{"requiere autorización: autorizada pasa", "/api/v1/prueba/autorizada/7", sesionFalsa{sujeto: autorizada}, 200, "", "", "", ""},
 		{"autorizada sin verificar (dato incoherente) no pasa", "/api/v1/prueba/autorizada/7", sesionFalsa{sujeto: seguridad.Sujeto{Persona: personaDePrueba, Autorizada: true}}, 403, "verificacion_pendiente", "acceso_denegado", personaDePrueba, "GET /api/v1/prueba/autorizada/{id}"},
-		{"la sesión de mentira no pasa aunque diga estar autorizada", "/api/v1/prueba/autorizada/7", sesionFalsa{sujeto: seguridad.Sujeto{Senuelo: true, Verificada: true, Autorizada: true}}, 403, "verificacion_pendiente", "acceso_denegado", "desconocida", "GET /api/v1/prueba/autorizada/{id}"},
-		{"falla la sesión: no pasa", "/api/v1/prueba/sin-verificar", sesionFalsa{err: errors.New("bd caída")}, 500, "error_interno", "", "", ""},
+		{"falla la sesión: no pasa", "/api/v1/prueba/sin-autorizacion", sesionFalsa{err: errors.New("bd caída")}, 500, "error_interno", "", "", ""},
 	}
 	for _, c := range casos {
 		t.Run(c.nombre, func(t *testing.T) {
@@ -129,17 +124,6 @@ func TestElManejadorRecibeElSujetoYLaPersonaDeLaSesion(t *testing.T) {
 	}
 }
 
-func TestLaSesionDeMentiraNoDejaPersonaEnElContexto(t *testing.T) {
-	rr := httptest.NewRecorder()
-	api(t, sesionFalsa{sujeto: seguridad.Sujeto{Senuelo: true}}, io.Discard).
-		ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/v1/prueba/sin-verificar", nil))
-	var cuerpo map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &cuerpo)
-	if rr.Code != 200 || cuerpo["persona"] != "" || cuerpo["senuelo"] != true {
-		t.Fatalf("respuesta inesperada: %d %s", rr.Code, rr.Body)
-	}
-}
-
 func TestRegistroInvalidoNoArranca(t *testing.T) {
 	casos := []struct {
 		nombre   string
@@ -148,6 +132,8 @@ func TestRegistroInvalidoNoArranca(t *testing.T) {
 	}{
 		{"sin nivel", func(e *servidor.Enrutador) { e.Registrar(0, "GET /api/v1/x", alcanzado) }, "no declara su nivel de acceso"},
 		{"nivel desconocido", func(e *servidor.Enrutador) { e.Registrar(99, "GET /api/v1/x", alcanzado) }, "no declara su nivel de acceso"},
+		// SEG-010 (D-172 (5)): el cuarto nivel (`sin_verificar`) ya no existe: ni su valor numérico de antes vale.
+		{"un cuarto nivel que ya no existe", func(e *servidor.Enrutador) { e.Registrar(seguridad.RequiereAutorizacion+1, "GET /api/v1/x", alcanzado) }, "no declara su nivel de acceso"},
 		{"fuera de /api/", func(e *servidor.Enrutador) { e.Registrar(seguridad.Publica, "GET /v1/x", alcanzado) }, "no está bajo /api/"},
 		{"la propia /api/", func(e *servidor.Enrutador) { e.Registrar(seguridad.Publica, "GET /api/", alcanzado) }, "no está bajo /api/"},
 		{"sin método", func(e *servidor.Enrutador) { e.Registrar(seguridad.Publica, "/api/v1/x", alcanzado) }, "no empieza por un método"},

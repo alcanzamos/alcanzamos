@@ -59,6 +59,16 @@ func (r *repoDeBorradoFalso) BorrarCuenta(_ context.Context, persona string, vis
 	return r.errBorrar
 }
 
+// almacenFalso es el almacén de sesiones reales: huella (en texto) → Sujeto.
+type almacenFalso map[string]seguridad.Sujeto
+
+func (a almacenFalso) Sujeto(_ context.Context, huella []byte, _ time.Time) (seguridad.Sujeto, error) {
+	if s, ok := a[string(huella)]; ok {
+		return s, nil
+	}
+	return seguridad.Sujeto{}, seguridad.ErrSinSesion
+}
+
 // verificadorFalso acepta solo claveQueBorra y cuenta cuántas veces se le pidió.
 type verificadorFalso struct {
 	veces int
@@ -202,7 +212,7 @@ const rutaDeBorrado = "/api/v1/cuenta/borrado"
 func (e *entornoDeBorrado) api(t *testing.T) http.Handler {
 	t.Helper()
 	log := slog.New(slog.NewJSONHandler(e.registro, nil))
-	resolutor := sesion.NuevoResolutor(e.almacen, nil, e.reloj)
+	resolutor := sesion.NuevoResolutor(e.almacen, e.reloj)
 	enr := servidor.NuevoEnrutador(resolutor, seguridad.NuevoRegistro(log), log)
 	cuenta.NuevoHandlerDeBorrado(e.servicio, seguridad.NuevoRegistro(log), log).Registrar(enr)
 	h, err := enr.Construir()

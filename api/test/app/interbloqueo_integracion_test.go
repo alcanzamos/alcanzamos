@@ -6,7 +6,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
@@ -58,7 +57,7 @@ func vArmar(t *testing.T) *vEnt {
 	pool := pgtest.Nueva(t)
 	entorno := map[string]string{
 		"CORREO_SMTP": "127.0.0.1:1", "CORREO_REMITENTE": "a@b.test", "CORREO_PRIVACIDAD": "p@b.test",
-		"URL_PUBLICA": urlPublicaDePrueba, "SESION_SENUELO_CLAVE": base64.StdEncoding.EncodeToString(make([]byte, 32)),
+		"URL_PUBLICA": urlPublicaDePrueba,
 	}
 	cfg, err := config.Cargar(func(k string) string { return entorno[k] })
 	if err != nil {

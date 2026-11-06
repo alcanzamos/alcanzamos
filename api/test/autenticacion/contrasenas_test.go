@@ -121,20 +121,6 @@ func TestRecuperacionLimitaPorCuentaYPorOrigen(t *testing.T) {
 	}
 }
 
-// D-140: con 3 correos ya mandados a la dirección esta hora, el pedido responde igual y no manda otro.
-func TestRecuperacionRespetaLosTresCorreosPorHoraALaDireccion(t *testing.T) {
-	e := nuevoEntorno(t)
-	for range 3 {
-		e.limitador.PermitirCorreo(correoDePrueba)
-	}
-	if c, b := pedirRecuperacion(e, e.api(t, nil), correoDePrueba, "203.0.113.7"); c != 202 || b != `{"estado":"enlace_enviado"}` {
-		t.Fatalf("%d %s", c, b)
-	}
-	if n := len(e.correo.Enviados()); n != 0 {
-		t.Errorf("no debe salir un cuarto correo: %d", n)
-	}
-}
-
 func TestPedirRecuperacionConCorreoMalEscrito(t *testing.T) {
 	for correo, codigo := range map[string]string{"": "correo_vacio", "sin-arroba": "correo_invalido"} {
 		e := nuevoEntorno(t)
