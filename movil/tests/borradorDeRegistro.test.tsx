@@ -61,6 +61,9 @@ describe('borradorDeMovimiento («Corregir» de PN-02)', () => {
       medio: 'efectivo',
       descripcion: 'Mercado',
       periodicidad: null,
+      texto: '',
+      delCuadro: false,
+      variosMovimientos: false,
     });
   });
 
