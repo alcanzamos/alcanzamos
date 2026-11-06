@@ -688,6 +688,35 @@ Los tres POST pasan por `servidor.DefensaCSRF(URL_PUBLICA, …)`: (a) si viene `
 
 Pruebas: `test/fechas/confirmar_test.go` (FP-17 a FP-23 por nombre, más montos, desbordes y casos vacíos); `test/registro/pendientes_test.go` (contrato, errores y CSRF con un repositorio falso); `test/registro/pendientes_integracion_test.go` (de punta a punta contra PostgreSQL, en web y Android: la lista, D-094 en la lista de noviembre y diciembre, «No pasó», todo o nada, carreras con 8 pedidos a la vez, lotes en orden contrario a la vez (36 pares, sin 500), 40P01 y 40001 como `conflicto_concurrente`, lo ajeno, hogar, `detenido_en`, categoría oculta, 401/403 y CSRF); `test/pg/repeticiones_integracion_test.go`; `test/servidor/csrf_test.go`; `test/app/repeticiones_integracion_test.go` (`verificacion_pendiente` en las cuatro rutas y el cableado de producción: `URL_PUBLICA` llega a la defensa CSRF). `test/app/rutas_test.go` lleva el inventario de rutas.
 
+## Interpretación (US-62, `src/interpretacion`)
+
+Convierte un texto escrito en español en una interpretación **con reglas y sin IA** (opción D, D-075, D-191). Es el puerto `Interpretador` de ADR-005 §5.1 y E12 §5.2 con su motor, sin ruta HTTP todavía (llega con la ruta de interpretación de la US-62).
+
+```go
+type Interpretador interface {
+	Interpretar(ctx context.Context, entrada Entrada) (Interpretacion, error)
+}
+type Entrada struct { Texto string; FechaReferencia time.Time }   // de la fecha solo cuenta el día
+type Interpretacion struct {
+	Monto *int64; Tipo Tipo; Fecha *time.Time; Categoria string; Intencion Intencion; ReglasVersion string
+}
+```
+
+| Parte | Qué hace |
+|---|---|
+| `Interpretacion` | **Transitoria: nunca se guarda** (RN-001). `Monto` en **centavos** (D-082; las reglas dan pesos enteros y se multiplican por 100), `nil` si el texto no trae uno. Solo un texto con intención `registro` trae tipo, fecha (día en UTC) y categoría; una `pregunta` o una `recomendacion` los trae vacíos. La categoría es el nombre del catálogo: `RegistroServicio` la resuelve |
+| `InterpretadorPorReglas` | El motor. Port a Go de `motor.py` (E11-PDC-D): normaliza (minúsculas, sin tildes, sustituciones) y aplica las reglas de `reglas.json` en orden de prioridad (intención, fecha, monto, tipo, categoría). **Reproduce D-1.0 sin tocar ninguna regla** (D-075 (4)). `NuevoPorReglas(reglas, ConPresupuesto(d))` |
+| `ConjuntoDeReglas` | `CargarReglas(datos)` / `ReglasIncluidas()` leen `reglas.json`, expanden las macros `<<NOMBRE>>` y compilan cada patrón con **RE2** (`regexp`, tiempo lineal: sin ReDoS). **Falla al cargar**, no al interpretar, si un patrón sale del subconjunto portable (`EsPortable`) o no compila. Se carga una vez al arrancar y se comparte entre goroutines |
+| `InterpretadorFalso` | Segunda implementación, con respuestas fijas (`Respuesta` y `Err`), para IAR-003 y para probar el flujo sin reglas |
+| Límites (D-084 (2)) | **280 caracteres** (no bytes): más es `ErrTextoLargo`; vacío o solo espacios, `ErrTextoVacio`. **200 ms** por texto, con el contexto: `ErrTiempoAgotado`. RE2 no se puede interrumpir, así que el plazo se revisa entre etapas. Ante cualquier error la persona sigue con el formulario (RF-002) |
+| Sin efectos | No guarda el texto ni lo registra (RN-001, RNF-005): el paquete no importa `log`, `slog`, `os`, red ni base de datos, y ningún error lleva el texto (lo comprueban las pruebas) |
+
+**Dónde viven las reglas.** `reglas/reglas.json` es la fuente (con su SHA-256 en `reglas/SHA256SUMS`); `src/interpretacion/reglas.json` es una copia idéntica que va dentro del binario con `go:embed`, porque Go no embebe archivos de fuera de `api/` y la imagen solo copia `api/`. Una prueba y el pipeline de `reglas/` comprueban que sean idénticas. Ver [`reglas/README.md`](../reglas/README.md).
+
+**Diferencias con el prototipo** (solo en entradas que el prototipo no resuelve: lanza una excepción o no tiene tope): un importe mayor que 2^53 pesos (o que desborda `float64`) da `Monto` `nil`; una fecha relativa fuera del calendario (año < 1) se ignora en vez de lanzar `OverflowError`; el UTF-8 inválido se sustituye por «�». Con las entradas de los dos conjuntos congelados y de 1 476 variaciones de los mensajes de desarrollo y de los autores externos (en mayúsculas, con otra fecha de referencia, con un «hace 2 días» agregado), la salida es idéntica.
+
+**Pruebas** (`test/interpretacion`): **IAR-004** (misma salida que el prototipo, mensaje por mensaje, en los dos conjuntos, con el SHA-256 verificado antes); **IAR-001** (exactitud del código real contra RNF-006; imprime los porcentajes con `-v`); portabilidad RE2 (los 83 patrones compilan y están en el subconjunto portable); límites de 280 caracteres y de 200 ms; sin registro ni almacenamiento del texto; `InterpretadorFalso` cumple el puerto (IAR-003). La referencia está en `reglas/referencia/`.
+
 ## Gaps de la US-49
 
 - **Origen detrás de un proxy:** el límite por origen usa la dirección de la conexión. Detrás de Azure Container Apps todos los pedidos llegarían con la dirección de su entrada y el límite se volvería de todos juntos. Es la fila 17 del primer despliegue (D-143 (4)): se confiará solo en la dirección que agregue esa entrada. No se lee `X-Forwarded-For` mientras tanto.
