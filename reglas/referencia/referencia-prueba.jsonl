@@ -1,0 +1,245 @@
+{"id": "M001", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 185000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Alimentación", "intencion": "registro"}
+{"id": "M002", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 42000, "tipo": "gasto", "fecha": "2026-11-01", "categoria": "Alimentación", "intencion": "registro"}
+{"id": "M003", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 6500, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Alimentación", "intencion": "registro"}
+{"id": "M004", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 14000, "tipo": "gasto", "fecha": "2026-10-31", "categoria": "Alimentación", "intencion": "registro"}
+{"id": "M005", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 230000, "tipo": "gasto", "fecha": "2026-10-30", "categoria": "Alimentación", "intencion": "registro"}
+{"id": "M006", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 58000, "tipo": "gasto", "fecha": "2026-10-31", "categoria": "Alimentación", "intencion": "registro"}
+{"id": "M007", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 100000, "tipo": "gasto", "fecha": "2026-10-28", "categoria": "Alimentación", "intencion": "registro"}
+{"id": "M008", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 37500, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Alimentación", "intencion": "registro"}
+{"id": "M009", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 12000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Alimentación", "intencion": "registro"}
+{"id": "M010", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 28000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Alimentación", "intencion": "registro"}
+{"id": "M011", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 1000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Alimentación", "intencion": "registro"}
+{"id": "M012", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 180000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Alimentación", "intencion": "registro"}
+{"id": "M013", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 18000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Restaurantes y hoteles", "intencion": "registro"}
+{"id": "M014", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 13000, "tipo": "gasto", "fecha": "2026-11-01", "categoria": "Restaurantes y hoteles", "intencion": "registro"}
+{"id": "M015", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 54000, "tipo": "gasto", "fecha": "2026-11-01", "categoria": "Restaurantes y hoteles", "intencion": "registro"}
+{"id": "M016", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 95000, "tipo": "gasto", "fecha": "2026-10-31", "categoria": "Restaurantes y hoteles", "intencion": "registro"}
+{"id": "M017", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 420000, "tipo": "gasto", "fecha": "2026-10-20", "categoria": "Restaurantes y hoteles", "intencion": "registro"}
+{"id": "M018", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 7000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Restaurantes y hoteles", "intencion": "registro"}
+{"id": "M019", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 2000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Restaurantes y hoteles", "intencion": "registro"}
+{"id": "M020", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 26000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Restaurantes y hoteles", "intencion": "registro"}
+{"id": "M021", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 38000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Restaurantes y hoteles", "intencion": "registro"}
+{"id": "M022", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 4000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Restaurantes y hoteles", "intencion": "registro"}
+{"id": "M023", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 240000, "tipo": "gasto", "fecha": "2026-10-15", "categoria": "Restaurantes y hoteles", "intencion": "registro"}
+{"id": "M024", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 5000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Restaurantes y hoteles", "intencion": "registro"}
+{"id": "M025", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 9500, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Bebidas alcohólicas y tabaco", "intencion": "registro"}
+{"id": "M026", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 45000, "tipo": "gasto", "fecha": "2026-10-30", "categoria": "Bebidas alcohólicas y tabaco", "intencion": "registro"}
+{"id": "M027", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 60000, "tipo": "gasto", "fecha": "2026-10-31", "categoria": "Bebidas alcohólicas y tabaco", "intencion": "registro"}
+{"id": "M028", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 78000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Bebidas alcohólicas y tabaco", "intencion": "registro"}
+{"id": "M029", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 240000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Ropa y calzado", "intencion": "registro"}
+{"id": "M030", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 130000, "tipo": "gasto", "fecha": "2026-10-31", "categoria": "Ropa y calzado", "intencion": "registro"}
+{"id": "M031", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 85000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Ropa y calzado", "intencion": "registro"}
+{"id": "M032", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 190000, "tipo": "gasto", "fecha": "2026-11-01", "categoria": "Ropa y calzado", "intencion": "registro"}
+{"id": "M033", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 35000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Ropa y calzado", "intencion": "registro"}
+{"id": "M034", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 750000, "tipo": "gasto", "fecha": "2026-11-01", "categoria": "Arriendo o cuota de vivienda", "intencion": "registro"}
+{"id": "M035", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 1200000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Arriendo o cuota de vivienda", "intencion": "registro"}
+{"id": "M036", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 980000, "tipo": "gasto", "fecha": "2026-10-30", "categoria": "Arriendo o cuota de vivienda", "intencion": "registro"}
+{"id": "M037", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 180000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Arriendo o cuota de vivienda", "intencion": "registro"}
+{"id": "M038", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 400000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Arriendo o cuota de vivienda", "intencion": "registro"}
+{"id": "M039", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Arriendo o cuota de vivienda", "intencion": "registro"}
+{"id": "M040", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 600000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Arriendo o cuota de vivienda", "intencion": "registro"}
+{"id": "M041", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 1000000, "tipo": "gasto", "fecha": "2026-11-01", "categoria": "Arriendo o cuota de vivienda", "intencion": "registro"}
+{"id": "M042", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 96430, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Servicios públicos", "intencion": "registro"}
+{"id": "M043", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 54000, "tipo": "gasto", "fecha": "2026-10-28", "categoria": "Servicios públicos", "intencion": "registro"}
+{"id": "M044", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 31000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Servicios públicos", "intencion": "registro"}
+{"id": "M045", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 98000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Servicios públicos", "intencion": "registro"}
+{"id": "M046", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 27800, "tipo": "gasto", "fecha": "2026-11-01", "categoria": "Servicios públicos", "intencion": "registro"}
+{"id": "M047", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 143000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Servicios públicos", "intencion": "registro"}
+{"id": "M048", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Otros gastos", "intencion": "registro"}
+{"id": "M049", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 70000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Hogar y mantenimiento", "intencion": "registro"}
+{"id": "M050", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 130000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Hogar y mantenimiento", "intencion": "registro"}
+{"id": "M051", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 38000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Hogar y mantenimiento", "intencion": "registro"}
+{"id": "M052", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 600000, "tipo": "gasto", "fecha": "2026-10-26", "categoria": "Otros gastos", "intencion": "registro"}
+{"id": "M053", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 22000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Hogar y mantenimiento", "intencion": "registro"}
+{"id": "M054", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 1800000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Hogar y mantenimiento", "intencion": "registro"}
+{"id": "M055", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 47000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Salud", "intencion": "registro"}
+{"id": "M056", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 90000, "tipo": "gasto", "fecha": "2026-11-01", "categoria": "Salud", "intencion": "registro"}
+{"id": "M057", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 4700, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Salud", "intencion": "registro"}
+{"id": "M058", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 280000, "tipo": "gasto", "fecha": "2026-10-29", "categoria": "Salud", "intencion": "registro"}
+{"id": "M059", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 6000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Salud", "intencion": "registro"}
+{"id": "M060", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 120000, "tipo": "gasto", "fecha": "2026-10-29", "categoria": "Salud", "intencion": "registro"}
+{"id": "M061", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 2950, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Transporte", "intencion": "registro"}
+{"id": "M062", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 25000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Transporte", "intencion": "registro"}
+{"id": "M063", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 48000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Transporte", "intencion": "registro"}
+{"id": "M064", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 15000, "tipo": "gasto", "fecha": "2026-11-01", "categoria": "Transporte", "intencion": "registro"}
+{"id": "M065", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 310000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Transporte", "intencion": "registro"}
+{"id": "M066", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 12400, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Transporte", "intencion": "registro"}
+{"id": "M067", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 20000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Transporte", "intencion": "registro"}
+{"id": "M068", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 80000, "tipo": "gasto", "fecha": "2026-10-30", "categoria": "Transporte", "intencion": "registro"}
+{"id": "M069", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 8000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Transporte", "intencion": "registro"}
+{"id": "M070", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 3000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Transporte", "intencion": "registro"}
+{"id": "M071", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 50000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Transporte", "intencion": "registro"}
+{"id": "M072", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 45000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Transporte", "intencion": "registro"}
+{"id": "M073", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 10000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Comunicaciones", "intencion": "registro"}
+{"id": "M074", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 49900, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Comunicaciones", "intencion": "registro"}
+{"id": "M075", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 85000, "tipo": "gasto", "fecha": "2026-10-05", "categoria": "Comunicaciones", "intencion": "registro"}
+{"id": "M076", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 5000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Comunicaciones", "intencion": "registro"}
+{"id": "M077", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 15000, "tipo": "gasto", "fecha": "2026-11-01", "categoria": "Comunicaciones", "intencion": "registro"}
+{"id": "M078", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 44900, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Suscripciones", "intencion": "registro"}
+{"id": "M079", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 17000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Suscripciones", "intencion": "registro"}
+{"id": "M080", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 20000, "tipo": "gasto", "fecha": "2026-11-01", "categoria": "Suscripciones", "intencion": "registro"}
+{"id": "M081", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 90000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Suscripciones", "intencion": "registro"}
+{"id": "M082", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 38000, "tipo": "gasto", "fecha": "2026-10-15", "categoria": "Suscripciones", "intencion": "registro"}
+{"id": "M083", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 60000, "tipo": "gasto", "fecha": "2026-11-01", "categoria": "Recreación y cultura", "intencion": "registro"}
+{"id": "M084", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 85000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Recreación y cultura", "intencion": "registro"}
+{"id": "M085", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 45000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Recreación y cultura", "intencion": "registro"}
+{"id": "M086", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 10000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Recreación y cultura", "intencion": "registro"}
+{"id": "M087", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 20000, "tipo": "gasto", "fecha": "2026-10-31", "categoria": "Recreación y cultura", "intencion": "registro"}
+{"id": "M088", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 70000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Recreación y cultura", "intencion": "registro"}
+{"id": "M089", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 15000, "tipo": "gasto", "fecha": "2026-11-01", "categoria": "Recreación y cultura", "intencion": "registro"}
+{"id": "M090", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 2300000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Educación", "intencion": "registro"}
+{"id": "M091", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 450000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Educación", "intencion": "registro"}
+{"id": "M092", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 1500, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Educación", "intencion": "registro"}
+{"id": "M093", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 95000, "tipo": "gasto", "fecha": "2026-10-26", "categoria": "Educación", "intencion": "registro"}
+{"id": "M094", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 180000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Educación", "intencion": "registro"}
+{"id": "M095", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 500000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Educación", "intencion": "registro"}
+{"id": "M096", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 215000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Pagos de deudas", "intencion": "registro"}
+{"id": "M097", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 1100000, "tipo": "gasto", "fecha": "2026-10-30", "categoria": "Pagos de deudas", "intencion": "registro"}
+{"id": "M098", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 300000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Pagos de deudas", "intencion": "registro"}
+{"id": "M099", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 50000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Pagos de deudas", "intencion": "registro"}
+{"id": "M100", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 420000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Pagos de deudas", "intencion": "registro"}
+{"id": "M101", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 60000, "tipo": "gasto", "fecha": "2026-11-01", "categoria": "Pagos de deudas", "intencion": "registro"}
+{"id": "M102", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 500000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Pagos de deudas", "intencion": "registro"}
+{"id": "M103", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 50000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Mesada", "intencion": "registro"}
+{"id": "M104", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 80000, "tipo": "gasto", "fecha": "2026-10-30", "categoria": "Mesada", "intencion": "registro"}
+{"id": "M105", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 30000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Mesada", "intencion": "registro"}
+{"id": "M106", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 15000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Otros gastos", "intencion": "registro"}
+{"id": "M107", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 50000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Otros gastos", "intencion": "registro"}
+{"id": "M108", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 520000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Otros gastos", "intencion": "registro"}
+{"id": "M109", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 20000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Otros gastos", "intencion": "registro"}
+{"id": "M110", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 18000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Otros gastos", "intencion": "registro"}
+{"id": "M111", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 25000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Otros gastos", "intencion": "registro"}
+{"id": "M112", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 10000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Otros gastos", "intencion": "registro"}
+{"id": "M113", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 30000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Otros gastos", "intencion": "registro"}
+{"id": "M114", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 15000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Otros gastos", "intencion": "registro"}
+{"id": "M115", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 100000, "tipo": "gasto", "fecha": "2026-11-01", "categoria": "Otros gastos", "intencion": "registro"}
+{"id": "M116", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 62000, "tipo": "gasto", "fecha": "2026-10-29", "categoria": "Otros gastos", "intencion": "registro"}
+{"id": "M117", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 2100000, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Salario", "intencion": "registro"}
+{"id": "M118", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 1350000, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Salario", "intencion": "registro"}
+{"id": "M119", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 3200000, "tipo": "gasto", "fecha": "2026-10-30", "categoria": "Otros gastos", "intencion": "registro"}
+{"id": "M120", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 2500000, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Salario", "intencion": "registro"}
+{"id": "M121", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 1750905, "tipo": "ingreso", "fecha": "2026-11-01", "categoria": "Otros ingresos", "intencion": "registro"}
+{"id": "M122", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 900000, "tipo": "ingreso", "fecha": "2026-10-31", "categoria": "Trabajo independiente o ventas", "intencion": "registro"}
+{"id": "M123", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 1750000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Otros gastos", "intencion": "registro"}
+{"id": "M124", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Salario", "intencion": "registro"}
+{"id": "M125", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 180000, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Trabajo independiente o ventas", "intencion": "registro"}
+{"id": "M126", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 600000, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Trabajo independiente o ventas", "intencion": "registro"}
+{"id": "M127", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 340000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Otros gastos", "intencion": "registro"}
+{"id": "M128", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 80000, "tipo": "ingreso", "fecha": "2026-11-01", "categoria": "Trabajo independiente o ventas", "intencion": "registro"}
+{"id": "M129", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 2000000, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Otros ingresos", "intencion": "registro"}
+{"id": "M130", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 135000, "tipo": "ingreso", "fecha": "2026-10-31", "categoria": "Trabajo independiente o ventas", "intencion": "registro"}
+{"id": "M131", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 220000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Ropa y calzado", "intencion": "registro"}
+{"id": "M132", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 1500000, "tipo": "ingreso", "fecha": "2026-10-30", "categoria": "Trabajo independiente o ventas", "intencion": "registro"}
+{"id": "M133", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 400000, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Remesas o giros familiares", "intencion": "registro"}
+{"id": "M134", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 500000, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Remesas o giros familiares", "intencion": "registro"}
+{"id": "M135", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 300000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Otros gastos", "intencion": "registro"}
+{"id": "M136", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 150000, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Remesas o giros familiares", "intencion": "registro"}
+{"id": "M137", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 500000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Otros gastos", "intencion": "registro"}
+{"id": "M138", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 230000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Otros gastos", "intencion": "registro"}
+{"id": "M139", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 200000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Otros gastos", "intencion": "registro"}
+{"id": "M140", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 90000, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Ayudas y subsidios", "intencion": "registro"}
+{"id": "M141", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 1600000, "tipo": "ingreso", "fecha": "2026-06-30", "categoria": "Prima de servicios", "intencion": "registro"}
+{"id": "M142", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 1800000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Otros gastos", "intencion": "registro"}
+{"id": "M143", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Prima de servicios", "intencion": "registro"}
+{"id": "M144", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 210000, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Intereses de cesantías", "intencion": "registro"}
+{"id": "M145", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 180000, "tipo": "ingreso", "fecha": "2026-01-31", "categoria": "Intereses de cesantías", "intencion": "registro"}
+{"id": "M146", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 4500000, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Retiro de cesantías", "intencion": "registro"}
+{"id": "M147", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 3800000, "tipo": "ingreso", "fecha": "2026-10-20", "categoria": "Retiro de cesantías", "intencion": "registro"}
+{"id": "M148", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 50000, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Otros ingresos", "intencion": "registro"}
+{"id": "M149", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 300000, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Otros ingresos", "intencion": "registro"}
+{"id": "M150", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 100000, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Otros ingresos", "intencion": "registro"}
+{"id": "M151", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 90000, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Otros ingresos", "intencion": "registro"}
+{"id": "M152", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 20000, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Otros ingresos", "intencion": "registro"}
+{"id": "M153", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 40000, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Mesada", "intencion": "registro"}
+{"id": "M154", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 60000, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Mesada", "intencion": "registro"}
+{"id": "M155", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 100000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Mesada", "intencion": "registro"}
+{"id": "M156", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 150000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Alimentación", "intencion": "registro"}
+{"id": "M157", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 1200000, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Otros ingresos", "intencion": "registro"}
+{"id": "M158", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 22000, "tipo": "gasto", "fecha": "2026-11-01", "categoria": "Otros gastos", "intencion": "registro"}
+{"id": "M159", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 70000, "tipo": "gasto", "fecha": "2026-10-26", "categoria": "Transporte", "intencion": "registro"}
+{"id": "M160", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 80000, "tipo": "gasto", "fecha": "2026-10-30", "categoria": "Servicios públicos", "intencion": "registro"}
+{"id": "M161", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 3500, "tipo": "gasto", "fecha": "2026-10-26", "categoria": "Alimentación", "intencion": "registro"}
+{"id": "M162", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 80000, "tipo": "gasto", "fecha": "2026-10-26", "categoria": "Comunicaciones", "intencion": "registro"}
+{"id": "M163", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 1500000, "tipo": "gasto", "fecha": "2026-11-01", "categoria": "Transporte", "intencion": "registro"}
+{"id": "M164", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 80000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Salud", "intencion": "registro"}
+{"id": "M165", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 125000, "tipo": "gasto", "fecha": "2026-10-25", "categoria": "Alimentación", "intencion": "registro"}
+{"id": "M166", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 62000, "tipo": "gasto", "fecha": "2026-09-03", "categoria": "Restaurantes y hoteles", "intencion": "registro"}
+{"id": "M167", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 60000, "tipo": "gasto", "fecha": "2026-10-03", "categoria": "Transporte", "intencion": "registro"}
+{"id": "M168", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 35000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Recreación y cultura", "intencion": "registro"}
+{"id": "M169", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 25000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Recreación y cultura", "intencion": "registro"}
+{"id": "M170", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 1500, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Educación", "intencion": "registro"}
+{"id": "M171", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 1200, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Alimentación", "intencion": "registro"}
+{"id": "M172", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 250000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Ropa y calzado", "intencion": "registro"}
+{"id": "M173", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 2000000, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Otros ingresos", "intencion": "registro"}
+{"id": "M174", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 60000, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Otros ingresos", "intencion": "registro"}
+{"id": "M175", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 1100000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Otros gastos", "intencion": "registro"}
+{"id": "M176", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 20000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Mesada", "intencion": "registro"}
+{"id": "M177", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 80000, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Otros ingresos", "intencion": "registro"}
+{"id": "M178", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 4000000, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Ayudas y subsidios", "intencion": "registro"}
+{"id": "M179", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 90000, "tipo": "ingreso", "fecha": "2026-10-31", "categoria": "Otros ingresos", "intencion": "registro"}
+{"id": "M180", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 5200000, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Retiro de cesantías", "intencion": "registro"}
+{"id": "M181", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 21000, "tipo": "gasto", "fecha": "2026-10-27", "categoria": "Restaurantes y hoteles", "intencion": "registro"}
+{"id": "M182", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 4500, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Restaurantes y hoteles", "intencion": "registro"}
+{"id": "M183", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 45000, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Trabajo independiente o ventas", "intencion": "registro"}
+{"id": "M184", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M185", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M186", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M187", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M188", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M189", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M190", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M191", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M192", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M193", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M194", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M195", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M196", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M197", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M198", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M199", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M200", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M201", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M202", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M203", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M204", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M205", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M206", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M207", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M208", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M209", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M210", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M211", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "recomendacion"}
+{"id": "M212", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "recomendacion"}
+{"id": "M213", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "recomendacion"}
+{"id": "M214", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "recomendacion"}
+{"id": "M215", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M216", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M217", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "recomendacion"}
+{"id": "M218", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "recomendacion"}
+{"id": "M219", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "recomendacion"}
+{"id": "M220", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "recomendacion"}
+{"id": "M221", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "recomendacion"}
+{"id": "M222", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M223", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "recomendacion"}
+{"id": "M224", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "recomendacion"}
+{"id": "M225", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 15000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Restaurantes y hoteles", "intencion": "registro"}
+{"id": "M226", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 143500, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Alimentación", "intencion": "registro"}
+{"id": "M227", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 80000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Transporte", "intencion": "registro"}
+{"id": "M228", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 12000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Transporte", "intencion": "registro"}
+{"id": "M229", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 30000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Transporte", "intencion": "registro"}
+{"id": "M230", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 60000, "tipo": "gasto", "fecha": "2026-11-01", "categoria": "Transporte", "intencion": "registro"}
+{"id": "M231", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 72000, "tipo": "gasto", "fecha": "2026-10-31", "categoria": "Recreación y cultura", "intencion": "registro"}
+{"id": "M232", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 180000, "tipo": "gasto", "fecha": "2026-10-31", "categoria": "Arriendo o cuota de vivienda", "intencion": "registro"}
+{"id": "M233", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 1450000, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Salario", "intencion": "registro"}
+{"id": "M234", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 1300000, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Prima de servicios", "intencion": "registro"}
+{"id": "M235", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 140000, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Intereses de cesantías", "intencion": "registro"}
+{"id": "M236", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 2000000, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Retiro de cesantías", "intencion": "registro"}
+{"id": "M237", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 350000, "tipo": "ingreso", "fecha": "2026-11-02", "categoria": "Otros ingresos", "intencion": "registro"}
+{"id": "M238", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 1140000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Pagos de deudas", "intencion": "registro"}
+{"id": "M239", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 300000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Otros gastos", "intencion": "registro"}
+{"id": "M240", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 2000000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Arriendo o cuota de vivienda", "intencion": "registro"}
+{"id": "M241", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 15000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Alimentación", "intencion": "registro"}
+{"id": "M242", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": 98000, "tipo": "gasto", "fecha": "2026-11-02", "categoria": "Otros gastos", "intencion": "registro"}
+{"id": "M243", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M244", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "pregunta"}
+{"id": "M245", "fecha_referencia": "2026-11-02", "version_reglas": "D-1.0", "monto": null, "tipo": null, "fecha": null, "categoria": null, "intencion": "recomendacion"}
