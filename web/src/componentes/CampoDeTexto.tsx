@@ -19,6 +19,8 @@ export type PropiedadesDeCampo = {
   /** Los números del campo en Figtree (D-123): un monto o una fecha. */
   cifra?: boolean;
   alSalir?: () => void;
+  /** Un campo de varias líneas con tantas líneas a la vista (el cuadro de lenguaje natural, E14-PPN 3.1 fila 3). */
+  lineas?: number;
 };
 
 // Campo de texto de E14-SDD 5.3: etiqueta siempre visible, ayuda y error ligados con aria-describedby.
@@ -37,6 +39,7 @@ export function CampoDeTexto({
   min,
   cifra,
   alSalir,
+  lineas,
   accion,
 }: PropiedadesDeCampo & { accion?: ReactNode }) {
   const descripcion =
@@ -51,21 +54,37 @@ export function CampoDeTexto({
       <div
         className={`campo__caja${error ? " campo__caja--error" : ""}${cifra ? " campo__caja--cifra" : ""}`}
       >
-        <input
-          id={id}
-          name={id}
-          type={tipo}
-          value={valor}
-          inputMode={modo}
-          maxLength={maxLength}
-          min={min}
-          readOnly={!alCambiar}
-          autoComplete={autocompletar}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={descripcion}
-          onChange={(evento) => alCambiar?.(evento.target.value)}
-          onBlur={alSalir}
-        />
+        {lineas ? (
+          <textarea
+            id={id}
+            name={id}
+            rows={lineas}
+            value={valor}
+            maxLength={maxLength}
+            readOnly={!alCambiar}
+            autoComplete={autocompletar}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={descripcion}
+            onChange={(evento) => alCambiar?.(evento.target.value)}
+            onBlur={alSalir}
+          />
+        ) : (
+          <input
+            id={id}
+            name={id}
+            type={tipo}
+            value={valor}
+            inputMode={modo}
+            maxLength={maxLength}
+            min={min}
+            readOnly={!alCambiar}
+            autoComplete={autocompletar}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={descripcion}
+            onChange={(evento) => alCambiar?.(evento.target.value)}
+            onBlur={alSalir}
+          />
+        )}
         {accion}
       </div>
       {ayuda && (

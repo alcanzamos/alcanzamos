@@ -296,6 +296,42 @@ const pantallas: Pantalla[] = [
     abrir: abrirConTitulo("/registrar", "Registrar"),
   },
   {
+    nombre: "F-1 /registrar con «Revisa y confirma»",
+    preparar: (page) =>
+      simularApi(page, {
+        "GET /api/v1/cuenta/seguridad": responder(200, {
+          ingreso_anterior: null,
+        }),
+        "GET /api/v1/movimientos": responder(200, sinMovimientos),
+        "GET /api/v1/repeticiones/pendientes": responder(200, sinPendientes),
+        "GET /api/v1/categorias": responder(200, catalogo),
+        "POST /api/v1/movimientos/interpretacion": responder(200, {
+          resultado: "propuesta",
+          tipo: "gasto",
+          monto_centavos: 4500000,
+          categoria: { id: 1, nombre: "Alimentación" },
+          fecha: "2026-12-13",
+          varios_movimientos: true,
+        }),
+      }),
+    abrir: async (page) => {
+      await page.goto("/registrar");
+      await expect(encabezado(page, "Registrar")).toBeVisible();
+      await page
+        .getByLabel("Escribe el gasto o el ingreso")
+        .fill("mercado 45 mil ayer y 12 mil de pasajes");
+      await page.getByRole("button", { name: "Llenar el formulario" }).click();
+      await page.getByRole("radio", { name: "Efectivo" }).check();
+      await page.getByRole("button", { name: "Revisar y guardar" }).click();
+      await expect(
+        page.getByRole("heading", { level: 2, name: "Revisa y confirma" }),
+      ).toBeVisible();
+      await expect(
+        page.getByText("Encontramos más de un movimiento"),
+      ).toBeVisible();
+    },
+  },
+  {
     nombre: "PN-03 /registrar/se-repite",
     preparar: apiDeRegistrar,
     abrir: abrirConTitulo("/registrar/se-repite", "Se repite"),

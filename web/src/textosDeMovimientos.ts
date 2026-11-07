@@ -51,6 +51,10 @@ const relativo = (fecha: string, hoy: string) => {
   return dia === "hoy" ? textos.registro.fecha.hoy : mv.dia.ayer;
 };
 
+/** La fecha de una fila del resumen: «Hoy», «Ayer» o «5 de octubre de 2026» (E14-PPN 3.1, «Revisa y confirma»). */
+export const fechaEnLaFila = (fecha: string, hoy: string): string =>
+  relativo(fecha, hoy) ?? diaEnPalabras(fecha) ?? fecha;
+
 /** «Hoy, 2 de noviembre de 2026», «Ayer, 1 de noviembre de 2026» o «5 de octubre de 2026». */
 export function tituloDelDia(fecha: string, hoy: string): string {
   const enPalabras = diaEnPalabras(fecha) ?? fecha;

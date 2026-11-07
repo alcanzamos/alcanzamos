@@ -77,6 +77,7 @@ describe("PN-01 · Formulario de registro (E14-PPN 3.1, D-164)", () => {
       ...document.querySelectorAll("legend, label.campo__etiqueta"),
     ].map((n) => n.textContent);
     expect(etiquetas).toEqual([
+      "Escribe el gasto o el ingreso",
       "Tipo",
       "Monto",
       "Fecha",
@@ -89,11 +90,12 @@ describe("PN-01 · Formulario de registro (E14-PPN 3.1, D-164)", () => {
     expect(screen.getByRole("radio", { name: "Solo mío" })).toBeChecked();
     expect(screen.getByText("Hoy")).toBeInTheDocument();
     expect(screen.getByLabelText("Fecha")).toHaveValue("2026-10-26");
+    // La advertencia de NM-12 está dos veces: bajo el cuadro (fila 4) y como ayuda de la descripción (fila 12).
     expect(
-      screen.getByText(
+      screen.getAllByText(
         "No escribas datos de salud, religión ni de otras personas.",
       ),
-    ).toBeInTheDocument();
+    ).toHaveLength(2);
     expect(screen.getByText("No se repite")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Cambiar" })).toHaveAttribute(
       "href",
@@ -104,15 +106,13 @@ describe("PN-01 · Formulario de registro (E14-PPN 3.1, D-164)", () => {
     );
   });
 
-  it("no dibuja las filas omitidas por D-164", async () => {
+  it("no dibuja las filas que siguen omitidas (D-164): el cuadro entró con la US-62", async () => {
     api();
     await abrir();
     for (const omitido of [
       /Tarjeta/,
       /Cuotas/,
       /Compartido/,
-      /Llenar el formulario/,
-      /Escribe el gasto/,
       /Prima, cesantías/,
       /Elegir cuáles ver/,
       /faltan/,
