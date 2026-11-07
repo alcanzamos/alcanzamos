@@ -266,6 +266,40 @@ describe("«Llenar el formulario»: una propuesta (CU-03, RN-001)", () => {
       expect(chip).not.toBeChecked();
   });
 
+  it("con el cuadro la categoría llega sugerida y la persona la cambia; se guarda la que dejó (D-193)", async () => {
+    const pedidos = api();
+    await interpretarYLlenar();
+    elegir("Efectivo");
+    expect(screen.getByRole("radio", { name: "Alimentación" })).toBeChecked();
+    elegir("Otros gastos");
+    expect(
+      screen.getByRole("radio", { name: "Alimentación" }),
+    ).not.toBeChecked();
+    revisar();
+    await screen.findByRole("heading", { name: "Revisa y confirma" });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Confirmar y guardar" }),
+    );
+    await waitFor(() => expect(guardados(pedidos)).toHaveLength(1));
+    expect(guardados(pedidos)[0]?.cuerpo).toMatchObject({ categoria_id: 16 });
+  });
+
+  it("con el cuadro pero sin categoría sugerida la categoría sigue siendo obligatoria: «Falta elegir la categoría.» y no pasa al paso (D-193)", async () => {
+    const pedidos = api({
+      interpretar: () => json(200, { ...propuesta, categoria: null }),
+    });
+    await interpretarYLlenar();
+    elegir("Efectivo");
+    revisar();
+    expect(
+      await screen.findByText("Falta elegir la categoría."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Revisa y confirma" }),
+    ).not.toBeInTheDocument();
+    expect(guardados(pedidos)).toHaveLength(0);
+  });
+
   it("no toca el medio de pago ni la descripción: el motor no los propone", async () => {
     api();
     await interpretarYLlenar();
@@ -586,19 +620,27 @@ describe("«Llenar el formulario»: lo que no es una propuesta", () => {
   it.each([
     ["texto_requerido", "Falta escribir el gasto o el ingreso."],
     ["texto_largo", "El texto es demasiado largo. Usa hasta 280 caracteres."],
-  ])("el 422 «%s» muestra su texto en el cuadro", async (codigo, texto) => {
-    api({
-      interpretar: () =>
-        json(422, { error: "datos_invalidos", campos: { texto: codigo } }),
-    });
-    await abrir();
-    escribir("mercado");
-    llenar();
-    expect(await screen.findByText(porTexto(texto))).toBeInTheDocument();
-    expect(
-      screen.getByLabelText("Escribe el gasto o el ingreso"),
-    ).toHaveAttribute("aria-invalid", "true");
-  });
+  ])(
+    "el 422 «%s» deja el cuadro en Error con su texto, conserva lo escrito y le da el foco (E14-PPN 1.13, D-193)",
+    async (codigo, texto) => {
+      api({
+        interpretar: () =>
+          json(422, { error: "datos_invalidos", campos: { texto: codigo } }),
+      });
+      await abrir();
+      escribir("mercado");
+      llenar();
+      expect(await screen.findByText(porTexto(texto))).toBeInTheDocument();
+      const campo = screen.getByLabelText("Escribe el gasto o el ingreso");
+      expect(campo).toHaveAttribute("aria-invalid", "true");
+      expect(campo).toHaveValue("mercado");
+      expect(campo).toHaveFocus();
+      // Es un error de campo, no un aviso: no hay mensaje de estado del cuadro.
+      expect(
+        screen.queryByText("No pudimos llenar el formulario."),
+      ).not.toBeInTheDocument();
+    },
+  );
 
   it("sin conexión: «Sin conexión, puedes registrar con el formulario.» y el formulario sigue", async () => {
     simularApi((p) => {
@@ -616,17 +658,21 @@ describe("«Llenar el formulario»: lo que no es una propuesta", () => {
     expect(screen.getByLabelText("Monto")).toBeInTheDocument();
   });
 
-  it("un fallo del servidor: aviso propio, el texto sigue en el cuadro y se puede llenar a mano", async () => {
+  it("un fallo del servidor es un aviso, no un error del cuadro: «No pudimos llenar el formulario.» con «Llena el formulario: lo que escribiste sigue ahí.» y el texto intacto (E14-PPN 1.13, D-193)", async () => {
     api({ interpretar: () => json(500, { error: "error_interno" }) });
     await abrir();
     escribir("mercado");
     llenar();
-    expect(
-      await screen.findByText("No pudimos llenar el formulario."),
-    ).toBeInTheDocument();
-    expect(screen.getByLabelText("Escribe el gasto o el ingreso")).toHaveValue(
-      "mercado",
+    const aviso = await screen.findByRole("status");
+    expect(aviso).toHaveTextContent("No pudimos llenar el formulario.");
+    expect(aviso).toHaveTextContent(
+      "Llena el formulario: lo que escribiste sigue ahí.",
     );
+    expect(aviso).not.toHaveTextContent("Llénalo tú");
+    expect(aviso).toHaveFocus();
+    const campo = screen.getByLabelText("Escribe el gasto o el ingreso");
+    expect(campo).toHaveValue("mercado");
+    expect(campo).not.toHaveAttribute("aria-invalid", "true");
   });
 
   it("no manda otro pedido mientras espera la respuesta", async () => {

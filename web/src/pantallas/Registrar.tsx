@@ -157,7 +157,7 @@ export function FormularioDeMovimiento({
   )
     categorias.push({ id: actual, nombre: nombreOculta, oculta: true });
   categorias.sort((a, b) => a.id - b.id);
-  // La categoría es obligatoria hasta que exista el motor de reglas que la sugiere (D-165): sin elegir, no hay ninguna.
+  // Con el cuadro la categoría llega sugerida y la persona la cambia; llenando a mano es obligatoria: sin elegir, no hay ninguna (D-193).
   const categoriaId =
     categorias.find((c) => c.id === borrador.categoriaId)?.id ?? null;
 

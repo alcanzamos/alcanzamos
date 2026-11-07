@@ -34,14 +34,18 @@ const propuesta = {
 const hoyEs2DeNoviembre = (page: Page) =>
   page.clock.setFixedTime(new Date("2026-11-02T15:00:00Z"));
 
-async function api(page: Page, interpretacion: unknown = propuesta) {
+async function api(
+  page: Page,
+  interpretacion: unknown = propuesta,
+  estado = 200,
+) {
   return simularApi(page, {
     "GET /api/v1/cuenta/seguridad": responder(200, { ingreso_anterior: null }),
     "GET /api/v1/movimientos": responder(200, sinMovimientos),
     "GET /api/v1/repeticiones/pendientes": responder(200, sinPendientes),
     "GET /api/v1/categorias": responder(200, catalogo),
     "POST /api/v1/movimientos/interpretacion": responder(
-      interpretacion === undefined ? 500 : 200,
+      estado,
       interpretacion,
     ),
     "POST /api/v1/movimientos": responder(201, {
@@ -259,6 +263,66 @@ test.describe("F-1 · cuadro de lenguaje natural y «Revisa y confirma» (US-62)
     expect(pedidos.filter((p) => p.ruta.endsWith("/interpretacion"))).toEqual(
       [],
     );
+  });
+
+  test("texto de más de 280 caracteres: el cuadro en Error con su texto, conserva lo escrito y tiene el foco (D-193)", async ({
+    page,
+  }) => {
+    await hoyEs2DeNoviembre(page);
+    const pedidos = await api(
+      page,
+      { error: "datos_invalidos", campos: { texto: "texto_largo" } },
+      422,
+    );
+    await page.goto("/registrar");
+    await cuadro(page).fill("mercado 45 mil");
+    await page.getByRole("button", { name: "Llenar el formulario" }).click();
+    await expect(
+      page.getByText("El texto es demasiado largo. Usa hasta 280 caracteres."),
+    ).toBeVisible();
+    await expect(cuadro(page)).toBeFocused();
+    await expect(cuadro(page)).toHaveValue("mercado 45 mil");
+    await expect(cuadro(page)).toHaveAttribute("aria-invalid", "true");
+    await sinViolaciones(page);
+    expect(guardados(pedidos)).toEqual([]);
+  });
+
+  test("falla del servidor: aviso «No pudimos llenar el formulario.» con «Llena el formulario: lo que escribiste sigue ahí.» y el texto intacto (D-193)", async ({
+    page,
+  }) => {
+    await hoyEs2DeNoviembre(page);
+    const pedidos = await api(page, { error: "error_interno" }, 500);
+    await page.goto("/registrar");
+    await cuadro(page).fill("mercado 45 mil");
+    await page.getByRole("button", { name: "Llenar el formulario" }).click();
+    const aviso = page.getByRole("status").filter({
+      hasText: "No pudimos llenar el formulario.",
+    });
+    await expect(aviso).toContainText(
+      "Llena el formulario: lo que escribiste sigue ahí.",
+    );
+    await expect(aviso).toBeFocused();
+    await expect(cuadro(page)).toHaveValue("mercado 45 mil");
+    await expect(cuadro(page)).not.toHaveAttribute("aria-invalid", "true");
+    await sinViolaciones(page);
+    expect(guardados(pedidos)).toEqual([]);
+  });
+
+  test("categoría: con el cuadro llega sugerida; a mano sigue obligatoria (D-193)", async ({
+    page,
+  }) => {
+    await hoyEs2DeNoviembre(page);
+    await api(page, { ...propuesta, categoria: null });
+    await page.goto("/registrar");
+    await cuadro(page).fill("mercado 45 mil ayer");
+    await page.getByRole("button", { name: "Llenar el formulario" }).click();
+    await expect(page.getByLabel("Monto")).toHaveValue("$45.000");
+    await page.getByRole("radio", { name: "Efectivo" }).check();
+    await page.getByRole("button", { name: "Revisar y guardar" }).click();
+    await expect(page.getByText("Falta elegir la categoría.")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 2, name: "Revisa y confirma" }),
+    ).toHaveCount(0);
   });
 
   test("el formulario sin el cuadro sigue igual: «Guardar» guarda directo (RF-002)", async ({

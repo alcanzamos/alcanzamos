@@ -1814,20 +1814,20 @@
         },
         "textoRequerido": {
           "texto": "Falta escribir el gasto o el ingreso.",
-          "e14": "PROPUESTO, no está en E14 (pendiente de aprobación del dueño): E14-PPN 3.1, errores de campo del cuadro: 422 texto_requerido"
+          "e14": "E14-PPN 3.1, errores de campo del cuadro: cuadro vacío al tocar «Llenar el formulario» (`texto_requerido`), aprobado (D-193)"
         },
         "textoLargo": {
           "texto": "El texto es demasiado largo. Usa hasta 280 caracteres.",
-          "e14": "PROPUESTO, no está en E14 (pendiente de aprobación del dueño): E14-PPN 3.1, errores de campo del cuadro: 422 texto_largo (280 caracteres, D-084 (2))"
+          "e14": "E14-PPN 3.1, errores de campo del cuadro: cuadro con más de 280 caracteres (`texto_largo`), aprobado (D-193)"
         },
         "errorAlInterpretar": {
           "titulo": {
             "texto": "No pudimos llenar el formulario.",
-            "e14": "PROPUESTO, no está en E14 (pendiente de aprobación del dueño): E14-PPN 3.1, estados del cuadro: fallo inesperado del servidor al interpretar"
+            "e14": "E14-PPN 3.1, estados del cuadro: falla inesperada del servidor al llenar, aprobado (D-193)"
           },
           "mensaje": {
-            "texto": "Llénalo tú: lo que escribiste sigue ahí.",
-            "e14": "PROPUESTO, no está en E14 (pendiente de aprobación del dueño): E14-PPN 3.1, estados del cuadro: fallo inesperado del servidor al interpretar"
+            "texto": "Llena el formulario: lo que escribiste sigue ahí.",
+            "e14": "E14-PPN 3.1, estados del cuadro: falla inesperada del servidor al llenar, aprobado (D-193)"
           }
         }
       },
