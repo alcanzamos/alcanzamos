@@ -10,6 +10,9 @@ const lleno: Borrador = {
   medio: "efectivo",
   descripcion: "",
   periodicidad: null,
+  texto: "",
+  delCuadro: false,
+  variosMovimientos: false,
 };
 const hoy = "2026-10-26";
 const errores = (

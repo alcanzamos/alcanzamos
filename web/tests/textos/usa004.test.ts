@@ -39,6 +39,12 @@ const json = JSON.parse(
   ),
 ) as Record<string, object>;
 
+// «Abono, crédito» es la palabra para un movimiento. En el texto que E14-PPN 3.1 fija para el pedido de una
+// recomendación (RF-021) «créditos» es el producto financiero que la app no recomienda, no un movimiento.
+const usosAprobados: Record<string, string[]> = {
+  "solo_web.registro.cuadro.recomendacion.titulo": ["crédito"],
+};
+
 const textos = Object.entries(json).flatMap(([seccion, contenido]) =>
   hojasDe(contenido).flatMap(([nombre, h]) =>
     (typeof h.texto === "string"
@@ -84,7 +90,11 @@ describe("USA-004 los textos de la interfaz no usan los términos excluidos del 
   for (const termino of terminos) {
     it(`USA-004 ningún texto usa «${termino}»`, () => {
       const usos = textos
-        .filter(([, texto]) => aparece(termino, texto))
+        .filter(
+          ([nombre, texto]) =>
+            aparece(termino, texto) &&
+            !usosAprobados[nombre]?.includes(termino),
+        )
         .map(([nombre, texto]) => `${nombre}: ${texto}`);
       expect(usos).toEqual([]);
     });
