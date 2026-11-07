@@ -18,6 +18,7 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/src/seguridad"
 	"github.com/alcanzamos/alcanzamos/api/src/servidor"
 	"github.com/alcanzamos/alcanzamos/api/test/reloj/relojtest"
+	"github.com/alcanzamos/alcanzamos/api/test/servidor/csrftest"
 )
 
 const rutaInterpretacion = "/api/v1/movimientos/interpretacion"
@@ -49,12 +50,12 @@ func apiCon(t *testing.T, repo *repoFalso, ahora string, i interpretacion.Interp
 	if err != nil {
 		t.Fatal(err)
 	}
-	e := servidor.NuevoEnrutador(sesionFalsa{}, seguridad.NuevoRegistro(log), log)
+	e := servidor.NuevoEnrutador(sesionFalsa{}, seguridad.NuevoRegistro(log), log).ConURLPublica(urlPublica)
 	servicio := registro.NuevoServicio(repo, &relojtest.Fijo{T: hora})
 	if i != nil {
 		servicio = servicio.ConInterpretador(i)
 	}
-	registro.NuevoHandler(servicio, log).ConURLPublica(urlPublica).Registrar(e)
+	registro.NuevoHandler(servicio, log).Registrar(e)
 	h, err := e.Construir()
 	if err != nil {
 		t.Fatal(err)
@@ -271,6 +272,32 @@ func TestInterpretarLlevaLaDefensaContraCSRF(t *testing.T) {
 	}
 }
 
+// SEG-016: desde el #84 la defensa contra CSRF la pone el Enrutador a todo POST, no la ruta. La de interpretación está
+// entre las rutas del Enrutador, y cada caso de la defensa (cross-site, Origin ajeno, sin señal de cliente, sin JSON) da
+// su 403 o su 415 sin llegar al manejador: el Interpretador no recibe ninguna llamada y no hay `Set-Cookie`.
+func TestElEnrutadorProtegeLaRutaDeInterpretacion(t *testing.T) {
+	espia := &espiaDeInterpretador{t: t}
+	log := sinLog()
+	e := servidor.NuevoEnrutador(sesionFalsa{}, seguridad.NuevoRegistro(log), log).ConURLPublica(urlPublica)
+	hora := &relojtest.Fijo{T: time.Date(2026, 10, 26, 15, 0, 0, 0, time.UTC)}
+	registro.NuevoHandler(registro.NuevoServicio(repoDelResto(), hora).ConInterpretador(espia), log).Registrar(e)
+	h, err := e.Construir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	const patron = "POST " + rutaInterpretacion
+	var delRegistro []servidor.Ruta
+	for _, r := range e.Rutas() {
+		if r.Patron == patron {
+			delRegistro = append(delRegistro, r)
+		}
+	}
+	if len(delRegistro) != 1 || delRegistro[0].Nivel != seguridad.RequiereAutorizacion {
+		t.Fatalf("la ruta de interpretación no está entre las del Enrutador, o no es requiere_autorizacion: %v", delRegistro)
+	}
+	csrftest.ProbarDefensa(t, servidor.ManejadorConAPI(h), delRegistro, urlPublica, func() string { return fmt.Sprint(espia.llamadas) })
+}
+
 func TestInterpretarSoloAceptaPOST(t *testing.T) {
 	h := apiCon(t, &repoFalso{categorias: catalogoVisible()}, hoy, motorReal(t), sinLog())
 	// GET /movimientos/{id} recibe «interpretacion» como un id: no existe, el mismo 404 de siempre.
@@ -396,9 +423,9 @@ func TestIAR003LaInterpretacionSigueLoQueDigaElInterpretador(t *testing.T) {
 func TestRN005NingunCalculoDelAPIPasaPorElInterpretador(t *testing.T) {
 	espia := &espiaDeInterpretador{t: t}
 	log := sinLog()
-	e := servidor.NuevoEnrutador(sesionFalsa{}, seguridad.NuevoRegistro(log), log)
+	e := servidor.NuevoEnrutador(sesionFalsa{}, seguridad.NuevoRegistro(log), log).ConURLPublica(urlPublica)
 	hora := &relojtest.Fijo{T: time.Date(2026, 10, 26, 15, 0, 0, 0, time.UTC)}
-	registro.NuevoHandler(registro.NuevoServicio(repoDelResto(), hora).ConInterpretador(espia), log).ConURLPublica(urlPublica).Registrar(e)
+	registro.NuevoHandler(registro.NuevoServicio(repoDelResto(), hora).ConInterpretador(espia), log).Registrar(e)
 	construido, err := e.Construir()
 	if err != nil {
 		t.Fatal(err)

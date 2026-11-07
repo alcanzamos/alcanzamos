@@ -23,6 +23,7 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/src/sesion"
 	"github.com/alcanzamos/alcanzamos/api/test/pgtest"
 	"github.com/alcanzamos/alcanzamos/api/test/reloj/relojtest"
+	"github.com/alcanzamos/alcanzamos/api/test/servidor/csrftest"
 )
 
 var ahora = time.Date(2026, 11, 10, 12, 0, 0, 0, time.UTC)
@@ -400,7 +401,7 @@ func TestPuntaAPuntaConElEnrutadorYLaBase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h := servidor.ManejadorConAPI(api)
+	h := csrftest.ConCabeceras(servidor.ManejadorConAPI(api))
 	pedir := func(ruta, token string) (int, string) {
 		r := httptest.NewRequest(http.MethodGet, ruta, nil)
 		r.AddCookie(sesion.Cookie(token))

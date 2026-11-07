@@ -18,6 +18,7 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/src/servidor"
 	"github.com/alcanzamos/alcanzamos/api/test/correo/correotest"
 	"github.com/alcanzamos/alcanzamos/api/test/reloj/relojtest"
+	"github.com/alcanzamos/alcanzamos/api/test/servidor/csrftest"
 )
 
 const (
@@ -261,6 +262,8 @@ func nuevoEntornoSinTrabajadores(t *testing.T) *entorno {
 }
 
 // sesionesFalsas resuelve el Sujeto que se le dé, para probar las rutas con guard sin base.
+const urlPublicaDePrueba = "https://app.ejemplo.test"
+
 type sesionesFalsas struct{ sujeto *seguridad.Sujeto }
 
 func (s sesionesFalsas) SujetoDe(*http.Request) (seguridad.Sujeto, error) {
@@ -273,13 +276,13 @@ func (s sesionesFalsas) SujetoDe(*http.Request) (seguridad.Sujeto, error) {
 func (e *entorno) api(t *testing.T, sujeto *seguridad.Sujeto) http.Handler {
 	t.Helper()
 	log := slog.New(slog.NewJSONHandler(e.registro, nil))
-	enr := servidor.NuevoEnrutador(sesionesFalsas{sujeto}, seguridad.NuevoRegistro(log), log)
+	enr := servidor.NuevoEnrutador(sesionesFalsas{sujeto}, seguridad.NuevoRegistro(log), log).ConURLPublica(urlPublicaDePrueba)
 	autenticacion.NuevoHandler(e.svc, seguridad.NuevoRegistro(log), log).Registrar(enr)
 	h, err := enr.Construir()
 	if err != nil {
 		t.Fatal(err)
 	}
-	return servidor.ManejadorConAPI(h)
+	return csrftest.ConCabeceras(servidor.ManejadorConAPI(h))
 }
 
 func llamar(h http.Handler, metodo, ruta, cuerpo, origen string, encabezados ...string) *httptest.ResponseRecorder {

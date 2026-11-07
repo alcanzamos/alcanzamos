@@ -94,11 +94,11 @@ func nuevoServidorCon(t *testing.T, interpretador interpretacion.Interpretador) 
 		t.Fatal(err)
 	}
 	resolutor := sesion.NuevoResolutor(pg.NuevoSesiones(pool), senuelos, reloj)
-	enr := servidor.NuevoEnrutador(resolutor, seguridad.NuevoRegistro(log), log)
+	enr := servidor.NuevoEnrutador(resolutor, seguridad.NuevoRegistro(log), log).ConURLPublica("https://app.ej.test")
 	cuenta.NuevoHandler(cuentas, resolutor, log).Registrar(enr)
 	autenticacion.NuevoHandler(entrar, seguridad.NuevoRegistro(log), log).Registrar(enr)
 	autorizacion.NuevoHandler(autorizacion.NuevoServicio(pg.NuevoAutorizaciones(pool), reloj), seguridad.NuevoRegistro(log), log).Registrar(enr)
-	registro.NuevoHandler(registro.NuevoServicio(pg.NuevoMovimientos(pool), reloj).ConInterpretador(interpretador), log).ConURLPublica("https://app.ej.test").Registrar(enr)
+	registro.NuevoHandler(registro.NuevoServicio(pg.NuevoMovimientos(pool), reloj).ConInterpretador(interpretador), log).Registrar(enr)
 	api, err := enr.Construir()
 	if err != nil {
 		t.Fatal(err)
@@ -145,7 +145,7 @@ func (c *cliente) enviar(metodo, ruta, cuerpo, direccion string, defensa bool, a
 		if !c.android {
 			r.Header.Set("Sec-Fetch-Site", "same-origin")
 		}
-		if cuerpo != "" {
+		if metodo == http.MethodPost || cuerpo != "" {
 			r.Header.Set("Content-Type", "application/json")
 		}
 	}

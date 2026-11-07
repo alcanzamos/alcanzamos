@@ -22,7 +22,21 @@ describe("cliente del API", () => {
     });
   });
 
-  it("un pedido sin cuerpo no manda Content-Type", async () => {
+  it("todo POST manda Content-Type: application/json, también sin cuerpo (D-175, E17 3.15 (d))", async () => {
+    simularApi(() => json(202, {}));
+    await pedir("POST", "/api/v1/cuentas/verificacion/reenvio");
+    expect(fetch).toHaveBeenCalledWith("/api/v1/cuentas/verificacion/reenvio", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: undefined,
+    });
+  });
+
+  it("un pedido GET sin cuerpo no manda Content-Type", async () => {
     simularApi(() => json(200, {}));
     await pedir("GET", "/api/v1/cuentas/estado");
     expect(vi.mocked(fetch).mock.calls[0]?.[1]?.headers).toEqual({
