@@ -1,23 +1,23 @@
 //go:build integration
 
-// Pruebas de integración de la creación de cuentas contra PostgreSQL (PR 5 de la US-49). Solo datos sintéticos.
+// Pruebas de integración de pedir la verificación del correo y de completar la cuenta contra PostgreSQL (D-172). Solo
+// datos sintéticos.
 package pg_test
 
 import (
-	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/alcanzamos/alcanzamos/api/src/argon2id"
 	"github.com/alcanzamos/alcanzamos/api/src/cuenta"
 	"github.com/alcanzamos/alcanzamos/api/src/pg"
 	"github.com/alcanzamos/alcanzamos/api/src/seguridad"
-	"github.com/alcanzamos/alcanzamos/api/src/sesion"
 	"github.com/alcanzamos/alcanzamos/api/test/correo/correotest"
 )
 
@@ -33,55 +33,54 @@ func (h *hasheadorRapido) Hashear(_ context.Context, c string) (string, error) {
 	return "$argon2id$v=19$m=8,t=1,p=1$prueba$" + c, nil
 }
 
-// senuelosContados es el generador firmado de verdad, que además cuenta cuántas sesiones de mentira creó.
-type senuelosContados struct {
-	*sesion.Senuelos
-	creados int
-}
-
-func (s *senuelosContados) Crear() string {
-	s.creados++
-	return s.Senuelos.Crear()
-}
-
 type entornoDeCuentas struct {
 	*entorno
 	repo      *pg.Cuentas
 	correo    *correotest.Falso
 	hasher    *hasheadorRapido
 	limitador *seguridad.LimitadorDeIntentos
-	senuelos  *senuelosContados
 	svc       *cuenta.Servicio
 }
 
 func nuevoEntornoDeCuentas(t *testing.T) *entornoDeCuentas {
 	t.Helper()
 	base := nuevoEntorno(t)
-	firmados, err := sesion.NuevosSenuelos(bytes.Repeat([]byte{5}, 32), base.reloj)
-	if err != nil {
-		t.Fatal(err)
-	}
-	e := &entornoDeCuentas{entorno: base, repo: pg.NuevoCuentas(base.pool), correo: &correotest.Falso{}, hasher: &hasheadorRapido{},
-		senuelos: &senuelosContados{Senuelos: firmados}}
+	e := &entornoDeCuentas{entorno: base, repo: pg.NuevoCuentas(base.pool), correo: &correotest.Falso{}, hasher: &hasheadorRapido{}}
 	e.limitador = seguridad.NuevoLimitadorDeIntentos(base.reloj)
 	e.svc = cuenta.NuevoServicio(cuenta.Dependencias{
 		Repo: e.repo, Correo: e.correo, Politica: seguridad.NuevaPoliticaDeContrasena(), Hasher: e.hasher,
-		Reloj: base.reloj, Limitador: e.limitador, Senuelos: e.senuelos, Log: slog.New(slog.NewJSONHandler(io.Discard, nil)),
+		Reloj: base.reloj, Limitador: e.limitador, Log: slog.New(slog.NewJSONHandler(io.Discard, nil)),
 	})
 	return e
 }
 
 const contrasenaDePrueba = "lluvia café tren azul"
 
-func (e *entornoDeCuentas) crear(t *testing.T, correoDePrueba string) cuenta.SesionNueva {
+// pendiente pide la verificación del correo (PN-58) y devuelve el token del enlace que llegó. Deja una cuenta sin
+// verificar, sin credencial y sin sesión.
+func (e *entornoDeCuentas) pendiente(t *testing.T, correoDePrueba string) string {
 	t.Helper()
-	s, err := e.svc.CrearCuenta(context.Background(), cuenta.SolicitudDeCuenta{
-		Correo: correoDePrueba, Contrasena: contrasenaDePrueba, Nombre: "Laura", MayorDeEdad: true,
-	})
-	if err != nil {
+	antes := len(e.correo.Enviados())
+	if err := e.svc.CrearCuenta(context.Background(), cuenta.SolicitudDeCuenta{Correo: correoDePrueba, MayorDeEdad: true}); err != nil {
 		t.Fatal(err)
 	}
 	e.svc.Esperar()
+	enviados := e.correo.Enviados()
+	if len(enviados) != antes+1 || enviados[antes].Aviso {
+		t.Fatalf("debía llegar un enlace de verificación a %s: %+v", correoDePrueba, enviados[antes:])
+	}
+	return enviados[antes].Token
+}
+
+// crear deja una cuenta con el correo verificado y la contraseña de prueba, con la sesión de la persona: pide la
+// verificación y completa la cuenta con el enlace, como lo hace la persona (PN-58 y PN-74).
+func (e *entornoDeCuentas) crear(t *testing.T, correoDePrueba string) cuenta.SesionNueva {
+	t.Helper()
+	token := e.pendiente(t, correoDePrueba)
+	s, err := e.svc.VerificarYElegirContrasena(context.Background(), token, contrasenaDePrueba, "Laura")
+	if err != nil {
+		t.Fatal(err)
+	}
 	return s
 }
 
@@ -103,207 +102,204 @@ func huella(t *testing.T, token string) []byte {
 	return h
 }
 
-func TestCrearCuentaGuardaTodoEnUnaTransaccion(t *testing.T) {
-	e := nuevoEntornoDeCuentas(t)
+// instantanea es todo lo guardado: para cada tabla, cuántas filas tiene y una suma de su contenido. Si un rechazo cambió
+// algo, cambia.
+func (e *entorno) instantanea(t *testing.T) string {
+	t.Helper()
 	ctx := context.Background()
-	e.svc = cuenta.NuevoServicio(cuenta.Dependencias{
-		Repo: e.repo, Correo: e.correo, Politica: seguridad.NuevaPoliticaDeContrasena(), Hasher: argon2id.Predeterminado(),
-		Reloj: e.reloj, Limitador: e.limitador, Senuelos: e.senuelos, Log: slog.New(slog.NewJSONHandler(io.Discard, nil)),
-	})
-	s := e.crear(t, "  Laura@Ejemplo.Test ")
-
-	var persona, nombre, etapa, correoGuardado, hash string
-	var verificado, temporal bool
-	var creada time.Time
-	if err := e.pool.QueryRow(ctx,
-		`SELECT p.id::text, p.nombre, p.etapa, p.creada_en, pa.correo, pa.correo_verificado, c.hash, c.es_temporal
-		 FROM persona p JOIN perfil_adulto pa ON pa.persona_id = p.id JOIN credencial c ON c.persona_id = p.id`).
-		Scan(&persona, &nombre, &etapa, &creada, &correoGuardado, &verificado, &hash, &temporal); err != nil {
-		t.Fatal(err)
-	}
-	if nombre != "Laura" || etapa != "adulta" || correoGuardado != "laura@ejemplo.test" || verificado || temporal || !creada.Equal(ahora) {
-		t.Errorf("fila inesperada: %q %q %q %v %v %v", nombre, etapa, correoGuardado, verificado, temporal, creada)
-	}
-	if !strings.HasPrefix(hash, "$argon2id$v=19$m=19456,t=2,p=1$") || strings.Contains(hash, "lluvia") {
-		t.Errorf("el hash no es Argon2id con los parámetros de OWASP: %q", hash)
-	}
-	if ok, err := argon2id.Predeterminado().Verificar(ctx, contrasenaDePrueba, hash); err != nil || !ok {
-		t.Errorf("el hash no verifica la contraseña: %v %v", ok, err)
-	}
-
-	// El enlace: solo el SHA-256 del token que salió por correo, vence a las 24 horas, sin usar.
-	enviados := e.correo.Enviados()
-	if len(enviados) != 1 || enviados[0].Destino != "laura@ejemplo.test" {
-		t.Fatalf("correos: %+v", enviados)
-	}
-	var enlace []byte
-	var vence time.Time
-	var usado *time.Time
-	if err := e.pool.QueryRow(ctx,
-		`SELECT hash_token, vence_en, usado_en FROM enlace_un_uso WHERE persona_id = $1::uuid AND proposito = 'verificacion'`, persona).
-		Scan(&enlace, &vence, &usado); err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(enlace, huella(t, enviados[0].Token)) || len(enlace) != 32 {
-		t.Error("lo guardado no es el SHA-256 del token enviado")
-	}
-	if !vence.Equal(ahora.Add(24*time.Hour)) || usado != nil {
-		t.Errorf("vencimiento %v, usado %v", vence, usado)
-	}
-
-	// La sesión limitada: solo el SHA-256, 30 días, de la misma persona.
-	var guardada []byte
-	var creadaS, ultimo, venceS time.Time
-	var exige bool
-	if err := e.pool.QueryRow(ctx, `SELECT hash_token, creada_en, ultimo_uso_en, vence_en, exige_nueva_contrasena FROM sesion WHERE persona_id = $1::uuid`, persona).
-		Scan(&guardada, &creadaS, &ultimo, &venceS, &exige); err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(guardada, huella(t, s.Token)) || !creadaS.Equal(ahora) || !ultimo.Equal(ahora) || !venceS.Equal(ahora.Add(30*24*time.Hour)) || exige {
-		t.Errorf("sesión guardada: %x %v %v %v %v", guardada, creadaS, ultimo, venceS, exige)
-	}
-	if bytes.Contains(guardada, []byte(s.Token)) {
-		t.Error("el token no debe estar en la base")
-	}
-	if contar(t, e.pool, `SELECT count(*) FROM autorizacion`) != 0 {
-		t.Error("crear la cuenta no otorga ninguna autorización")
-	}
-}
-
-// SEG-012 (D-141 (1)): el correo de una cuenta sin verificar se trata como cuenta nueva.
-func TestCorreoConCuentaSinVerificarSeBorraYSeRecrea(t *testing.T) {
-	e := nuevoEntornoDeCuentas(t)
-	ctx := context.Background()
-	primera := e.crear(t, "laura@ejemplo.test")
-	enlaceViejo := e.correo.Enviados()[0].Token
-	viejaPersona := personaDe(t, e.entorno, "laura@ejemplo.test")
-
-	e.hasher.llamadas = 0
-	e.reloj.T = ahora.Add(time.Minute)
-	e.svc = cuenta.NuevoServicio(cuenta.Dependencias{
-		Repo: e.repo, Correo: e.correo, Politica: seguridad.NuevaPoliticaDeContrasena(), Hasher: e.hasher,
-		Reloj: e.reloj, Limitador: e.limitador, Senuelos: e.senuelos, Log: slog.New(slog.NewJSONHandler(io.Discard, nil)),
-	})
-	segunda, err := e.svc.CrearCuenta(ctx, cuenta.SolicitudDeCuenta{Correo: "LAURA@ejemplo.test", Contrasena: "otra frase distinta y larga", Nombre: "Intrusa", MayorDeEdad: true})
+	filas, err := e.pool.Query(ctx, `SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY 1`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	e.svc.Esperar()
-
-	if e.hasher.llamadas != 1 {
-		t.Errorf("Argon2id corrió %d veces", e.hasher.llamadas)
-	}
-	for tabla, esperado := range map[string]int{"persona": 1, "perfil_adulto": 1, "credencial": 1, "enlace_un_uso": 1, "sesion": 1} {
-		if n := contar(t, e.pool, "SELECT count(*) FROM "+tabla); n != esperado {
-			t.Errorf("%s tiene %d filas, se esperaba %d", tabla, n, esperado)
-		}
-	}
-	nuevaPersona := personaDe(t, e.entorno, "laura@ejemplo.test")
-	if nuevaPersona == viejaPersona {
-		t.Error("debe ser una cuenta nueva, no la anterior")
-	}
-	var nombre, hash string
-	if err := e.pool.QueryRow(ctx, `SELECT p.nombre, c.hash FROM persona p JOIN credencial c ON c.persona_id = p.id`).Scan(&nombre, &hash); err != nil {
-		t.Fatal(err)
-	}
-	if nombre != "Intrusa" || !strings.HasSuffix(hash, "otra frase distinta y larga") {
-		t.Errorf("la cuenta debe quedar con los datos de ahora: %q %q", nombre, hash)
-	}
-	// La sesión anterior murió con la cuenta; la nueva es real.
-	if _, err := e.sesiones.Sujeto(ctx, huella(t, primera.Token), e.reloj.T); err == nil {
-		t.Error("la sesión de la cuenta anterior debe dejar de servir")
-	}
-	if s, err := e.sesiones.Sujeto(ctx, huella(t, segunda.Token), e.reloj.T); err != nil || s.Persona != nuevaPersona || s.Verificada {
-		t.Errorf("la sesión nueva debe ser la limitada real: %+v %v", s, err)
-	}
-	if e.senuelos.creados != 0 {
-		t.Error("no hay sesión de mentira: la cuenta sin verificar se trata como nueva")
-	}
-	// El enlace anterior ya no existe en la base y el nuevo sí, con su vencimiento a las 24 horas.
-	enviados := e.correo.Enviados()
-	if len(enviados) != 2 || enviados[1].Aviso || enviados[1].Token == enlaceViejo {
-		t.Fatalf("correos: %+v", enviados)
-	}
-	if contar(t, e.pool, `SELECT count(*) FROM enlace_un_uso WHERE hash_token = $1`, huella(t, enlaceViejo)) != 0 ||
-		contar(t, e.pool, `SELECT count(*) FROM enlace_un_uso WHERE hash_token = $1 AND vence_en = $2`, huella(t, enviados[1].Token), e.reloj.T.Add(24*time.Hour)) != 1 {
-		t.Error("el enlace anterior debe morir y el nuevo vencer a las 24 horas")
-	}
-}
-
-// D-141 (2): con una cuenta verificada no se borra ni se cambia nada.
-func TestCorreoConCuentaVerificadaNoTocaNada(t *testing.T) {
-	e := nuevoEntornoDeCuentas(t)
-	ctx := context.Background()
-	real := e.crear(t, "laura@ejemplo.test")
-	persona := personaDe(t, e.entorno, "laura@ejemplo.test")
-	verificar(t, e.pool, persona)
-
-	falsa := e.crear(t, "Laura@Ejemplo.test")
-	for tabla, esperado := range map[string]int{"persona": 1, "perfil_adulto": 1, "credencial": 1, "enlace_un_uso": 1, "sesion": 1} {
-		if n := contar(t, e.pool, "SELECT count(*) FROM "+tabla); n != esperado {
-			t.Errorf("%s tiene %d filas, se esperaba %d", tabla, n, esperado)
-		}
-	}
-	// La sesión de mentira no está en la base ni apunta a ninguna cuenta: el almacén real no la conoce.
-	if _, err := e.sesiones.Sujeto(ctx, huella(t, falsa.Token), ahora); err == nil {
-		t.Error("la sesión de mentira no debe estar en la base")
-	}
-	if contar(t, e.pool, `SELECT count(*) FROM sesion WHERE hash_token = $1`, huella(t, falsa.Token)) != 0 {
-		t.Error("la sesión de mentira no debe estar en la base")
-	}
-	if s, err := e.sesiones.Sujeto(ctx, huella(t, real.Token), ahora); err != nil || s.Persona != persona || !s.Verificada {
-		t.Errorf("la sesión real sigue y ahora es verificada: %+v %v", s, err)
-	}
-	enviados := e.correo.Enviados()
-	if len(enviados) != 2 || !enviados[1].Aviso || enviados[1].Destino != "laura@ejemplo.test" {
-		t.Errorf("correos: %+v", enviados)
-	}
-}
-
-func TestDosCreacionesSimultaneasDelMismoCorreoDejanUnaCuenta(t *testing.T) {
-	e := nuevoEntornoDeCuentas(t)
-	hecho := make(chan error, 8)
-	for range 8 {
-		go func() {
-			_, err := e.svc.CrearCuenta(context.Background(), cuenta.SolicitudDeCuenta{
-				Correo: "laura@ejemplo.test", Contrasena: contrasenaDePrueba, Nombre: "Laura", MayorDeEdad: true})
-			hecho <- err
-		}()
-	}
-	for range 8 {
-		if err := <-hecho; err != nil {
+	var tablas []string
+	for filas.Next() {
+		var n string
+		if err := filas.Scan(&n); err != nil {
 			t.Fatal(err)
 		}
+		tablas = append(tablas, n)
 	}
-	e.svc.Esperar()
-	if n := contar(t, e.pool, `SELECT count(*) FROM perfil_adulto WHERE correo = 'laura@ejemplo.test'`); n != 1 {
-		t.Fatalf("hay %d cuentas con ese correo", n)
+	filas.Close()
+	sort.Strings(tablas)
+	var salida []string
+	for _, tabla := range tablas {
+		var n int
+		var suma *string
+		if err := e.pool.QueryRow(ctx, fmt.Sprintf(`SELECT count(*), md5(string_agg(x::text, '|' ORDER BY x::text)) FROM %q x`, tabla)).Scan(&n, &suma); err != nil {
+			t.Fatal(err)
+		}
+		s := ""
+		if suma != nil {
+			s = *suma
+		}
+		salida = append(salida, fmt.Sprintf("%s=%d:%s", tabla, n, s))
 	}
-	if n := contar(t, e.pool, `SELECT count(*) FROM sesion`); n != 1 {
-		t.Fatalf("hay %d sesiones", n)
+	return strings.Join(salida, "\n")
+}
+
+// Un correo sin cuenta: persona y perfil de adulto sin verificar, con el nombre provisional, el enlace de 24 horas, y
+// ni credencial ni sesión (D-172 (1), (2) y (3)).
+func TestPedirLaVerificacionGuardaLoMinimoYNingunaSesion(t *testing.T) {
+	e := nuevoEntornoDeCuentas(t)
+	token := e.pendiente(t, " Laura@Ejemplo.test ")
+	ctx := context.Background()
+
+	var nombre, etapa string
+	var verificado bool
+	if err := e.pool.QueryRow(ctx,
+		`SELECT p.nombre, p.etapa, pa.correo_verificado FROM persona p JOIN perfil_adulto pa ON pa.persona_id = p.id WHERE pa.correo = 'laura@ejemplo.test'`).
+		Scan(&nombre, &etapa, &verificado); err != nil {
+		t.Fatal(err)
+	}
+	if nombre != cuenta.NombreProvisional || etapa != "adulta" || verificado {
+		t.Errorf("persona: %q %q verificado %v", nombre, etapa, verificado)
+	}
+	var proposito string
+	var creado, vence time.Time
+	if err := e.pool.QueryRow(ctx, `SELECT proposito, creado_en, vence_en FROM enlace_un_uso WHERE hash_token = $1 AND usado_en IS NULL`, huella(t, token)).
+		Scan(&proposito, &creado, &vence); err != nil || proposito != "verificacion" || vence.Sub(creado) != 24*time.Hour {
+		t.Errorf("enlace: %q %v %v (%v)", proposito, creado, vence, err)
+	}
+	for _, tabla := range []string{"credencial", "sesion"} {
+		if n := contar(t, e.pool, "SELECT count(*) FROM "+tabla); n != 0 {
+			t.Errorf("%s: %d filas; una cuenta pendiente no tiene contraseña ni sesión", tabla, n)
+		}
+	}
+	if e.hasher.llamadas != 0 {
+		t.Error("pedir la verificación no calcula ningún hash")
 	}
 }
 
-// La sesión de mentira de una cuenta verificada la reconoce un servidor nuevo con la misma clave, sin base ni memoria
-// compartida, y el almacén real nunca la ve (D-143 (2)).
-func TestLaSesionDeMentiraDeUnaCuentaVerificadaSobreviveAUnReinicio(t *testing.T) {
+// SEG-012 (pre-hijacking), nivel del repositorio: pedir otra vez el correo de una cuenta sin verificar no la borra ni la
+// recrea (misma persona, misma fecha de creación) y solo cambia el enlace: el anterior deja de servir.
+func TestPedirOtraVezLaVerificacionNoBorraNiRecreaLaCuenta(t *testing.T) {
+	e := nuevoEntornoDeCuentas(t)
+	viejo := e.pendiente(t, "laura@ejemplo.test")
+	persona := personaDe(t, e.entorno, "laura@ejemplo.test")
+	var creada time.Time
+	if err := e.pool.QueryRow(context.Background(), `SELECT creada_en FROM persona WHERE id = $1::uuid`, persona).Scan(&creada); err != nil {
+		t.Fatal(err)
+	}
+
+	nuevo := e.pendiente(t, "laura@ejemplo.test")
+	if personaDe(t, e.entorno, "laura@ejemplo.test") != persona {
+		t.Fatal("la cuenta pendiente se recreó: es otra persona")
+	}
+	var creadaDespues time.Time
+	if err := e.pool.QueryRow(context.Background(), `SELECT creada_en FROM persona WHERE id = $1::uuid`, persona).Scan(&creadaDespues); err != nil || !creadaDespues.Equal(creada) {
+		t.Errorf("la fecha de creación cambió: %v → %v (%v)", creada, creadaDespues, err)
+	}
+	if n := contar(t, e.pool, `SELECT count(*) FROM persona`); n != 1 {
+		t.Errorf("personas: %d", n)
+	}
+	if n := contar(t, e.pool, `SELECT count(*) FROM enlace_un_uso WHERE usado_en IS NULL`); n != 1 {
+		t.Errorf("debe quedar un solo enlace pendiente: %d", n)
+	}
+	if _, err := e.svc.VerificarYElegirContrasena(context.Background(), viejo, contrasenaDePrueba, "Laura"); err != cuenta.ErrEnlaceInvalido {
+		t.Errorf("el enlace anterior ya no debe servir: %v", err)
+	}
+	if _, err := e.svc.VerificarYElegirContrasena(context.Background(), nuevo, contrasenaDePrueba, "Laura"); err != nil {
+		t.Errorf("el nuevo sí: %v", err)
+	}
+}
+
+// D-172 (2): con una cuenta verificada no se toca nada en la base y el dueño recibe el aviso.
+func TestCorreoConCuentaVerificadaNoTocaNada(t *testing.T) {
 	e := nuevoEntornoDeCuentas(t)
 	e.crear(t, "laura@ejemplo.test")
-	verificar(t, e.pool, personaDe(t, e.entorno, "laura@ejemplo.test"))
-	falsa := e.crear(t, "laura@ejemplo.test")
+	antes := e.instantanea(t)
+	enviados := len(e.correo.Enviados())
 
-	reiniciado, err := sesion.NuevosSenuelos(bytes.Repeat([]byte{5}, 32), e.reloj)
+	e.reloj.T = e.reloj.T.Add(time.Minute)
+	if err := e.svc.CrearCuenta(context.Background(), cuenta.SolicitudDeCuenta{Correo: "laura@ejemplo.test", MayorDeEdad: true}); err != nil {
+		t.Fatal(err)
+	}
+	e.svc.Esperar()
+	if despues := e.instantanea(t); despues != antes {
+		t.Errorf("la base cambió:\n%s\n%s", antes, despues)
+	}
+	if env := e.correo.Enviados()[enviados:]; len(env) != 1 || !env[0].Aviso || env[0].Destino != "laura@ejemplo.test" || env[0].Token != "" {
+		t.Errorf("solo el aviso, sin token: %+v", env)
+	}
+}
+
+// Dos pedidos simultáneos del mismo correo se turnan: queda una sola cuenta con un solo enlace pendiente.
+func TestDosPedidosSimultaneosDelMismoCorreoDejanUnaCuenta(t *testing.T) {
+	e := nuevoEntornoDeCuentas(t)
+	var wg sync.WaitGroup
+	for range 8 {
+		wg.Go(func() {
+			if err := e.svc.CrearCuenta(context.Background(), cuenta.SolicitudDeCuenta{Correo: "laura@ejemplo.test", MayorDeEdad: true}); err != nil {
+				t.Error(err)
+			}
+		})
+	}
+	wg.Wait()
+	e.svc.Esperar()
+	for tabla, esperado := range map[string]int{"persona": 1, "perfil_adulto": 1} {
+		if n := contar(t, e.pool, "SELECT count(*) FROM "+tabla); n != esperado {
+			t.Errorf("%s: %d, se esperaba %d", tabla, n, esperado)
+		}
+	}
+	if n := contar(t, e.pool, `SELECT count(*) FROM enlace_un_uso WHERE usado_en IS NULL`); n != 1 {
+		t.Errorf("enlaces pendientes: %d", n)
+	}
+}
+
+// PN-74: completar la cuenta guarda el nombre, la credencial, el correo verificado, consume el enlace y crea la sesión,
+// todo junto.
+func TestCompletarLaCuentaGuardaTodoEnUnaTransaccion(t *testing.T) {
+	e := nuevoEntornoDeCuentas(t)
+	token := e.pendiente(t, "laura@ejemplo.test")
+	persona := personaDe(t, e.entorno, "laura@ejemplo.test")
+
+	s, err := e.svc.VerificarYElegirContrasena(context.Background(), token, contrasenaDePrueba, " Laura Gómez ")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reiniciado.Reconoce(falsa.Token) {
-		t.Fatal("un servidor nuevo con la misma clave debe reconocer la sesión de mentira")
-	}
-	otraClave, err := sesion.NuevosSenuelos(bytes.Repeat([]byte{6}, 32), e.reloj)
-	if err != nil {
+	ctx := context.Background()
+	var nombre string
+	var verificado bool
+	if err := e.pool.QueryRow(ctx, `SELECT p.nombre, pa.correo_verificado FROM persona p JOIN perfil_adulto pa ON pa.persona_id = p.id WHERE p.id = $1::uuid`, persona).Scan(&nombre, &verificado); err != nil {
 		t.Fatal(err)
 	}
-	if otraClave.Reconoce(falsa.Token) {
-		t.Fatal("con otra clave no se reconoce")
+	if nombre != "Laura Gómez" || !verificado {
+		t.Errorf("nombre %q verificado %v", nombre, verificado)
+	}
+	var hash string
+	var temporal bool
+	if err := e.pool.QueryRow(ctx, `SELECT hash, es_temporal FROM credencial WHERE persona_id = $1::uuid`, persona).Scan(&hash, &temporal); err != nil || hash != "$argon2id$v=19$m=8,t=1,p=1$prueba$"+contrasenaDePrueba || temporal {
+		t.Errorf("credencial: %q temporal %v (%v)", hash, temporal, err)
+	}
+	if n := contar(t, e.pool, `SELECT count(*) FROM enlace_un_uso WHERE hash_token = $1 AND usado_en IS NOT NULL`, huella(t, token)); n != 1 {
+		t.Error("el enlace debe quedar usado")
+	}
+	if n := contar(t, e.pool, `SELECT count(*) FROM enlace_un_uso WHERE usado_en IS NULL`); n != 0 {
+		t.Errorf("no deben quedar enlaces pendientes: %d", n)
+	}
+	if n := contar(t, e.pool, `SELECT count(*) FROM sesion WHERE hash_token = $1 AND persona_id = $2::uuid`, huella(t, s.Token), persona); n != 1 {
+		t.Error("falta la sesión de la persona")
+	}
+	if n := contar(t, e.pool, `SELECT count(*) FROM sesion`); n != 1 {
+		t.Errorf("sesiones: %d", n)
+	}
+	suj, err := e.sesiones.Sujeto(ctx, huella(t, s.Token), e.reloj.T)
+	if err != nil || suj.Persona != persona || !suj.Verificada || suj.Autorizada {
+		t.Errorf("sujeto de la sesión: %+v (%v)", suj, err)
+	}
+}
+
+// D-172 (3): una cuenta de antes de este cambio, sin verificar y con contraseña (`sembrar` la deja así), se completa
+// igual: la contraseña vieja se reemplaza por la que elige quien abre el enlace.
+func TestCompletarUnaCuentaVieja(t *testing.T) {
+	e := nuevoEntornoDeCuentas(t)
+	persona := e.sembrar(t, "laura@ejemplo.test")
+	token := e.pendiente(t, "laura@ejemplo.test")
+	if _, err := e.svc.VerificarYElegirContrasena(context.Background(), token, contrasenaDePrueba, "Laura"); err != nil {
+		t.Fatal(err)
+	}
+	var hash string
+	if err := e.pool.QueryRow(context.Background(), `SELECT hash FROM credencial WHERE persona_id = $1::uuid`, persona).Scan(&hash); err != nil || strings.HasSuffix(hash, "$x") {
+		t.Errorf("el hash debe ser el nuevo: %q (%v)", hash, err)
 	}
 }

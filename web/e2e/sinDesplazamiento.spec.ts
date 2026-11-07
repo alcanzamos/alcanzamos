@@ -163,7 +163,25 @@ const pantallas: Pantalla[] = [
       page.addInitScript(() =>
         sessionStorage.setItem("correo-pendiente", "laura@ejemplo.com"),
       ),
-    abrir: abrirConTitulo("/revisa-tu-correo", "Revisa tu correo"),
+    abrir: async (page) => {
+      await page.goto("/revisa-tu-correo");
+      await expect(encabezado(page, "Revisa tu correo")).toBeVisible();
+      // D-172: sin sesión no hay «Ya lo confirmé»; «Usar otro correo» ocupa su lugar.
+      await expect(page.getByText("Ya lo confirmé")).toHaveCount(0);
+      await expect(
+        page.getByRole("link", { name: "Usar otro correo" }),
+      ).toBeVisible();
+    },
+  },
+  {
+    nombre:
+      "PN-59 /revisa-tu-correo sin la dirección, con el formulario abierto",
+    preparar: sinApi,
+    abrir: async (page) => {
+      await page.goto("/revisa-tu-correo");
+      await page.getByRole("button", { name: "Reenviar el correo" }).click();
+      await expect(page.getByLabel("Correo electrónico")).toBeVisible();
+    },
   },
   {
     nombre: "PN-60 /entrar",
@@ -329,21 +347,24 @@ const pantallas: Pantalla[] = [
     },
   },
   {
-    nombre: "/verificar?t=… (redirige a /entrar)",
+    nombre: "PN-74 /verificar?t=…",
+    preparar: sinApi,
+    abrir: abrirConTitulo("/verificar?t=abc123", "Elige tu contraseña"),
+  },
+  {
+    nombre: "PN-74 /verificar?t=… con el enlace vencido",
     preparar: (page) =>
       simularApi(page, {
-        "POST /api/v1/cuentas/verificacion": responder(200, {
-          estado: "verificado",
-          con_sesion: false,
+        "POST /api/v1/cuentas/verificacion": responder(400, {
+          error: "enlace_invalido",
         }),
       }),
     abrir: async (page) => {
-      await page.goto("/verificar?t=abc123");
-      await expect(page).toHaveURL(/\/entrar$/);
-      await expect(page.getByRole("status")).toHaveText(
-        "Listo, confirmamos tu correo.",
-      );
-      await expect(encabezado(page, "Inicia sesión")).toBeVisible();
+      await page.goto("/verificar?t=viejo");
+      await page.getByLabel("Contraseña", { exact: true }).fill("lluvia café");
+      await page.getByRole("button", { name: "Guardar la contraseña" }).click();
+      await expect(page.getByText("Ese enlace ya no sirve.")).toBeVisible();
+      await expect(encabezado(page, "Elige tu contraseña")).toBeVisible();
     },
   },
 ];

@@ -2,13 +2,11 @@ package cuenta_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"regexp"
 	"sort"
 	"strings"
 	"testing"
@@ -24,31 +22,13 @@ import (
 func apiDePrueba(t *testing.T, e *entorno) http.Handler {
 	t.Helper()
 	log := slog.New(slog.NewJSONHandler(io.Discard, nil))
-	resolutor := sesion.NuevoResolutor(e.almacen, e.senuelos.Senuelos, e.reloj)
-	enr := servidor.NuevoEnrutador(resolutor, seguridad.NuevoRegistro(log), log).ConURLPublica("https://app.ejemplo.test")
-	cuenta.NuevoHandler(e.svc, resolutor, log).Registrar(enr)
+	enr := servidor.NuevoEnrutador(servidor.SinSesiones{}, seguridad.NuevoRegistro(log), log).ConURLPublica("https://app.ejemplo.test")
+	cuenta.NuevoHandler(e.svc, log).Registrar(enr)
 	h, err := enr.Construir()
 	if err != nil {
 		t.Fatal(err)
 	}
 	return csrftest.ConCabeceras(servidor.ManejadorConAPI(h))
-}
-
-// almacenFalso es el almacén de sesiones reales: huella (en texto) → Sujeto. Solo valen estas y las de mentira.
-type almacenFalso map[string]seguridad.Sujeto
-
-func (a almacenFalso) Sujeto(_ context.Context, huella []byte, _ time.Time) (seguridad.Sujeto, error) {
-	if s, ok := a[string(huella)]; ok {
-		return s, nil
-	}
-	return seguridad.Sujeto{}, seguridad.ErrSinSesion
-}
-
-// sesionReal registra en el almacén una sesión real del Sujeto dado y devuelve su token.
-func (e *entorno) sesionReal(s seguridad.Sujeto) string {
-	token, huella := seguridad.NuevoTokenOpaco()
-	e.almacen[string(huella)] = s
-	return token
 }
 
 func post(h http.Handler, origen, ruta, cuerpo string, encabezados ...string) *httptest.ResponseRecorder {
@@ -62,29 +42,33 @@ func post(h http.Handler, origen, ruta, cuerpo string, encabezados ...string) *h
 	return rr
 }
 
-const cuerpoValido = `{"correo":"laura@ejemplo.test","contrasena":"lluvia café tren azul","nombre":"Laura","mayor_de_edad":true}`
+const (
+	cuerpoValido   = `{"correo":"laura@ejemplo.test","mayor_de_edad":true}`
+	respuestaIgual = `{"estado":"verificacion_pendiente"}`
+)
 
-// USA-005 (RNF-016): el registro pide solo correo, contraseña y nombre, más «Soy mayor de edad» (D-089); cualquier otro
-// campo se rechaza sin crear nada.
+// USA-005 (RNF-016): PN-58 pide solo el correo, más «Soy mayor de edad» (D-089); cualquier otro campo se rechaza sin
+// crear nada, también la contraseña y el nombre, que ahora se piden en PN-74.
 func TestUSA_005ElRegistroRechazaCualquierOtroCampo(t *testing.T) {
-	for _, extra := range []string{"apellido", "telefono", "documento", "fecha_de_nacimiento", "direccion", "banco", "rol"} {
+	for _, extra := range []string{"contrasena", "nombre", "apellido", "telefono", "documento", "fecha_de_nacimiento", "direccion", "banco", "rol"} {
 		t.Run(extra, func(t *testing.T) {
 			e := nuevoEntorno()
 			h := apiDePrueba(t, e)
 			cuerpo := strings.Replace(cuerpoValido, `"mayor_de_edad":true}`, `"mayor_de_edad":true,"`+extra+`":"x"}`, 1)
 			rr := post(h, "203.0.113.7", "/api/v1/cuentas", cuerpo)
 			e.svc.Esperar()
-			if rr.Code != 400 || len(e.repo.creadas) != 0 || len(e.correo.Enviados()) != 0 {
+			if rr.Code != 400 || strings.TrimSpace(rr.Body.String()) != `{"error":"solicitud_invalida"}` ||
+				len(e.repo.solicitudes) != 0 || len(e.correo.Enviados()) != 0 {
 				t.Errorf("código %d, se esperaba 400 sin crear nada: %s", rr.Code, rr.Body)
 			}
 		})
 	}
-	// Con solo los cuatro campos se acepta.
+	// Con solo los dos campos se acepta.
 	e := nuevoEntorno()
 	rr := post(apiDePrueba(t, e), "203.0.113.7", "/api/v1/cuentas", cuerpoValido)
 	e.svc.Esperar()
 	if rr.Code != 202 {
-		t.Errorf("con correo, contraseña, nombre y mayor_de_edad: %d %s", rr.Code, rr.Body)
+		t.Errorf("con correo y mayor_de_edad: %d %s", rr.Code, rr.Body)
 	}
 }
 
@@ -96,21 +80,18 @@ func TestPostCuentas(t *testing.T) {
 		campos map[string]any // contenido esperado del JSON de respuesta
 	}{
 		{"cuenta nueva", cuerpoValido, 202, map[string]any{"estado": "verificacion_pendiente"}},
-		{"errores de campo", `{"correo":"x","contrasena":"corta","nombre":"","mayor_de_edad":false}`, 422, map[string]any{
+		{"errores de campo", `{"correo":"x","mayor_de_edad":false}`, 422, map[string]any{
 			"error":  "validacion",
-			"campos": map[string]any{"correo": "correo_invalido", "contrasena": "contrasena_corta", "nombre": "nombre_vacio", "mayor_de_edad": "mayor_de_edad_requerido"},
+			"campos": map[string]any{"correo": "correo_invalido", "mayor_de_edad": "mayor_de_edad_requerido"},
 		}},
-		{"contraseña con el correo", `{"correo":"laura@ejemplo.test","contrasena":"la clave de laura es larga","nombre":"Laura","mayor_de_edad":true}`, 422, map[string]any{
-			"error": "validacion", "campos": map[string]any{"contrasena": "contrasena_personal"},
-		}},
-		{"sin mayor_de_edad equivale a falso", `{"correo":"laura@ejemplo.test","contrasena":"lluvia café tren azul","nombre":"Laura"}`, 422, map[string]any{
+		{"sin mayor_de_edad equivale a falso", `{"correo":"laura@ejemplo.test"}`, 422, map[string]any{
 			"error": "validacion", "campos": map[string]any{"mayor_de_edad": "mayor_de_edad_requerido"},
 		}},
-		{"la fecha de nacimiento no se acepta", `{"correo":"laura@ejemplo.test","contrasena":"lluvia café tren azul","nombre":"Laura","mayor_de_edad":true,"fecha_de_nacimiento":"1990-05-14"}`, 400, map[string]any{"error": "solicitud_invalida"}},
+		{"la fecha de nacimiento no se acepta", `{"correo":"laura@ejemplo.test","mayor_de_edad":true,"fecha_de_nacimiento":"1990-05-14"}`, 400, map[string]any{"error": "solicitud_invalida"}},
 		{"JSON roto", `{"correo":`, 400, map[string]any{"error": "solicitud_invalida"}},
 		{"dos objetos", cuerpoValido + cuerpoValido, 400, map[string]any{"error": "solicitud_invalida"}},
 		{"cuerpo vacío", ``, 400, map[string]any{"error": "solicitud_invalida"}},
-		{"cuerpo enorme", `{"nombre":"` + strings.Repeat("a", 20<<10) + `"}`, 400, map[string]any{"error": "solicitud_invalida"}},
+		{"cuerpo enorme", `{"correo":"` + strings.Repeat("a", 20<<10) + `"}`, 400, map[string]any{"error": "solicitud_invalida"}},
 	}
 	for _, c := range casos {
 		t.Run(c.nombre, func(t *testing.T) {
@@ -130,8 +111,11 @@ func TestPostCuentas(t *testing.T) {
 			if !bytes.Equal(a, b) {
 				t.Errorf("respuesta %s, se esperaba %s", a, b)
 			}
-			if c.codigo != 202 && (len(e.repo.creadas) != 0 || len(e.correo.Enviados()) != 0 || rr.Header().Get("Set-Cookie") != "") {
-				t.Error("una solicitud rechazada no crea, no envía ni da sesión")
+			if len(rr.Result().Cookies()) != 0 {
+				t.Error("crear la cuenta nunca da sesión")
+			}
+			if c.codigo != 202 && (len(e.repo.solicitudes) != 0 || len(e.correo.Enviados()) != 0) {
+				t.Error("una solicitud rechazada no crea ni envía nada")
 			}
 		})
 	}
@@ -146,174 +130,95 @@ func TestSoloPOST(t *testing.T) {
 	}
 }
 
-func TestLaCuentaNuevaRecibeLaCookieDeSesion(t *testing.T) {
-	e := nuevoEntorno()
-	rr := post(apiDePrueba(t, e), "203.0.113.7", "/api/v1/cuentas", cuerpoValido)
-	e.svc.Esperar()
-	cookies := rr.Result().Cookies()
-	if len(cookies) != 1 || cookies[0].Name != "__Host-sesion" || !cookies[0].HttpOnly || !cookies[0].Secure ||
-		cookies[0].SameSite != http.SameSiteStrictMode || cookies[0].Path != "/" {
-		t.Fatalf("cookie inesperada: %v", rr.Header()["Set-Cookie"])
-	}
-	huella, err := seguridad.HuellaDeToken(cookies[0].Value)
-	if err != nil || !bytes.Equal(huella, e.repo.creadas[0].HuellaDeSesion) {
-		t.Fatalf("la cookie no lleva el token de la sesión guardada: %v", err)
-	}
-	if strings.Contains(rr.Body.String(), cookies[0].Value) {
-		t.Error("en la web el token solo va en la cookie, no en el cuerpo")
-	}
-}
-
-func TestAndroidRecibeElTokenEnElCuerpoYNoCookie(t *testing.T) {
-	e := nuevoEntorno()
-	rr := post(apiDePrueba(t, e), "203.0.113.7", "/api/v1/cuentas", cuerpoValido, sesion.EncabezadoDeCliente, sesion.ClienteAndroid)
-	e.svc.Esperar()
-	var cuerpo map[string]string
-	if err := json.Unmarshal(rr.Body.Bytes(), &cuerpo); err != nil {
-		t.Fatal(err)
-	}
-	if rr.Code != 202 || len(rr.Result().Cookies()) != 0 || cuerpo["estado"] != "verificacion_pendiente" {
-		t.Fatalf("respuesta inesperada: %d %v %s", rr.Code, rr.Header()["Set-Cookie"], rr.Body)
-	}
-	if huella, err := seguridad.HuellaDeToken(cuerpo["token"]); err != nil || !bytes.Equal(huella, e.repo.creadas[0].HuellaDeSesion) {
-		t.Fatalf("el cuerpo no lleva el token de la sesión: %v", err)
+// D-172 (5): se retiran las rutas de la sesión limitada de PN-59, «Ya lo confirmé» y «Cambiar el correo». No existen:
+// responden el 404 de /api/, sin tocar nada.
+func TestLasRutasDeLaSesionLimitadaYaNoExisten(t *testing.T) {
+	for _, ruta := range []struct{ metodo, camino string }{
+		{"GET", "/api/v1/cuentas/estado"}, {"POST", "/api/v1/cuentas/correo"},
+	} {
+		e := nuevoEntorno()
+		r := httptest.NewRequest(ruta.metodo, ruta.camino, strings.NewReader(`{"correo":"nuevo@ejemplo.test"}`))
+		r.Header.Set("Sec-Fetch-Site", "same-origin")
+		r.Header.Set("Content-Type", "application/json")
+		rr := httptest.NewRecorder()
+		apiDePrueba(t, e).ServeHTTP(rr, r)
+		if rr.Code != 404 || len(e.correo.Enviados()) != 0 || len(e.repo.solicitudes) != 0 {
+			t.Errorf("%s %s: %d %s", ruta.metodo, ruta.camino, rr.Code, rr.Body)
+		}
 	}
 }
 
-// D-143 (3): con `X-Alcanzamos-Cliente: android` el pedido no puede traer `Origin` ni `Sec-Fetch-Site` (los mandan
-// los navegadores): da 400 sin token y sin `Set-Cookie`, y no crea nada, exista o no la cuenta. Sin la cabecera de
-// Android el camino de la web no cambia, con o sin esas cabeceras.
-func TestAndroidConCabecerasDeNavegadorSeRechaza(t *testing.T) {
+// vista es todo lo que un cliente puede ver de una respuesta menos la fecha: estado, cabeceras (con sus valores) y
+// cuerpo, y si trae cookie.
+type vista struct {
+	Estado    int
+	Cabeceras string
+	Cuerpo    string
+}
+
+func vistaDe(rr *httptest.ResponseRecorder) vista {
+	var lineas []string
+	for k, v := range rr.Header() {
+		if k != "Date" {
+			lineas = append(lineas, k+": "+strings.Join(v, ","))
+		}
+	}
+	sort.Strings(lineas)
+	return vista{rr.Code, strings.Join(lineas, "\n"), rr.Body.String()}
+}
+
+// SEG-013 (D-172 (1) y (4); A-16): crear una cuenta y «Reenviar el correo» con un correo nuevo, con el de una cuenta sin
+// verificar y con el de una cuenta verificada dan el mismo estado, las mismas cabeceras y el mismo cuerpo, sin cookie,
+// ni con el cliente web ni con el de Android (que ya no recibe token: crear no da sesión). Lo único que cambia es qué
+// correo sale.
+func TestCrearYReenviarNoSeDistinguenEntreCorreoNuevoSinVerificarYVerificado(t *testing.T) {
 	casos := []struct {
-		nombre    string
-		cabeceras []string
-		codigo    int
-		cookie    bool
+		nombre  string
+		cuentas map[string]bool
+		esAviso bool
 	}{
-		{"android con Origin de URL_PUBLICA", []string{"Origin", "https://app.ejemplo.test"}, 400, false},
-		{"android con Sec-Fetch-Site same-origin", []string{"Sec-Fetch-Site", "same-origin"}, 400, false},
+		{"correo nuevo", nil, false},
+		{"correo con cuenta sin verificar", map[string]bool{"laura@ejemplo.test": false}, false},
+		{"correo con cuenta verificada", map[string]bool{"laura@ejemplo.test": true}, true},
 	}
-	for _, existe := range []bool{false, true} { // con cuenta verificada (sesión de mentira) y sin ella: igual
-		for _, c := range casos {
-			t.Run(c.nombre, func(t *testing.T) {
-				e := nuevoEntorno()
-				if existe {
-					e.repo.verificadas = map[string]bool{"laura@ejemplo.test": true}
+	rutas := map[string]string{
+		"crear":    "/api/v1/cuentas",
+		"reenviar": "/api/v1/cuentas/verificacion/reenvio",
+	}
+	cuerpos := map[string]string{"crear": cuerpoValido, "reenviar": `{"correo":"laura@ejemplo.test"}`}
+	for accion, ruta := range rutas {
+		for _, cabeceras := range [][]string{nil, {sesion.EncabezadoDeCliente, sesion.ClienteAndroid}} {
+			t.Run(accion+" "+strings.Join(cabeceras, "="), func(t *testing.T) {
+				var vistas []vista
+				for _, c := range casos {
+					e := nuevoEntorno()
+					e.repo.verificadas = c.cuentas
+					rr := post(apiDePrueba(t, e), "203.0.113.7", ruta, cuerpos[accion], cabeceras...)
+					e.svc.Esperar()
+					enviados := e.correo.Enviados()
+					if sinCorreo := accion == "reenviar" && c.cuentas == nil; sinCorreo {
+						// B1: el reenvío no crea cuentas; con un correo sin cuenta no sale nada, y el cliente no lo nota.
+						if len(enviados) != 0 || len(e.repo.verificadas) != 0 {
+							t.Errorf("%s: el reenvío no debe crear ni enviar: %+v", c.nombre, enviados)
+						}
+					} else if len(enviados) != 1 || enviados[0].Aviso != c.esAviso {
+						t.Errorf("%s: correos %+v", c.nombre, enviados)
+					}
+					if len(rr.Result().Cookies()) != 0 || len(rr.Header().Values("Set-Cookie")) != 0 || strings.Contains(rr.Body.String(), "token") {
+						t.Errorf("%s: no debe dar sesión ni token: %v %s", c.nombre, rr.Header(), rr.Body)
+					}
+					vistas = append(vistas, vistaDe(rr))
 				}
-				enc := append([]string{sesion.EncabezadoDeCliente, sesion.ClienteAndroid}, c.cabeceras...)
-				rr := post(apiDePrueba(t, e), "203.0.113.7", "/api/v1/cuentas", cuerpoValido, enc...)
-				e.svc.Esperar()
-				if rr.Code != c.codigo || strings.TrimSpace(rr.Body.String()) != `{"error":"solicitud_invalida"}` {
-					t.Fatalf("respuesta: %d %s", rr.Code, rr.Body)
+				for i := 1; i < len(vistas); i++ {
+					if vistas[i] != vistas[0] {
+						t.Errorf("%s se distingue de %s:\n%+v\n%+v", casos[i].nombre, casos[0].nombre, vistas[i], vistas[0])
+					}
 				}
-				if rr.Header().Get("Set-Cookie") != "" || strings.Contains(rr.Body.String(), "token") {
-					t.Errorf("sin token ni cookie: %v %s", rr.Header(), rr.Body)
-				}
-				if len(e.repo.creadas) != 0 || e.hasher.llamadas != 0 || len(e.correo.Enviados()) != 0 || e.senuelos.Cantidad() != 0 {
-					t.Errorf("no debe crear nada ni enviar nada: %d cuentas, %d hashes, %d correos, %d señuelos",
-						len(e.repo.creadas), e.hasher.llamadas, len(e.correo.Enviados()), e.senuelos.Cantidad())
+				if vistas[0].Estado != 202 || strings.TrimSpace(vistas[0].Cuerpo) != respuestaIgual {
+					t.Errorf("respuesta: %+v", vistas[0])
 				}
 			})
 		}
-	}
-	// Sin la cabecera de Android, Origin y Sec-Fetch-Site no cambian nada: es la web (cookie, sin token en el cuerpo).
-	e := nuevoEntorno()
-	rr := post(apiDePrueba(t, e), "203.0.113.7", "/api/v1/cuentas", cuerpoValido, "Origin", "https://app.ejemplo.test", "Sec-Fetch-Site", "same-origin")
-	e.svc.Esperar()
-	cs := rr.Result().Cookies()
-	if rr.Code != 202 || len(cs) != 1 || strings.Contains(rr.Body.String(), cs[0].Value) {
-		t.Fatalf("la web con sus cabeceras: %d %v %s", rr.Code, rr.Header(), rr.Body)
-	}
-}
-
-// formaDeLaRespuesta es todo lo que un cliente puede ver de una respuesta salvo el valor del token y de los
-// identificadores únicos: estado, nombres de las cabeceras, atributos de la cookie, formato y largo del token, y cuerpo.
-type formaDeLaRespuesta struct {
-	Estado        int
-	Cabeceras     string // nombres, ordenados
-	Cookie        string // el Set-Cookie con el valor reemplazado por su forma
-	LargoDelToken int
-	Cuerpo        string
-}
-
-var formatoDeToken = regexp.MustCompile(`^[A-Za-z0-9_-]{43}$`)
-
-func formaDe(t *testing.T, rr *httptest.ResponseRecorder, android bool) formaDeLaRespuesta {
-	t.Helper()
-	var nombres []string
-	for k := range rr.Header() {
-		nombres = append(nombres, k)
-	}
-	sort.Strings(nombres)
-	f := formaDeLaRespuesta{Estado: rr.Code, Cabeceras: strings.Join(nombres, ","), Cuerpo: rr.Body.String()}
-	token := ""
-	if android {
-		var c map[string]string
-		_ = json.Unmarshal(rr.Body.Bytes(), &c)
-		token = c["token"]
-		f.Cuerpo = strings.Replace(f.Cuerpo, token, "<TOKEN>", 1)
-	} else if cs := rr.Result().Cookies(); len(cs) == 1 {
-		token = cs[0].Value
-		f.Cookie = strings.Replace(rr.Header().Get("Set-Cookie"), token, "<TOKEN>", 1)
-	}
-	if !formatoDeToken.MatchString(token) {
-		t.Fatalf("el token no tiene el formato de un token opaco: %q", token)
-	}
-	f.LargoDelToken = len(token)
-	return f
-}
-
-// SEG-013 (D-141 (3)): crear una cuenta con un correo nuevo, con el de una cuenta sin verificar y con el de una cuenta
-// verificada no se distingue: mismo estado, mismas cabeceras, misma cookie (formato y largo), mismo cuerpo, y Argon2id
-// corre una vez en cada caso. (Los casos de cada acción de PN-59 con la sesión de mentira se prueban en el PR 6.)
-func TestCrearCuentaNoSeDistingueEntreCorreoNuevoSinVerificarYVerificado(t *testing.T) {
-	for _, android := range []bool{false, true} {
-		nombre := "web"
-		var enc []string
-		if android {
-			nombre, enc = "android", []string{sesion.EncabezadoDeCliente, sesion.ClienteAndroid}
-		}
-		t.Run(nombre, func(t *testing.T) {
-			casos := []struct {
-				nombre      string
-				existentes  map[string]bool
-				esAviso     bool
-				esDeMentira bool
-			}{
-				{"correo nuevo", nil, false, false},
-				{"correo con cuenta sin verificar", map[string]bool{"laura@ejemplo.test": false}, false, false},
-				{"correo con cuenta verificada", map[string]bool{"laura@ejemplo.test": true}, true, true},
-			}
-			var formas []formaDeLaRespuesta
-			for _, c := range casos {
-				e := nuevoEntorno()
-				e.repo.verificadas = c.existentes
-				rr := post(apiDePrueba(t, e), "203.0.113.7", "/api/v1/cuentas", cuerpoValido, enc...)
-				e.svc.Esperar()
-
-				if e.hasher.llamadas != 1 {
-					t.Errorf("%s: Argon2id corrió %d veces, se esperaba 1", c.nombre, e.hasher.llamadas)
-				}
-				if enviados := e.correo.Enviados(); len(enviados) != 1 || enviados[0].Aviso != c.esAviso {
-					t.Errorf("%s: correos %+v", c.nombre, enviados)
-				}
-				if (e.senuelos.Cantidad() == 1) != c.esDeMentira {
-					t.Errorf("%s: sesiones de mentira %d", c.nombre, e.senuelos.Cantidad())
-				}
-				formas = append(formas, formaDe(t, rr, android))
-			}
-			for i := 1; i < len(formas); i++ {
-				if formas[i] != formas[0] {
-					t.Errorf("%s se distingue de %s:\n%+v\n%+v", casos[i].nombre, casos[0].nombre, formas[i], formas[0])
-				}
-			}
-			if formas[0].Estado != 202 {
-				t.Errorf("estado %d, se esperaba 202", formas[0].Estado)
-			}
-			if !android && !strings.Contains(formas[0].Cookie, "HttpOnly") {
-				t.Errorf("cookie: %s", formas[0].Cookie)
-			}
-		})
 	}
 }
 
@@ -321,12 +226,12 @@ func TestCrearCuentaNoSeDistingueEntreCorreoNuevoSinVerificarYVerificado(t *test
 func TestElIntento21DeUnOrigenEnUnaHoraEs429(t *testing.T) {
 	e := nuevoEntorno()
 	h := apiDePrueba(t, e)
-	// Cuentan los correos nuevos, los ya registrados, las contraseñas rechazadas y el JSON roto por igual.
+	// Cuentan los correos nuevos, los ya registrados, los errores de campo y el JSON roto por igual.
 	e.repo.verificadas = map[string]bool{"existente@ejemplo.test": true}
 	cuerpos := []string{
 		cuerpoValido,
-		`{"correo":"existente@ejemplo.test","contrasena":"lluvia café tren azul","nombre":"Laura","mayor_de_edad":true}`,
-		`{"correo":"otra@ejemplo.test","contrasena":"corta","nombre":"Laura","mayor_de_edad":true}`,
+		`{"correo":"existente@ejemplo.test","mayor_de_edad":true}`,
+		`{"correo":"otra@ejemplo.test","mayor_de_edad":false}`,
 		`{"correo":`,
 	}
 	for i := range 20 {
@@ -347,9 +252,140 @@ func TestElIntento21DeUnOrigenEnUnaHoraEs429(t *testing.T) {
 	if rr := post(h, "203.0.113.8", "/api/v1/cuentas", cuerpoValido); rr.Code != 202 {
 		t.Fatalf("otro origen no se afecta: %d", rr.Code)
 	}
+	e.svc.Esperar()
 	e.reloj.T = e.reloj.T.Add(time.Hour)
 	if rr := post(h, "203.0.113.7", "/api/v1/cuentas", cuerpoValido); rr.Code != 202 {
 		t.Fatalf("a la hora vuelve a dejar crear: %d", rr.Code)
+	}
+	e.svc.Esperar()
+}
+
+// PN-59 (D-172 (4), D-143 (5)): «Reenviar el correo» es público, pide el correo, responde 202 igual con o sin cuenta; con
+// la espera corta de 30 segundos, 3 por hora por dirección y 20 por origen responde 429 con el mismo cuerpo siempre;
+// con un correo mal escrito, 422 con su código.
+func TestReenviarPorHTTP(t *testing.T) {
+	const ruta = "/api/v1/cuentas/verificacion/reenvio"
+	e := nuevoEntorno()
+	h := apiDePrueba(t, e)
+	rr := post(h, "203.0.113.7", ruta, `{"correo":"laura@ejemplo.test"}`)
+	if rr.Code != 202 || strings.TrimSpace(rr.Body.String()) != respuestaIgual {
+		t.Fatalf("reenvío: %d %s", rr.Code, rr.Body)
+	}
+	rr = post(h, "203.0.113.8", ruta, `{"correo":"laura@ejemplo.test"}`)
+	if rr.Code != 429 || strings.TrimSpace(rr.Body.String()) != `{"error":"demasiados_intentos"}` || len(rr.Header().Values("Set-Cookie")) != 0 {
+		t.Fatalf("la espera corta: %d %s", rr.Code, rr.Body)
+	}
+	e.svc.Esperar()
+	e.reloj.T = e.reloj.T.Add(31 * time.Second)
+	if rr := post(h, "203.0.113.9", ruta, `{"correo":"laura@ejemplo.test"}`); rr.Code != 202 {
+		t.Fatalf("pasada la espera: %d %s", rr.Code, rr.Body)
+	}
+	for cuerpo, esperado := range map[string]string{
+		`{"correo":""}`:                          `{"campos":{"correo":"correo_vacio"},"error":"validacion"}`,
+		`{"correo":"sin-arroba"}`:                `{"campos":{"correo":"correo_invalido"},"error":"validacion"}`,
+		`{"correo":"a@b.test","contrasena":"x"}`: `{"error":"solicitud_invalida"}`,
+	} {
+		rr := post(h, "203.0.113.7", ruta, cuerpo)
+		if strings.TrimSpace(rr.Body.String()) != esperado || rr.Code < 400 || len(rr.Header().Values("Set-Cookie")) != 0 {
+			t.Errorf("%s: %d %s", cuerpo, rr.Code, rr.Body)
+		}
+	}
+	e.svc.Esperar()
+	if n := len(e.repo.solicitudes); n != 0 {
+		t.Errorf("el reenvío no crea cuentas ni enlaces para un correo sin cuenta: %d", n)
+	}
+}
+
+// PN-74 por HTTP, en la web: 200 con la cookie de sesión `HttpOnly`, y el token solo en la cookie.
+func TestCompletarLaCuentaDaLaCookieDeSesion(t *testing.T) {
+	e := nuevoEntorno()
+	h := apiDePrueba(t, e)
+	token := e.enlaceDePrueba(t)
+	rr := post(h, "203.0.113.7", "/api/v1/cuentas/verificacion", `{"token":"`+token+`","contrasena":"`+claveDePrueba+`","nombre":"Laura"}`)
+	cookies := rr.Result().Cookies()
+	if rr.Code != 200 || strings.TrimSpace(rr.Body.String()) != `{"estado":"activa"}` || rr.Header().Get("Cache-Control") != "no-store" ||
+		len(cookies) != 1 || cookies[0].Name != "__Host-sesion" || !cookies[0].HttpOnly || !cookies[0].Secure ||
+		cookies[0].SameSite != http.SameSiteStrictMode || cookies[0].Path != "/" {
+		t.Fatalf("respuesta: %d %s %v", rr.Code, rr.Body, rr.Header())
+	}
+	huella, err := seguridad.HuellaDeToken(cookies[0].Value)
+	if err != nil || !bytes.Equal(huella, e.repo.completadas[0].HuellaDeSesion) {
+		t.Fatalf("la cookie no lleva el token de la sesión guardada: %v", err)
+	}
+}
+
+// En Android el token va en el cuerpo y no hay `Set-Cookie`.
+func TestCompletarLaCuentaEnAndroidDaElTokenEnElCuerpo(t *testing.T) {
+	e := nuevoEntorno()
+	token := e.enlaceDePrueba(t)
+	rr := post(apiDePrueba(t, e), "203.0.113.7", "/api/v1/cuentas/verificacion",
+		`{"token":"`+token+`","contrasena":"`+claveDePrueba+`","nombre":"Laura"}`, sesion.EncabezadoDeCliente, sesion.ClienteAndroid)
+	var cuerpo map[string]string
+	if err := json.Unmarshal(rr.Body.Bytes(), &cuerpo); err != nil {
+		t.Fatal(err)
+	}
+	if rr.Code != 200 || len(rr.Result().Cookies()) != 0 || cuerpo["estado"] != "activa" {
+		t.Fatalf("respuesta inesperada: %d %v %s", rr.Code, rr.Header()["Set-Cookie"], rr.Body)
+	}
+	if huella, err := seguridad.HuellaDeToken(cuerpo["token"]); err != nil || !bytes.Equal(huella, e.repo.completadas[0].HuellaDeSesion) {
+		t.Fatalf("el cuerpo no lleva el token de la sesión: %v", err)
+	}
+}
+
+// D-143 (3): con `X-Alcanzamos-Cliente: android` el pedido no puede traer `Origin` ni `Sec-Fetch-Site` (los mandan los
+// navegadores): 400 sin token y sin `Set-Cookie`, y el enlace no se gasta. Sin la cabecera de Android, el camino de la
+// web no cambia.
+func TestAndroidConCabecerasDeNavegadorSeRechazaAlCompletar(t *testing.T) {
+	for _, extra := range [][]string{{"Origin", "https://app.ejemplo.test"}, {"Sec-Fetch-Site", "same-origin"}} {
+		e := nuevoEntorno()
+		token := e.enlaceDePrueba(t)
+		cabeceras := append([]string{sesion.EncabezadoDeCliente, sesion.ClienteAndroid}, extra...)
+		rr := post(apiDePrueba(t, e), "203.0.113.7", "/api/v1/cuentas/verificacion",
+			`{"token":"`+token+`","contrasena":"`+claveDePrueba+`","nombre":"Laura"}`, cabeceras...)
+		if rr.Code != 400 || strings.TrimSpace(rr.Body.String()) != `{"error":"solicitud_invalida"}` ||
+			len(rr.Header().Values("Set-Cookie")) != 0 || len(e.repo.completadas) != 0 || e.hasher.llamadas != 0 {
+			t.Fatalf("%v: %d %s %v", extra, rr.Code, rr.Body, rr.Header())
+		}
+	}
+	e := nuevoEntorno()
+	token := e.enlaceDePrueba(t)
+	rr := post(apiDePrueba(t, e), "203.0.113.7", "/api/v1/cuentas/verificacion",
+		`{"token":"`+token+`","contrasena":"`+claveDePrueba+`","nombre":"Laura"}`, "Origin", "https://app.ejemplo.test", "Sec-Fetch-Site", "same-origin")
+	if rr.Code != 200 || len(rr.Result().Cookies()) != 1 {
+		t.Fatalf("la web con sus cabeceras: %d %v %s", rr.Code, rr.Header(), rr.Body)
+	}
+}
+
+// Los rechazos de PN-74 no dan sesión ni tocan nada: estado, cuerpo exacto, sin `Set-Cookie`.
+func TestCompletarLaCuentaRechazos(t *testing.T) {
+	e := nuevoEntorno()
+	h := apiDePrueba(t, e)
+	token := e.enlaceDePrueba(t)
+	desconocido, _ := seguridad.NuevoTokenOpaco()
+	casos := []struct {
+		nombre, cuerpo, esperado string
+		codigo                   int
+	}{
+		{"enlace que no sirve", `{"token":"` + desconocido + `","contrasena":"` + claveDePrueba + `","nombre":"Laura"}`, `{"error":"enlace_invalido"}`, 400},
+		{"token mal formado", `{"token":"xyz","contrasena":"` + claveDePrueba + `","nombre":"Laura"}`, `{"error":"enlace_invalido"}`, 400},
+		{"sin token", `{"contrasena":"` + claveDePrueba + `","nombre":"Laura"}`, `{"error":"enlace_invalido"}`, 400},
+		{"contraseña con el correo", `{"token":"` + token + `","contrasena":"la clave de laura es larga","nombre":"Laura"}`, `{"campos":{"contrasena":"contrasena_personal"},"error":"validacion"}`, 422},
+		{"contraseña corta y nombre vacío", `{"token":"` + token + `","contrasena":"corta","nombre":""}`, `{"campos":{"contrasena":"contrasena_corta","nombre":"nombre_vacio"},"error":"validacion"}`, 422},
+		{"campo desconocido", `{"token":"` + token + `","contrasena":"` + claveDePrueba + `","nombre":"Laura","correo":"otro@ejemplo.test"}`, `{"error":"solicitud_invalida"}`, 400},
+		{"JSON roto", `{"token":`, `{"error":"solicitud_invalida"}`, 400},
+	}
+	for _, c := range casos {
+		rr := post(h, "203.0.113.7", "/api/v1/cuentas/verificacion", c.cuerpo)
+		if rr.Code != c.codigo || strings.TrimSpace(rr.Body.String()) != c.esperado || len(rr.Header().Values("Set-Cookie")) != 0 {
+			t.Errorf("%s: %d %s %v", c.nombre, rr.Code, rr.Body, rr.Header())
+		}
+	}
+	if len(e.repo.completadas) != 0 || e.hasher.llamadas != 0 {
+		t.Error("ningún rechazo completa la cuenta ni calcula el hash")
+	}
+	// Tras todos los rechazos, el enlace sigue sirviendo.
+	if rr := post(h, "203.0.113.7", "/api/v1/cuentas/verificacion", `{"token":"`+token+`","contrasena":"`+claveDePrueba+`","nombre":"Laura"}`); rr.Code != 200 {
+		t.Errorf("el enlace debía seguir vigente: %d %s", rr.Code, rr.Body)
 	}
 }
 

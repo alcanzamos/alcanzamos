@@ -30,7 +30,7 @@ func enrutadorConPOST(t *testing.T, conURL bool, alcanzados *[]string) *servidor
 		servidor.EscribirJSON(w, http.StatusOK, map[string]string{"estado": "ok"})
 	})
 	e.Registrar(seguridad.Publica, "POST /api/v1/prueba/publica", anotar)
-	e.Registrar(seguridad.SinVerificar, "POST /api/v1/prueba/sin-verificar", anotar)
+	e.Registrar(seguridad.SinAutorizacion, "POST /api/v1/prueba/sin-autorizacion", anotar)
 	e.Registrar(seguridad.RequiereAutorizacion, "POST /api/v1/prueba/autorizada/{id}", anotar)
 	e.Registrar(seguridad.Publica, "GET /api/v1/prueba/lectura", anotar)
 	e.Registrar(seguridad.Publica, "PUT /api/v1/prueba/cambio", anotar)
@@ -47,9 +47,9 @@ func manejadorDe(t *testing.T, e *servidor.Enrutador) http.Handler {
 	return servidor.ManejadorConAPI(h)
 }
 
-// SEG-016 contra el Enrutador: la defensa vale en todo POST, sea cual sea su nivel, sin que el manejador la ponga; los
+// SEG-016 contra el Enrutador: la defensa vale en todo POST, PUT y DELETE (D-194), sea cual sea su nivel, sin que el manejador la ponga; los
 // rechazos no llegan al manejador (nada cambia, ninguna cookie).
-func TestElEnrutadorAplicaLaDefensaContraCSRFATodoPOST(t *testing.T) {
+func TestElEnrutadorAplicaLaDefensaContraCSRFATodoPedidoQueNoEsGET(t *testing.T) {
 	var alcanzados []string
 	e := enrutadorConPOST(t, true, &alcanzados)
 	csrftest.ProbarDefensa(t, manejadorDe(t, e), e.Rutas(), urlPublicaDePrueba, func() string { return strings.Join(alcanzados, ",") })
@@ -77,9 +77,9 @@ func TestLaDefensaContraCSRFVaAntesQueElGuardDeAcceso(t *testing.T) {
 	}
 }
 
-// Sin URL_PUBLICA ningún Origin vale (se niega ante la duda), y los demás métodos no llevan la defensa: E17 3.15 y D-173
-// la piden en todo POST.
-func TestSinURLPublicaNingunOriginValeYLoQueNoEsPOSTNoLaLleva(t *testing.T) {
+// Sin URL_PUBLICA ningún Origin vale (se niega ante la duda), y GET no lleva la defensa: E17 3.15 la pide en todo pedido
+// que cambia algo (POST, PUT y DELETE, D-194), no en lo que solo lee.
+func TestSinURLPublicaNingunOriginValeYGETNoLlevaLaDefensa(t *testing.T) {
 	var alcanzados []string
 	h := manejadorDe(t, enrutadorConPOST(t, false, &alcanzados))
 	pedir := func(metodo, ruta string, cabeceras ...string) int {
@@ -94,10 +94,13 @@ func TestSinURLPublicaNingunOriginValeYLoQueNoEsPOSTNoLaLleva(t *testing.T) {
 	if c := pedir("POST", "/api/v1/prueba/publica", "Origin", urlPublicaDePrueba, "Content-Type", "application/json"); c != 403 {
 		t.Errorf("POST con Origin y sin URL_PUBLICA: %d", c)
 	}
-	for _, p := range [][2]string{{"GET", "/api/v1/prueba/lectura"}, {"PUT", "/api/v1/prueba/cambio"}, {"DELETE", "/api/v1/prueba/borrado"}} {
-		if c := pedir(p[0], p[1], "Sec-Fetch-Site", "cross-site", "Content-Type", "text/plain"); c != 200 {
-			t.Errorf("%s %s conserva su comportamiento: %d", p[0], p[1], c)
+	for _, p := range [][2]string{{"PUT", "/api/v1/prueba/cambio"}, {"DELETE", "/api/v1/prueba/borrado"}} {
+		if c := pedir(p[0], p[1], "Origin", urlPublicaDePrueba, "Content-Type", "application/json"); c != 403 {
+			t.Errorf("%s %s con Origin y sin URL_PUBLICA: %d", p[0], p[1], c)
 		}
+	}
+	if c := pedir("GET", "/api/v1/prueba/lectura", "Sec-Fetch-Site", "cross-site", "Content-Type", "text/plain"); c != 200 {
+		t.Errorf("GET conserva su comportamiento: %d", c)
 	}
 }
 
@@ -116,6 +119,32 @@ func TestUnPatronSinMetodoClaroNoSeRegistra(t *testing.T) {
 			r.Header.Set("Content-Type", "text/plain")
 			servidor.ManejadorConAPI(h).ServeHTTP(httptest.NewRecorder(), r)
 			t.Errorf("%q se registró (alcanzado=%v); debía ser un error de arranque", patron, alcanzado)
+		}
+	}
+}
+
+// D-194: GET no cambia nada y sigue sin la defensa, aunque la ruta no sea de las que prueba ProbarDefensa; el PUT y el
+// DELETE sin cuerpo también exigen `Content-Type: application/json` (D-175, E17 3.15 (d)), y con él y las cabeceras de la
+// web llegan al manejador.
+func TestPUTYDELETEConLasCabecerasDeLaWebLlegan(t *testing.T) {
+	var alcanzados []string
+	h := manejadorDe(t, enrutadorConPOST(t, true, &alcanzados))
+	for _, p := range [][2]string{{"PUT", "/api/v1/prueba/cambio"}, {"DELETE", "/api/v1/prueba/borrado"}} {
+		antes := len(alcanzados)
+		r := httptest.NewRequest(p[0], p[1], nil)
+		r.Header.Set("Sec-Fetch-Site", "same-origin")
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, r)
+		if rr.Code != 415 || strings.TrimSpace(rr.Body.String()) != `{"error":"tipo_de_contenido_no_permitido"}` || len(alcanzados) != antes {
+			t.Errorf("%s sin cuerpo ni Content-Type: %d %s", p[0], rr.Code, rr.Body)
+		}
+		r = httptest.NewRequest(p[0], p[1], nil)
+		r.Header.Set("Sec-Fetch-Site", "same-origin")
+		r.Header.Set("Content-Type", "application/json")
+		rr = httptest.NewRecorder()
+		h.ServeHTTP(rr, r)
+		if rr.Code != 200 || len(alcanzados) != antes+1 {
+			t.Errorf("%s sin cuerpo y con Content-Type: %d %s", p[0], rr.Code, rr.Body)
 		}
 	}
 }

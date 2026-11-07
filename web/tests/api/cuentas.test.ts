@@ -1,47 +1,85 @@
 import { describe, expect, it } from "vitest";
 import {
   borrarLaCuenta,
-  cambiarCorreo,
   cerrarSesion,
+  completarCuenta,
   crearCuenta,
   descargarMisDatos,
-  estadoDeLaCuenta,
   reenviarCorreo,
   resumenDeBorrado,
-  verificarCorreo,
 } from "../../src/api/cuentas";
 import { json, simularApi } from "../ayudas";
 
-describe("pedidos de cuenta", () => {
+describe("pedidos de cuenta (verificar primero, D-172)", () => {
   it("cada función llama a su ruta del contrato", async () => {
     const pedidos = simularApi(() => json(200, {}));
-    await crearCuenta({
-      correo: "a@b.co",
-      contrasena: "x",
-      nombre: "n",
-      mayor_de_edad: true,
+    await crearCuenta({ correo: "a@b.co", mayor_de_edad: true });
+    await reenviarCorreo("c@d.co");
+    await completarCuenta({
+      token: "tok",
+      contrasena: "lluvia café tren azul",
+      nombre: "Laura",
     });
-    await verificarCorreo("tok");
-    await estadoDeLaCuenta();
-    await reenviarCorreo();
-    await cambiarCorreo("c@d.co");
     await cerrarSesion();
-    expect(pedidos.map((p) => `${p.metodo} ${p.ruta}`)).toEqual([
-      "POST /api/v1/cuentas",
-      "POST /api/v1/cuentas/verificacion",
-      "GET /api/v1/cuentas/estado",
-      "POST /api/v1/cuentas/verificacion/reenvio",
-      "POST /api/v1/cuentas/correo",
-      "DELETE /api/v1/sesiones/actual",
+    expect(pedidos).toEqual([
+      {
+        metodo: "POST",
+        ruta: "/api/v1/cuentas",
+        cuerpo: { correo: "a@b.co", mayor_de_edad: true },
+      },
+      {
+        metodo: "POST",
+        ruta: "/api/v1/cuentas/verificacion/reenvio",
+        cuerpo: { correo: "c@d.co" },
+      },
+      {
+        metodo: "POST",
+        ruta: "/api/v1/cuentas/verificacion",
+        cuerpo: {
+          token: "tok",
+          contrasena: "lluvia café tren azul",
+          nombre: "Laura",
+        },
+      },
+      {
+        metodo: "DELETE",
+        ruta: "/api/v1/sesiones/actual",
+        cuerpo: undefined,
+      },
     ]);
-    expect(pedidos[0]?.cuerpo).toEqual({
-      correo: "a@b.co",
-      contrasena: "x",
-      nombre: "n",
-      mayor_de_edad: true,
+  });
+
+  it("el cliente ya no tiene «Ya lo confirmé» ni «Cambiar el correo» (rutas retiradas)", async () => {
+    const cuentas: Record<string, unknown> =
+      await import("../../src/api/cuentas");
+    expect(cuentas.estadoDeLaCuenta).toBeUndefined();
+    expect(cuentas.cambiarCorreo).toBeUndefined();
+    expect(cuentas.verificarCorreo).toBeUndefined();
+  });
+
+  it("completar la cuenta entrega el estado y los fallos traen su código", async () => {
+    simularApi(() => json(200, { estado: "activa" }));
+    expect(
+      await completarCuenta({ token: "t", contrasena: "x", nombre: "n" }),
+    ).toMatchObject({ ok: true, estado: 200, cuerpo: { estado: "activa" } });
+    simularApi(() => json(400, { error: "enlace_invalido" }));
+    expect(
+      await completarCuenta({ token: "t", contrasena: "x", nombre: "n" }),
+    ).toMatchObject({ ok: false, estado: 400, codigo: "enlace_invalido" });
+    simularApi(() =>
+      json(422, {
+        error: "validacion",
+        campos: { contrasena: "contrasena_personal" },
+      }),
+    );
+    expect(
+      await completarCuenta({ token: "t", contrasena: "x", nombre: "n" }),
+    ).toMatchObject({
+      ok: false,
+      estado: 422,
+      codigo: "validacion",
+      campos: { contrasena: "contrasena_personal" },
     });
-    expect(pedidos[1]?.cuerpo).toEqual({ token: "tok" });
-    expect(pedidos[4]?.cuerpo).toEqual({ correo: "c@d.co" });
   });
 });
 

@@ -49,9 +49,9 @@ func TestElRegistroNoLlevaElCorreoConNingunaRespuestaDelServidorSMTP(t *testing.
 			}, e.reloj)
 			svc := cuenta.NuevoServicio(cuenta.Dependencias{
 				Repo: e.repo, Correo: smtp, Politica: seguridad.NuevaPoliticaDeContrasena(), Hasher: e.hasher,
-				Reloj: e.reloj, Limitador: e.limitador, Senuelos: e.senuelos, Log: e.log(),
+				Reloj: e.reloj, Limitador: e.limitador, Log: e.log(),
 			})
-			if _, err := svc.CrearCuenta(context.Background(), solicitudValida()); err != nil {
+			if err := svc.CrearCuenta(context.Background(), solicitudValida()); err != nil {
 				t.Fatal(err)
 			}
 			svc.Esperar()

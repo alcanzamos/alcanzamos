@@ -20,12 +20,14 @@ type Autenticacion struct{ pool *pgxpool.Pool }
 func NuevoAutenticacion(pool *pgxpool.Pool) *Autenticacion { return &Autenticacion{pool: pool} }
 
 // CredencialPorCorreo busca la credencial por el correo del perfil de adulto. La búsqueda usa el índice único del correo.
+// Una cuenta sin verificar no entra: no tiene contraseña hasta que la elige con el enlace (D-172 (3)), y si la tuviera de
+// antes tampoco vale, así que se trata como una cuenta que no existe.
 func (r *Autenticacion) CredencialPorCorreo(ctx context.Context, correo string) (autenticacion.Credencial, error) {
 	var c autenticacion.Credencial
 	err := r.pool.QueryRow(ctx,
 		`SELECT c.persona_id::text, c.hash, pa.correo_verificado
 		 FROM perfil_adulto pa JOIN credencial c ON c.persona_id = pa.persona_id
-		 WHERE pa.correo = lower(btrim($1))`, correo).Scan(&c.Persona, &c.Hash, &c.Verificada)
+		 WHERE pa.correo = lower(btrim($1)) AND pa.correo_verificado`, correo).Scan(&c.Persona, &c.Hash, &c.Verificada)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return autenticacion.Credencial{}, autenticacion.ErrNoExiste
 	}

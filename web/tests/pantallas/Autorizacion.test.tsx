@@ -371,15 +371,6 @@ describe("PN-64 · Autorización de datos", () => {
       await waitFor(() => expect(window.location.pathname).toBe("/entrar"));
       expect(window.history.state).toEqual({ llegada: "sesion_cerrada" });
     });
-
-    it("403 verificacion_pendiente lleva a PN-59", async () => {
-      await enviarConError(() =>
-        json(403, { error: "verificacion_pendiente" }),
-      );
-      await waitFor(() =>
-        expect(window.location.pathname).toBe("/revisa-tu-correo"),
-      );
-    });
   });
 
   describe("«No autorizo»", () => {
@@ -526,13 +517,13 @@ describe("PN-64 · Autorización de datos", () => {
       expect(pedidos).toHaveLength(2);
     });
 
-    it.each([
-      [401, { error: "sin_sesion" }, "/entrar"],
-      [403, { error: "verificacion_pendiente" }, "/revisa-tu-correo"],
-    ])("%i %j lleva a %s", async (estado, cuerpo, destino) => {
-      simularApi(() => json(estado, cuerpo));
-      render(<Autorizacion />);
-      await waitFor(() => expect(window.location.pathname).toBe(destino));
-    });
+    it.each([[401, { error: "sin_sesion" }, "/entrar"]])(
+      "%i %j lleva a %s",
+      async (estado, cuerpo, destino) => {
+        simularApi(() => json(estado, cuerpo));
+        render(<Autorizacion />);
+        await waitFor(() => expect(window.location.pathname).toBe(destino));
+      },
+    );
   });
 });

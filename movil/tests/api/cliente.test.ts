@@ -67,6 +67,24 @@ describe('cliente del API', () => {
       expect(pedidos[0]?.init.body).toBeUndefined();
     });
 
+    it.each(['PUT', 'DELETE'] as const)(
+      '%s manda Content-Type: application/json con y sin cuerpo (D-194, E17 3.15 (d))',
+      async (metodo) => {
+        const { pedidos } = instalarFetchFalso(respuestaJson(200, {}));
+        await pedir(metodo, '/api/v1/movimientos/1', { a: 1 });
+        await pedir(metodo, '/api/v1/movimientos/1');
+        expect(pedidos).toHaveLength(2);
+        for (const pedido of pedidos) {
+          const enviadas = pedido.init.headers as Record<string, string>;
+          expect(pedido.init.method).toBe(metodo);
+          expect(enviadas['Content-Type']).toBe('application/json');
+          expect(enviadas['X-Alcanzamos-Cliente']).toBe('android');
+        }
+        expect(pedidos[0]?.init.body).toBe('{"a":1}');
+        expect(pedidos[1]?.init.body).toBeUndefined();
+      },
+    );
+
     it('un GET sin cuerpo no manda Content-Type', async () => {
       const { pedidos } = instalarFetchFalso(respuestaJson(200, {}));
       await pedir('GET', '/api/v1/cuentas/estado');

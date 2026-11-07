@@ -35,8 +35,9 @@ var (
 // formato: m=8, t=1) queden por debajo.
 type entornoDeAcceso struct {
 	*entornoDeCuentas
-	aut *autenticacion.Servicio
-	api http.Handler
+	aut     *autenticacion.Servicio
+	api     http.Handler
+	pedidos int // para dar a cada pedido un origen distinto cuando la prueba no quiere los límites
 }
 
 // nuevoEntornoDeAcceso arma el API con los trabajadores de la recuperación andando (paran al terminar la prueba).
@@ -62,7 +63,7 @@ func nuevoEntornoDeAccesoSinTrabajadores(t *testing.T) *entornoDeAcceso {
 	log := slog.New(slog.NewJSONHandler(io.Discard, nil))
 	cuentas := cuenta.NuevoServicio(cuenta.Dependencias{
 		Repo: e.repo, Correo: e.correo, Politica: seguridad.NuevaPoliticaDeContrasena(), Hasher: hasher,
-		Reloj: e.reloj, Limitador: e.limitador, Senuelos: e.senuelos, Log: log,
+		Reloj: e.reloj, Limitador: e.limitador, Log: log,
 	})
 	e.svc = cuentas
 	var err error
@@ -73,10 +74,10 @@ func nuevoEntornoDeAccesoSinTrabajadores(t *testing.T) *entornoDeAcceso {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resolutor := sesion.NuevoResolutor(e.sesiones, e.senuelos.Senuelos, e.reloj)
+	resolutor := sesion.NuevoResolutor(e.sesiones, e.reloj)
 	eventos := seguridad.NuevoRegistro(log)
 	enr := servidor.NuevoEnrutador(resolutor, eventos, log)
-	cuenta.NuevoHandler(cuentas, resolutor, log).Registrar(enr)
+	cuenta.NuevoHandler(cuentas, log).Registrar(enr)
 	autenticacion.NuevoHandler(e.aut, eventos, log).Registrar(enr)
 	api, err := enr.Construir()
 	if err != nil {
@@ -87,8 +88,13 @@ func nuevoEntornoDeAccesoSinTrabajadores(t *testing.T) *entornoDeAcceso {
 }
 
 func (e *entornoDeAcceso) llamar(metodo, ruta, cuerpo, token string, encabezados ...string) *httptest.ResponseRecorder {
+	return e.llamarDesde("203.0.113.7:1", metodo, ruta, cuerpo, token, encabezados...)
+}
+
+// llamarDesde es llamar con la dirección de origen dada.
+func (e *entornoDeAcceso) llamarDesde(origen, metodo, ruta, cuerpo, token string, encabezados ...string) *httptest.ResponseRecorder {
 	r := httptest.NewRequest(metodo, ruta, strings.NewReader(cuerpo))
-	r.RemoteAddr = "203.0.113.7:1"
+	r.RemoteAddr = origen
 	if token != "" {
 		r.AddCookie(sesion.Cookie(token))
 	}
@@ -185,24 +191,20 @@ func TestUnInicioFallidoNoMueveElIngreso(t *testing.T) {
 func TestIniciarSesionPorLaAPI(t *testing.T) {
 	e := nuevoEntornoDeAcceso(t)
 	e.crear(t, "laura@ejemplo.test")
-	e.crear(t, "pedro@ejemplo.test")
-	verificar(t, e.pool, personaDe(t, e.entorno, "laura@ejemplo.test"))
+	e.pendiente(t, "pedro@ejemplo.test")
 
 	rr := e.llamar("POST", "/api/v1/sesiones", `{"identificador":" Laura@Ejemplo.test ","contrasena":"`+contrasenaDePrueba+`"}`, "")
 	if rr.Code != 200 || strings.TrimSpace(rr.Body.String()) != `{"estado":"activa"}` {
 		t.Errorf("verificada: %d %s", rr.Code, rr.Body)
 	}
-	// Cuenta sin verificar: sesión limitada y estado de PN-59; el router la deja en PN-59 y nada más.
+	// Cuenta sin verificar: no tiene contraseña y no entra, como una cuenta que no existe (D-172 (3)).
+	instantanea := e.instantanea(t)
 	rr = e.llamar("POST", "/api/v1/sesiones", `{"identificador":"pedro@ejemplo.test","contrasena":"`+contrasenaDePrueba+`"}`, "")
-	cs := rr.Result().Cookies()
-	if rr.Code != 200 || strings.TrimSpace(rr.Body.String()) != `{"estado":"verificacion_pendiente"}` || len(cs) != 1 {
-		t.Fatalf("sin verificar: %d %s", rr.Code, rr.Body)
+	if rr.Code != 401 || strings.TrimSpace(rr.Body.String()) != `{"error":"credenciales_invalidas"}` || len(rr.Result().Cookies()) != 0 {
+		t.Fatalf("sin verificar: %d %s %v", rr.Code, rr.Body, rr.Header())
 	}
-	if c := e.llamar("GET", "/api/v1/cuentas/estado", "", cs[0].Value); c.Code != 200 || strings.TrimSpace(c.Body.String()) != `{"verificada":false}` {
-		t.Errorf("PN-59 con la sesión limitada: %d %s", c.Code, c.Body)
-	}
-	if c := e.llamar("GET", "/api/v1/cuenta/seguridad", "", cs[0].Value); c.Code != 403 {
-		t.Errorf("la limitada no llega a PN-71: %d", c.Code)
+	if despues := e.instantanea(t); despues != instantanea {
+		t.Errorf("un ingreso rechazado no cambia nada:\n%s\n%s", instantanea, despues)
 	}
 	// Android: el token en el cuerpo y sirve como Bearer.
 	rr = e.llamar("POST", "/api/v1/sesiones", `{"identificador":"laura@ejemplo.test","contrasena":"`+contrasenaDePrueba+`"}`, "", "X-Alcanzamos-Cliente", "android")
@@ -229,11 +231,11 @@ func TestCerrarSesionBorraLaFila(t *testing.T) {
 	if rr.Code != 204 || !strings.Contains(rr.Header().Get("Set-Cookie"), "Max-Age=0") {
 		t.Fatalf("cerrar: %d %v", rr.Code, rr.Header())
 	}
-	if c := e.llamar("GET", "/api/v1/cuentas/estado", "", a); c.Code != 401 {
-		t.Errorf("la sesión cerrada ya no sirve: %d", c.Code)
+	if c := e.estado(a); c != 401 {
+		t.Errorf("la sesión cerrada ya no sirve: %d", c)
 	}
-	if c := e.llamar("GET", "/api/v1/cuentas/estado", "", b); c.Code != 200 {
-		t.Errorf("la otra sesión sigue: %d", c.Code)
+	if c := e.estado(b); c != 200 {
+		t.Errorf("la otra sesión sigue: %d", c)
 	}
 	if n := contar(t, e.pool, `SELECT count(*) FROM sesion WHERE hash_token = $1`, huella(t, a)); n != 0 {
 		t.Errorf("la fila debe borrarse: %d", n)
@@ -241,22 +243,6 @@ func TestCerrarSesionBorraLaFila(t *testing.T) {
 	// Cerrar dos veces: la segunda ya no tiene sesión.
 	if c := e.llamar("DELETE", "/api/v1/sesiones/actual", "", a); c.Code != 401 {
 		t.Errorf("segundo cierre: %d", c.Code)
-	}
-}
-
-// D-141: con la sesión de mentira, cerrar sesión responde igual que con la limitada real.
-func TestCerrarSesionDeMentiraRespondeIgualQueLaLimitada(t *testing.T) {
-	e := nuevoEntornoDeAcceso(t)
-	e.crear(t, "laura@ejemplo.test")
-	verificar(t, e.pool, personaDe(t, e.entorno, "laura@ejemplo.test"))
-	senuelo := e.crear(t, "laura@ejemplo.test").Token // correo de cuenta verificada: sesión de mentira
-	otra := e.crear(t, "otra@ejemplo.test").Token     // limitada real
-	vista := func(token string) string {
-		rr := e.llamar("DELETE", "/api/v1/sesiones/actual", "", token)
-		return rr.Result().Status + "|" + rr.Header().Get("Set-Cookie") + "|" + rr.Body.String()
-	}
-	if a, b := vista(otra), vista(senuelo); a != b || !strings.HasPrefix(a, "204") {
-		t.Errorf("limitada %q, de mentira %q", a, b)
 	}
 }
 

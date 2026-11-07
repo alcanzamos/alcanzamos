@@ -124,6 +124,8 @@ func (r *repoFalso) NuevoEnlaceDeRecuperacion(_ context.Context, correo string, 
 	if r.compuerta != nil {
 		<-r.compuerta
 	}
+	r.mu.Lock() // dos trabajadores pueden llegar a la vez
+	defer r.mu.Unlock()
 	c, ok := r.cuentas[correo]
 	if !ok || !c.Verificada {
 		return false, nil
@@ -175,7 +177,8 @@ func (r *repoFalso) CredencialPorCorreo(_ context.Context, correo string) (auten
 	if err := r.fallo("CredencialPorCorreo"); err != nil {
 		return autenticacion.Credencial{}, err
 	}
-	if c, ok := r.cuentas[correo]; ok {
+	// Como el repositorio real: una cuenta sin verificar no tiene contraseña con que entrar (D-172 (3)).
+	if c, ok := r.cuentas[correo]; ok && c.Verificada {
 		return c, nil
 	}
 	return autenticacion.Credencial{}, autenticacion.ErrNoExiste
