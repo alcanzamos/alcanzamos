@@ -54,14 +54,25 @@ func TestIniciarSesionEnAndroidDaElTokenEnElCuerpo(t *testing.T) {
 	}
 }
 
-// D-143 (3): el modo Android se rechaza si el pedido trae cabeceras de navegador, sin sesión ni token.
+// D-143 (3): el modo Android se rechaza si el pedido trae cabeceras de navegador, sin sesión ni token. Llega a esa
+// comprobación solo con cabeceras que la defensa contra CSRF deja pasar (E17 3.15: `same-origin` o el `Origin` de
+// `URL_PUBLICA`); cualquier otra la rechaza antes con 403.
 func TestAndroidConCabecerasDeNavegadorSeRechaza(t *testing.T) {
-	for _, cabecera := range []string{"Origin", "Sec-Fetch-Site"} {
+	casos := []struct {
+		nombre, cabecera, valor, error string
+		codigo                         int
+	}{
+		{"Origin de URL_PUBLICA", "Origin", urlPublicaDePrueba, "solicitud_invalida", 400},
+		{"Sec-Fetch-Site same-origin", "Sec-Fetch-Site", "same-origin", "solicitud_invalida", 400},
+		{"Origin ajeno", "Origin", "https://otro.test", "solicitud_no_permitida", 403},
+		{"Sec-Fetch-Site cross-site", "Sec-Fetch-Site", "cross-site", "solicitud_no_permitida", 403},
+	}
+	for _, c := range casos {
 		e := nuevoEntorno(t)
 		rr := llamar(e.api(t, nil), "POST", rutaSesiones, entrar(correoDePrueba, claveDePrueba), "203.0.113.7",
-			"X-Alcanzamos-Cliente", "android", cabecera, "https://otro.test")
-		if rr.Code != 400 || strings.TrimSpace(rr.Body.String()) != `{"error":"solicitud_invalida"}` || len(e.repo.sesiones) != 0 || rr.Header().Get("Set-Cookie") != "" {
-			t.Errorf("%s: %d %s", cabecera, rr.Code, rr.Body)
+			"X-Alcanzamos-Cliente", "android", c.cabecera, c.valor)
+		if rr.Code != c.codigo || strings.TrimSpace(rr.Body.String()) != `{"error":"`+c.error+`"}` || len(e.repo.sesiones) != 0 || rr.Header().Get("Set-Cookie") != "" {
+			t.Errorf("%s: %d %s", c.nombre, rr.Code, rr.Body)
 		}
 	}
 }

@@ -23,6 +23,7 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/src/config"
 	"github.com/alcanzamos/alcanzamos/api/src/servidor"
 	"github.com/alcanzamos/alcanzamos/api/test/pgtest"
+	"github.com/alcanzamos/alcanzamos/api/test/servidor/csrftest"
 )
 
 // servir arma el API de verdad sobre la base y devuelve cómo llamarlo y el registro, que se llena solo.
@@ -47,7 +48,7 @@ func servir(t *testing.T, pool *pgxpool.Pool) (llamar func(metodo, ruta, cuerpo 
 	if err != nil {
 		t.Fatal(err)
 	}
-	h := servidor.ManejadorConAPI(api)
+	h := csrftest.ConCabeceras(servidor.ManejadorConAPI(api))
 	llamar = func(metodo, ruta, cuerpo string, cookies ...*http.Cookie) *httptest.ResponseRecorder {
 		r := httptest.NewRequest(metodo, ruta, strings.NewReader(cuerpo))
 		r.RemoteAddr = "203.0.113.7:4321"
