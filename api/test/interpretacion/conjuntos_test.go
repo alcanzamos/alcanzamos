@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/alcanzamos/alcanzamos/api/src/interpretacion"
 )
@@ -91,5 +92,7 @@ func motorReal(t *testing.T) *interpretacion.InterpretadorPorReglas {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return interpretacion.NuevoPorReglas(reglas)
+	// Las pruebas de resultados no miden tiempo: con -race y dos CPU (CI), varias llamadas a la vez pasan los 200 ms y
+	// darían ErrTiempoAgotado. El presupuesto de 200 ms (D-084 (2)) tiene sus propias pruebas en motor_test.go.
+	return interpretacion.NuevoPorReglas(reglas, interpretacion.ConPresupuesto(time.Minute))
 }
