@@ -80,7 +80,7 @@ func nuevoEntorno(t *testing.T) *entorno {
 	e := &entorno{repo: &repoFalso{}, almacen: almacenFalso{}, eventos: &bytes.Buffer{}}
 	log := slog.New(slog.NewJSONHandler(e.eventos, nil))
 	reloj := &relojtest.Fijo{T: ahoraDePrueba}
-	resolutor := sesion.NuevoResolutor(e.almacen, nil, reloj)
+	resolutor := sesion.NuevoResolutor(e.almacen, reloj)
 	enr := servidor.NuevoEnrutador(resolutor, seguridad.NuevoRegistro(log), log)
 	autorizacion.NuevoHandler(autorizacion.NuevoServicio(e.repo, reloj), seguridad.NuevoRegistro(log), log).Registrar(enr)
 	h, err := enr.Construir()

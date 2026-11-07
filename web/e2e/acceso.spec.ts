@@ -79,18 +79,24 @@ test.describe("PN-60 · Iniciar sesión", () => {
     await sinViolaciones(page);
   });
 
-  test("cuenta sin verificar va a PN-59 con su correo", async ({ page }) => {
+  // D-172: una cuenta sin verificar no tiene contraseña ni sesión; recibe el 401 de una contraseña errónea.
+  test("cuenta sin verificar: 401 como con una contraseña errónea, sin ir a PN-59", async ({
+    page,
+  }) => {
     await simularApi(page, {
-      "POST /api/v1/sesiones": responder(200, {
-        estado: "verificacion_pendiente",
+      "POST /api/v1/sesiones": responder(401, {
+        error: "credenciales_invalidas",
       }),
     });
     await page.goto("/entrar");
     await page.getByLabel("Correo electrónico").fill("laura@ejemplo.com");
     await page.getByLabel("Contraseña", { exact: true }).fill("lluvia");
     await page.getByRole("button", { name: "Iniciar sesión" }).click();
-    await expect(page).toHaveURL(/\/revisa-tu-correo$/);
-    await expect(page.getByText(/laura@ejemplo\.com/)).toBeVisible();
+    await expect(
+      page.getByText("No pudimos entrar con esos datos."),
+    ).toBeVisible();
+    await expect(page).toHaveURL(/\/entrar$/);
+    await sinViolaciones(page);
   });
 
   test("cuenta activa con autorización va a la seguridad de la cuenta", async ({
@@ -197,26 +203,6 @@ test.describe("PN-60 · Iniciar sesión", () => {
     await expect(
       page.getByText("No pudimos entrar con esos datos."),
     ).toBeHidden();
-    await sinViolaciones(page);
-  });
-
-  test("enlace de verificación abierto sin sesión (T11): llega a PN-60 con «Listo, confirmamos tu correo.» arriba como role=status", async ({
-    page,
-  }) => {
-    await simularApi(page, {
-      "POST /api/v1/cuentas/verificacion": responder(200, {
-        estado: "verificado",
-        con_sesion: false,
-      }),
-    });
-    await page.goto("/verificar?t=abc123");
-    await expect(page).toHaveURL(/\/entrar$/);
-    await expect(page.getByRole("status")).toHaveText(
-      "Listo, confirmamos tu correo.",
-    );
-    await expect(
-      page.getByRole("heading", { level: 1, name: "Inicia sesión" }),
-    ).toBeVisible();
     await sinViolaciones(page);
   });
 });

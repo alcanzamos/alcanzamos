@@ -91,7 +91,7 @@ describe('PN-73 · Cambiar la contraseña (E14-PCP 4.15)', () => {
       [
         'contrasena_nueva',
         'contrasena_personal',
-        'Falta una contraseña que no incluya tu correo ni el nombre de la app.',
+        'Falta una contraseña que no incluya tu correo ni la palabra «Alcanzamos».',
       ],
     ])('%s %s → «%s»', async (campo, codigo, texto) => {
       instalarFetchFalso(respuestaJson(422, { error: 'validacion', campos: { [campo]: codigo } }));
@@ -177,7 +177,6 @@ describe('PN-73 · Cambiar la contraseña (E14-PCP 4.15)', () => {
 
     it.each([
       [401, 'sin_sesion', reinicio('Entrar', { llegada: 'sesion_cerrada' })],
-      [403, 'verificacion_pendiente', reinicio('RevisaTuCorreo')],
       [403, 'autorizacion_pendiente', reinicio('InformacionDePrivacidad')],
     ])('%s %s sigue a la pantalla que corresponde', async (estado, codigo, accion) => {
       instalarFetchFalso(respuestaJson(estado, { error: codigo }));

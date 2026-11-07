@@ -32,21 +32,6 @@ export const avisos = {
     titulo: a.errorAlEnviarCorreo.titulo,
     mensaje: a.errorAlEnviarCorreo.mensaje,
   },
-  errorAlRevisarElCorreo: {
-    tipo: "informacion",
-    titulo: a.errorAlRevisarElCorreo.titulo,
-    mensaje: a.errorAlRevisarElCorreo.mensaje,
-  },
-  errorAlConfirmarElCorreo: {
-    tipo: "informacion",
-    titulo: a.errorAlConfirmarElCorreo.titulo,
-    mensaje: a.errorAlConfirmarElCorreo.mensaje,
-  },
-  sinConfirmarTodavia: {
-    tipo: "informacion",
-    titulo: a.sinConfirmarTodavia.titulo,
-    mensaje: a.sinConfirmarTodavia.mensaje,
-  },
   correoReenviado: { tipo: "informacion", titulo: a.correoReenviado.titulo },
   correoConfirmado: { tipo: "logro", titulo: a.correoConfirmado.titulo },
   enlaceVencido: {
@@ -178,8 +163,8 @@ export const avisos = {
 
 /**
  * Errores de campo por pantalla, según el código de `422 validacion` (el API no manda textos).
- * El campo del correo (PN-58, «Cambiar el correo» de PN-59 y PN-61) y la contraseña nueva (PN-58, PN-62 y PN-73)
- * son los mismos en varias pantallas; cada pantalla suma el suyo.
+ * El campo del correo (PN-58, el formulario de «Reenviar el correo» de PN-59 y PN-61) y la contraseña nueva (PN-74,
+ * PN-62 y PN-73) son los mismos en varias pantallas; cada pantalla suma el suyo.
  */
 const erroresDeCampo = {
   correo: textos.correo,
@@ -192,8 +177,15 @@ const erroresDeCampo = {
   borrarCuenta: textos.erroresDeCampo.borrarCuenta,
   crearCuenta: {
     ...textos.correo,
-    ...textos.erroresDeCampo.crearCuenta,
+    mayor_de_edad_requerido:
+      textos.erroresDeCampo.crearCuenta.mayor_de_edad_requerido,
+  },
+  // PN-74 (E14-PCP 4.2 ter): la contraseña y el nombre, que antes se pedían en PN-58.
+  eligeTuContrasena: {
+    contrasena_vacia: textos.erroresDeCampo.crearCuenta.contrasena_vacia,
     ...textos.contrasenaNueva,
+    nombre_vacio: textos.erroresDeCampo.crearCuenta.nombre_vacio,
+    nombre_largo: textos.erroresDeCampo.crearCuenta.nombre_largo,
   },
 } satisfies Record<string, Record<string, string>>;
 

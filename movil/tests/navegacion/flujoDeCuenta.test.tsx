@@ -66,29 +66,75 @@ describe('flujo de crear la cuenta en Android (PN-60 → PN-65 → PN-58 → PN-
     expect(titulo('Antes de empezar')).not.toBeOnTheScreen();
   });
 
-  it('crear la cuenta lleva a PN-59 y desde ahí el Atrás sale de la app (no vuelve al formulario)', async () => {
-    const { pedidos } = instalarFetchFalso(respuestaJson(202, { estado: 'verificacion_pendiente', token: 'tk' }));
-    await render(<Navegacion />);
+  async function crearHastaPN59(correo = 'laura@ejemplo.com') {
     await fireEvent.press(await screen.findByRole('button', { name: 'Crear una cuenta' }));
     await screen.findByRole('header', { name: 'Antes de empezar' });
     await elegirFecha(new Date(1990, 4, 14));
     await fireEvent.press(screen.getByRole('button', { name: 'Continuar' }));
     await screen.findByRole('header', { name: 'Crea tu cuenta' });
-    await fireEvent.changeText(screen.getByLabelText('Correo electrónico'), 'laura@ejemplo.com');
-    await fireEvent.changeText(screen.getByLabelText('Contraseña'), 'lluvia café tren azul');
-    await fireEvent.changeText(screen.getByLabelText('Nombre para mostrar'), 'Laura');
+    await fireEvent.changeText(screen.getByLabelText('Correo electrónico'), correo);
     await fireEvent.press(screen.getByRole('button', { name: 'Crear cuenta' }));
-    expect(await screen.findByRole('header', { name: 'Revisa tu correo' })).toBeOnTheScreen();
+    return screen.findByRole('header', { name: 'Revisa tu correo' });
+  }
+
+  it('crear la cuenta con solo el correo lleva a PN-59 sin sesión y desde ahí el Atrás sale de la app', async () => {
+    const { pedidos } = instalarFetchFalso(respuestaJson(202, { estado: 'verificacion_pendiente' }));
+    await render(<Navegacion />);
+    expect(await crearHastaPN59()).toBeOnTheScreen();
     expect(
-      screen.getByText('Te enviamos un enlace a laura@ejemplo.com. Ábrelo para confirmar tu cuenta.'),
+      screen.getByText(
+        'Te enviamos un correo a laura@ejemplo.com. Ábrelo y sigue el enlace para elegir tu contraseña y confirmar tu cuenta.',
+      ),
     ).toBeOnTheScreen();
     expect(titulo('Crea tu cuenta')).not.toBeOnTheScreen();
-    // Ningún pedido lleva la fecha de nacimiento ni la edad.
+    // Ningún pedido lleva la fecha de nacimiento ni la edad, y crear la cuenta no da sesión.
     expect(pedidos).toHaveLength(1);
-    expect(pedidos[0]?.init.body).not.toMatch(/1990|nacimiento|fecha|"edad"/i);
-    expect(almacen.guardado.get('sesion')).toBe('tk');
+    expect(JSON.parse(pedidos[0]?.init.body as string)).toEqual({ correo: 'laura@ejemplo.com', mayor_de_edad: true });
+    expect(almacen.guardado.has('sesion')).toBe(false);
     await act(async () => {
       expect(atras()).toBe(false);
+    });
+  });
+
+  it('«Usar otro correo» vuelve a PN-58 con lo escrito, y desde ahí crea la cuenta con la otra dirección', async () => {
+    const { pedidos } = instalarFetchFalso(
+      respuestaJson(202, { estado: 'verificacion_pendiente' }),
+      respuestaJson(202, { estado: 'verificacion_pendiente' }),
+    );
+    await render(<Navegacion />);
+    await crearHastaPN59();
+    await fireEvent.press(screen.getByRole('button', { name: 'Usar otro correo' }));
+    expect(await screen.findByRole('header', { name: 'Crea tu cuenta' })).toBeOnTheScreen();
+    expect(screen.getByLabelText('Correo electrónico').props.value).toBe('laura@ejemplo.com');
+    await fireEvent.changeText(screen.getByLabelText('Correo electrónico'), 'otro@ejemplo.com');
+    await fireEvent.press(screen.getByRole('button', { name: 'Crear cuenta' }));
+    expect(
+      await screen.findByText(
+        'Te enviamos un correo a otro@ejemplo.com. Ábrelo y sigue el enlace para elegir tu contraseña y confirmar tu cuenta.',
+      ),
+    ).toBeOnTheScreen();
+    expect(pedidos).toHaveLength(2);
+    expect(JSON.parse(pedidos[1]?.init.body as string)).toEqual({ correo: 'otro@ejemplo.com', mayor_de_edad: true });
+  });
+
+  it('«Ya elegí mi contraseña» (D-184) abre PN-60 con el correo escrito y entra con la contraseña elegida en el navegador', async () => {
+    const { pedidos } = instalarFetchFalso(
+      respuestaJson(202, { estado: 'verificacion_pendiente' }),
+      respuestaJson(200, { estado: 'activa', token: 'tk-laura' }),
+      respuestaJson(200, { ingreso_anterior: null }),
+    );
+    await render(<Navegacion />);
+    await crearHastaPN59();
+    await fireEvent.press(screen.getByRole('button', { name: 'Ya elegí mi contraseña' }));
+    expect(await screen.findByRole('header', { name: 'Inicia sesión' })).toBeOnTheScreen();
+    expect(screen.getByLabelText('Correo electrónico').props.value).toBe('laura@ejemplo.com');
+    expect(titulo('Revisa tu correo')).not.toBeOnTheScreen();
+    await fireEvent.changeText(screen.getByLabelText('Contraseña'), 'lluvia café tren azul');
+    await fireEvent.press(screen.getByRole('button', { name: 'Iniciar sesión' }));
+    await waitFor(() => expect(almacen.guardado.get('sesion')).toBe('tk-laura'));
+    expect(JSON.parse(pedidos[1]?.init.body as string)).toEqual({
+      identificador: 'laura@ejemplo.com',
+      contrasena: 'lluvia café tren azul',
     });
   });
 

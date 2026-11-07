@@ -37,18 +37,14 @@ func TestConLaBaseCaidaCadaOperacionFallaConUnErrorDeInfraestructura(t *testing.
 		nombre    string
 		operacion func() error
 	}{
-		{"cuentas.Crear", func() error {
-			_, err := cuentas.Crear(ctx, cuenta.NuevaCuenta{Correo: "a@ejemplo.test", Nombre: "A", HashContrasena: "h",
-				HuellaDelEnlace: huella, HuellaDeSesion: []byte("otra"), Ahora: ahora, VenceElEnlaceEn: vence})
-			return err
+		{"cuentas.SolicitarVerificacion", func() error {
+			return cuentas.SolicitarVerificacion(ctx, cuenta.NuevaVerificacion{Correo: "a@ejemplo.test", Nombre: cuenta.NombreProvisional,
+				HuellaDelEnlace: huella, Ahora: ahora, VenceElEnlaceEn: vence})
 		}},
-		{"cuentas.VerificarCorreo", func() error { _, err := cuentas.VerificarCorreo(ctx, huella, ahora); return err }},
-		{"cuentas.NuevoEnlaceDeVerificacion", func() error {
-			_, err := cuentas.NuevoEnlaceDeVerificacion(ctx, persona, huella, ahora, vence)
-			return err
-		}},
-		{"cuentas.CambiarCorreoSinVerificar", func() error {
-			return cuentas.CambiarCorreoSinVerificar(ctx, persona, "b@ejemplo.test", huella, ahora, vence)
+		{"cuentas.CorreoDelEnlace", func() error { _, err := cuentas.CorreoDelEnlace(ctx, huella, ahora); return err }},
+		{"cuentas.CompletarCuenta", func() error {
+			return cuentas.CompletarCuenta(ctx, cuenta.CuentaElegida{HuellaDelEnlace: huella, Nombre: "A", HashContrasena: "h",
+				HuellaDeSesion: []byte("otra"), Ahora: ahora})
 		}},
 		{"cuentas.BorrarSinConfirmar", func() error {
 			_, err := cuentas.BorrarSinConfirmar(ctx, ahora, ahora, ahora, []string{"cuenta_y_acceso"})
@@ -107,44 +103,53 @@ func TestConLaBaseCaidaCadaOperacionFallaConUnErrorDeInfraestructura(t *testing.
 	}
 }
 
-// Una creación que falla a la mitad no deja nada: la persona y el perfil se insertaron antes de la sesión, y si la
-// sesión choca con otra existente (misma huella) toda la transacción se deshace.
-func TestCrearCuentaQueFallaALaMitadNoDejaNada(t *testing.T) {
-	e := nuevoEntorno(t)
+// Pedir la verificación que falla a la mitad no deja nada: la persona y el perfil se insertaron antes del enlace, y si el
+// enlace choca con otro existente (misma huella) toda la transacción se deshace.
+func TestPedirLaVerificacionQueFallaALaMitadNoDejaNada(t *testing.T) {
+	e := nuevoEntornoDeCuentas(t)
 	ctx := context.Background()
-	dueno := e.sembrar(t, "dueno@ejemplo.test")
-	huellaOcupada := []byte("huella-de-sesion-ya-usada-32-by.")
-	if err := e.sesiones.Crear(ctx, dueno, huellaOcupada, ahora); err != nil {
+	e.pendiente(t, "dueno@ejemplo.test")
+	var huellaOcupada []byte
+	if err := e.pool.QueryRow(ctx, `SELECT hash_token FROM enlace_un_uso`).Scan(&huellaOcupada); err != nil {
 		t.Fatal(err)
 	}
-	var antes int
-	if err := e.pool.QueryRow(ctx, `SELECT count(*) FROM persona`).Scan(&antes); err != nil {
-		t.Fatal(err)
-	}
+	antes := e.instantanea(t)
 
-	_, err := pg.NuevoCuentas(e.pool).Crear(ctx, cuenta.NuevaCuenta{
-		Correo: "nueva@ejemplo.test", Nombre: "Nueva", HashContrasena: "hash",
-		HuellaDelEnlace: []byte("huella-de-enlace-nueva-32-bytes."), HuellaDeSesion: huellaOcupada,
+	err := e.repo.SolicitarVerificacion(ctx, cuenta.NuevaVerificacion{
+		Correo: "nueva@ejemplo.test", Nombre: cuenta.NombreProvisional, HuellaDelEnlace: huellaOcupada,
 		Ahora: ahora, VenceElEnlaceEn: ahora.Add(24 * time.Hour),
 	})
 	if err == nil {
-		t.Fatal("se esperaba un error por la sesión repetida")
+		t.Fatal("se esperaba un error por el enlace repetido")
 	}
-	var despues, enlaces int
-	if err := e.pool.QueryRow(ctx, `SELECT count(*) FROM persona`).Scan(&despues); err != nil {
-		t.Fatal(err)
-	}
-	if err := e.pool.QueryRow(ctx, `SELECT count(*) FROM enlace_un_uso`).Scan(&enlaces); err != nil {
-		t.Fatal(err)
-	}
-	if despues != antes {
-		t.Errorf("personas: %d, había %d: la transacción no se deshizo", despues, antes)
-	}
-	if enlaces != 0 {
-		t.Errorf("quedaron %d enlaces de una creación fallida", enlaces)
+	if despues := e.instantanea(t); despues != antes {
+		t.Errorf("la transacción no se deshizo:\n%s\n%s", antes, despues)
 	}
 	if _, err := pg.NuevoAutenticacion(e.pool).CredencialPorCorreo(ctx, "nueva@ejemplo.test"); !errors.Is(err, autenticacion.ErrNoExiste) {
 		t.Errorf("la cuenta fallida existe: %v", err)
+	}
+}
+
+// Completar la cuenta que falla a la mitad no deja nada: sin la credencial guardada no hay sesión, el enlace sigue
+// pendiente y el correo sin verificar. Aquí falla el guardado de la credencial (un hash que no es de Argon2id).
+func TestCompletarLaCuentaQueFallaALaMitadNoDejaNada(t *testing.T) {
+	e := nuevoEntornoDeCuentas(t)
+	ctx := context.Background()
+	token := e.pendiente(t, "laura@ejemplo.test")
+	antes := e.instantanea(t)
+
+	_, huellaDeSesion := seguridad.NuevoTokenOpaco()
+	err := e.repo.CompletarCuenta(ctx, cuenta.CuentaElegida{
+		HuellaDelEnlace: huella(t, token), Nombre: "Laura", HashContrasena: "no-es-argon2id", HuellaDeSesion: huellaDeSesion, Ahora: ahora,
+	})
+	if err == nil || errors.Is(err, cuenta.ErrEnlaceInvalido) {
+		t.Fatalf("se esperaba un fallo de la base: %v", err)
+	}
+	if despues := e.instantanea(t); despues != antes {
+		t.Errorf("la transacción no se deshizo:\n%s\n%s", antes, despues)
+	}
+	if _, err := e.svc.VerificarYElegirContrasena(ctx, token, contrasenaDePrueba, "Laura"); err != nil {
+		t.Errorf("el enlace debía seguir vigente: %v", err)
 	}
 }
 

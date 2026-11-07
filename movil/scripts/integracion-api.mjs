@@ -57,9 +57,9 @@ const paso = (nombre, condicion, detalle = '') => {
 };
 const token = () => almacen.datos.get('sesion') ?? null;
 
-// Lo que hace la persona para dejar una cuenta nueva verificada: el enlace del correo se abre en el navegador (D-155).
-// El correo sale de un trabajador aparte: puede tardar un instante en llegar a Mailpit, así que se espera un poco.
-async function verificarCuenta(correoDeLaCuenta) {
+// El correo de verificación sale de un trabajador aparte: puede tardar un instante en llegar a Mailpit, así que se espera
+// un poco. Devuelve el token del enlace /verificar?t=<token> (la persona lo abre en el navegador, D-155).
+async function enlaceDelCorreo(correoDeLaCuenta) {
   let mensaje;
   for (let i = 0; i < 20 && !mensaje; i++) {
     const lista = await (await fetch(`${URL_MAILPIT}/api/v1/messages`)).json();
@@ -67,12 +67,25 @@ async function verificarCuenta(correoDeLaCuenta) {
     if (!mensaje) await new Promise((r) => setTimeout(r, 250));
   }
   const texto = (await (await fetch(`${URL_MAILPIT}/api/v1/message/${mensaje.ID}`)).json()).Text;
-  const [, enlaceDelCorreo] = /\/verificar\?t=([A-Za-z0-9_-]+)/.exec(texto);
-  return fetch(`${URL_API}/api/v1/cuentas/verificacion`, {
+  const enlace = /https?:\/\/[^\s]+\/verificar\?t=([A-Za-z0-9_-]+)/.exec(texto);
+  return { mensaje, enlace: enlace?.[0], token: enlace?.[1] };
+}
+
+// Lo que hace el navegador en PN-74 (D-172): sin la cabecera de la app y sin la sesión de la app, manda el token del
+// enlace con la contraseña y el nombre; la sesión empieza en el navegador, no en la app.
+const completarEnElNavegador = (token, contrasena, nombre) =>
+  fetch(`${URL_API}/api/v1/cuentas/verificacion`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token: enlaceDelCorreo }),
+    body: JSON.stringify({ token, contrasena, nombre }),
   });
+
+// Deja una cuenta nueva verificada y con contraseña: crea, abre el enlace y la elige.
+async function crearCuentaVerificada(correoDeLaCuenta, nombre) {
+  const creadaAqui = await cuentas.crearCuenta({ correo: correoDeLaCuenta, mayor_de_edad: true });
+  const { token: tokenDelEnlace } = await enlaceDelCorreo(correoDeLaCuenta);
+  const completada = await completarEnElNavegador(tokenDelEnlace, contrasena, nombre);
+  return { creadaAqui, completada, tokenDelEnlace };
 }
 
 const sufijo = Date.now();
@@ -80,74 +93,67 @@ const correo = `laura-${sufijo}@ejemplo.com`;
 const contrasena = 'lluvia café tren azul';
 const contrasenaNueva = 'otra frase de cuatro palabras';
 
-// 1. Crear la cuenta en modo Android: el token llega en el cuerpo y el cliente lo guarda en el almacén seguro.
-const creada = await cuentas.crearCuenta({ correo, contrasena, nombre: 'Laura', mayor_de_edad: true });
+// 1. PN-58: crear la cuenta pide solo el correo y nunca da sesión: el almacén seguro queda sin token.
+const creada = await cuentas.crearCuenta({ correo, mayor_de_edad: true });
 paso(
   'crear la cuenta: 202 verificacion_pendiente',
   creada.ok && creada.estado === 202 && creada.cuerpo.estado === 'verificacion_pendiente',
   JSON.stringify(creada),
 );
-const tokenDeCrear = token();
-paso(
-  'el token del cuerpo quedó en el almacén seguro y no llega a la pantalla',
-  typeof tokenDeCrear === 'string' && tokenDeCrear.length === 43 && !('token' in (creada.cuerpo ?? {})),
-  `largo ${tokenDeCrear?.length}`,
-);
+paso('crear la cuenta no da sesión: no hay token en el almacén seguro', token() === null);
 paso(
   'el almacén seguro se usó con una sola clave: sesion',
   almacen.llamadas.every(([, clave]) => clave === 'sesion'),
 );
 
-// 2. Estado: todavía sin verificar.
-const estado1 = await cuentas.estadoDeLaCuenta();
+// 2. Una cuenta sin verificar no entra: el 401 es el de una contraseña errónea (D-172).
+const sinVerificar = await acceso.iniciarSesion({ identificador: correo, contrasena });
 paso(
-  'estado: verificada = false con la sesión limitada',
-  estado1.ok && estado1.cuerpo.verificada === false,
-  JSON.stringify(estado1),
+  'cuenta sin verificar: 401 credenciales_invalidas y sin token',
+  !sinVerificar.ok && sinVerificar.estado === 401 && sinVerificar.codigo === 'credenciales_invalidas' && token() === null,
+  JSON.stringify(sinVerificar),
 );
 
-// 3. Verificar el correo con el enlace que llegó a Mailpit (la persona lo abre en el navegador, D-155).
-// El correo sale de un trabajador aparte: puede tardar un instante, así que se espera un poco, como en verificarCuenta.
-let mensaje;
-for (let i = 0; i < 20 && !mensaje; i++) {
-  const lista = await (await fetch(`${URL_MAILPIT}/api/v1/messages`)).json();
-  mensaje = lista.messages.find((m) => m.To.some((p) => p.Address === correo));
-  if (!mensaje) await new Promise((r) => setTimeout(r, 250));
-}
+// 3. El enlace llegó a Mailpit y abre PN-74 en el navegador: ahí se elige la contraseña y empieza la sesión del navegador.
+const { mensaje, enlace, token: tokenDelEnlace } = await enlaceDelCorreo(correo);
 paso('el correo de verificación llegó a Mailpit', Boolean(mensaje), mensaje?.Subject);
-const texto = (await (await fetch(`${URL_MAILPIT}/api/v1/message/${mensaje.ID}`)).json()).Text;
-const enlace = /https?:\/\/[^\s]+\/verificar\?t=([A-Za-z0-9_-]+)/.exec(texto);
-paso('el enlace del correo es /verificar?t=<token> (abre la web)', Boolean(enlace), enlace?.[0].replace(/t=.+/, 't=…'));
-// Lo que hace el navegador al abrir el enlace: sin la cabecera de la app y sin la sesión de la app.
-const verificada = await fetch(`${URL_API}/api/v1/cuentas/verificacion`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ token: enlace[1] }),
-});
+paso('el enlace del correo es /verificar?t=<token> (abre la web)', Boolean(enlace), enlace?.replace(/t=.+/, 't=…'));
+const verificada = await completarEnElNavegador(tokenDelEnlace, contrasena, 'Laura');
 paso(
-  'verificar el enlace desde el navegador: 200 verificado, sin sesión',
-  verificada.status === 200 && (await verificada.json()).con_sesion === false,
+  'elegir la contraseña con el enlace desde el navegador: 200 activa',
+  verificada.status === 200 && (await verificada.json()).estado === 'activa',
+);
+paso('la sesión empezó en el navegador, no en la app: el almacén sigue sin token', token() === null);
+const reusado = await completarEnElNavegador(tokenDelEnlace, contrasena, 'Laura');
+paso(
+  'el enlace sirve una sola vez: el segundo uso da 400 enlace_invalido',
+  reusado.status === 400 && (await reusado.json()).error === 'enlace_invalido',
 );
 
-// 4. «Ya lo confirmé»: la misma sesión ahora dice verificada.
-const estado2 = await cuentas.estadoDeLaCuenta();
+// 4. PN-59, «Reenviar el correo»: público y con la dirección; responde igual con o sin cuenta y no crea cuentas.
+const reenvioConCuenta = await cuentas.reenviarCorreo(correo);
+const reenvioSinCuenta = await cuentas.reenviarCorreo(`sin-cuenta-${sufijo}@ejemplo.com`);
 paso(
-  'estado: verificada = true con la misma sesión',
-  estado2.ok && estado2.cuerpo.verificada === true,
-  JSON.stringify(estado2),
+  'reenviar el correo: 202 verificacion_pendiente, igual con cuenta y sin cuenta, sin token',
+  reenvioConCuenta.ok &&
+    reenvioSinCuenta.ok &&
+    reenvioConCuenta.estado === 202 &&
+    JSON.stringify(reenvioConCuenta.cuerpo) === JSON.stringify(reenvioSinCuenta.cuerpo) &&
+    token() === null,
+  JSON.stringify([reenvioConCuenta, reenvioSinCuenta]),
 );
 
-// 5. Iniciar sesión: token nuevo.
+// 5. «Ya elegí mi contraseña» (D-184): PN-60 con el correo escrito y la contraseña que se eligió en el navegador.
 const malas = await acceso.iniciarSesion({ identificador: correo, contrasena: 'no es esta' });
 paso(
-  'contraseña incorrecta: 401 credenciales_invalidas y no cambia el token',
-  !malas.ok && malas.estado === 401 && malas.codigo === 'credenciales_invalidas' && token() === tokenDeCrear,
+  'contraseña incorrecta: 401 credenciales_invalidas y no hay token',
+  !malas.ok && malas.estado === 401 && malas.codigo === 'credenciales_invalidas' && token() === null,
 );
 const entro = await acceso.iniciarSesion({ identificador: correo, contrasena });
 const tokenDeEntrar = token();
 paso(
-  'iniciar sesión: 200 activa con token nuevo en el almacén',
-  entro.ok && entro.cuerpo.estado === 'activa' && tokenDeEntrar !== tokenDeCrear && tokenDeEntrar?.length === 43,
+  'iniciar sesión con la contraseña elegida: 200 activa con token nuevo en el almacén',
+  entro.ok && entro.cuerpo.estado === 'activa' && tokenDeEntrar?.length === 43,
 );
 
 // 6. Sin autorización el API niega (RNF-012): PN-71 da 403 autorizacion_pendiente.
@@ -294,9 +300,7 @@ paso('modo Android con Sec-Fetch-Site: 400 solicitud_invalida (la app no lo mand
 
 // 13. «No autorizo» (RF-031): con la cuenta verificada y sin autorizar, el API borra la cuenta y su sesión; la app borra el token.
 const correoRechazo = `rechazo-${sufijo}@ejemplo.com`;
-await cuentas.crearCuenta({ correo: correoRechazo, contrasena, nombre: 'Rosa', mayor_de_edad: true });
-const tokenDeRechazo = token();
-await verificarCuenta(correoRechazo);
+await crearCuentaVerificada(correoRechazo, 'Rosa');
 const sinAutorizar = await acceso.iniciarSesion({ identificador: correoRechazo, contrasena });
 const tokenSinAutorizar = token();
 paso('la cuenta nueva entra, sin autorizar: 200 activa', sinAutorizar.ok && sinAutorizar.cuerpo.estado === 'activa');
@@ -309,7 +313,7 @@ paso(
   JSON.stringify(rechazo),
 );
 const viejas = await Promise.all(
-  [tokenDeRechazo, tokenSinAutorizar].map((t) =>
+  [tokenSinAutorizar].map((t) =>
     fetch(`${URL_API}/api/v1/cuenta/seguridad`, {
       headers: { Authorization: `Bearer ${t}`, 'X-Alcanzamos-Cliente': 'android' },
     }),
@@ -322,7 +326,7 @@ paso(
   !yaNoExiste.ok && yaNoExiste.estado === 401 && yaNoExiste.codigo === 'credenciales_invalidas' && token() === null,
   JSON.stringify(yaNoExiste),
 );
-const volver = await cuentas.crearCuenta({ correo: correoRechazo, contrasena, nombre: 'Rosa', mayor_de_edad: true });
+const volver = await cuentas.crearCuenta({ correo: correoRechazo, mayor_de_edad: true });
 paso('el correo quedó libre: se puede crear la cuenta otra vez (202)', volver.ok && volver.estado === 202);
 const entroAutorizada = await acceso.iniciarSesion({ identificador: correo, contrasena: contrasenaNueva });
 const noPuede = await autorizaciones.rechazar();

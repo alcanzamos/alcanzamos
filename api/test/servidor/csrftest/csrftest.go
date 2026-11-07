@@ -30,7 +30,7 @@ func ConCabeceras(siguiente http.Handler) http.Handler {
 	})
 }
 
-// Caso es un pedido de la web o de Android a un POST, con sus cabeceras, y lo que la defensa de E17 3.15 debe responder:
+// Caso es un pedido de la web o de Android a una ruta que cambia algo (POST, PUT o DELETE), con sus cabeceras, y lo que la defensa de E17 3.15 debe responder:
 // Estado 403 o 415 con su código de error, o 0 si debe dejarlo pasar.
 type Caso struct {
 	Nombre    string
@@ -77,10 +77,11 @@ func Casos(urlPublica string) []Caso {
 	}
 }
 
-// ProbarDefensa es SEG-016: para cada POST de las rutas (las de Enrutador.Rutas) hace cada Caso contra `api` y comprueba
-// el estado, el cuerpo de error, que no haya `Set-Cookie` y que `estado()` (lo que la prueba llame «todo lo guardado»)
-// no cambie con un rechazo. Una ruta POST sin la defensa responde otra cosa y hace fallar la prueba. Falla si no hay
-// ninguna ruta POST, porque una lista vacía no prueba nada.
+// ProbarDefensa es SEG-016: para cada ruta que no es GET (POST, PUT y DELETE, D-194; las de Enrutador.Rutas) hace cada
+// Caso contra `api`, con el método de la ruta, y comprueba el estado, el cuerpo de error, que no haya `Set-Cookie` y que
+// `estado()` (lo que la prueba llame «todo lo guardado») no cambie con un rechazo. Una ruta que cambia algo sin la
+// defensa responde otra cosa y hace fallar la prueba. Falla si no hay ninguna ruta POST, PUT ni DELETE, porque una lista
+// vacía no prueba nada.
 func ProbarDefensa(t *testing.T, api http.Handler, rutas []servidor.Ruta, urlPublica string, estado func() string) {
 	t.Helper()
 	if estado == nil {
@@ -90,7 +91,7 @@ func ProbarDefensa(t *testing.T, api http.Handler, rutas []servidor.Ruta, urlPub
 	probadas := 0
 	for _, ruta := range rutas {
 		metodo, camino, ok := strings.Cut(ruta.Patron, " ")
-		if !ok || metodo != http.MethodPost {
+		if !ok || metodo == http.MethodGet {
 			continue
 		}
 		probadas++
@@ -98,7 +99,7 @@ func ProbarDefensa(t *testing.T, api http.Handler, rutas []servidor.Ruta, urlPub
 		for _, c := range Casos(urlPublica) {
 			t.Run(ruta.Patron+" · "+c.Nombre, func(t *testing.T) {
 				antes := estado()
-				r := httptest.NewRequest(http.MethodPost, camino, strings.NewReader(`{}`))
+				r := httptest.NewRequest(metodo, camino, strings.NewReader(`{}`))
 				r.RemoteAddr = "10.1.1.1:1"
 				for k, v := range c.Cabeceras {
 					r.Header.Set(k, v)
@@ -131,6 +132,6 @@ func ProbarDefensa(t *testing.T, api http.Handler, rutas []servidor.Ruta, urlPub
 		}
 	}
 	if probadas == 0 {
-		t.Fatal("no hay ninguna ruta POST que probar")
+		t.Fatal("no hay ninguna ruta POST, PUT ni DELETE que probar")
 	}
 }

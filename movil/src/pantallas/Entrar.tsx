@@ -19,7 +19,8 @@ type Campo = 'identificador' | 'contrasena';
 // genérico; por ahora es el correo. Dicho de otra forma: aquí no se decide nada, el API responde y la pantalla muestra.
 // La fila «Política de tratamiento y consultas» (PN-68) llega con su pantalla.
 export function Entrar({ navigation, route }: NativeStackScreenProps<Rutas, 'Entrar'>) {
-  const [correo, setCorreo] = useState('');
+  // Con «Ya elegí mi contraseña» de PN-59 (D-184) el correo ya viene escrito.
+  const [correo, setCorreo] = useState(route.params?.correo ?? '');
   const [contrasena, setContrasena] = useState('');
   const [errores, setErrores] = useState<Partial<Record<Campo, string>>>({});
   const [aviso, setAviso] = useState<DatosDeAviso | null>(null);
@@ -35,11 +36,9 @@ export function Entrar({ navigation, route }: NativeStackScreenProps<Rutas, 'Ent
     const respuesta = await iniciarSesion({ identificador: correo, contrasena });
     setEnviando(false);
     if (respuesta.ok) {
-      // La cuenta sin verificar tiene una sesión limitada: sigue a PN-59 (D-138). Si no hay autorización, la pantalla
-      // de destino lo descubre con el API y sigue a PN-63.
-      if (respuesta.cuerpo.estado === 'verificacion_pendiente')
-        reemplazarPila(navigation, 'RevisaTuCorreo', { correo });
-      else reemplazarPila(navigation, 'SeguridadDeLaCuenta');
+      // Una cuenta sin verificar no entra (D-172): recibe el 401 de una contraseña errónea. Si no hay autorización,
+      // la pantalla de destino lo descubre con el API y sigue a PN-63.
+      reemplazarPila(navigation, 'SeguridadDeLaCuenta');
       return;
     }
     const delCampo: Partial<Record<Campo, string>> = {};

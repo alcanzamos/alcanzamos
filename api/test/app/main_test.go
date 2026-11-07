@@ -49,27 +49,12 @@ func TestElRegistroEscribeLaHoraEnUTC(t *testing.T) {
 }
 
 func TestServirSinConfiguracionFallaAntesDeConectar(t *testing.T) {
-	for _, v := range []string{"CORREO_SMTP", "CORREO_REMITENTE", "CORREO_PRIVACIDAD", "URL_PUBLICA", "SESION_SENUELO_CLAVE"} {
+	for _, v := range []string{"CORREO_SMTP", "CORREO_REMITENTE", "CORREO_PRIVACIDAD", "URL_PUBLICA"} {
 		t.Setenv(v, "")
 	}
 	t.Setenv("BASE_DE_DATOS_URL", "postgres://nadie@127.0.0.1:1/nada")
 	codigo, salida := ejecutar("api")
-	if codigo != 1 || !strings.Contains(salida, "CORREO_SMTP falta") || !strings.Contains(salida, "URL_PUBLICA falta") ||
-		!strings.Contains(salida, "SESION_SENUELO_CLAVE falta") {
+	if codigo != 1 || !strings.Contains(salida, "CORREO_SMTP falta") || !strings.Contains(salida, "URL_PUBLICA falta") {
 		t.Fatalf("se esperaba un error que nombre las variables que faltan: %d %s", codigo, salida)
-	}
-}
-
-// La clave de las sesiones de mentira es obligatoria y el error no la repite (D-143 (2)).
-func TestServirConUnaClaveDeSenueloCortaFalla(t *testing.T) {
-	t.Setenv("CORREO_SMTP", "127.0.0.1:1")
-	t.Setenv("CORREO_REMITENTE", "a@b.test")
-	t.Setenv("CORREO_PRIVACIDAD", "p@b.test")
-	t.Setenv("URL_PUBLICA", "https://app.b.test")
-	t.Setenv("SESION_SENUELO_CLAVE", "Y29ydGE")
-	t.Setenv("BASE_DE_DATOS_URL", "postgres://nadie@127.0.0.1:1/nada")
-	codigo, salida := ejecutar("api")
-	if codigo != 1 || !strings.Contains(salida, "SESION_SENUELO_CLAVE debe tener al menos 32 bytes") || strings.Contains(salida, "Y29ydGE") {
-		t.Fatalf("se esperaba el error de la clave corta, sin repetirla: %d %s", codigo, salida)
 	}
 }

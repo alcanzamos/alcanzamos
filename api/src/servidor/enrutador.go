@@ -78,8 +78,8 @@ func NuevoEnrutador(s Sesiones, eventos *seguridad.Registro, log *slog.Logger) *
 	return e
 }
 
-// ConURLPublica dice cuál es el `Origin` de la web (`URL_PUBLICA`) para la defensa contra CSRF de todo POST (E17 3.15,
-// D-173). Sin ella, ningún `Origin` vale. Se llama antes de servir.
+// ConURLPublica dice cuál es el `Origin` de la web (`URL_PUBLICA`) para la defensa contra CSRF de todo pedido que cambia
+// algo (E17 3.15, D-173, D-194). Sin ella, ningún `Origin` vale. Se llama antes de servir.
 func (e *Enrutador) ConURLPublica(urlPublica string) *Enrutador {
 	e.origen = origenDe(urlPublica)
 	return e
@@ -90,8 +90,8 @@ var metodosPermitidos = map[string]bool{http.MethodGet: true, http.MethodPost: t
 
 // Registrar añade una ruta con su nivel. patron es el de ServeMux («POST /api/v1/cuentas») y debe estar bajo /api/.
 // Un registro inválido (sin nivel, sin método, fuera de /api/ o repetido) no entra al mux: Construir lo devuelve como error, así
-// el servidor no arranca. Nunca hace panic. Todo POST lleva además la defensa contra CSRF de E17 3.15, antes que el
-// guard de acceso: ningún manejador la pone ni la puede olvidar.
+// el servidor no arranca. Nunca hace panic. Todo método que no es GET (POST, PUT y DELETE) lleva además la defensa contra
+// CSRF de E17 3.15 (D-194), antes que el guard de acceso: ningún manejador la pone ni la puede olvidar.
 func (e *Enrutador) Registrar(n seguridad.NivelDeAcceso, patron string, h http.Handler) {
 	if !n.Valido() {
 		e.errores = append(e.errores, fmt.Errorf("la ruta %q no declara su nivel de acceso", patron))
@@ -119,7 +119,7 @@ func (e *Enrutador) Registrar(n seguridad.NivelDeAcceso, patron string, h http.H
 		}
 	}()
 	protegida := e.proteger(n, h)
-	if strings.HasPrefix(patron, http.MethodPost+" ") {
+	if metodo != http.MethodGet {
 		protegida = e.contraCSRF(protegida)
 	}
 	e.mux.Handle(patron, protegida)
@@ -144,8 +144,7 @@ func (e *Enrutador) Construir() (http.Handler, error) {
 //
 //   - Sin sesión: 401 y evento error_autorizacion.
 //   - Con sesión que no alcanza el nivel: 403 con verificacion_pendiente o autorizacion_pendiente, y evento
-//     acceso_denegado de la cuenta. La sesión de mentira (D-141) recibe lo mismo que la limitada real, con cuenta
-//     «desconocida» en el evento: el registro no la distingue por fuera.
+//     acceso_denegado de la cuenta.
 func (e *Enrutador) proteger(n seguridad.NivelDeAcceso, h http.Handler) http.Handler {
 	if n == seguridad.Publica {
 		return h
@@ -162,7 +161,7 @@ func (e *Enrutador) proteger(n seguridad.NivelDeAcceso, h http.Handler) http.Han
 			return
 		}
 		ctx := ConSujeto(r.Context(), sujeto)
-		if sujeto.Persona != "" && !sujeto.Senuelo {
+		if sujeto.Persona != "" {
 			ctx = seguridad.ConPersona(ctx, sujeto.Persona)
 		}
 		r = r.WithContext(ctx)
@@ -179,7 +178,7 @@ func (e *Enrutador) proteger(n seguridad.NivelDeAcceso, h http.Handler) http.Han
 	})
 }
 
-// contraCSRF aplica E17 3.15 (D-173) con el origen de ConURLPublica, leído al atender cada pedido.
+// contraCSRF aplica E17 3.15 (D-173, D-194) con el origen de ConURLPublica, leído al atender cada pedido.
 func (e *Enrutador) contraCSRF(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if rechazarCSRF(w, r, e.origen) {

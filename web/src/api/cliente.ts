@@ -53,8 +53,9 @@ export async function pedir<T = Cuerpo>(
       credentials: "same-origin",
       headers: {
         Accept: "application/json",
-        // Todo POST lleva el tipo, también sin cuerpo: el API rechaza con 415 el que no lo trae (D-175, E17 3.15 (d)).
-        ...(cuerpo || metodo === "POST"
+        // Todo pedido que no es GET lleva el tipo, también sin cuerpo: el API rechaza con 415 el que no lo trae (D-175,
+        // D-194, E17 3.15 (d)).
+        ...(cuerpo || metodo !== "GET"
           ? { "Content-Type": "application/json" }
           : {}),
       },

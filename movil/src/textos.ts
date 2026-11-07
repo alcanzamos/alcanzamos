@@ -35,21 +35,6 @@ export const avisos = {
     titulo: a.errorAlEnviarCorreo.titulo,
     mensaje: a.errorAlEnviarCorreo.mensaje,
   },
-  errorAlRevisarElCorreo: {
-    tipo: 'informacion',
-    titulo: a.errorAlRevisarElCorreo.titulo,
-    mensaje: a.errorAlRevisarElCorreo.mensaje,
-  },
-  errorAlConfirmarElCorreo: {
-    tipo: 'informacion',
-    titulo: a.errorAlConfirmarElCorreo.titulo,
-    mensaje: a.errorAlConfirmarElCorreo.mensaje,
-  },
-  sinConfirmarTodavia: {
-    tipo: 'informacion',
-    titulo: a.sinConfirmarTodavia.titulo,
-    mensaje: a.sinConfirmarTodavia.mensaje,
-  },
   correoReenviado: { tipo: 'informacion', titulo: a.correoReenviado.titulo },
   correoConfirmado: { tipo: 'logro', titulo: a.correoConfirmado.titulo },
   enlaceVencido: {
@@ -180,8 +165,8 @@ export const avisos = {
 
 /**
  * Errores de campo por pantalla, según el código de `422 validacion` (el API no manda textos).
- * El campo del correo (PN-58, «Cambiar el correo» de PN-59 y PN-61) y la contraseña nueva (PN-58, PN-62 y PN-73)
- * son los mismos en varias pantallas; cada pantalla suma el suyo.
+ * El campo del correo (PN-58, PN-59 y PN-61) y la contraseña nueva (PN-62 y PN-73) son los mismos en varias
+ * pantallas; cada pantalla suma el suyo.
  */
 const erroresDeCampo = {
   correo: textos.correo,
@@ -192,11 +177,8 @@ const erroresDeCampo = {
   },
   contrasenaDeAhora: textos.erroresDeCampo.contrasenaDeAhora,
   borrarCuenta: textos.erroresDeCampo.borrarCuenta,
-  crearCuenta: {
-    ...textos.correo,
-    ...textos.erroresDeCampo.crearCuenta,
-    ...textos.contrasenaNueva,
-  },
+  // PN-58 pide solo el correo (D-172): la contraseña y el nombre se piden en PN-74, que Android no tiene hasta I08.
+  crearCuenta: textos.correo,
 } satisfies Record<string, Record<string, string>>;
 
 // E14-PCP 1.19 (D-163): lo que dice App.tsx al arrancar en Android, mientras cargan las fuentes y si fallan
