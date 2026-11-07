@@ -66,6 +66,7 @@ type Enrutador struct {
 	eventos  *seguridad.Registro
 	log      *slog.Logger
 	rutas    []Ruta
+	origen   string
 	vistas   map[string]bool
 	errores  []error
 }
@@ -77,17 +78,31 @@ func NuevoEnrutador(s Sesiones, eventos *seguridad.Registro, log *slog.Logger) *
 	return e
 }
 
+// ConURLPublica dice cuál es el `Origin` de la web (`URL_PUBLICA`) para la defensa contra CSRF de todo POST (E17 3.15,
+// D-173). Sin ella, ningún `Origin` vale. Se llama antes de servir.
+func (e *Enrutador) ConURLPublica(urlPublica string) *Enrutador {
+	e.origen = origenDe(urlPublica)
+	return e
+}
+
+// metodosPermitidos son los métodos que una ruta de /api/ puede declarar.
+var metodosPermitidos = map[string]bool{http.MethodGet: true, http.MethodPost: true, http.MethodPut: true, http.MethodDelete: true}
+
 // Registrar añade una ruta con su nivel. patron es el de ServeMux («POST /api/v1/cuentas») y debe estar bajo /api/.
-// Un registro inválido (sin nivel, fuera de /api/ o repetido) no entra al mux: Construir lo devuelve como error, así
-// el servidor no arranca. Nunca hace panic.
+// Un registro inválido (sin nivel, sin método, fuera de /api/ o repetido) no entra al mux: Construir lo devuelve como error, así
+// el servidor no arranca. Nunca hace panic. Todo POST lleva además la defensa contra CSRF de E17 3.15, antes que el
+// guard de acceso: ningún manejador la pone ni la puede olvidar.
 func (e *Enrutador) Registrar(n seguridad.NivelDeAcceso, patron string, h http.Handler) {
 	if !n.Valido() {
 		e.errores = append(e.errores, fmt.Errorf("la ruta %q no declara su nivel de acceso", patron))
 		return
 	}
-	ruta := patron
-	if _, resto, ok := strings.Cut(patron, " "); ok {
-		ruta = resto
+	// El método va siempre, en mayúsculas y con un solo espacio: un patrón sin método (o con otro separador) atendería
+	// POST sin la defensa contra CSRF (SEG-016).
+	metodo, ruta, ok := strings.Cut(patron, " ")
+	if !ok || !metodosPermitidos[metodo] {
+		e.errores = append(e.errores, fmt.Errorf("la ruta %q no empieza por un método (GET, POST, PUT o DELETE) y un espacio", patron))
+		return
 	}
 	if !strings.HasPrefix(ruta, "/api/") || ruta == "/api/" {
 		e.errores = append(e.errores, fmt.Errorf("la ruta %q no está bajo /api/", patron))
@@ -103,7 +118,11 @@ func (e *Enrutador) Registrar(n seguridad.NivelDeAcceso, patron string, h http.H
 			e.errores = append(e.errores, fmt.Errorf("la ruta %q no se pudo registrar: %v", patron, r))
 		}
 	}()
-	e.mux.Handle(patron, e.proteger(n, h))
+	protegida := e.proteger(n, h)
+	if strings.HasPrefix(patron, http.MethodPost+" ") {
+		protegida = e.contraCSRF(protegida)
+	}
+	e.mux.Handle(patron, protegida)
 	e.vistas[patron] = true
 	e.rutas = append(e.rutas, Ruta{Patron: patron, Nivel: n})
 }
@@ -154,6 +173,16 @@ func (e *Enrutador) proteger(n seguridad.NivelDeAcceso, h http.Handler) http.Han
 				codigo = CodigoVerificacionPendiente
 			}
 			EscribirError(w, http.StatusForbidden, codigo)
+			return
+		}
+		h.ServeHTTP(w, r)
+	})
+}
+
+// contraCSRF aplica E17 3.15 (D-173) con el origen de ConURLPublica, leído al atender cada pedido.
+func (e *Enrutador) contraCSRF(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if rechazarCSRF(w, r, e.origen) {
 			return
 		}
 		h.ServeHTTP(w, r)

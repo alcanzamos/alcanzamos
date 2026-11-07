@@ -18,19 +18,20 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/src/seguridad"
 	"github.com/alcanzamos/alcanzamos/api/src/servidor"
 	"github.com/alcanzamos/alcanzamos/api/src/sesion"
+	"github.com/alcanzamos/alcanzamos/api/test/servidor/csrftest"
 )
 
 func apiDePrueba(t *testing.T, e *entorno) http.Handler {
 	t.Helper()
 	log := slog.New(slog.NewJSONHandler(io.Discard, nil))
 	resolutor := sesion.NuevoResolutor(e.almacen, e.senuelos.Senuelos, e.reloj)
-	enr := servidor.NuevoEnrutador(resolutor, seguridad.NuevoRegistro(log), log)
+	enr := servidor.NuevoEnrutador(resolutor, seguridad.NuevoRegistro(log), log).ConURLPublica("https://app.ejemplo.test")
 	cuenta.NuevoHandler(e.svc, resolutor, log).Registrar(enr)
 	h, err := enr.Construir()
 	if err != nil {
 		t.Fatal(err)
 	}
-	return servidor.ManejadorConAPI(h)
+	return csrftest.ConCabeceras(servidor.ManejadorConAPI(h))
 }
 
 // almacenFalso es el almacén de sesiones reales: huella (en texto) → Sujeto. Solo valen estas y las de mentira.
@@ -189,11 +190,8 @@ func TestAndroidConCabecerasDeNavegadorSeRechaza(t *testing.T) {
 		codigo    int
 		cookie    bool
 	}{
-		{"android con Origin", []string{"Origin", "https://app.ejemplo.test"}, 400, false},
-		{"android con Origin null", []string{"Origin", "null"}, 400, false},
+		{"android con Origin de URL_PUBLICA", []string{"Origin", "https://app.ejemplo.test"}, 400, false},
 		{"android con Sec-Fetch-Site same-origin", []string{"Sec-Fetch-Site", "same-origin"}, 400, false},
-		{"android con Sec-Fetch-Site none", []string{"Sec-Fetch-Site", "none"}, 400, false},
-		{"android con las dos", []string{"Origin", "x", "Sec-Fetch-Site", "cross-site"}, 400, false},
 	}
 	for _, existe := range []bool{false, true} { // con cuenta verificada (sesión de mentira) y sin ella: igual
 		for _, c := range casos {

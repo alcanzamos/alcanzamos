@@ -18,6 +18,7 @@ import (
 
 	"github.com/alcanzamos/alcanzamos/api/src/seguridad"
 	"github.com/alcanzamos/alcanzamos/api/src/servidor"
+	"github.com/alcanzamos/alcanzamos/api/test/servidor/csrftest"
 )
 
 // Clase de Sujeto que se prueba en cada ruta.
@@ -140,7 +141,7 @@ func ProbarRutas(t *testing.T, rutas []servidor.Ruta) {
 					t.Fatal(err)
 				}
 				rr := httptest.NewRecorder()
-				servidor.ManejadorConAPI(api).ServeHTTP(rr, httptest.NewRequest(metodo, camino, io.NopCloser(strings.NewReader(""))))
+				csrftest.ConCabeceras(servidor.ManejadorConAPI(api)).ServeHTTP(rr, httptest.NewRequest(metodo, camino, io.NopCloser(strings.NewReader(""))))
 
 				quiere := Esperado(ruta.Nivel, clase)
 				var cuerpo map[string]string
