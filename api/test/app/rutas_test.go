@@ -2,7 +2,6 @@ package app_test
 
 import (
 	"context"
-	"encoding/base64"
 	"io"
 	"log/slog"
 	"testing"
@@ -21,11 +20,9 @@ import (
 var rutasEsperadas = []servidor.Ruta{
 	{Patron: "POST /api/v1/cuentas", Nivel: seguridad.Publica},
 	{Patron: "POST /api/v1/cuentas/verificacion", Nivel: seguridad.Publica},
-	{Patron: "GET /api/v1/cuentas/estado", Nivel: seguridad.SinVerificar},
-	{Patron: "POST /api/v1/cuentas/verificacion/reenvio", Nivel: seguridad.SinVerificar},
-	{Patron: "POST /api/v1/cuentas/correo", Nivel: seguridad.SinVerificar},
+	{Patron: "POST /api/v1/cuentas/verificacion/reenvio", Nivel: seguridad.Publica},
 	{Patron: "POST /api/v1/sesiones", Nivel: seguridad.Publica},
-	{Patron: "DELETE /api/v1/sesiones/actual", Nivel: seguridad.SinVerificar},
+	{Patron: "DELETE /api/v1/sesiones/actual", Nivel: seguridad.SinAutorizacion},
 	{Patron: "GET /api/v1/cuenta/seguridad", Nivel: seguridad.RequiereAutorizacion},
 	{Patron: "POST /api/v1/recuperacion", Nivel: seguridad.Publica},
 	{Patron: "POST /api/v1/recuperacion/contrasena", Nivel: seguridad.Publica},
@@ -59,7 +56,7 @@ func enrutadorDePrueba(t *testing.T) *servidor.Enrutador {
 	t.Cleanup(pool.Close)
 	entorno := map[string]string{
 		"CORREO_SMTP": "127.0.0.1:1", "CORREO_REMITENTE": "a@b.test", "CORREO_PRIVACIDAD": "p@b.test",
-		"URL_PUBLICA": "https://app.b.test", "SESION_SENUELO_CLAVE": base64.StdEncoding.EncodeToString(make([]byte, 32)),
+		"URL_PUBLICA": "https://app.b.test",
 	}
 	cfg, err := config.Cargar(func(k string) string { return entorno[k] })
 	if err != nil {
@@ -99,11 +96,9 @@ func TestCadaRutaRespondeSegunSuNivelParaCadaSujeto(t *testing.T) {
 // cerrar sesión y las tres de la autorización. Una ruta nueva que escriba datos debe declararse `requiere_autorizacion`;
 // si de verdad pertenece al ingreso, se suma aquí con la razón.
 var rutasAntesDeAutorizar = map[string]bool{
-	"POST /api/v1/cuentas":                      true, // crea la cuenta (PN-58)
-	"POST /api/v1/cuentas/verificacion":         true, // confirma el correo
-	"GET /api/v1/cuentas/estado":                true, // solo lee
+	"POST /api/v1/cuentas":                      true, // pide la verificación del correo (PN-58)
+	"POST /api/v1/cuentas/verificacion":         true, // completa la cuenta con el enlace: contraseña, nombre y correo verificado (PN-74)
 	"POST /api/v1/cuentas/verificacion/reenvio": true, // enlace nuevo
-	"POST /api/v1/cuentas/correo":               true, // corrige el correo de la cuenta sin verificar
 	"POST /api/v1/sesiones":                     true, // entrar
 	"DELETE /api/v1/sesiones/actual":            true, // salir
 	"POST /api/v1/recuperacion":                 true, // pide el enlace

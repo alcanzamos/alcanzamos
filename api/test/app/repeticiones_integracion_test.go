@@ -4,7 +4,6 @@ package app_test
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"log/slog"
@@ -41,10 +40,18 @@ func apiArmada(t *testing.T) (http.Handler, *pgxpool.Pool) {
 // Enrutador, para recorrer sus rutas.
 func apiArmadaCruda(t *testing.T) (http.Handler, *servidor.Enrutador, *pgxpool.Pool) {
 	t.Helper()
+	h, e, pool, _ := apiArmadaConEspera(t)
+	return h, e, pool
+}
+
+// apiArmadaConEspera es apiArmadaCruda y además la función que espera el trabajo en segundo plano (los correos y lo que
+// crear la cuenta hace fuera del pedido), para las pruebas que miden lo que dura el pedido solo.
+func apiArmadaConEspera(t *testing.T) (http.Handler, *servidor.Enrutador, *pgxpool.Pool, func()) {
+	t.Helper()
 	pool := pgtest.Nueva(t)
 	entorno := map[string]string{
 		"CORREO_SMTP": "127.0.0.1:1", "CORREO_REMITENTE": "a@b.test", "CORREO_PRIVACIDAD": "p@b.test",
-		"URL_PUBLICA": urlPublicaDePrueba, "SESION_SENUELO_CLAVE": base64.StdEncoding.EncodeToString(make([]byte, 32)),
+		"URL_PUBLICA": urlPublicaDePrueba,
 	}
 	cfg, err := config.Cargar(func(k string) string { return entorno[k] })
 	if err != nil {
@@ -60,7 +67,7 @@ func apiArmadaCruda(t *testing.T) (http.Handler, *servidor.Enrutador, *pgxpool.P
 	if err != nil {
 		t.Fatal(err)
 	}
-	return servidor.ManejadorConAPI(h), e, pool
+	return servidor.ManejadorConAPI(h), e, pool, esperar
 }
 
 // persona siembra una cuenta adulta con sesión, y la deja verificada y autorizada o no; devuelve su token (Bearer).

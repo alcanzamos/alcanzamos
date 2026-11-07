@@ -46,7 +46,7 @@ func TestUnFalloInternoDaErrorInternoSinDetalle(t *testing.T) {
 		{"iniciar: falla guardar la sesión", func(e *entorno) { e.repo.errores = map[string]error{"IniciarSesion": errAlmacen} },
 			pedido("POST", rutaSesiones, entrar(correoDePrueba, claveDePrueba)), nil, "no se pudo iniciar la sesión"},
 		{"cerrar: falla borrar la sesión", func(e *entorno) { e.repo.errores = map[string]error{"CerrarSesion": errAlmacen} },
-			pedido("DELETE", "/api/v1/sesiones/actual", "", "Cookie", sesion.NombreDeLaCookie+"="+token), &seguridad.Sujeto{Persona: personaDePrueba}, "no se pudo cerrar la sesión"},
+			pedido("DELETE", "/api/v1/sesiones/actual", "", "Cookie", sesion.NombreDeLaCookie+"="+token), &seguridad.Sujeto{Persona: personaDePrueba, Verificada: true}, "no se pudo cerrar la sesión"},
 		{"seguridad: falla leer el ingreso anterior", func(e *entorno) { e.repo.errores = map[string]error{"IngresoAnterior": errAlmacen} },
 			pedido("GET", "/api/v1/cuenta/seguridad", ""), autorizada, "no se pudo leer el ingreso anterior"},
 		{"cambiar: falla leer la cuenta", func(e *entorno) { e.repo.errores = map[string]error{"CredencialDe": errAlmacen} },

@@ -29,8 +29,12 @@ func (e *entornoDeAcceso) cuentaLista(t *testing.T, correo string) string {
 	return persona
 }
 
+// estado dice 200 si el token tiene sesión (llega al guard aunque la cuenta no esté autorizada) y 401 si no.
 func (e *entornoDeAcceso) estado(token string) int {
-	return e.llamar("GET", "/api/v1/cuentas/estado", "", token).Code
+	if c := e.llamar("GET", "/api/v1/cuenta/seguridad", "", token).Code; c != 403 {
+		return c
+	}
+	return 200
 }
 
 func (e *entornoDeAcceso) pedirEnlace(t *testing.T, correo string) {
@@ -145,7 +149,7 @@ func TestPedirOtroEnlaceDeRecuperacionInvalidaLosPendientes(t *testing.T) {
 // Una cuenta sin verificar no recibe enlace (se crea de nuevo, D-141) y una sin cuenta tampoco, con la misma respuesta.
 func TestRecuperacionSoloParaCuentasVerificadas(t *testing.T) {
 	e := nuevoEntornoDeAcceso(t)
-	e.crear(t, "pedro@ejemplo.test") // sin verificar
+	e.pendiente(t, "pedro@ejemplo.test") // sin verificar
 	e.cuentaLista(t, "laura@ejemplo.test")
 	antes := len(e.correo.Enviados())
 	var vistas []string
@@ -170,7 +174,7 @@ func TestRecuperacionSoloParaCuentasVerificadas(t *testing.T) {
 // el correo salen después, de un trabajador, y solo para la cuenta verificada. Sin medir tiempos de reloj.
 func TestLaRecuperacionRespondeIgualYSaleDelPedido(t *testing.T) {
 	e := nuevoEntornoDeAccesoSinTrabajadores(t)
-	e.crear(t, "pedro@ejemplo.test") // sin verificar
+	e.pendiente(t, "pedro@ejemplo.test") // sin verificar
 	e.cuentaLista(t, "laura@ejemplo.test")
 	antes := len(e.correo.Enviados())
 	enlaces := func() int {
@@ -328,20 +332,15 @@ func TestCambiarLaContrasenaConLaActualIncorrectaNoCambiaNada(t *testing.T) {
 	}
 }
 
-// PN-73 solo para quien tiene la cuenta autorizada: la limitada y la de mentira no llegan.
+// PN-73 solo para quien tiene la cuenta autorizada: sin sesión no llega, y verificada pero sin autorizar tampoco.
 func TestCambiarLaContrasenaPideLaCuentaAutorizada(t *testing.T) {
 	e := nuevoEntornoDeAcceso(t)
-	limitada := e.crear(t, "pedro@ejemplo.test").Token
+	sinAutorizar := e.crear(t, "pedro@ejemplo.test").Token
 	body := `{"contrasena_actual":"` + contrasenaDePrueba + `","contrasena_nueva":"` + claveNueva + `"}`
-	if rr := e.llamar("POST", "/api/v1/cuenta/contrasena", body, limitada); rr.Code != 403 {
-		t.Errorf("limitada: %d", rr.Code)
-	}
 	if rr := e.llamar("POST", "/api/v1/cuenta/contrasena", body, ""); rr.Code != 401 {
 		t.Errorf("sin sesión: %d", rr.Code)
 	}
-	persona := personaDe(t, e.entorno, "pedro@ejemplo.test")
-	verificar(t, e.pool, persona)
-	if rr := e.llamar("POST", "/api/v1/cuenta/contrasena", body, limitada); rr.Code != 403 || !strings.Contains(rr.Body.String(), "autorizacion_pendiente") {
+	if rr := e.llamar("POST", "/api/v1/cuenta/contrasena", body, sinAutorizar); rr.Code != 403 || !strings.Contains(rr.Body.String(), "autorizacion_pendiente") {
 		t.Errorf("verificada sin autorizar: %d %s", rr.Code, rr.Body)
 	}
 }

@@ -25,12 +25,12 @@ func NuevoHandler(s *Servicio, eventos *seguridad.Registro, log *slog.Logger) *H
 	return &Handler{servicio: s, eventos: eventos, log: log}
 }
 
-// Registrar añade las rutas, cada una con su nivel de acceso (D-138). Cerrar sesión es `sin_verificar`: la cierra
-// cualquier sesión, la limitada y la de mentira también. El ingreso anterior (PN-71) y el cambio de contraseña (PN-73)
+// Registrar añade las rutas, cada una con su nivel de acceso (D-138, D-172). Cerrar sesión es `sin_autorizacion`, como
+// dice E18-PPR SEG-010: la cierra toda cuenta verificada, autorizada o no. El ingreso anterior (PN-71) y el cambio de contraseña (PN-73)
 // piden la cuenta autorizada; pedir el enlace de recuperación y elegir la contraseña con él son públicas (PN-61, PN-62).
 func (h *Handler) Registrar(e *servidor.Enrutador) {
 	e.Registrar(seguridad.Publica, "POST /api/v1/sesiones", http.HandlerFunc(h.iniciar))
-	e.Registrar(seguridad.SinVerificar, "DELETE /api/v1/sesiones/actual", http.HandlerFunc(h.cerrar))
+	e.Registrar(seguridad.SinAutorizacion, "DELETE /api/v1/sesiones/actual", http.HandlerFunc(h.cerrar))
 	e.Registrar(seguridad.RequiereAutorizacion, "GET /api/v1/cuenta/seguridad", http.HandlerFunc(h.seguridad))
 	e.Registrar(seguridad.Publica, "POST /api/v1/recuperacion", http.HandlerFunc(h.pedirRecuperacion))
 	e.Registrar(seguridad.Publica, "POST /api/v1/recuperacion/contrasena", http.HandlerFunc(h.fijarContrasena))
@@ -44,9 +44,8 @@ func (h *Handler) fallar(w http.ResponseWriter, r *http.Request, que string, err
 
 // iniciar atiende POST /api/v1/sesiones (PN-60): `{identificador, contrasena}`. Es pública.
 //
-//   - 200 `{"estado":"activa"}` con el correo ya confirmado, o `{"estado":"verificacion_pendiente"}` con la sesión
-//     limitada de D-138 (el cliente sigue a PN-59). Si la cuenta puede usar lo demás lo decide el Enrutador en cada
-//     ruta. El token va en la cookie `__Host-sesion` (web) o en el cuerpo (Android, `X-Alcanzamos-Cliente: android`),
+//   - 200 `{"estado":"activa"}`. Una cuenta sin verificar no tiene contraseña y no entra (D-172 (3)): responde
+//     `credenciales_invalidas`. Si la cuenta puede usar lo demás lo decide el Enrutador en cada ruta. El token va en la cookie `__Host-sesion` (web) o en el cuerpo (Android, `X-Alcanzamos-Cliente: android`),
 //     que se rechaza con 400 si el pedido trae `Origin` o `Sec-Fetch-Site` (D-143 (3)).
 //   - 401 `credenciales_invalidas`: igual para una contraseña mal escrita y para una cuenta que no existe.
 //   - 429 `demasiados_intentos`: igual exista o no la cuenta.
@@ -79,11 +78,7 @@ func (h *Handler) iniciar(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		h.fallar(w, r, "no se pudo iniciar la sesión", err)
 	default:
-		estado := "verificacion_pendiente"
-		if iniciada.Verificada {
-			estado = "activa"
-		}
-		cuerpo := map[string]string{"estado": estado}
+		cuerpo := map[string]string{"estado": "activa"}
 		if entrega == sesion.PorCuerpo {
 			cuerpo["token"] = iniciada.Token
 		} else {
@@ -95,8 +90,7 @@ func (h *Handler) iniciar(w http.ResponseWriter, r *http.Request) {
 }
 
 // cerrar atiende DELETE /api/v1/sesiones/actual: borra la sesión de la petición y responde 204. Siempre manda la orden
-// de borrar la cookie (`Max-Age=0`, mismos atributos), también en Android, donde no hace nada. La sesión de mentira
-// responde exactamente igual: no hay fila que borrar (D-141).
+// de borrar la cookie (`Max-Age=0`, mismos atributos), también en Android, donde no hace nada.
 func (h *Handler) cerrar(w http.ResponseWriter, r *http.Request) {
 	if err := h.servicio.CerrarSesion(r.Context(), sesion.TokenDe(r)); err != nil {
 		h.fallar(w, r, "no se pudo cerrar la sesión", err)

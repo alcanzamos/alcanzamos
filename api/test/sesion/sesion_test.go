@@ -83,39 +83,30 @@ func conToken(token string) *http.Request {
 
 func TestResolutor(t *testing.T) {
 	real, huellaReal := seguridad.NuevoTokenOpaco()
-	senuelos := nuevosSenuelosDePrueba(t, claveA, &relojtest.Fijo{T: ahora})
-	falso := senuelos.Crear()
+	falso, _ := seguridad.NuevoTokenOpaco() // un token bien formado que ninguna sesión tiene
 	desconocido, _ := seguridad.NuevoTokenOpaco()
 	almacen := &almacenFalso{huella: huellaReal, sujeto: seguridad.Sujeto{Persona: "p", Verificada: true}}
-	res := sesion.NuevoResolutor(almacen, senuelos, &relojtest.Fijo{T: ahora})
+	res := sesion.NuevoResolutor(almacen, &relojtest.Fijo{T: ahora})
 
-	if s, err := res.SujetoDe(conToken(real)); err != nil || s.Persona != "p" || !s.Verificada || s.Senuelo {
+	if s, err := res.SujetoDe(conToken(real)); err != nil || s.Persona != "p" || !s.Verificada {
 		t.Fatalf("sesión real: %+v %v", s, err)
 	}
-	if s, err := res.SujetoDe(conToken(falso)); err != nil || !s.Senuelo || s.Persona != "" || s.Verificada || s.Autorizada {
-		t.Fatalf("sesión de mentira: %+v %v", s, err)
-	}
-	for nombre, token := range map[string]string{"desconocido": desconocido, "vacío": "", "mal formado": "xyz"} {
+	// Ya no hay sesiones de mentira (D-172 (5)): un token que el almacén no tiene no tiene sesión.
+	for nombre, token := range map[string]string{"desconocido": desconocido, "bien formado pero ajeno": falso, "vacío": "", "mal formado": "xyz"} {
 		if _, err := res.SujetoDe(conToken(token)); !errors.Is(err, seguridad.ErrSinSesion) {
 			t.Errorf("%s: se esperaba ErrSinSesion: %v", nombre, err)
 		}
 	}
-	// El almacén se consulta también para la sesión de mentira y el desconocido (mismo trabajo), pero no con un token roto.
+	// El almacén se consulta con un token bien formado, no con uno roto.
 	almacen.llamado = 0
-	res.SujetoDe(conToken(falso))
 	res.SujetoDe(conToken(desconocido))
 	res.SujetoDe(conToken("xyz"))
-	if almacen.llamado != 2 {
-		t.Errorf("consultas al almacén: %d, se esperaban 2", almacen.llamado)
+	if almacen.llamado != 1 {
+		t.Errorf("consultas al almacén: %d, se esperaba 1", almacen.llamado)
 	}
-	// Un fallo del almacén no se confunde con «sin sesión», y no se prueba si es de mentira.
+	// Un fallo del almacén no se confunde con «sin sesión».
 	almacen.err = errors.New("bd caída")
 	if _, err := res.SujetoDe(conToken(falso)); err == nil || errors.Is(err, seguridad.ErrSinSesion) {
 		t.Errorf("un fallo del almacén debe salir como fallo: %v", err)
-	}
-	// Sin sesiones de mentira configuradas.
-	sin := sesion.NuevoResolutor(&almacenFalso{huella: huellaReal}, nil, &relojtest.Fijo{T: ahora})
-	if _, err := sin.SujetoDe(conToken(falso)); !errors.Is(err, seguridad.ErrSinSesion) {
-		t.Errorf("sin señuelos: %v", err)
 	}
 }

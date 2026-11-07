@@ -30,7 +30,7 @@ func enrutadorConPOST(t *testing.T, conURL bool, alcanzados *[]string) *servidor
 		servidor.EscribirJSON(w, http.StatusOK, map[string]string{"estado": "ok"})
 	})
 	e.Registrar(seguridad.Publica, "POST /api/v1/prueba/publica", anotar)
-	e.Registrar(seguridad.SinVerificar, "POST /api/v1/prueba/sin-verificar", anotar)
+	e.Registrar(seguridad.SinAutorizacion, "POST /api/v1/prueba/sin-autorizacion", anotar)
 	e.Registrar(seguridad.RequiereAutorizacion, "POST /api/v1/prueba/autorizada/{id}", anotar)
 	e.Registrar(seguridad.Publica, "GET /api/v1/prueba/lectura", anotar)
 	e.Registrar(seguridad.Publica, "PUT /api/v1/prueba/cambio", anotar)
