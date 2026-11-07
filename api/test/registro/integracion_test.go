@@ -136,7 +136,7 @@ func (c *cliente) enviar(metodo, ruta, cuerpo, direccion string, defensa bool, a
 		if !c.android {
 			r.Header.Set("Sec-Fetch-Site", "same-origin")
 		}
-		if metodo == http.MethodPost || cuerpo != "" {
+		if metodo != http.MethodGet || cuerpo != "" {
 			r.Header.Set("Content-Type", "application/json")
 		}
 	}

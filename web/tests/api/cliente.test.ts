@@ -36,6 +36,33 @@ describe("cliente del API", () => {
     });
   });
 
+  it.each(["PUT", "DELETE"] as const)(
+    "%s manda Content-Type: application/json con y sin cuerpo (D-194, E17 3.15 (d))",
+    async (metodo) => {
+      simularApi(() => json(200, {}));
+      await pedir(metodo, "/api/v1/movimientos/1", { a: 1 });
+      await pedir(metodo, "/api/v1/movimientos/1");
+      const llamadas = vi.mocked(fetch).mock.calls;
+      expect(llamadas).toHaveLength(2);
+      expect(llamadas[0]?.[1]).toMatchObject({
+        method: metodo,
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: '{"a":1}',
+      });
+      expect(llamadas[1]?.[1]).toMatchObject({
+        method: metodo,
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: undefined,
+      });
+    },
+  );
+
   it("un pedido GET sin cuerpo no manda Content-Type", async () => {
     simularApi(() => json(200, {}));
     await pedir("GET", "/api/v1/cuentas/estado");
