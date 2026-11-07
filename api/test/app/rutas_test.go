@@ -119,9 +119,10 @@ func TestSoloLasRutasDelIngresoNoExigenAutorizacion(t *testing.T) {
 	}
 }
 
-// SEG-016 (E17 3.15, D-173): la lista de POST sale del Enrutador de producción, así que un POST nuevo sin la defensa
-// hace fallar esta prueba. La base no está: un rechazo no llega al manejador, y por eso no la toca.
-func TestTodoPOSTDeLaAPIRechazaLoQueLaDefensaContraCSRFRechaza(t *testing.T) {
+// SEG-016 (E17 3.15, D-173, D-194): la lista de rutas que cambian algo (todo método que no es GET) sale del Enrutador de
+// producción, así que una ruta nueva sin la defensa, sea cual sea su método, hace fallar esta prueba. La base
+// no está: un rechazo no llega al manejador, y por eso no la toca.
+func TestTodaRutaDeLaAPIQueCambiaAlgoRechazaLoQueLaDefensaContraCSRFRechaza(t *testing.T) {
 	e := enrutadorDePrueba(t)
 	api, err := e.Construir()
 	if err != nil {
