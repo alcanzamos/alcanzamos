@@ -24,6 +24,7 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/src/seguridad"
 	"github.com/alcanzamos/alcanzamos/api/src/servidor"
 	"github.com/alcanzamos/alcanzamos/api/src/sesion"
+	"github.com/alcanzamos/alcanzamos/api/test/servidor/csrftest"
 )
 
 // Verificación y PN-59.
@@ -409,7 +410,7 @@ func TestPuntaAPuntaConLaCuentaYElEnrutadorYLaBase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h := servidor.ManejadorConAPI(api)
+	h := csrftest.ConCabeceras(servidor.ManejadorConAPI(api))
 
 	crear := func(correo string) string {
 		t.Helper()
@@ -538,7 +539,7 @@ func (e *entornoDeCuentas) servidorNuevo(t *testing.T, clave []byte) (http.Handl
 	if err != nil {
 		t.Fatal(err)
 	}
-	return servidor.ManejadorConAPI(api), svc
+	return csrftest.ConCabeceras(servidor.ManejadorConAPI(api)), svc
 }
 
 type respuestaVista struct {

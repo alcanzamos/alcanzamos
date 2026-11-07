@@ -785,15 +785,15 @@ export const textos = {
       },
       // E14-PPN 3.1, estado «Sin conexión» (ADR-005, sección 6)
       sinConexion: "Sin conexión, puedes registrar con el formulario.",
-      // PROPUESTO, no está en E14 (pendiente de aprobación del dueño): E14-PPN 3.1, errores de campo del cuadro: 422 texto_requerido
+      // E14-PPN 3.1, errores de campo del cuadro: cuadro vacío al tocar «Llenar el formulario» (`texto_requerido`), aprobado (D-193)
       textoRequerido: "Falta escribir el gasto o el ingreso.",
-      // PROPUESTO, no está en E14 (pendiente de aprobación del dueño): E14-PPN 3.1, errores de campo del cuadro: 422 texto_largo (280 caracteres, D-084 (2))
+      // E14-PPN 3.1, errores de campo del cuadro: cuadro con más de 280 caracteres (`texto_largo`), aprobado (D-193)
       textoLargo: "El texto es demasiado largo. Usa hasta 280 caracteres.",
       errorAlInterpretar: {
-        // PROPUESTO, no está en E14 (pendiente de aprobación del dueño): E14-PPN 3.1, estados del cuadro: fallo inesperado del servidor al interpretar
+        // E14-PPN 3.1, estados del cuadro: falla inesperada del servidor al llenar, aprobado (D-193)
         titulo: "No pudimos llenar el formulario.",
-        // PROPUESTO, no está en E14 (pendiente de aprobación del dueño): E14-PPN 3.1, estados del cuadro: fallo inesperado del servidor al interpretar
-        mensaje: "Llénalo tú: lo que escribiste sigue ahí.",
+        // E14-PPN 3.1, estados del cuadro: falla inesperada del servidor al llenar, aprobado (D-193)
+        mensaje: "Llena el formulario: lo que escribiste sigue ahí.",
       },
     },
     revisa: {

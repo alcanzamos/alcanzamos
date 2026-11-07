@@ -53,7 +53,10 @@ export async function pedir<T = Cuerpo>(
       credentials: "same-origin",
       headers: {
         Accept: "application/json",
-        ...(cuerpo ? { "Content-Type": "application/json" } : {}),
+        // Todo POST lleva el tipo, también sin cuerpo: el API rechaza con 415 el que no lo trae (D-175, E17 3.15 (d)).
+        ...(cuerpo || metodo === "POST"
+          ? { "Content-Type": "application/json" }
+          : {}),
       },
       // Un cuerpo en texto ya es JSON: lo arma quien lleva un entero que no cabe exacto en un `number` (los centavos).
       body:
