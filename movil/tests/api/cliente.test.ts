@@ -58,6 +58,21 @@ describe('cliente del API', () => {
       expect((pedidos[0]?.init.headers as Record<string, string>).Authorization).toBe('Bearer token-guardado');
     });
 
+    it('todo POST manda Content-Type: application/json, también sin cuerpo (D-175, E17 3.15 (d))', async () => {
+      const { pedidos } = instalarFetchFalso(respuestaJson(202, {}));
+      await pedir('POST', '/api/v1/cuentas/verificacion/reenvio');
+      const enviadas = pedidos[0]?.init.headers as Record<string, string>;
+      expect(enviadas['Content-Type']).toBe('application/json');
+      expect(enviadas['X-Alcanzamos-Cliente']).toBe('android');
+      expect(pedidos[0]?.init.body).toBeUndefined();
+    });
+
+    it('un GET sin cuerpo no manda Content-Type', async () => {
+      const { pedidos } = instalarFetchFalso(respuestaJson(200, {}));
+      await pedir('GET', '/api/v1/cuentas/estado');
+      expect(pedidos[0]?.init.headers as Record<string, string>).not.toHaveProperty('Content-Type');
+    });
+
     it('manda el cuerpo como JSON', async () => {
       const { pedidos } = instalarFetchFalso(respuestaJson(202, { estado: 'enlace_enviado' }));
       await pedir('POST', '/api/v1/recuperacion', { correo: 'laura@ejemplo.com' });

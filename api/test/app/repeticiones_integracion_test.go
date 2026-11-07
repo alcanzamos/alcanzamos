@@ -22,13 +22,24 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/src/seguridad"
 	"github.com/alcanzamos/alcanzamos/api/src/servidor"
 	"github.com/alcanzamos/alcanzamos/api/test/pgtest"
+	"github.com/alcanzamos/alcanzamos/api/test/servidor/csrftest"
 )
 
 const urlPublicaDePrueba = "https://app.b.test"
 
 // apiArmada es el enrutador de producción (`app.ArmarEnrutador`, con la configuración leída como en `servir`) sobre una
 // base propia y migrada.
+//
+// apiArmada le completa las cabeceras de cliente a los pedidos que no traen ninguna (csrftest); apiArmadaCruda no.
 func apiArmada(t *testing.T) (http.Handler, *pgxpool.Pool) {
+	t.Helper()
+	h, _, pool := apiArmadaCruda(t)
+	return csrftest.ConCabeceras(h), pool
+}
+
+// apiArmadaCruda es apiArmada sin completar nada: lo que llega es lo que ve la defensa contra CSRF. Devuelve también el
+// Enrutador, para recorrer sus rutas.
+func apiArmadaCruda(t *testing.T) (http.Handler, *servidor.Enrutador, *pgxpool.Pool) {
 	t.Helper()
 	pool := pgtest.Nueva(t)
 	entorno := map[string]string{
@@ -49,7 +60,7 @@ func apiArmada(t *testing.T) (http.Handler, *pgxpool.Pool) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return servidor.ManejadorConAPI(h), pool
+	return servidor.ManejadorConAPI(h), e, pool
 }
 
 // persona siembra una cuenta adulta con sesión, y la deja verificada y autorizada o no; devuelve su token (Bearer).

@@ -14,6 +14,7 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/src/seguridad"
 	"github.com/alcanzamos/alcanzamos/api/src/servidor"
 	"github.com/alcanzamos/alcanzamos/api/test/servidor/accesotest"
+	"github.com/alcanzamos/alcanzamos/api/test/servidor/csrftest"
 )
 
 // Esta tabla es el inventario de /api/: añadir una ruta obliga a añadirla aquí con su nivel (RNF-012, D-138).
@@ -121,4 +122,15 @@ func TestSoloLasRutasDelIngresoNoExigenAutorizacion(t *testing.T) {
 			t.Errorf("%s está en la lista del ingreso pero exige autorización", r.Patron)
 		}
 	}
+}
+
+// SEG-016 (E17 3.15, D-173): la lista de POST sale del Enrutador de producción, así que un POST nuevo sin la defensa
+// hace fallar esta prueba. La base no está: un rechazo no llega al manejador, y por eso no la toca.
+func TestTodoPOSTDeLaAPIRechazaLoQueLaDefensaContraCSRFRechaza(t *testing.T) {
+	e := enrutadorDePrueba(t)
+	api, err := e.Construir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	csrftest.ProbarDefensa(t, servidor.ManejadorConAPI(api), e.Rutas(), "https://app.b.test", nil)
 }
