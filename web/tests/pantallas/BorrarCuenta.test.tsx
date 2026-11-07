@@ -390,7 +390,6 @@ describe("PN-69 · Borrar la cuenta", () => {
 
   it.each([
     [401, { error: "sin_sesion" }, "/entrar"],
-    [403, { error: "verificacion_pendiente" }, "/revisa-tu-correo"],
     [403, { error: "autorizacion_pendiente" }, "/privacidad"],
   ])("al borrar, %i %j lleva a %s", async (estado, cuerpo, destino) => {
     await abrir(sinHogar, () => json(estado, cuerpo));
@@ -562,7 +561,6 @@ describe("PN-69 · Borrar la cuenta", () => {
 
     it.each([
       [401, { error: "sin_sesion" }, "/entrar"],
-      [403, { error: "verificacion_pendiente" }, "/revisa-tu-correo"],
       [403, { error: "autorizacion_pendiente" }, "/privacidad"],
     ])("%i %j lleva a %s", async (estado, cuerpo, destino) => {
       await abrirConDescarga(() => json(estado, cuerpo));
@@ -627,7 +625,6 @@ describe("PN-69 · Borrar la cuenta", () => {
 
     it.each([
       [401, { error: "sin_sesion" }, "/entrar"],
-      [403, { error: "verificacion_pendiente" }, "/revisa-tu-correo"],
       [403, { error: "autorizacion_pendiente" }, "/privacidad"],
     ])("%i %j lleva a %s", async (estado, cuerpo, destino) => {
       simularApi(() => json(estado, cuerpo));

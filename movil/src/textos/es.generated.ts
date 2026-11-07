@@ -9,7 +9,7 @@ export const textos = {
       titulo: "Sin conexión. Intenta de nuevo cuando vuelvas a tener internet.",
     },
     demasiadosIntentos: {
-      // E14-PCP 4.16 T1 (D-136; PN-58, «Cambiar el correo» de PN-59, PN-60 y PN-61)
+      // E14-PCP 4.16 T1 (D-136; PN-58 y «Reenviar el correo» de PN-59, PN-60 y PN-61)
       titulo: "Hiciste muchos intentos. Espera unos minutos e intenta de nuevo.",
     },
     errorAlCrearCuenta: {
@@ -19,41 +19,23 @@ export const textos = {
       mensaje: "Tus datos no se perdieron. Intenta de nuevo.",
     },
     errorAlEnviarCorreo: {
-      // E14-PCP 4.2, estado «Error» de PN-59 (reenviar y cambiar el correo)
+      // E14-PCP 4.2, estado «Error» de PN-59 («Reenviar el correo»)
       titulo: "No pudimos enviar el correo.",
-      // E14-PCP 4.2, estado «Error» de PN-59 (reenviar y cambiar el correo)
+      // E14-PCP 4.2, estado «Error» de PN-59 («Reenviar el correo»)
       mensaje: "Intenta de nuevo.",
-    },
-    errorAlRevisarElCorreo: {
-      // E14-PCP 4.16 T8: «Ya lo confirmé» no pudo revisar el estado (5xx)
-      titulo: "No pudimos revisar si confirmaste tu correo.",
-      // E14-PCP 4.16 T8: «Ya lo confirmé» no pudo revisar el estado (5xx)
-      mensaje: "Intenta de nuevo.",
-    },
-    errorAlConfirmarElCorreo: {
-      // E14-PCP 4.16 T9: el enlace de verificación falló del lado del servidor (5xx), distinto del enlace vencido
-      titulo: "No pudimos confirmar tu correo.",
-      // E14-PCP 4.16 T9: el enlace de verificación falló del lado del servidor (5xx), distinto del enlace vencido
-      mensaje: "Intenta de nuevo.",
-    },
-    sinConfirmarTodavia: {
-      // E14-PCP 4.2, «Ya lo confirmé» sin confirmar
-      titulo: "Todavía no confirmaste tu correo.",
-      // E14-PCP 4.2, «Ya lo confirmé» sin confirmar
-      mensaje: "Abre el enlace que te enviamos.",
     },
     correoReenviado: {
       // E14-PCP 4.2, estado «Reenviado»
       titulo: "Te enviamos otro correo.",
     },
     correoConfirmado: {
-      // E14-PCP 4.2, estado «Confirmado», y 4.16 T11: se muestra arriba de la pantalla a la que se llega
+      // E14-PCP 4.2 ter (PN-74), estado «Guardada», y 4.16 T11: se muestra arriba de PN-63 (D-172)
       titulo: "Listo, confirmamos tu correo.",
     },
     enlaceVencido: {
-      // E14-PCP 4.2, estado «Enlace vencido»
+      // E14-PCP 4.2 ter (PN-74), estado «Enlace vencido o ya usado» (D-192); mismo texto que PN-62 (4.5)
       titulo: "Ese enlace ya no sirve.",
-      // E14-PCP 4.2, estado «Enlace vencido»
+      // E14-PCP 4.2 ter (PN-74), estado «Enlace vencido o ya usado» (D-192); mismo texto que PN-62 (4.5)
       mensaje: "Pide uno nuevo.",
     },
     datosNoCoinciden: {
@@ -103,9 +85,9 @@ export const textos = {
       mensaje: "Intenta de nuevo.",
     },
     errorAlGuardarContrasena: {
-      // E14-PCP 4.5, estado «Error» de PN-62
+      // E14-PCP 4.5, estado «Error» de PN-62; E14-PCP 4.2 ter (PN-74), estado «Error» y 4.16 T9
       titulo: "No pudimos guardar tu contraseña.",
-      // E14-PCP 4.5, estado «Error» de PN-62
+      // E14-PCP 4.5, estado «Error» de PN-62; E14-PCP 4.2 ter (PN-74), estado «Error» y 4.16 T9
       mensaje: "Intenta de nuevo.",
     },
     contrasenaRecuperada: {
@@ -212,6 +194,24 @@ export const textos = {
       // E14-PCP 4.8, PN-65: «Menos de 18 años» (D-090). Sin el botón «Ya tengo un usuario: iniciar sesión» hasta I11 (D-137).
       mensaje: "Tu mamá, papá o tutor crea tu cuenta desde la suya y te da tu usuario.",
     },
+    sinConfirmarTodavia: {
+      // E14-PCP 4.2, «Ya lo confirmé» sin confirmar
+      titulo: "Todavía no confirmaste tu correo.",
+      // E14-PCP 4.2, «Ya lo confirmé» sin confirmar
+      mensaje: "Abre el enlace que te enviamos.",
+    },
+    errorAlRevisarElCorreo: {
+      // E14-PCP 4.16 T8: «Ya lo confirmé» no pudo revisar el estado (5xx)
+      titulo: "No pudimos revisar si confirmaste tu correo.",
+      // E14-PCP 4.16 T8: «Ya lo confirmé» no pudo revisar el estado (5xx)
+      mensaje: "Intenta de nuevo.",
+    },
+    errorAlConfirmarElCorreo: {
+      // E14-PCP 4.16 T9: el enlace de verificación falló del lado del servidor (5xx), distinto del enlace vencido
+      titulo: "No pudimos confirmar tu correo.",
+      // E14-PCP 4.16 T9: el enlace de verificación falló del lado del servidor (5xx), distinto del enlace vencido
+      mensaje: "Intenta de nuevo.",
+    },
   },
   correo: {
     // E14-PCP 4.1 (errores de campo de PN-58): el campo del correo es el mismo en PN-58, en «Cambiar el correo» de PN-59 (4.16 T3) y en PN-61.
@@ -224,8 +224,8 @@ export const textos = {
     contrasena_corta: "Falta que la contraseña tenga al menos 15 caracteres.",
     // E14-PCP 4.1 (PN-58). La contraseña nueva tiene los mismos errores en PN-62 y PN-73.
     contrasena_comun: "Falta una contraseña que no sea tan común. Prueba con una frase de tres o cuatro palabras.",
-    // E14-PCP 4.1 (PN-58). La contraseña nueva tiene los mismos errores en PN-62 y PN-73.
-    contrasena_personal: "Falta una contraseña que no incluya tu correo ni el nombre de la app.",
+    // E14-PCP 4.2 ter (PN-74), D-142 y D-192 (aprobado): el mismo error en PN-62 y PN-73. Reemplaza «…ni el nombre de la app.»
+    contrasena_personal: "Falta una contraseña que no incluya tu correo ni la palabra «Alcanzamos».",
   },
   erroresDeCampo: {
     entrar: {
@@ -245,9 +245,9 @@ export const textos = {
       contrasena_actual_incorrecta: "No pudimos confirmar tu contraseña de ahora. Escríbela de nuevo.",
     },
     crearCuenta: {
-      // E14-PCP 4.1 (PN-58)
+      // E14-PCP 4.2 ter (PN-74), errores de campo (antes de PN-58)
       contrasena_vacia: "Falta la contraseña.",
-      // E14-PCP 4.1 (PN-58)
+      // E14-PCP 4.2 ter (PN-74), errores de campo (antes de PN-58)
       nombre_vacio: "Falta el nombre para mostrar.",
       // E14-PCP 4.16 T5 (D-153)
       nombre_largo: "Escribe un nombre de hasta 60 caracteres.",
@@ -384,10 +384,10 @@ export const textos = {
     intentarDeNuevo: "Intentar de nuevo",
     // E14-PCP 4.2 (PN-59); E14-PCP 4.3 (PN-60)
     reenviarElCorreo: "Reenviar el correo",
-    // E14-PCP 4.2 (PN-59); E14-PCP 4.16
-    cambiarElCorreo: "Cambiar el correo",
     // E14-PCP 4.5 (PN-62); E14-PCP 4.15 (PN-73)
     guardarLaContrasena: "Guardar la contraseña",
+    // E14-PCP 4.2 (PN-59); E14-PCP 4.16
+    cambiarElCorreo: "Cambiar el correo",
   },
   campos: {
     correo: {
@@ -425,11 +425,11 @@ export const textos = {
     // E14-PCP 4.1 (PN-58)
     titulo: "Crea tu cuenta",
     // E14-PCP 4.1 (PN-58)
-    intro: "Solo necesitamos tres datos.",
-    // E14-PCP 4.1 (PN-58)
     crear: "Crear cuenta",
     // E14-PCP 4.1 (PN-58)
     yaTengoCuenta: "Ya tengo una cuenta",
+    // E14-PCP 4.1 (PN-58)
+    intro: "Solo necesitamos tres datos.",
     // E14-PCP 4.1 (PN-58)
     nota: "Después de confirmar tu correo verás cómo cuidamos tus datos y decidirás si los autorizas.",
   },
@@ -465,17 +465,17 @@ export const textos = {
     // E14-PCP 4.2 (PN-59)
     titulo: "Revisa tu correo",
     // E14-PCP 4.2 (PN-59)
-    enviadoA: "Te enviamos un enlace a {correo}. Ábrelo para confirmar tu cuenta.",
-    // E14-PCP 4.2 (PN-59)
-    enviado: "Te enviamos un enlace a tu correo. Ábrelo para confirmar tu cuenta.",
-    // E14-PCP 4.2 (PN-59)
     noLlego: "¿No llegó? Mira también en el correo no deseado.",
     // E14-PCP 4.2 (PN-59)
     plazo: "Si no lo confirmas en 7 días, borramos esta cuenta.",
     // E14-PCP 4.2 (PN-59)
+    espera: "Puedes pedir otro en un momento.",
+    // E14-PCP 4.2 (PN-59)
     yaLoConfirme: "Ya lo confirmé",
     // E14-PCP 4.2 (PN-59)
-    espera: "Puedes pedir otro en un momento.",
+    enviadoA: "Te enviamos un enlace a {correo}. Ábrelo para confirmar tu cuenta.",
+    // E14-PCP 4.2 (PN-59)
+    enviado: "Te enviamos un enlace a tu correo. Ábrelo para confirmar tu cuenta.",
   },
   seguridadDeLaCuenta: {
     // E14-PCP 4.14 (PN-71)

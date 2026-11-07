@@ -6,10 +6,6 @@ const sinConexion =
 
 async function llenarCrearCuenta(page: Page, marcar = true) {
   await page.getByLabel("Correo electrónico").fill("laura@ejemplo.com");
-  await page
-    .getByLabel("Contraseña", { exact: true })
-    .fill("lluvia café tren azul");
-  await page.getByLabel("Nombre para mostrar").fill("Laura");
   if (marcar) await page.getByLabel("Soy mayor de edad").check();
 }
 
@@ -34,8 +30,6 @@ test.describe("PN-58 · Crear la cuenta", () => {
         error: "validacion",
         campos: {
           correo: "correo_invalido",
-          contrasena: "contrasena_comun",
-          nombre: "nombre_vacio",
           mayor_de_edad: "mayor_de_edad_requerido",
         },
       }),
@@ -45,7 +39,11 @@ test.describe("PN-58 · Crear la cuenta", () => {
     await expect(
       page.getByText("Falta marcar que eres mayor de edad."),
     ).toBeVisible();
-    await expect(page.getByText("Falta el nombre para mostrar.")).toBeVisible();
+    await expect(
+      page.getByText(
+        "Falta completar el correo. Por ejemplo, nombre@correo.com.",
+      ),
+    ).toBeVisible();
     await expect(page.getByLabel("Correo electrónico")).toBeFocused();
     await expect(page.getByLabel("Correo electrónico")).toHaveAttribute(
       "aria-invalid",
@@ -86,11 +84,33 @@ test.describe("PN-58 · Crear la cuenta", () => {
     await llenarCrearCuenta(page);
     await page.getByRole("button", { name: "Crear cuenta" }).click();
     await expect(page.getByText(sinConexion)).toBeVisible();
-    await expect(page.getByLabel("Nombre para mostrar")).toHaveValue("Laura");
+    await expect(page.getByLabel("Correo electrónico")).toHaveValue(
+      "laura@ejemplo.com",
+    );
     await sinViolaciones(page);
   });
 
-  test("con 202 va a PN-59 con el correo escrito y manda mayor_de_edad", async ({
+  test("pide solo el correo y la casilla, con los textos aprobados de D-176", async ({
+    page,
+  }) => {
+    await page.goto("/crear-cuenta");
+    await expect(page.getByText("Empecemos por tu correo.")).toBeVisible();
+    await expect(
+      page.getByText(
+        "Te enviaremos un enlace para confirmarlo y elegir tu contraseña.",
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByText(
+        "Después de confirmar tu correo elegirás tu contraseña, verás cómo cuidamos tus datos y decidirás si los autorizas.",
+      ),
+    ).toBeVisible();
+    await expect(page.locator("input")).toHaveCount(2);
+    await expect(page.getByLabel("Contraseña")).toHaveCount(0);
+    await expect(page.getByLabel("Nombre para mostrar")).toHaveCount(0);
+  });
+
+  test("con 202 va a PN-59 con el correo escrito y manda solo el correo y mayor_de_edad", async ({
     page,
   }) => {
     const pedidos = await simularApi(page, {
@@ -104,18 +124,17 @@ test.describe("PN-58 · Crear la cuenta", () => {
     await expect(page).toHaveURL(/\/revisa-tu-correo$/);
     await expect(
       page.getByText(
-        "Te enviamos un enlace a laura@ejemplo.com. Ábrelo para confirmar tu cuenta.",
+        "Te enviamos un correo a laura@ejemplo.com. Ábrelo y sigue el enlace para elegir tu contraseña y confirmar tu cuenta.",
       ),
     ).toBeVisible();
+    expect(pedidos).toHaveLength(1);
     expect(pedidos[0]?.cuerpo).toEqual({
       correo: "laura@ejemplo.com",
-      contrasena: "lluvia café tren azul",
-      nombre: "Laura",
       mayor_de_edad: true,
     });
   });
 
-  test("solo con el teclado: de los campos a PN-59", async ({ page }) => {
+  test("solo con el teclado: del correo a PN-59", async ({ page }) => {
     await simularApi(page, {
       "POST /api/v1/cuentas": responder(202, {
         estado: "verificacion_pendiente",
@@ -129,22 +148,6 @@ test.describe("PN-58 · Crear la cuenta", () => {
     await page.keyboard.press("Tab");
     await expect(page.getByLabel("Correo electrónico")).toBeFocused();
     await escribir("laura@ejemplo.com");
-    await page.keyboard.press("Tab");
-    await expect(page.getByLabel("Contraseña", { exact: true })).toBeFocused();
-    await escribir("lluvia café tren azul");
-    await page.keyboard.press("Tab");
-    const ver = page.getByRole("button", { name: "Mostrar la contraseña" });
-    await expect(ver).toBeFocused();
-    await page.keyboard.press("Enter");
-    await expect(
-      page.getByLabel("Contraseña", { exact: true }),
-    ).toHaveAttribute("type", "text");
-    await expect(
-      page.getByRole("button", { name: "Ocultar la contraseña" }),
-    ).toBeFocused();
-    await page.keyboard.press("Tab");
-    await expect(page.getByLabel("Nombre para mostrar")).toBeFocused();
-    await escribir("Laura");
     await page.keyboard.press("Tab");
     await expect(page.getByLabel("Soy mayor de edad")).toBeFocused();
     await page.keyboard.press("Space");
@@ -229,28 +232,29 @@ test.describe("PN-59 · Verificar el correo", () => {
     ).toBe(true);
   });
 
-  test("«Ya lo confirmé» sin confirmar: aviso; confirmado: PN-63", async ({
+  test("no tiene «Ya lo confirmé» ni «Cambiar el correo», y «Usar otro correo» vuelve a PN-58 con lo escrito", async ({
     page,
   }) => {
-    let verificada = false;
-    await simularApi(page, {
-      "GET /api/v1/cuentas/estado": (ruta) =>
-        responder(200, { verificada })(ruta, undefined),
-    });
+    const pedidos = await simularApi(page, {});
     await page.goto("/revisa-tu-correo");
-    await page.getByRole("button", { name: "Ya lo confirmé" }).click();
     await expect(
-      page
-        .getByRole("status")
-        .filter({ hasText: "Todavía no confirmaste tu correo." }),
-    ).toBeFocused();
-    await sinViolaciones(page);
-    verificada = true;
-    await page.getByRole("button", { name: "Ya lo confirmé" }).click();
-    await expect(page).toHaveURL(/\/privacidad$/);
+      page.getByText(
+        "Te enviamos un correo a laura@ejemplo.com. Ábrelo y sigue el enlace para elegir tu contraseña y confirmar tu cuenta.",
+      ),
+    ).toBeVisible();
+    await expect(page.getByText("Ya lo confirmé")).toHaveCount(0);
+    await expect(page.getByText("Cambiar el correo")).toHaveCount(0);
+    // Sin sesión: abrirla no consulta nada al API.
+    expect(pedidos).toEqual([]);
+    await page.getByRole("link", { name: "Usar otro correo" }).click();
+    await expect(page).toHaveURL(/\/crear-cuenta$/);
+    await expect(page.getByLabel("Correo electrónico")).toHaveValue(
+      "laura@ejemplo.com",
+    );
+    await expect(page.getByLabel("Soy mayor de edad")).not.toBeChecked();
   });
 
-  test("«Reenviar el correo»: aviso, 30 s de espera con su texto y luego se libera", async ({
+  test("«Reenviar el correo»: manda el correo sin sesión, avisa, 30 s de espera con su texto y luego se libera", async ({
     page,
   }) => {
     await page.clock.install();
@@ -271,6 +275,7 @@ test.describe("PN-59 · Verificar el correo", () => {
     // Playwright no hace clic en lo aria-disabled salvo con force: es lo que probamos (no hace nada).
     await reenviar.click({ force: true });
     expect(pedidos).toHaveLength(1);
+    expect(pedidos[0]?.cuerpo).toEqual({ correo: "laura@ejemplo.com" });
     await page.clock.fastForward(31_000);
     await expect(reenviar).not.toHaveAttribute("aria-disabled", "true");
     await expect(
@@ -278,7 +283,46 @@ test.describe("PN-59 · Verificar el correo", () => {
     ).toBeHidden();
   });
 
-  test("«Cambiar el correo» (T3): campo en la misma pantalla, error de campo y envío", async ({
+  test("«Reenviar el correo» con 429 (T1): «Hiciste muchos intentos…» con el foco, el botón espera y sin violaciones", async ({
+    page,
+  }) => {
+    await simularApi(page, {
+      "POST /api/v1/cuentas/verificacion/reenvio": responder(429, {
+        error: "demasiados_intentos",
+      }),
+    });
+    await page.goto("/revisa-tu-correo");
+    await page.getByRole("button", { name: "Reenviar el correo" }).click();
+    await expect(
+      page.getByRole("status").filter({ hasText: "Hiciste muchos intentos." }),
+    ).toBeFocused();
+    await expect(
+      page.getByRole("button", { name: "Reenviar el correo" }),
+    ).toHaveAttribute("aria-disabled", "true");
+    await sinViolaciones(page);
+  });
+
+  test("«Reenviar el correo» con error del servidor: «No pudimos enviar el correo.» y sin violaciones", async ({
+    page,
+  }) => {
+    await simularApi(page, {
+      "POST /api/v1/cuentas/verificacion/reenvio": responder(500, {
+        error: "interno",
+      }),
+    });
+    await page.goto("/revisa-tu-correo");
+    await page.getByRole("button", { name: "Reenviar el correo" }).click();
+    await expect(
+      page
+        .getByRole("status")
+        .filter({ hasText: "No pudimos enviar el correo." }),
+    ).toBeFocused();
+    await sinViolaciones(page);
+  });
+});
+
+test.describe("PN-59 sin la dirección (T3 y T4)", () => {
+  test("pide el correo en la misma pantalla, muestra el error de campo y reenvía", async ({
     page,
   }) => {
     let respuesta = responder(422, {
@@ -286,21 +330,27 @@ test.describe("PN-59 · Verificar el correo", () => {
       campos: { correo: "correo_invalido" },
     });
     const pedidos = await simularApi(page, {
-      "POST /api/v1/cuentas/correo": (ruta, cuerpo) => respuesta(ruta, cuerpo),
+      "POST /api/v1/cuentas/verificacion/reenvio": (ruta, cuerpo) =>
+        respuesta(ruta, cuerpo),
     });
     await page.goto("/revisa-tu-correo");
-    await page.getByRole("button", { name: "Cambiar el correo" }).click();
-    await expect(page).toHaveURL(/\/revisa-tu-correo$/);
     await expect(
-      page.getByRole("heading", { level: 1, name: "Revisa tu correo" }),
+      page.getByText(
+        "Te enviamos un correo. Ábrelo y sigue el enlace para elegir tu contraseña y confirmar tu cuenta.",
+      ),
     ).toBeVisible();
+    await sinViolaciones(page);
+    await page.getByRole("button", { name: "Reenviar el correo" }).click();
+    await expect(page).toHaveURL(/\/revisa-tu-correo$/);
     await expect(page.getByLabel("Correo electrónico")).toBeFocused();
     await expect(
-      page.getByText("Te enviaremos un enlace para confirmarlo."),
+      page.getByText(
+        "Te enviaremos un enlace para confirmarlo y elegir tu contraseña.",
+      ),
     ).toBeVisible();
     await sinViolaciones(page);
     await page.getByLabel("Correo electrónico").fill("otro");
-    await page.getByRole("button", { name: "Cambiar el correo" }).click();
+    await page.getByRole("button", { name: "Reenviar el correo" }).click();
     await expect(
       page.getByText(
         "Falta completar el correo. Por ejemplo, nombre@correo.com.",
@@ -310,53 +360,68 @@ test.describe("PN-59 · Verificar el correo", () => {
     await sinViolaciones(page);
     respuesta = responder(202, { estado: "verificacion_pendiente" });
     await page.getByLabel("Correo electrónico").fill("otro@ejemplo.com");
-    await page.getByRole("button", { name: "Cambiar el correo" }).click();
+    await page.getByRole("button", { name: "Reenviar el correo" }).click();
     await expect(
       page.getByText(
-        "Te enviamos un enlace a otro@ejemplo.com. Ábrelo para confirmar tu cuenta.",
+        "Te enviamos un correo a otro@ejemplo.com. Ábrelo y sigue el enlace para elegir tu contraseña y confirmar tu cuenta.",
       ),
     ).toBeVisible();
     expect(pedidos.at(-1)?.cuerpo).toEqual({ correo: "otro@ejemplo.com" });
   });
-
-  test("«Cambiar el correo» con 429 (T1) y «Ya lo confirmé» con 500 (T8): avisos, sin violaciones", async ({
-    page,
-  }) => {
-    await simularApi(page, {
-      "POST /api/v1/cuentas/correo": responder(429, {
-        error: "demasiados_intentos",
-      }),
-      "GET /api/v1/cuentas/estado": responder(500, { error: "interno" }),
-    });
-    await page.goto("/revisa-tu-correo");
-    await page.getByRole("button", { name: "Ya lo confirmé" }).click();
-    await expect(
-      page
-        .getByRole("status")
-        .filter({ hasText: "No pudimos revisar si confirmaste tu correo." }),
-    ).toBeFocused();
-    await sinViolaciones(page);
-    await page.getByRole("button", { name: "Cambiar el correo" }).click();
-    await page.getByLabel("Correo electrónico").fill("otro@ejemplo.com");
-    await page.getByRole("button", { name: "Cambiar el correo" }).click();
-    await expect(
-      page.getByRole("status").filter({ hasText: "Hiciste muchos intentos." }),
-    ).toBeFocused();
-    await sinViolaciones(page);
-  });
 });
 
-test.describe("/verificar?t= · enlace del correo", () => {
-  test("enlace bueno con sesión: va enseguida a PN-63 con «Listo, confirmamos tu correo.» como estado (T11)", async ({
+test.describe("PN-74 · Elige tu contraseña (/verificar?t=)", () => {
+  async function llenarPN74(page: Page, contrasena = "lluvia café tren azul") {
+    await page.getByLabel("Contraseña", { exact: true }).fill(contrasena);
+    await page.getByLabel("Nombre para mostrar").fill("Laura");
+  }
+  const guardar = (page: Page) =>
+    page.getByRole("button", { name: "Guardar la contraseña" }).click();
+
+  test("vacía: textos de E14, Mostrar la contraseña y sin violaciones; abrir el enlace no llama al API", async ({
+    page,
+  }) => {
+    const pedidos = await simularApi(page, {});
+    await page.goto("/verificar?t=abc123");
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Elige tu contraseña" }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(
+        "Un último paso para crear tu cuenta. Elige tu contraseña y dinos cómo quieres que te llamemos.",
+      ),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Mostrar la contraseña" }).click();
+    await expect(
+      page.getByLabel("Contraseña", { exact: true }),
+    ).toHaveAttribute("type", "text");
+    await expect(page.getByLabel("Correo electrónico")).toHaveCount(0);
+    expect(pedidos).toEqual([]);
+    await sinViolaciones(page);
+  });
+
+  test("guardada: PN-58 → PN-59 → enlace → PN-74 → PN-63 con «Listo, confirmamos tu correo.» arriba como role=status (T11)", async ({
     page,
   }) => {
     const pedidos = await simularApi(page, {
+      "POST /api/v1/cuentas": responder(202, {
+        estado: "verificacion_pendiente",
+      }),
       "POST /api/v1/cuentas/verificacion": responder(200, {
-        estado: "verificado",
-        con_sesion: true,
+        estado: "activa",
       }),
     });
+    await page.goto("/crear-cuenta");
+    await llenarCrearCuenta(page);
+    await page.getByRole("button", { name: "Crear cuenta" }).click();
+    await expect(page).toHaveURL(/\/revisa-tu-correo$/);
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Revisa tu correo" }),
+    ).toBeFocused();
+    // La persona abre el enlace del correo.
     await page.goto("/verificar?t=abc123");
+    await llenarPN74(page);
+    await guardar(page);
     await expect(page).toHaveURL(/\/privacidad$/);
     const estado = page.getByRole("status");
     await expect(estado).toHaveText("Listo, confirmamos tu correo.");
@@ -369,24 +434,102 @@ test.describe("/verificar?t= · enlace del correo", () => {
     ]);
     expect(arribaEstado).toBeLessThan(arribaTitulo);
     await sinViolaciones(page);
-    expect(pedidos).toHaveLength(1);
-    expect(pedidos[0]?.cuerpo).toEqual({ token: "abc123" });
+    expect(pedidos.map((p) => `${p.metodo} ${p.ruta}`)).toEqual([
+      "POST /api/v1/cuentas",
+      "POST /api/v1/cuentas/verificacion",
+    ]);
+    expect(pedidos[1]?.cuerpo).toEqual({
+      token: "abc123",
+      contrasena: "lluvia café tren azul",
+      nombre: "Laura",
+    });
   });
 
-  test("enlace bueno sin sesión (otro dispositivo): va enseguida a entrar", async ({
+  test("errores de campo (D-142 y D-192): los dos a la vez, con el foco en la contraseña, lo escrito se conserva y sin violaciones", async ({
     page,
   }) => {
     await simularApi(page, {
-      "POST /api/v1/cuentas/verificacion": responder(200, {
-        estado: "verificado",
-        con_sesion: false,
+      "POST /api/v1/cuentas/verificacion": responder(422, {
+        error: "validacion",
+        campos: { contrasena: "contrasena_personal", nombre: "nombre_largo" },
       }),
     });
     await page.goto("/verificar?t=abc123");
-    await expect(page).toHaveURL(/\/entrar$/);
+    await llenarPN74(page, "laura@ejemplo.com laura");
+    await guardar(page);
+    await expect(
+      page.getByText(
+        "Falta una contraseña que no incluya tu correo ni la palabra «Alcanzamos».",
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Escribe un nombre de hasta 60 caracteres."),
+    ).toBeVisible();
+    await expect(page.getByLabel("Contraseña", { exact: true })).toBeFocused();
+    await expect(
+      page.getByLabel("Contraseña", { exact: true }),
+    ).toHaveAttribute("aria-invalid", "true");
+    await expect(page.getByLabel("Nombre para mostrar")).toHaveValue("Laura");
+    await sinViolaciones(page);
   });
 
-  test("error del servidor (T9): aviso propio, no el del enlace vencido; sin violaciones", async ({
+  // D-192 (c): el API da el mismo 400 enlace_invalido si el enlace venció, ya se usó o lo reemplazó uno nuevo.
+  test("enlace vencido, ya usado o reemplazado: «Ese enlace ya no sirve.» con «Pedir otro enlace» que lleva a PN-58, sin violaciones", async ({
+    page,
+  }) => {
+    await simularApi(page, {
+      "POST /api/v1/cuentas/verificacion": responder(400, {
+        error: "enlace_invalido",
+      }),
+    });
+    await page.goto("/verificar?t=viejo");
+    await llenarPN74(page);
+    await guardar(page);
+    await expect(
+      page.getByRole("status").filter({ hasText: "Ese enlace ya no sirve." }),
+    ).toBeFocused();
+    await expect(page.getByText("Pide uno nuevo.")).toBeVisible();
+    await expect(page.getByLabel("Contraseña")).toHaveCount(0);
+    await expect(
+      page.getByText("No pudimos guardar tu contraseña."),
+    ).toHaveCount(0);
+    await sinViolaciones(page);
+    await page.getByRole("link", { name: "Pedir otro enlace" }).click();
+    await expect(page).toHaveURL(/\/crear-cuenta$/);
+  });
+
+  test("sin token: el mismo estado de enlace vencido, sin llamar al API", async ({
+    page,
+  }) => {
+    const pedidos = await simularApi(page, {});
+    await page.goto("/verificar");
+    await expect(page.getByText("Ese enlace ya no sirve.")).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Pedir otro enlace" }),
+    ).toBeVisible();
+    expect(pedidos).toEqual([]);
+    await sinViolaciones(page);
+  });
+
+  test("429: «Hiciste muchos intentos…» y lo escrito se conserva, sin violaciones", async ({
+    page,
+  }) => {
+    await simularApi(page, {
+      "POST /api/v1/cuentas/verificacion": responder(429, {
+        error: "demasiados_intentos",
+      }),
+    });
+    await page.goto("/verificar?t=abc123");
+    await llenarPN74(page);
+    await guardar(page);
+    await expect(
+      page.getByRole("status").filter({ hasText: "Hiciste muchos intentos." }),
+    ).toBeFocused();
+    await expect(page.getByLabel("Nombre para mostrar")).toHaveValue("Laura");
+    await sinViolaciones(page);
+  });
+
+  test("error del servidor: «No pudimos guardar tu contraseña.», no el del enlace vencido; sin violaciones", async ({
     page,
   }) => {
     await simularApi(page, {
@@ -395,30 +538,51 @@ test.describe("/verificar?t= · enlace del correo", () => {
       }),
     });
     await page.goto("/verificar?t=abc123");
+    await llenarPN74(page);
+    await guardar(page);
     await expect(
-      page.getByText("No pudimos confirmar tu correo."),
+      page.getByText("No pudimos guardar tu contraseña."),
     ).toBeVisible();
     await expect(page.getByText("Ese enlace ya no sirve.")).toBeHidden();
     await sinViolaciones(page);
   });
 
-  test("enlace vencido: aviso de atención y «Reenviar el correo», sin violaciones", async ({
+  test("sin conexión: aviso y lo escrito se conserva", async ({ page }) => {
+    await page.route("**/api/**", (ruta) => ruta.abort("internetdisconnected"));
+    await page.goto("/verificar?t=abc123");
+    await llenarPN74(page);
+    await guardar(page);
+    await expect(page.getByText(sinConexion)).toBeVisible();
+    await expect(page.getByLabel("Nombre para mostrar")).toHaveValue("Laura");
+    await sinViolaciones(page);
+  });
+
+  test("solo con el teclado: contraseña, Mostrar, nombre y Guardar", async ({
     page,
   }) => {
     await simularApi(page, {
-      "POST /api/v1/cuentas/verificacion": responder(400, {
-        error: "enlace_invalido",
-      }),
-      "POST /api/v1/cuentas/verificacion/reenvio": responder(202, {
-        estado: "verificacion_pendiente",
+      "POST /api/v1/cuentas/verificacion": responder(200, {
+        estado: "activa",
       }),
     });
-    await page.goto("/verificar?t=viejo");
-    await expect(page.getByText("Ese enlace ya no sirve.")).toBeVisible();
-    await expect(page.getByText("Pide uno nuevo.")).toBeVisible();
-    await sinViolaciones(page);
-    await page.getByRole("button", { name: "Reenviar el correo" }).click();
-    await expect(page).toHaveURL(/\/revisa-tu-correo$/);
+    await page.goto("/verificar?t=abc123");
+    await expect(page.getByLabel("Nombre para mostrar")).toBeVisible();
+    await page.keyboard.press("Tab");
+    await expect(page.getByLabel("Contraseña", { exact: true })).toBeFocused();
+    await page.keyboard.type("lluvia café tren azul");
+    await page.keyboard.press("Tab");
+    await expect(
+      page.getByRole("button", { name: "Mostrar la contraseña" }),
+    ).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(page.getByLabel("Nombre para mostrar")).toBeFocused();
+    await page.keyboard.type("Laura");
+    await page.keyboard.press("Tab");
+    await expect(
+      page.getByRole("button", { name: "Guardar la contraseña" }),
+    ).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/privacidad$/);
   });
 });
 
