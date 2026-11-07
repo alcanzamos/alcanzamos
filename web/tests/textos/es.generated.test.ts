@@ -46,7 +46,7 @@ describe("formatear (S3: marcadores {nombre})", () => {
     ).toThrow(/faltan \[fecha\] y sobran \[\]/);
     expect(() =>
       // @ts-expect-error faltan los datos de «{correo}»
-      formatear(textos.revisaTuCorreoSinSesion.enviadoA),
+      formatear(textos.revisaTuCorreo.enviadoA),
     ).toThrow(/faltan \[correo\]/);
   });
 
@@ -66,7 +66,7 @@ describe("formatear (S3: marcadores {nombre})", () => {
 
   it("un dato con otro nombre cuenta como uno que falta y otro que sobra", () => {
     expect(() =>
-      formatear(textos.revisaTuCorreoSinSesion.enviadoA, {
+      formatear(textos.revisaTuCorreo.enviadoA, {
         // @ts-expect-error el marcador es «correo», no «mail»
         mail: "laura@ejemplo.com",
       }),

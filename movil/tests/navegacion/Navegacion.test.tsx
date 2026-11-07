@@ -39,15 +39,6 @@ describe('Navegacion: la primera pantalla', () => {
     expect(almacen.guardado.has('sesion')).toBe(false);
   });
 
-  it('con una cuenta sin verificar cae en PN-59, sin la dirección (T4)', async () => {
-    almacen.guardado.set('sesion', 'tk-limitada');
-    instalarFetchFalso(respuestaJson(403, { error: 'verificacion_pendiente' }));
-    await render(<Navegacion />);
-    expect(
-      await screen.findByText('Te enviamos un enlace a tu correo. Ábrelo para confirmar tu cuenta.'),
-    ).toBeOnTheScreen();
-  });
-
   it('con una cuenta sin autorización cae en PN-63', async () => {
     almacen.guardado.set('sesion', 'tk-sin-autorizacion');
     instalarFetchFalso(respuestaJson(403, { error: 'autorizacion_pendiente' }));

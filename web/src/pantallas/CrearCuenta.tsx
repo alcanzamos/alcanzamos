@@ -70,13 +70,13 @@ export function CrearCuenta() {
 
   return (
     <Pagina titulo={textos.crearCuenta.titulo} conLogo>
-      <p>{textos.crearCuentaSoloCorreo.intro}</p>
+      <p>{textos.crearCuenta.intro}</p>
       <form className="formulario" noValidate onSubmit={enviar}>
         {aviso && <Aviso {...aviso} />}
         <CampoDeTexto
           id="correo"
           etiqueta={textos.campos.correo.etiqueta}
-          ayuda={textos.crearCuentaSoloCorreo.ayudaDelCorreo}
+          ayuda={textos.campos.correo.ayuda}
           tipo="email"
           autocompletar="email"
           valor={correo}
@@ -104,7 +104,7 @@ export function CrearCuenta() {
       </BotonEnlace>
       <p className="nota">
         <IconoInformacion />
-        <span>{textos.crearCuentaSoloCorreo.nota}</span>
+        <span>{textos.crearCuenta.nota}</span>
       </p>
     </Pagina>
   );

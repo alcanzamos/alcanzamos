@@ -121,12 +121,6 @@ describe('PN-71 · Seguridad de la cuenta (E14-PCP 4.14)', () => {
       expect(almacen.guardado.has('sesion')).toBe(false);
     });
 
-    it('403 verificacion_pendiente → PN-59', async () => {
-      instalarFetchFalso(respuestaJson(403, { error: 'verificacion_pendiente' }));
-      const navegacion = await mostrar();
-      await waitFor(() => expect(navegacion.dispatch).toHaveBeenCalledWith(reinicio('RevisaTuCorreo')));
-    });
-
     it('403 autorizacion_pendiente → PN-63', async () => {
       instalarFetchFalso(respuestaJson(403, { error: 'autorizacion_pendiente' }));
       const navegacion = await mostrar();

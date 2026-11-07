@@ -289,7 +289,6 @@ describe('PN-69 · Borrar la cuenta (E14-PCP 4.12)', () => {
 
   it.each([
     [401, { error: 'sin_sesion' }, reinicio('Entrar', { llegada: 'sesion_cerrada' })],
-    [403, { error: 'verificacion_pendiente' }, reinicio('RevisaTuCorreo')],
     [403, { error: 'autorizacion_pendiente' }, reinicio('InformacionDePrivacidad')],
   ])('al borrar, %i %j sigue por el acceso negado', async (estado, cuerpo, accion) => {
     const { navegacion } = await abrir(sinHogar, respuestaJson(estado, cuerpo));
@@ -413,8 +412,7 @@ describe('PN-69 · Borrar la cuenta (E14-PCP 4.12)', () => {
 
     it.each([
       [401, { error: 'sin_sesion' }, reinicio('Entrar', { llegada: 'sesion_cerrada' })],
-      [403, { error: 'verificacion_pendiente' }, reinicio('RevisaTuCorreo')],
-      [403, { error: 'autorizacion_pendiente' }, reinicio('InformacionDePrivacidad')],
+        [403, { error: 'autorizacion_pendiente' }, reinicio('InformacionDePrivacidad')],
     ])('%i %j sigue por el acceso negado', async (estado, cuerpo, accion) => {
       instalarFetchFalso(respuestaJson(estado, cuerpo));
       const navegacion = await mostrar();

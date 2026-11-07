@@ -7,13 +7,16 @@ import type { Llegada } from './llegada';
 // `llegada` es el aviso que la pantalla muestra arriba al llegar («Tu sesión se cerró…»): un texto de la lista
 // de `llegada.ts`, nunca el texto mismo ni datos de la persona.
 export type Rutas = {
-  /** PN-60. */
-  Entrar: { llegada?: Llegada } | undefined;
+  /** PN-60. `correo` viene de «Ya elegí mi contraseña» de PN-59 (D-184, provisional hasta I08). */
+  Entrar: { llegada?: Llegada; correo?: string } | undefined;
   /** PN-65: solo se abre desde «Crear una cuenta» de PN-60. */
   Edad: undefined;
-  /** PN-58: solo se abre desde PN-65 y con la edad ya comprobada; `mayorDeEdad` solo puede ser verdadero. */
-  CrearCuenta: { mayorDeEdad: true };
-  /** PN-59: el correo se pasa para mostrarlo; solo vive en la memoria de la pantalla, nunca se guarda. */
+  /**
+   * PN-58: solo se abre desde PN-65 y con la edad ya comprobada; `mayorDeEdad` solo puede ser verdadero. `correo` es lo
+   * que PN-59 devuelve con «Usar otro correo»: solo vive en la memoria, nunca se guarda.
+   */
+  CrearCuenta: { mayorDeEdad: true; correo?: string };
+  /** PN-59, sin sesión: el correo se pasa para mostrarlo y reenviarlo; solo vive en la memoria, nunca se guarda. */
   RevisaTuCorreo: { correo?: string } | undefined;
   /** PN-63, solo el primer uso (sin Atrás); `llegada` es el mensaje de estado de arriba («Listo, confirmamos tu correo.»). */
   InformacionDePrivacidad: { llegada?: Llegada } | undefined;
