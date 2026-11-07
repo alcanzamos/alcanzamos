@@ -146,7 +146,7 @@ func apiDeExportacion(t *testing.T, repo *repoDeExportacionFalso, registro *byte
 	t.Helper()
 	log := slog.New(slog.NewJSONHandler(registro, nil))
 	almacen := almacenFalso{}
-	resolutor := sesion.NuevoResolutor(almacen, nil, &relojtest.Fijo{T: ahoraDePrueba})
+	resolutor := sesion.NuevoResolutor(almacen, &relojtest.Fijo{T: ahoraDePrueba})
 	enr := servidor.NuevoEnrutador(resolutor, seguridad.NuevoRegistro(log), log)
 	cuenta.NuevoHandlerDeExportacion(cuenta.NuevoExportador(repo), log).Registrar(enr)
 	h, err := enr.Construir()

@@ -1,17 +1,16 @@
 import { borrarToken } from '../sesion/token';
 import { pedir } from './cliente';
 
-// Rutas de cuenta y sesión (api/README.md, «Cuenta (US-49)»). Cada función es un pedido; el API valida.
-// `crearCuenta` guarda el token del cuerpo en el Keystore (cliente.ts); la pantalla no lo ve.
+// Rutas de cuenta y sesión (api/README.md, «Cuenta (US-49, US-61)»). Cada función es un pedido; el API valida.
+// Crear una cuenta verifica primero (D-172): PN-58 y PN-59 no tienen sesión, así que ningún pedido de aquí lleva ni
+// guarda un token. La contraseña y el nombre se piden en PN-74, que hasta I08 se abre en el navegador del teléfono (D-155).
 // `mayor_de_edad: true` solo se manda después de PN-65. La fecha de nacimiento no existe en ningún pedido.
-export const crearCuenta = (datos: { correo: string; contrasena: string; nombre: string; mayor_de_edad: true }) =>
-  pedir('POST', '/api/v1/cuentas', datos);
 
-export const estadoDeLaCuenta = () => pedir<{ verificada: boolean }>('GET', '/api/v1/cuentas/estado');
+/** PN-58: pide la verificación del correo. Responde siempre igual, con o sin cuenta, y nunca da sesión. */
+export const crearCuenta = (datos: { correo: string; mayor_de_edad: true }) => pedir('POST', '/api/v1/cuentas', datos);
 
-export const reenviarCorreo = () => pedir('POST', '/api/v1/cuentas/verificacion/reenvio');
-
-export const cambiarCorreo = (correo: string) => pedir('POST', '/api/v1/cuentas/correo', { correo });
+/** PN-59, «Reenviar el correo»: público, por la dirección escrita; el API no crea cuentas aquí. */
+export const reenviarCorreo = (correo: string) => pedir('POST', '/api/v1/cuentas/verificacion/reenvio', { correo });
 
 /**
  * Cierra la sesión en el API y borra el token del Keystore. Solo la falta de conexión deja el token y la sesión:

@@ -41,7 +41,7 @@ func TestElFalloEsIgualYArgon2idCorreUnaVezEnCadaCaso(t *testing.T) {
 func TestIniciarSesionConLaContrasenaCorrecta(t *testing.T) {
 	e := nuevoEntorno(t)
 	s, err := e.svc.IniciarSesion(context.Background(), "  Laura@Ejemplo.TEST ", claveDePrueba, "203.0.113.7")
-	if err != nil || !s.Verificada {
+	if err != nil || s.Token == "" {
 		t.Fatalf("%+v, %v", s, err)
 	}
 	if e.hasher.verificadas != 1 {
@@ -60,10 +60,18 @@ func TestIniciarSesionConLaContrasenaCorrecta(t *testing.T) {
 	if s2.Token == s.Token {
 		t.Error("el token debe ser nuevo en cada inicio de sesión")
 	}
-	// La cuenta sin verificar entra con la sesión limitada.
-	sv, err := e.svc.IniciarSesion(context.Background(), "sinverificar@ej.test", claveDePrueba, "203.0.113.7")
-	if err != nil || sv.Verificada {
-		t.Errorf("sin verificar: %+v, %v", sv, err)
+}
+
+// D-172 (3): una cuenta sin verificar no tiene contraseña y no entra, ni con la que fuera: es lo mismo que una cuenta que
+// no existe (mismo error, Argon2id una vez, sin sesión).
+func TestUnaCuentaSinVerificarNoEntra(t *testing.T) {
+	e := nuevoEntorno(t)
+	_, err := e.svc.IniciarSesion(context.Background(), "sinverificar@ej.test", claveDePrueba, "203.0.113.7")
+	if !errors.Is(err, autenticacion.ErrCredencialesInvalidas) {
+		t.Fatalf("error %v", err)
+	}
+	if e.hasher.verificadas != 1 || len(e.repo.sesiones) != 0 {
+		t.Errorf("Argon2id %d veces, sesiones %d", e.hasher.verificadas, len(e.repo.sesiones))
 	}
 }
 
@@ -166,7 +174,7 @@ func TestFallarAlSubirElHashNoImpideEntrar(t *testing.T) {
 	}
 	e.hasher.falloHashear = errors.New("sin memoria") // después del hash de relleno
 	s, err := svc.IniciarSesion(context.Background(), "viejo@ej.test", claveDePrueba, "203.0.113.7")
-	if err != nil || s.Token == "" || !s.Verificada {
+	if err != nil || s.Token == "" {
 		t.Fatalf("%+v, %v", s, err)
 	}
 	if len(e.repo.sesiones) != 1 || e.repo.mejoras[0] != nil {

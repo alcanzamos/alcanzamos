@@ -13,12 +13,12 @@ const (
 	CodigoTipoNoPermitido      = "tipo_de_contenido_no_permitido"
 )
 
-// DefensaCSRF envuelve un POST con la defensa de E17 3.15 (D-173, D-174, D-175), en este orden:
-// (a) si viene `Sec-Fetch-Site`, solo se acepta `same-origin`; (b) si no viene pero viene `Origin`, tiene que ser el de
+// DefensaCSRF envuelve un pedido que cambia algo (POST, PUT o DELETE) con la defensa de E17 3.15 (D-173, D-174, D-175,
+// D-194), en este orden: (a) si viene `Sec-Fetch-Site`, solo se acepta `same-origin`; (b) si no viene pero viene `Origin`, tiene que ser el de
 // `urlPublica`; (c) si no viene ninguna de las dos, es el cliente Android y exige `Authorization: Bearer` o
 // `X-Alcanzamos-Cliente`; lo incumplido responde 403 sin llamar al manejador. (d) El cuerpo exige
 // `Content-Type: application/json` (con o sin cuerpo), y otro tipo responde 415. Con `urlPublica` vacía o inválida,
-// ningún `Origin` vale: ante la duda se niega. El Enrutador la aplica solo a todo POST que registra.
+// ningún `Origin` vale: ante la duda se niega. El Enrutador la aplica a todo método que no sea GET.
 func DefensaCSRF(urlPublica string, siguiente http.Handler) http.Handler {
 	origen := origenDe(urlPublica)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

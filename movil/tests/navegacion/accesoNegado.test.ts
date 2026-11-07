@@ -8,7 +8,6 @@ const reinicio = (nombre: string, params?: object) =>
 describe('seguirPorAccesoNegado (api/README.md, «las de /api/ que piden sesión»)', () => {
   it.each([
     [401, 'sin_sesion', reinicio('Entrar', { llegada: 'sesion_cerrada' })],
-    [403, 'verificacion_pendiente', reinicio('RevisaTuCorreo', undefined)],
     [403, 'autorizacion_pendiente', reinicio('InformacionDePrivacidad', undefined)],
   ])('%s %s lleva a la pantalla que corresponde', (estado, codigo, accion) => {
     const dispatch = jest.fn();
@@ -19,6 +18,7 @@ describe('seguirPorAccesoNegado (api/README.md, «las de /api/ que piden sesión
   it.each([
     [400, 'solicitud_invalida'],
     [403, 'otro_codigo'],
+    [403, 'verificacion_pendiente'],
     [422, 'validacion'],
     [429, 'demasiados_intentos'],
     [500, 'desconocido'],

@@ -87,17 +87,13 @@ describe('flujo de entrar, ver la seguridad, cambiar la contraseña y salir', ()
     expect(screen.getByText('Tu último ingreso')).toBeOnTheScreen();
   });
 
-  it('una cuenta sin verificar entra a PN-59 y de ahí el Atrás sale de la app', async () => {
-    instalarFetchFalso(respuestaJson(200, { estado: 'verificacion_pendiente', token: 'tk-limitada' }));
+  it('una cuenta sin verificar no entra: se queda en PN-60 con «No pudimos entrar con esos datos.» y sin token (D-172)', async () => {
+    instalarFetchFalso(respuestaJson(401, { error: 'credenciales_invalidas' }));
     await render(<Navegacion />);
     await entrarConLaura();
-    expect(
-      await screen.findByText('Te enviamos un enlace a laura@ejemplo.com. Ábrelo para confirmar tu cuenta.'),
-    ).toBeOnTheScreen();
-    expect(almacen.guardado.get('sesion')).toBe('tk-limitada');
-    await act(async () => {
-      expect(atras()).toBe(false);
-    });
+    expect(await screen.findByText('No pudimos entrar con esos datos.')).toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: 'Inicia sesión' })).toBeOnTheScreen();
+    expect(almacen.guardado.has('sesion')).toBe(false);
   });
 
   it('una sesión que se vence mientras se usa lleva a PN-60 con «Tu sesión se cerró»', async () => {

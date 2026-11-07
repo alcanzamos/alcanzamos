@@ -87,7 +87,7 @@ describe('ningún texto de movil/src está fuera del módulo generado', () => {
     const codigo = [
       "export const a = 'Cerrar sesión';",
       'export const b = <Text>Falta el correo electrónico.</Text>;',
-      'export const c = `Te enviamos un enlace a ${x}. Ábrelo para confirmar tu cuenta.`;',
+      'export const c = `Te enviamos un correo a ${x}. Ábrelo y sigue el enlace para elegir tu contraseña y confirmar tu cuenta.`;',
       "export const d = 'flex-start';",
     ].join('\n');
     // La plantilla da dos trozos: el principio y el final.

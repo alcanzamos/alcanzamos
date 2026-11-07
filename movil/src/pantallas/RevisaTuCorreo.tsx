@@ -1,14 +1,12 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useRef, useState } from 'react';
 import type { TextInputInstance } from 'react-native';
-import type { Respuesta } from '../api/cliente';
-import { cambiarCorreo, estadoDeLaCuenta, reenviarCorreo } from '../api/cuentas';
+import { reenviarCorreo } from '../api/cuentas';
 import { Aviso } from '../componentes/Aviso';
 import { Boton, BotonDeTexto } from '../componentes/Boton';
 import { CampoDeTexto } from '../componentes/CampoDeTexto';
 import { Pantalla } from '../componentes/Pantalla';
 import { Nota, Texto } from '../componentes/Texto';
-import { seguirPorAccesoNegado } from '../navegacion/accesoNegado';
 import { reemplazarPila } from '../navegacion/llegada';
 import type { Rutas } from '../navegacion/rutas';
 import { avisoDeFallo, avisos, textoDeErrorDeCampo, type DatosDeAviso } from '../textos';
@@ -19,13 +17,15 @@ export const ESPERA_MS = 30_000;
 
 type Pantalla59 = NativeStackScreenProps<Rutas, 'RevisaTuCorreo'>;
 
-// PN-59 · Verificar el correo (E14-PCP 4.2). La cuenta sigue con su sesión limitada (D-138). El enlace del correo abre la
-// web en el navegador del teléfono (D-155): esta pantalla no sabe nada del enlace; la persona vuelve y toca «Ya lo confirmé».
-// «Cambiar el correo» abre en la misma pantalla un campo con la etiqueta, la ayuda y los errores de PN-58 (4.16 T3):
-// volver a PN-58 crearía otra cuenta (D-141).
+// PN-59 · Revisa tu correo (E14-PCP 4.2, D-172). No tiene sesión: no consulta nada al abrirse y no hay «Ya lo confirmé»,
+// porque el enlace abre PN-74 y ahí empieza la sesión. Hasta I08 (App Links, D-155) ese enlace abre la web en el navegador
+// del teléfono, no la app; por eso el botón provisional «Ya elegí mi contraseña» (D-184) abre PN-60 con el correo escrito.
+// Está siempre visible y no consulta al API: así no revela si el correo tiene cuenta. «Reenviar el correo» llama al
+// reenvío público con la dirección que PN-58 pasó; si la pantalla no la tiene la pide aquí mismo con el campo, la ayuda y
+// los errores de PN-58 (4.16 T3). «Usar otro correo» vuelve a PN-58 con lo escrito.
 export function RevisaTuCorreo({ navigation, route }: Pantalla59) {
   const [correo, setCorreo] = useState(route.params?.correo);
-  const [cambiando, setCambiando] = useState(false);
+  const [pidiendoCorreo, setPidiendoCorreo] = useState(false);
   const [nuevoCorreo, setNuevoCorreo] = useState('');
   const [errorDeCorreo, setErrorDeCorreo] = useState<string>();
   const [aviso, setAviso] = useState<DatosDeAviso | null>(null);
@@ -42,84 +42,45 @@ export function RevisaTuCorreo({ navigation, route }: Pantalla59) {
     temporizador.current = setTimeout(() => setEnEspera(false), ESPERA_MS);
   }
 
-  // Fallos que no dependen de la acción: la cuenta ya está verificada o la sesión se perdió.
-  function siguePorFallo(respuesta: Extract<Respuesta<unknown>, { ok: false }>) {
-    if (respuesta.codigo === 'ya_verificada') {
-      reemplazarPila(navigation, 'InformacionDePrivacidad', { llegada: 'correo_confirmado' });
-      return true;
-    }
-    return seguirPorAccesoNegado(navigation, respuesta);
-  }
-
-  async function yaLoConfirme() {
+  async function reenviar(direccion: string) {
     if (ocupado) return;
     setOcupado(true);
-    const respuesta = await estadoDeLaCuenta();
+    const respuesta = await reenviarCorreo(direccion);
     setOcupado(false);
     if (respuesta.ok) {
-      // Con el correo confirmado sigue PN-63 con «Listo, confirmamos tu correo.»
-      if (respuesta.cuerpo.verificada)
-        reemplazarPila(navigation, 'InformacionDePrivacidad', { llegada: 'correo_confirmado' });
-      else setAviso(avisos.sinConfirmarTodavia);
-    } else if (!siguePorFallo(respuesta)) {
-      setAviso(avisoDeFallo(respuesta, avisos.errorAlRevisarElCorreo));
-    }
-  }
-
-  async function reenviar() {
-    if (ocupado) return;
-    setOcupado(true);
-    const respuesta = await reenviarCorreo();
-    setOcupado(false);
-    if (respuesta.ok) {
-      esperar();
-      setAviso(avisos.correoReenviado);
-    } else if (respuesta.estado === 429) {
-      // La espera corta y los límites de la hora comparten texto: «Puedes pedir otro en un momento.»
-      esperar();
-      setAviso(null);
-    } else if (!siguePorFallo(respuesta)) {
-      setAviso(avisoDeFallo(respuesta, avisos.errorAlEnviarCorreo));
-    }
-  }
-
-  async function guardarNuevoCorreo() {
-    if (ocupado) return;
-    setOcupado(true);
-    const respuesta = await cambiarCorreo(nuevoCorreo);
-    setOcupado(false);
-    if (respuesta.ok) {
-      setCorreo(nuevoCorreo);
+      setCorreo(direccion);
+      setPidiendoCorreo(false);
       setErrorDeCorreo(undefined);
-      setCambiando(false);
       esperar();
       setAviso(avisos.correoReenviado);
       return;
     }
-    if (siguePorFallo(respuesta)) return;
+    // La espera de 30 segundos y los límites de la hora dan el mismo 429: «Hiciste muchos intentos…» (4.16 T1) y el
+    // botón espera lo corto de todos modos.
+    if (respuesta.estado === 429) esperar();
     const texto =
-      respuesta.codigo === 'validacion' ? textoDeErrorDeCampo(respuesta.campos.correo ?? '', 'correo') : undefined;
+      pidiendoCorreo && respuesta.codigo === 'validacion'
+        ? textoDeErrorDeCampo(respuesta.campos.correo ?? '', 'correo')
+        : undefined;
     setErrorDeCorreo(texto);
     setAviso(texto ? null : avisoDeFallo(respuesta, avisos.errorAlEnviarCorreo));
     if (texto) campoDeCorreo.current?.focus();
   }
 
+  function alTocarReenviar() {
+    if (correo) void reenviar(correo);
+    else setPidiendoCorreo(true);
+  }
+
+  const conCorreo = correo ? { correo } : undefined;
+
   return (
     <Pantalla titulo={textos.revisaTuCorreo.titulo}>
-      <Texto>
-        {correo ? formatear(textos.revisaTuCorreo.enviadoA, { correo }) : textos.revisaTuCorreo.enviado}
-      </Texto>
+      <Texto>{correo ? formatear(textos.revisaTuCorreo.enviadoA, { correo }) : textos.revisaTuCorreo.enviado}</Texto>
       <Nota>{textos.revisaTuCorreo.noLlego}</Nota>
       <Texto variante="ayuda">{textos.revisaTuCorreo.plazo}</Texto>
       {aviso && <Aviso {...aviso} />}
-      <Boton deshabilitado={ocupado} alTocar={() => void yaLoConfirme()}>
-        {textos.revisaTuCorreo.yaLoConfirme}
-      </Boton>
-      <Boton variante="secundario" deshabilitado={enEspera || ocupado} alTocar={() => void reenviar()}>
-        {textos.acciones.reenviarElCorreo}
-      </Boton>
-      {enEspera && <Texto variante="ayuda">{textos.revisaTuCorreo.espera}</Texto>}
-      {cambiando ? (
+      {pidiendoCorreo ? (
         <>
           <CampoDeTexto
             ref={campoDeCorreo}
@@ -131,13 +92,22 @@ export function RevisaTuCorreo({ navigation, route }: Pantalla59) {
             alCambiar={setNuevoCorreo}
             error={errorDeCorreo}
           />
-          <Boton deshabilitado={ocupado} alTocar={() => void guardarNuevoCorreo()}>
-            {textos.acciones.cambiarElCorreo}
+          <Boton deshabilitado={enEspera || ocupado} alTocar={() => void reenviar(nuevoCorreo)}>
+            {textos.acciones.reenviarElCorreo}
           </Boton>
         </>
       ) : (
-        <BotonDeTexto alTocar={() => setCambiando(true)}>{textos.acciones.cambiarElCorreo}</BotonDeTexto>
+        <Boton variante="secundario" deshabilitado={enEspera || ocupado} alTocar={alTocarReenviar}>
+          {textos.acciones.reenviarElCorreo}
+        </Boton>
       )}
+      {enEspera && <Texto variante="ayuda">{textos.revisaTuCorreo.espera}</Texto>}
+      <BotonDeTexto alTocar={() => reemplazarPila(navigation, 'Entrar', conCorreo)}>
+        {textos.revisaTuCorreo.yaEligiMiContrasena}
+      </BotonDeTexto>
+      <BotonDeTexto alTocar={() => reemplazarPila(navigation, 'CrearCuenta', { mayorDeEdad: true, ...conCorreo })}>
+        {textos.acciones.usarOtroCorreo}
+      </BotonDeTexto>
     </Pantalla>
   );
 }

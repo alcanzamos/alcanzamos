@@ -12,9 +12,11 @@ const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crear
 const reinicio = (nombre: string, params?: object) =>
   CommonActions.reset({ index: 0, routes: [{ name: nombre, params }] });
 
-async function mostrar(llegada?: 'sesion_cerrada' | 'correo_confirmado' | 'contrasena_recuperada') {
+async function mostrar(llegada?: 'sesion_cerrada' | 'correo_confirmado' | 'contrasena_recuperada', correo?: string) {
   const navegacion = navegacionFalsa();
-  await render(<Entrar {...propiedades('Entrar', navegacion, llegada ? { llegada } : undefined)} />);
+  await render(
+    <Entrar {...propiedades('Entrar', navegacion, llegada || correo ? { llegada, correo } : undefined)} />,
+  );
   return navegacion;
 }
 
@@ -63,6 +65,19 @@ describe('PN-60 · Iniciar sesión, Android (E14-PCP 4.3)', () => {
     expect(navegacion.navigate).toHaveBeenCalledWith('Edad');
   });
 
+  describe('con el correo que trae PN-59 («Ya elegí mi contraseña», D-184)', () => {
+    it('el campo del correo viene escrito y la contraseña vacía', async () => {
+      await mostrar(undefined, 'laura@ejemplo.com');
+      expect(screen.getByLabelText('Correo electrónico').props.value).toBe('laura@ejemplo.com');
+      expect(screen.getByLabelText('Contraseña').props.value).toBe('');
+    });
+
+    it('sin correo el campo viene vacío', async () => {
+      await mostrar();
+      expect(screen.getByLabelText('Correo electrónico').props.value).toBe('');
+    });
+  });
+
   describe('mensaje de estado de la llegada', () => {
     it.each([
       ['sesion_cerrada', 'Tu sesión se cerró. Entra de nuevo.'],
@@ -108,15 +123,23 @@ describe('PN-60 · Iniciar sesión, Android (E14-PCP 4.3)', () => {
       expect(almacen.guardado.get('sesion')).toBe('tk-activa');
     });
 
-    it('con la cuenta sin verificar (sesión limitada) sigue a PN-59 con el correo escrito (D-138)', async () => {
-      instalarFetchFalso(respuestaJson(200, { estado: 'verificacion_pendiente', token: 'tk-limitada' }));
+    it('una cuenta sin verificar no entra: el 401 es el de una contraseña errónea, sin decir que falta confirmar el correo (D-172)', async () => {
+      instalarFetchFalso(respuestaJson(401, { error: 'credenciales_invalidas' }));
       const navegacion = await mostrar();
       await llenar();
       await entrar();
-      await waitFor(() =>
-        expect(navegacion.dispatch).toHaveBeenCalledWith(reinicio('RevisaTuCorreo', { correo: 'laura@ejemplo.com' })),
-      );
-      expect(almacen.guardado.get('sesion')).toBe('tk-limitada');
+      expect(await screen.findByText('No pudimos entrar con esos datos.')).toBeOnTheScreen();
+      expect(screen.getByText('Revisa lo que escribiste e intenta de nuevo.')).toBeOnTheScreen();
+      expect(navegacion.dispatch).not.toHaveBeenCalled();
+      expect(almacen.guardado.has('sesion')).toBe(false);
+    });
+
+    it('ya no hay sesión limitada: un 200 con otro estado igual sigue a PN-71 y no a PN-59', async () => {
+      instalarFetchFalso(respuestaJson(200, { estado: 'verificacion_pendiente', token: 'tk' }));
+      const navegacion = await mostrar();
+      await llenar();
+      await entrar();
+      await waitFor(() => expect(navegacion.dispatch).toHaveBeenCalledWith(reinicio('SeguridadDeLaCuenta')));
     });
 
     it('un segundo toque mientras envía no repite el pedido', async () => {

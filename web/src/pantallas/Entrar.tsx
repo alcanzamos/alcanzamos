@@ -5,7 +5,6 @@ import { Boton, BotonEnlace } from "../componentes/Boton";
 import { CampoDeContrasena } from "../componentes/CampoDeContrasena";
 import { CampoDeTexto } from "../componentes/CampoDeTexto";
 import { Pagina } from "../componentes/Pagina";
-import { guardarCorreo } from "../correoPendiente";
 import { useFocoPendiente } from "../enfoque";
 import { navegar } from "../enrutador";
 import { avisoDeLlegada } from "../llegada";
@@ -47,12 +46,9 @@ export function Entrar() {
     });
     setEnviando(false);
     if (respuesta.ok) {
-      // La cuenta sin verificar tiene una sesión limitada: sigue a PN-59 (D-138). Si no hay autorización,
+      // Una cuenta sin verificar no entra (D-172): recibe el 401 de una contraseña errónea. Si no hay autorización,
       // la pantalla de destino lo descubre y sigue a PN-63.
-      if (respuesta.cuerpo.estado === "verificacion_pendiente") {
-        guardarCorreo(correo);
-        navegar("/revisa-tu-correo");
-      } else navegar(DESTINO_ACTIVA, true);
+      navegar(DESTINO_ACTIVA, true);
       return;
     }
     const delCampo: Record<string, string> = {};

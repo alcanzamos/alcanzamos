@@ -17,15 +17,16 @@ describe('textoDeErrorDeCampo (E14-PCP 4.1, 4.3, 4.5 y 4.15)', () => {
   it.each([
     ['correo_vacio', 'Falta el correo electrónico.'],
     ['correo_invalido', 'Falta completar el correo. Por ejemplo, nombre@correo.com.'],
-    ['contrasena_vacia', 'Falta la contraseña.'],
-    ['contrasena_corta', 'Falta que la contraseña tenga al menos 15 caracteres.'],
-    ['contrasena_comun', 'Falta una contraseña que no sea tan común. Prueba con una frase de tres o cuatro palabras.'],
-    ['contrasena_personal', 'Falta una contraseña que no incluya tu correo ni el nombre de la app.'],
-    ['nombre_vacio', 'Falta el nombre para mostrar.'],
-    ['nombre_largo', 'Escribe un nombre de hasta 60 caracteres.'],
   ])('PN-58: %s', (codigo, texto) => {
     expect(textoDeErrorDeCampo(codigo)).toBe(texto);
   });
+
+  it.each(['contrasena_vacia', 'contrasena_corta', 'contrasena_comun', 'contrasena_personal', 'nombre_vacio', 'nombre_largo'])(
+    'PN-58 ya no pide la contraseña ni el nombre (D-172, pasaron a PN-74): %s no tiene texto aquí',
+    (codigo) => {
+      expect(textoDeErrorDeCampo(codigo)).toBeUndefined();
+    },
+  );
 
   it.each([
     ['identificador_vacio', 'Falta el correo electrónico.'],
@@ -38,7 +39,7 @@ describe('textoDeErrorDeCampo (E14-PCP 4.1, 4.3, 4.5 y 4.15)', () => {
     ['contrasena_vacia', 'Falta la contraseña nueva.'],
     ['contrasena_corta', 'Falta que la contraseña tenga al menos 15 caracteres.'],
     ['contrasena_comun', 'Falta una contraseña que no sea tan común. Prueba con una frase de tres o cuatro palabras.'],
-    ['contrasena_personal', 'Falta una contraseña que no incluya tu correo ni el nombre de la app.'],
+    ['contrasena_personal', 'Falta una contraseña que no incluya tu correo ni la palabra «Alcanzamos».'],
   ])('PN-62 y PN-73 (contraseña nueva): %s', (codigo, texto) => {
     expect(textoDeErrorDeCampo(codigo, 'contrasenaNueva')).toBe(texto);
   });
@@ -100,8 +101,6 @@ describe('avisos', () => {
       titulo: 'No pudimos iniciar tu sesión.',
       mensaje: 'El problema es de nuestro lado. Intenta de nuevo en un momento.',
     });
-    expect(avisos.errorAlRevisarElCorreo.titulo).toBe('No pudimos revisar si confirmaste tu correo.');
-    expect(avisos.errorAlConfirmarElCorreo.titulo).toBe('No pudimos confirmar tu correo.');
     expect(avisos.correoConfirmado).toEqual({ tipo: 'logro', titulo: 'Listo, confirmamos tu correo.' });
   });
 

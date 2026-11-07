@@ -117,7 +117,7 @@ describe("PN-73 · Cambiar la contraseña", () => {
     ],
     [
       "contrasena_personal",
-      "Falta una contraseña que no incluya tu correo ni el nombre de la app.",
+      "Falta una contraseña que no incluya tu correo ni la palabra «Alcanzamos».",
     ],
   ])(
     "la nueva con %s da su texto y el foco va a la nueva",
@@ -179,7 +179,6 @@ describe("PN-73 · Cambiar la contraseña", () => {
 
   it.each([
     [401, { error: "sin_sesion" }, "/entrar"],
-    [403, { error: "verificacion_pendiente" }, "/revisa-tu-correo"],
     [403, { error: "autorizacion_pendiente" }, "/privacidad"],
   ])("%i %j lleva a %s", async (estado, cuerpo, destino) => {
     simularApi(() => json(estado, cuerpo));

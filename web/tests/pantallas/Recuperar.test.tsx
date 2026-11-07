@@ -107,7 +107,7 @@ describe("PN-62 · Elegir la contraseña nueva", () => {
     ],
     [
       "contrasena_personal",
-      "Falta una contraseña que no incluya tu correo ni el nombre de la app.",
+      "Falta una contraseña que no incluya tu correo ni la palabra «Alcanzamos».",
     ],
   ])(
     "el código %s se muestra con su texto y conserva lo escrito",

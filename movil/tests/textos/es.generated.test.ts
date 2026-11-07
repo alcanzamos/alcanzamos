@@ -29,7 +29,7 @@ describe('formatear (S3: marcadores {nombre})', () => {
 
   it('pone cada dato en su marcador', () => {
     expect(formatear(textos.revisaTuCorreo.enviadoA, { correo: 'laura@ejemplo.com' })).toBe(
-      'Te enviamos un enlace a laura@ejemplo.com. Ábrelo para confirmar tu cuenta.',
+      'Te enviamos un correo a laura@ejemplo.com. Ábrelo y sigue el enlace para elegir tu contraseña y confirmar tu cuenta.',
     );
     expect(formatear(ingresoAnterior, { fecha: '14 de mayo de 1990' })).toBe('Tu ingreso anterior fue 14 de mayo de 1990');
   });

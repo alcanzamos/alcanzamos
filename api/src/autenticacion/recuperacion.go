@@ -94,8 +94,9 @@ func (s *Servicio) Iniciar(ctx context.Context) {
 func (s *Servicio) Esperar() { s.recuperaciones.pendientes.Wait() }
 
 // procesarRecuperacion hace lo que antes hacía el pedido: si la cuenta existe y su correo está verificado, invalida
-// los enlaces pendientes y guarda uno nuevo (1 hora); si la dirección no pasó los 3 correos por hora (D-140), no manda
-// nada. Con cuenta sin verificar o sin cuenta no hace nada. Un correo perdido (cola llena, fallo del envío, apagado) se
+// los enlaces pendientes, guarda uno nuevo (1 hora) y manda el correo. No pasa por el límite de 3 correos por hora de la
+// verificación, los reenvíos y el aviso: la recuperación tiene el suyo, 3 por hora por cuenta y 20 por origen, que ya
+// contó el pedido (D-172 (7), A-17). Con cuenta sin verificar o sin cuenta no hace nada. Un correo perdido (cola llena, fallo del envío, apagado) se
 // recupera pidiéndolo otra vez. El registro nunca lleva la dirección ni el token.
 func (s *Servicio) procesarRecuperacion(ctx context.Context, t trabajoDeRecuperacion) {
 	// El trabajo en curso termina aunque el servidor se esté apagando.
@@ -109,10 +110,6 @@ func (s *Servicio) procesarRecuperacion(ctx context.Context, t trabajoDeRecupera
 		return
 	}
 	if !hay {
-		return
-	}
-	if !s.d.Limitador.PermitirCorreo(t.destino) {
-		s.d.Log.InfoContext(ctx, "correo no enviado: límite por dirección", "correo", "recuperación")
 		return
 	}
 	if err := s.d.Correo.EnviarRecuperacion(ctx, t.destino, token); err != nil {

@@ -17,7 +17,7 @@ const (
 	FallosPorOrigen  = 20
 	VentanaDeIngreso = 15 * time.Minute
 
-	// Pedidos de recuperación del acceso y reenvíos de verificación (D-136, D-138): por hora.
+	// Pedidos de recuperación del acceso y reenvíos de verificación (D-136, D-172 (4)): por hora.
 	EnlacesPorCuenta = 3
 	EnlacesPorOrigen = 20
 
@@ -28,7 +28,7 @@ const (
 	// otro en un momento.»). Son 30 segundos: D-143 (5) los documenta en E14-PCP 4.2 (v1.12, nota del 2026-10-22).
 	EsperaCortaDeReenvio = 30 * time.Second
 
-	// Correos a una misma dirección de destino (D-140), sumando verificación, reenvíos y el aviso de D-141.
+	// Correos a una misma dirección de destino (D-140), sumando verificación, reenvíos y el aviso de que alguien intentó crear una cuenta con el correo (D-172 (2)).
 	CorreosPorDestino = 3
 
 	VentanaPorHora = time.Hour
@@ -92,10 +92,10 @@ func (l *LimitadorDeIntentos) PermitirRecuperacion(identificador, origen string)
 	return l.permitirDos("recuperacion", identificador, origen)
 }
 
-// PermitirReenvio cuenta un reenvío del correo de verificación o un cambio de correo, y dice si pasa: la espera corta
-// de PN-59 desde el último de la cuenta, 3 por hora por cuenta y 20 por origen, las cifras de la recuperación (D-138 (2))
-// pero con su propio contador. Solo cuenta si pasan las tres. «cuenta» es la persona o, para la sesión de mentira de
-// D-141, su token: los dos se limitan igual, así el 429 no los distingue.
+// PermitirReenvio cuenta un reenvío del correo de verificación (PN-59), y dice si pasa: la espera corta de 30 segundos
+// desde el último a la misma dirección, 3 por hora por dirección y 20 por origen, las cifras de la recuperación pero con
+// su propio contador (D-172 (4)). Solo cuenta si pasan las tres. «cuenta» es la dirección escrita, tenga cuenta o no, así
+// el 429 no delata nada.
 func (l *LimitadorDeIntentos) PermitirReenvio(cuenta, origen string) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()

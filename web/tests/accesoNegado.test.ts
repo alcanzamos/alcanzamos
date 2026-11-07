@@ -13,13 +13,6 @@ describe("acceso negado", () => {
     expect(avisoDeLlegada()).toBe(avisos.sesionCerrada);
   });
 
-  it("403 verificacion_pendiente lleva a PN-59", () => {
-    expect(seguirPorAccesoNegado(fallo(403, "verificacion_pendiente"))).toBe(
-      true,
-    );
-    expect(window.location.pathname).toBe("/revisa-tu-correo");
-  });
-
   it("403 autorizacion_pendiente lleva a PN-63", () => {
     expect(seguirPorAccesoNegado(fallo(403, "autorizacion_pendiente"))).toBe(
       true,
@@ -31,6 +24,8 @@ describe("acceso negado", () => {
     fallo(500, "interno"),
     fallo(429, "demasiados_intentos"),
     fallo(403, "otro"),
+    // D-172: una cuenta sin verificar no tiene sesión; PN-59 ya no es destino de ningún acceso negado.
+    fallo(403, "verificacion_pendiente"),
     fallo(0, "sin_conexion"),
   ])("lo demás no mueve a nadie", (respuesta) => {
     expect(seguirPorAccesoNegado(respuesta)).toBe(false);
