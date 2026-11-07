@@ -69,3 +69,27 @@ export function corregirMovimiento(s: Solicitud, original: Movimiento) {
     `{"monto_centavos":${s.montoCentavos},${resto.slice(1)}`,
   );
 }
+
+/** Lo que el sistema entendió de un texto: no se guarda, la persona lo revisa en «Revisa y confirma» (RN-001). */
+type Propuesta = {
+  tipo: Tipo;
+  /** `null` si la que sugiere el motor no es una que la persona ve (RN-011): elige ella. */
+  categoria: { id: number; nombre: string } | null;
+  fecha: string;
+  /** Solo se propone el primero (D-077). */
+  varios_movimientos: boolean;
+};
+
+export type Interpretacion =
+  | ({ resultado: 'propuesta'; monto_centavos: string } & Propuesta)
+  | ({
+      resultado: 'monto_ambiguo';
+      monto_centavos: null;
+      /** Ya escritas como las pide la pregunta de E14: «12.500» y «12,50». */
+      lecturas_del_monto: { con_punto_de_miles: string; con_coma_decimal: string };
+    } & Propuesta)
+  | { resultado: 'recomendacion' | 'pregunta' | 'no_entendido' | 'tiempo_agotado' };
+
+/** Interpreta con reglas (sin IA, D-075) un texto de hasta 280 caracteres. No guarda nada (api/README.md). */
+export const interpretarTexto = (texto: string) =>
+  pedir<Interpretacion>('POST', '/api/v1/movimientos/interpretacion', { texto });

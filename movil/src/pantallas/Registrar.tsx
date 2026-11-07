@@ -1,7 +1,8 @@
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, View, type TextInputInstance } from 'react-native';
-import { corregirMovimiento, type Movimiento } from '../api/movimientos';
+import { StyleSheet, Text, View, type TextInputInstance } from 'react-native';
+import { SIN_CONEXION } from '../api/cliente';
+import { corregirMovimiento, interpretarTexto, type Interpretacion, type Movimiento } from '../api/movimientos';
 import { guardarMovimiento, obtenerCategorias, type CatalogoDeCategorias, type Medio } from '../api/registro';
 import { borradorDeMovimiento, cambiarBorrador, reiniciarBorrador, useBorrador, type Borrador } from '../borradorDeRegistro';
 import { Aviso } from '../componentes/Aviso';
@@ -14,6 +15,8 @@ import { Pantalla } from '../componentes/Pantalla';
 import { Nota, Texto } from '../componentes/Texto';
 import { formatearPesos, leerMonto } from '../dinero';
 import { aIso, desdeIso, diaEnPalabras, hoyEnColombia } from '../fechas';
+import { estiloDeTipografia } from '../fuentes';
+import { montoHablado } from '../montoHablado';
 import { seguirPorAccesoNegado } from '../navegacion/accesoNegado';
 import type { Rutas } from '../navegacion/rutas';
 import {
@@ -21,11 +24,14 @@ import {
   avisoDeRegistro,
   avisoErrorAlGuardarMovimiento,
   avisos,
+  avisosDelCuadro,
   etiquetasDePeriodicidad,
   nombresDeCategoria,
   textosDeErrorDeRegistro,
+  textosDeErrorDelCuadro,
   type DatosDeAviso,
 } from '../textos';
+import { fechaEnLaFila } from '../textosDeMovimientos';
 import { formatear, textos } from '../textos/es.generated';
 import { tokens } from '../tokens/tokens.generated';
 import { campoDeApi, CAMPOS, validarRegistro, type Errores } from '../validacionDeRegistro';
@@ -37,11 +43,14 @@ type Catalogo =
 
 const LARGO_DE_LA_DESCRIPCION = 280;
 const SOLO_MIO = 'solo_mio';
+const LARGO_DEL_CUADRO = 280;
 const r = textos.registro;
 
 // Formulario de registro, variante Android (E14-PPN 3.1, D-164). Mismo flujo, textos y errores del API que la web.
-// Sin el cuadro de lenguaje natural, el aviso de faltante, «Tarjeta», «Cuotas», PN-04, PN-05 ni «Compartido con el
-// hogar»: esas filas no se dibujan (README de movil). Al guardar vuelve a PN-01 con el aviso como mensaje de estado.
+// Con el cuadro de lenguaje natural (US-62) y su paso «Revisa y confirma»; sin el aviso de faltante, «Tarjeta», «Cuotas»,
+// PN-04, PN-05 ni «Compartido con el hogar»: esas filas no se dibujan (README de movil). El cuadro solo llena el
+// formulario: lo que interpretó el sistema no se guarda sin «Revisa y confirma» (RN-001), y lo que la persona llena a mano
+// se guarda directo (RF-002). Al guardar vuelve a PN-01 con el aviso como mensaje de estado.
 // Con `corregir` es «Corregir» de PN-02 (E14-PRR 4.2): lleva su propio estado, no el borrador, y no ofrece lo que el API
 // no deja cambiar. Una fecha de un recurrente no lleva Fecha ni Tipo (D-168). Si el movimiento tiene una categoría que la
 // persona ocultó después, el formulario la incluye ya elegida, con el ícono y la palabra «Oculta» (D-170).
@@ -64,6 +73,13 @@ export function FormularioDeMovimiento({
   const [aviso, setAviso] = useState<DatosDeAviso | null>(null);
   const [verTodas, setVerTodas] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  const [enPaso, setEnPaso] = useState(false);
+  const [interpretando, setInterpretando] = useState(false);
+  const [avisoDelCuadro, setAvisoDelCuadro] = useState<DatosDeAviso | null>(null);
+  const [errorDelCuadro, setErrorDelCuadro] = useState<string>();
+  const campoDelCuadro = useRef<TextInputInstance>(null);
+  // «Cambiar» en la fila del monto: el campo existe otra vez cuando el paso se cierra, y ahí se le da el foco.
+  const enfocarMonto = useRef(false);
   const campoDeMonto = useRef<TextInputInstance>(null);
   const campoDeDescripcion = useRef<TextInputInstance>(null);
 
@@ -98,6 +114,13 @@ export function FormularioDeMovimiento({
   // La categoría es obligatoria hasta que exista el motor de reglas que la sugiere (D-165): sin elegir, no hay ninguna.
   const categoriaId = categorias.find((c) => c.id === borrador.categoriaId)?.id ?? null;
 
+  useEffect(() => {
+    if (!enPaso && enfocarMonto.current) {
+      enfocarMonto.current = false;
+      campoDeMonto.current?.focus();
+    }
+  }, [enPaso]);
+
   const mostrar = (nuevos: Errores) => {
     setErrores(nuevos);
     const primero = CAMPOS.find((campo) => nuevos[campo]);
@@ -105,15 +128,25 @@ export function FormularioDeMovimiento({
     else if (primero === 'descripcion') campoDeDescripcion.current?.focus();
   };
 
-  async function enviar() {
+  // Lo que llenó el cuadro pasa por «Revisa y confirma» antes de guardarse (RN-001): `confirmado` solo es verdadero
+  // desde «Confirmar y guardar». «Corregir» y lo llenado a mano guardan directo.
+  const conPaso = !corregir && borrador.delCuadro;
+  const conTexto = !corregir && borrador.texto.trim() !== '';
+
+  async function enviar(confirmado = false) {
     if (enviando) return;
     const revisado = validarRegistro(borrador, categoriaId);
     setAviso(null);
     if ('errores' in revisado) {
+      setEnPaso(false);
       mostrar(revisado.errores);
       return;
     }
     setErrores({});
+    if (conPaso && !confirmado) {
+      setEnPaso(true);
+      return;
+    }
     setEnviando(true);
     const { solicitud } = revisado;
     const respuesta = corregir
@@ -153,6 +186,7 @@ export function FormularioDeMovimiento({
       }
     }
     if (Object.keys(delCampo).length > 0 && !sinTexto) {
+      setEnPaso(false);
       mostrar(delCampo);
       return;
     }
@@ -160,6 +194,77 @@ export function FormularioDeMovimiento({
     setAviso(
       avisoDeFallo(respuesta, corregir ? avisos.errorAlGuardarCambios : avisoErrorAlGuardarMovimiento(solicitud.tipo)),
     );
+  }
+
+  function mostrarErrorDelCuadro(texto: string) {
+    setErrorDelCuadro(texto);
+    campoDelCuadro.current?.focus();
+  }
+
+  /** «Llenar el formulario»: el API interpreta con reglas y la pantalla muestra lo que recibe (E17-ECO 4.7). */
+  async function llenar() {
+    if (interpretando) return;
+    setAvisoDelCuadro(null);
+    setErrorDelCuadro(undefined);
+    if (borrador.texto.trim() === '') {
+      mostrarErrorDelCuadro(textosDeErrorDelCuadro.texto_requerido!);
+      return;
+    }
+    setInterpretando(true);
+    const respuesta = await interpretarTexto(borrador.texto);
+    setInterpretando(false);
+    if (!respuesta.ok) {
+      if (seguirPorAccesoNegado(navigation, respuesta)) return;
+      const delTexto = textosDeErrorDelCuadro[respuesta.campos.texto ?? ''];
+      if (respuesta.codigo === 'datos_invalidos' && delTexto) {
+        mostrarErrorDelCuadro(delTexto);
+        return;
+      }
+      setAvisoDelCuadro(
+        respuesta.codigo === SIN_CONEXION
+          ? avisosDelCuadro.sinConexion
+          : avisoDeFallo(respuesta, avisosDelCuadro.errorAlInterpretar),
+      );
+      return;
+    }
+    const resultado: Interpretacion = respuesta.cuerpo;
+    if (resultado.resultado !== 'propuesta' && resultado.resultado !== 'monto_ambiguo') {
+      setAvisoDelCuadro(
+        resultado.resultado === 'recomendacion'
+          ? avisosDelCuadro.recomendacion
+          : resultado.resultado === 'pregunta'
+            ? avisosDelCuadro.pregunta
+            : avisosDelCuadro.noEntendido,
+      );
+      return;
+    }
+    // Lo que el sistema entendió llena el formulario; el medio de pago y la descripción los llena la persona. La
+    // categoría llega elegida solo si es una que ella ve (RN-011); un monto ambiguo no se adivina (D-084).
+    const ambiguo = resultado.resultado === 'monto_ambiguo';
+    cambiarBorrador({
+      tipo: resultado.tipo,
+      monto: ambiguo ? '' : formatearPesos(BigInt(resultado.monto_centavos)),
+      fecha: resultado.fecha,
+      categoriaId: resultado.categoria?.id ?? null,
+      delCuadro: true,
+      variosMovimientos: resultado.varios_movimientos,
+    });
+    setEnPaso(false);
+    if (ambiguo) {
+      const pesos = (texto: string) => {
+        const lectura = leerMonto(texto);
+        return lectura.ok ? formatearPesos(lectura.centavos) : texto;
+      };
+      setErrores({
+        monto: formatear(r.errores.montoAmbiguo, {
+          miles: pesos(resultado.lecturas_del_monto.con_punto_de_miles),
+          decimal: pesos(resultado.lecturas_del_monto.con_coma_decimal),
+        }),
+      });
+      campoDeMonto.current?.focus();
+      return;
+    }
+    setErrores({});
   }
 
   function elegirCategoria(id: number) {
@@ -196,8 +301,98 @@ export function FormularioDeMovimiento({
     ? formatear(r.seRepite.conPeriodicidad, { periodicidad })
     : etiquetasDePeriodicidad.no_se_repite;
 
+  const solicitud = enPaso ? validarRegistro(borrador, categoriaId) : null;
+  if (!corregir && solicitud && 'solicitud' in solicitud) {
+    const { tipo, montoCentavos, fecha: fechaDelPaso, medio } = solicitud.solicitud;
+    const filas = [
+      { clave: 'tipo', etiqueta: r.tipo.etiqueta, valor: tipo === 'gasto' ? r.tipo.gasto : r.tipo.ingreso },
+      {
+        clave: 'monto',
+        etiqueta: r.monto.etiqueta,
+        valor: formatearPesos(montoCentavos),
+        hablado: montoHablado(montoCentavos),
+      },
+      {
+        clave: 'categoria',
+        etiqueta: r.categoria.etiqueta,
+        valor: categorias.find((c) => c.id === categoriaId)?.nombre ?? '',
+      },
+      { clave: 'fecha', etiqueta: r.fecha.etiqueta, valor: fechaEnLaFila(fechaDelPaso, hoy) },
+      { clave: 'medio', etiqueta: r.medio.etiqueta, valor: medios.find((m) => m.valor === medio)?.etiqueta ?? '' },
+      { clave: 'quien', etiqueta: r.quien.etiqueta, valor: r.quien.soloMio },
+    ].map((f) => ({ ...f, pista: [f.etiqueta, 'hablado' in f ? f.hablado : f.valor].join(': ') }));
+    // «Revisa y confirma» (E14-PPN 3.1, RF-004, D-084): reemplaza al formulario. Es lo único que guarda lo que el cuadro
+    // llenó (RN-001). «Cambiar» y «Volver» regresan al formulario, sin guardar.
+    return (
+      <Pantalla conBarra titulo={r.revisa.titulo}>
+        {aviso && <Aviso {...aviso} />}
+        {borrador.variosMovimientos && <Aviso {...avisosDelCuadro.variosMovimientos} />}
+        <View style={estilos.resumen}>
+          {filas.map((f) => (
+            <View key={f.clave} style={estilos.filaDelResumen}>
+              <View style={estilos.columna}>
+                <Text style={estilos.nombreDeFila}>{f.etiqueta}</Text>
+                <Texto etiqueta={f.hablado}>{f.valor}</Texto>
+              </View>
+              <BotonDeTexto
+                pista={f.pista}
+                alTocar={() => {
+                  enfocarMonto.current = f.clave === 'monto';
+                  setEnPaso(false);
+                }}
+              >
+                {r.revisa.cambiar}
+              </BotonDeTexto>
+            </View>
+          ))}
+        </View>
+        <Boton deshabilitado={enviando} alTocar={() => void enviar(true)}>
+          {r.revisa.confirmar}
+        </Boton>
+        <Boton
+          variante="secundario"
+          alTocar={() => {
+            setEnPaso(false);
+            setAviso(null);
+          }}
+        >
+          {r.revisa.volver}
+        </Boton>
+        {aviso && (
+          <Boton variante="secundario" alTocar={() => void enviar(true)}>
+            {textos.acciones.intentarDeNuevo}
+          </Boton>
+        )}
+      </Pantalla>
+    );
+  }
+
   return (
     <Pantalla conBarra>
+      {!corregir && (
+        <>
+          <CampoDeTexto
+            ref={campoDelCuadro}
+            etiqueta={r.cuadro.etiqueta}
+            ayuda={r.cuadro.ayuda}
+            lineas={4}
+            maxLength={LARGO_DEL_CUADRO}
+            valor={borrador.texto}
+            alCambiar={(texto) => cambiarBorrador({ texto })}
+            error={errorDelCuadro}
+          />
+          <Nota>{r.cuadro.privacidad}</Nota>
+          <Boton
+            variante={conTexto && !borrador.delCuadro ? 'primario' : 'secundario'}
+            deshabilitado={interpretando}
+            alTocar={() => void llenar()}
+          >
+            {r.cuadro.llenar}
+          </Boton>
+          {avisoDelCuadro && <Aviso {...avisoDelCuadro} />}
+          {borrador.delCuadro && <Aviso {...avisosDelCuadro.lleno} />}
+        </>
+      )}
       {aviso && <Aviso {...aviso} />}
       {esRecurrente && <Nota>{textos.movimientos.detalle.soloEstaFecha}</Nota>}
       {!esRecurrente && (
@@ -283,8 +478,12 @@ export function FormularioDeMovimiento({
         </View>
       )}
       {errores.repeticion && <Aviso tipo="atencion" titulo={errores.repeticion} />}
-      <Boton deshabilitado={enviando} alTocar={() => void enviar()}>
-        {corregir ? textos.movimientos.detalle.guardarCambios : r.guardar}
+      <Boton
+        variante={conTexto && !borrador.delCuadro ? 'secundario' : 'primario'}
+        deshabilitado={enviando}
+        alTocar={() => void enviar()}
+      >
+        {corregir ? textos.movimientos.detalle.guardarCambios : conPaso ? r.revisarYGuardar : r.guardar}
       </Boton>
       {corregir && (
         <Boton variante="secundario" alTocar={() => navigation.goBack()}>
@@ -319,4 +518,21 @@ const estilos = StyleSheet.create({
     minHeight: tokens.tamano['tactil-minimo'],
   },
   columna: { flex: 1 },
+  // La tarjeta del resumen de E14-PPN 3.1 (Tarjeta de E14-SDD 5.7 sin título): blanca, borde decorativo y `radio.grande`.
+  resumen: {
+    gap: tokens.espacio['2'],
+    padding: tokens.espacio['4'],
+    borderWidth: tokens['ancho-borde'].fino,
+    borderColor: tokens.color.borde.decorativo,
+    borderRadius: tokens.radio.grande,
+    backgroundColor: tokens.color.fondo.superficie,
+  },
+  filaDelResumen: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: tokens.espacio['2'],
+    minHeight: tokens.tamano['tactil-minimo'],
+  },
+  nombreDeFila: { ...estiloDeTipografia('etiqueta'), color: tokens.color.texto.principal },
 });

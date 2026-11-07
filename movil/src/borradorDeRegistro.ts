@@ -16,6 +16,12 @@ export type Borrador = {
   descripcion: string;
   /** `null`: «No se repite». */
   periodicidad: Periodicidad | null;
+  /** Lo que la persona escribió en el cuadro de lenguaje natural (E14-PPN 3.1, fila 3). */
+  texto: string;
+  /** El cuadro llenó el formulario: nada se guarda sin «Revisa y confirma» (RN-001, RF-004). */
+  delCuadro: boolean;
+  /** El texto traía más de un movimiento y solo se propuso el primero (D-077). */
+  variosMovimientos: boolean;
 };
 
 const vacio: Borrador = {
@@ -26,6 +32,9 @@ const vacio: Borrador = {
   medio: null,
   descripcion: '',
   periodicidad: null,
+  texto: '',
+  delCuadro: false,
+  variosMovimientos: false,
 };
 
 /** Los campos de «Corregir» de PN-02, llenos con lo que ya tiene el movimiento (E14-PRR 4.2). */
@@ -37,6 +46,9 @@ export const borradorDeMovimiento = (m: Movimiento): Borrador => ({
   medio: m.medio,
   descripcion: m.descripcion ?? '',
   periodicidad: null,
+  texto: '',
+  delCuadro: false,
+  variosMovimientos: false,
 });
 
 let actual = vacio;

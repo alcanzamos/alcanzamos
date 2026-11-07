@@ -56,6 +56,8 @@ export type PropiedadesDeCampo = {
   /** El valor es una cifra: va en Figtree con cifras tabulares (`tipografia.cifra`, D-123). */
   cifra?: boolean;
   maxLength?: number;
+  /** Un campo de varias líneas con ese mínimo de líneas (el cuadro de lenguaje natural, E14-PPN 3.1 fila 3). */
+  lineas?: number;
   /** La persona sale del campo (se pierde el foco). */
   alSalir?: () => void;
   ref?: Ref<TextInputInstance>;
@@ -72,6 +74,7 @@ export function CampoDeTexto({
   teclado,
   cifra = false,
   maxLength,
+  lineas,
   alSalir,
   ref,
   textoSeguro = false,
@@ -95,10 +98,12 @@ export function CampoDeTexto({
         importantForAutofill="yes"
         keyboardType={teclado}
         maxLength={maxLength}
+        multiline={lineas !== undefined}
+        numberOfLines={lineas}
         secureTextEntry={textoSeguro}
         autoCapitalize="none"
         autoCorrect={false}
-        style={[estilos.entrada, cifra && estilos.cifra]}
+        style={[estilos.entrada, cifra && estilos.cifra, lineas !== undefined && estilos.variasLineas]}
       />
       {accion}
     </MarcoDeCampo>
@@ -127,6 +132,8 @@ const estilos = StyleSheet.create({
     paddingHorizontal: tokens.espacio['3'],
     color: tokens.color.texto.principal,
   },
+  // Alto mínimo de 96 dp, dos veces `espacio.12` (E14-PPN 3.1, fila 3): el texto empieza arriba y la caja crece con él.
+  variasLineas: { minHeight: tokens.espacio['12'] * 2, textAlignVertical: 'top', paddingVertical: tokens.espacio['3'] },
   cifra: { ...estiloDeTipografia('cifra'), fontVariant: ['tabular-nums'] },
   ayuda: { ...estiloDeTipografia('pequeno'), color: tokens.color.texto.secundario },
   error: { flexDirection: 'row', alignItems: 'flex-start', gap: tokens.espacio['2'] },

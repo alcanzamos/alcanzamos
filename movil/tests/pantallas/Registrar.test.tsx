@@ -86,7 +86,8 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
     expect(screen.getByRole('button', { name: 'Fecha, Hoy' })).toBeOnTheScreen();
     expect(screen.getByLabelText('Monto').props.keyboardType).toBe('decimal-pad');
     expect(screen.getByLabelText('Descripción (opcional)').props.maxLength).toBe(280);
-    expect(screen.getByText('No escribas datos de salud, religión ni de otras personas.')).toBeOnTheScreen();
+    // La advertencia está dos veces: bajo el cuadro (fila 4) y como ayuda de la descripción (fila 12).
+    expect(screen.getAllByText('No escribas datos de salud, religión ni de otras personas.')).toHaveLength(2);
     expect(screen.getByText('Se repite')).toBeOnTheScreen();
     expect(screen.getByText('No se repite')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Cambiar' })).toBeOnTheScreen();
@@ -94,12 +95,10 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
     expect(screen.getByRole('button', { name: 'Guardar' })).toBeOnTheScreen();
   });
 
-  it('no dibuja las filas omitidas por D-164', async () => {
+  it('no dibuja las filas que siguen omitidas (D-164): el cuadro entró con la US-62', async () => {
     api();
     await abrir();
     for (const omitido of [
-      'Llenar el formulario',
-      'Escribe el gasto o el ingreso',
       'Cuotas',
       'Tarjeta',
       'Compartido con el hogar',
