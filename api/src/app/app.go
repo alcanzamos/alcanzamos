@@ -21,6 +21,7 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/src/config"
 	"github.com/alcanzamos/alcanzamos/api/src/correo"
 	"github.com/alcanzamos/alcanzamos/api/src/cuenta"
+	"github.com/alcanzamos/alcanzamos/api/src/interpretacion"
 	"github.com/alcanzamos/alcanzamos/api/src/pg"
 	"github.com/alcanzamos/alcanzamos/api/src/registro"
 	"github.com/alcanzamos/alcanzamos/api/src/reloj"
@@ -133,7 +134,12 @@ func ArmarEnrutador(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, 
 	cuenta.NuevoHandler(cuentas, log).Registrar(enrutador)
 	autenticacion.NuevoHandler(autenticaciones, eventos, log).Registrar(enrutador)
 	autorizacion.NuevoHandler(autorizacion.NuevoServicio(pg.NuevoAutorizaciones(pool), hora), eventos, log).Registrar(enrutador)
-	registro.NuevoHandler(registro.NuevoServicio(pg.NuevoMovimientos(pool), hora), log).Registrar(enrutador)
+	// Las reglas de interpretación se cargan y compilan una vez, al arrancar: una regla mala se ve en el despliegue (E12 §6.2).
+	reglas, err := interpretacion.ReglasIncluidas()
+	if err != nil {
+		return nil, nil, fmt.Errorf("reglas de interpretación: %w", err)
+	}
+	registro.NuevoHandler(registro.NuevoServicio(pg.NuevoMovimientos(pool), hora).ConInterpretador(interpretacion.NuevoPorReglas(reglas)), log).Registrar(enrutador)
 	repoDeBorrado := pg.NuevoBorrado(pool)
 	cuenta.NuevoHandlerDeBorrado(cuenta.NuevoBorrado(repoDeBorrado, hasher, limitador, hora), eventos, log).Registrar(enrutador)
 	cuenta.NuevoHandlerDeExportacion(cuenta.NuevoExportador(repoDeBorrado), log).Registrar(enrutador)

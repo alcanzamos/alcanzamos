@@ -22,6 +22,7 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/src/autenticacion"
 	"github.com/alcanzamos/alcanzamos/api/src/autorizacion"
 	"github.com/alcanzamos/alcanzamos/api/src/cuenta"
+	"github.com/alcanzamos/alcanzamos/api/src/interpretacion"
 	"github.com/alcanzamos/alcanzamos/api/src/pg"
 	"github.com/alcanzamos/alcanzamos/api/src/registro"
 	"github.com/alcanzamos/alcanzamos/api/src/seguridad"
@@ -63,9 +64,13 @@ type servidorDePrueba struct {
 	correo  *correotest.Falso
 	cuentas *cuenta.Servicio
 	pedidos int
+	rutas   []servidor.Ruta // todas las del Enrutador, con su nivel
 }
 
-func nuevoServidor(t *testing.T) *servidorDePrueba {
+func nuevoServidor(t *testing.T) *servidorDePrueba { return nuevoServidorCon(t, motorReal(t)) }
+
+// nuevoServidorCon es nuevoServidor con otro Interpretador.
+func nuevoServidorCon(t *testing.T, interpretador interpretacion.Interpretador) *servidorDePrueba {
 	t.Helper()
 	pool := pgtest.Nueva(t)
 	log := slog.New(slog.NewJSONHandler(&bytes.Buffer{}, nil))
@@ -89,12 +94,12 @@ func nuevoServidor(t *testing.T) *servidorDePrueba {
 	cuenta.NuevoHandler(cuentas, log).Registrar(enr)
 	autenticacion.NuevoHandler(entrar, seguridad.NuevoRegistro(log), log).Registrar(enr)
 	autorizacion.NuevoHandler(autorizacion.NuevoServicio(pg.NuevoAutorizaciones(pool), reloj), seguridad.NuevoRegistro(log), log).Registrar(enr)
-	registro.NuevoHandler(registro.NuevoServicio(pg.NuevoMovimientos(pool), reloj), log).Registrar(enr)
+	registro.NuevoHandler(registro.NuevoServicio(pg.NuevoMovimientos(pool), reloj).ConInterpretador(interpretador), log).Registrar(enr)
 	api, err := enr.Construir()
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &servidorDePrueba{t: t, pool: pool, h: servidor.ManejadorConAPI(api), reloj: reloj, correo: correo, cuentas: cuentas}
+	return &servidorDePrueba{t: t, pool: pool, h: servidor.ManejadorConAPI(api), reloj: reloj, correo: correo, cuentas: cuentas, rutas: enr.Rutas()}
 }
 
 // cliente es quien llama: la web con la cookie, o Android con el token en el cuerpo y Bearer.
