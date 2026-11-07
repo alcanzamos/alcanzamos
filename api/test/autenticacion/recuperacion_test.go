@@ -254,3 +254,46 @@ func TestLaColaDeRecuperacionRespetaSuLargoConfigurado(t *testing.T) {
 		t.Fatalf("se atendieron %d pedidos, se esperaban 4 (uno en curso y tres en la cola)", n)
 	}
 }
+
+// A-17, SEG-009 y D-172 (7): la recuperación tiene su propio límite por dirección (3 por hora, D-136 (4)) y no comparte
+// el de 3 correos por hora de la verificación, los reenvíos y el aviso (D-140 (2)).
+func TestLaRecuperacionNoSeFrenaPorLosCorreosDeVerificacionNiDeAviso(t *testing.T) {
+	e := nuevoEntorno(t)
+	for range seguridad.CorreosPorDestino {
+		if !e.limitador.PermitirCorreo(correoDePrueba) { // tres creaciones de cuenta con el correo de otra persona
+			t.Fatal("los tres correos de verificación o aviso debían salir")
+		}
+	}
+	if e.limitador.PermitirCorreo(correoDePrueba) {
+		t.Fatal("el límite de verificación y aviso debe estar agotado")
+	}
+	if v := pedir(e, e.api(t, nil), correoDePrueba, "203.0.113.7"); v.codigo != 202 {
+		t.Fatalf("pedido de recuperación: %d", v.codigo)
+	}
+	e.svc.Esperar()
+	if env := e.correo.Enviados(); len(env) != 1 || env[0].Destino != correoDePrueba || !env[0].Recuperacion {
+		t.Errorf("el correo de recuperación debe salir aunque los de verificación y aviso estén agotados: %+v", env)
+	}
+}
+
+func TestLosCorreosDeRecuperacionNoGastanElLimiteDeVerificacionNiDeAviso(t *testing.T) {
+	e := nuevoEntorno(t)
+	h := e.api(t, nil)
+	for i := range seguridad.EnlacesPorCuenta {
+		if v := pedir(e, h, correoDePrueba, fmt.Sprintf("203.0.113.%d", i+1)); v.codigo != 202 {
+			t.Fatalf("pedido %d: %d", i+1, v.codigo)
+		}
+	}
+	e.svc.Esperar()
+	if env := e.correo.Enviados(); len(env) != seguridad.EnlacesPorCuenta {
+		t.Fatalf("salieron %d correos de recuperación, se esperaban %d", len(env), seguridad.EnlacesPorCuenta)
+	}
+	if v := pedir(e, h, correoDePrueba, "203.0.113.50"); v.codigo != 429 {
+		t.Errorf("la recuperación conserva su límite de 3 por hora por cuenta: %d", v.codigo)
+	}
+	for i := range seguridad.CorreosPorDestino {
+		if !e.limitador.PermitirCorreo(correoDePrueba) {
+			t.Fatalf("la verificación, los reenvíos y el aviso conservan sus 3 por hora: falló el %d", i+1)
+		}
+	}
+}

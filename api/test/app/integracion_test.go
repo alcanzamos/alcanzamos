@@ -3,7 +3,6 @@
 package app_test
 
 import (
-	"encoding/base64"
 	"fmt"
 	"io"
 	"net"
@@ -46,7 +45,6 @@ func entornoDeServicio(t *testing.T) string {
 	t.Setenv("CORREO_REMITENTE", "a@b.test")
 	t.Setenv("CORREO_PRIVACIDAD", "p@b.test")
 	t.Setenv("URL_PUBLICA", "https://app.b.test")
-	t.Setenv("SESION_SENUELO_CLAVE", base64.StdEncoding.EncodeToString(make([]byte, 32)))
 	return libre(t)
 }
 

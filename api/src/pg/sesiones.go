@@ -46,9 +46,9 @@ func (s *Sesiones) Crear(ctx context.Context, persona string, huella []byte, aho
 // vencimiento: `ultimo_uso_en` solo se escribe si pasaron más de 5 minutos desde el anterior, y
 // `vence_en = menor(ahora + 30 días, creada_en + 90 días)`. Con la sesión vigente arma el Sujeto: si la cuenta
 // confirmó el correo y si tiene autorizadas las finalidades necesarias de su etapa según `ReglaDeFinalidades` (D-139).
-// Una persona menor no tiene correo que verificar: su `Verificada` queda en falso y no llega más allá de las rutas
-// `sin_verificar` hasta que I11 defina su ingreso. Se lee en
-// cada petición, sin guardar el resultado: retirar una autorización surte efecto al instante.
+// Una persona menor no tiene correo que verificar: su `Verificada` queda en falso y no llega a ninguna ruta con
+// sesión hasta que I11 defina su ingreso. Se lee en cada petición, sin guardar el resultado: retirar una
+// autorización surte efecto al instante.
 func (s *Sesiones) Sujeto(ctx context.Context, huella []byte, ahora time.Time) (seguridad.Sujeto, error) {
 	var persona string
 	var etapa cuenta.Etapa

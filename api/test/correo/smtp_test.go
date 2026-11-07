@@ -79,7 +79,7 @@ func TestMensajeDeVerificacion(t *testing.T) {
 		})
 	}
 	asunto, err := new(mime.WordDecoder).DecodeHeader(enc.Get("Subject"))
-	if err != nil || asunto != "Confirma tu correo en Alcanzamos" {
+	if err != nil || asunto != "Elige tu contraseña para tu cuenta de Alcanzamos" {
 		t.Fatalf("asunto %q (%v)", asunto, err)
 	}
 	if !strings.HasSuffix(enc.Get("Message-ID"), "@avisos.ejemplo.test>") {
@@ -87,8 +87,10 @@ func TestMensajeDeVerificacion(t *testing.T) {
 	}
 	for _, fragmento := range []string{
 		"https://app.ejemplo.test/verificar?t=tok-en_123",
-		"24 horas",
-		"ignora este mensaje",
+		// E14-PCP 4.2 quater, palabra por palabra (D-176; la duración, D-192, aprobada por el dueño el 2026-11-06).
+		"Hola,\r\n\r\nPediste crear una cuenta en Alcanzamos con este correo. Para confirmarlo y elegir tu contraseña, abre este enlace. Sirve durante 24 horas y una sola vez:\r\n\r\n",
+		"Si no lo pediste, ignora este mensaje: no se crea ninguna cuenta.\r\n",
+		"Este mensaje sale de una dirección que no recibe respuestas.\r\n",
 	} {
 		if !strings.Contains(cuerpo, fragmento) {
 			t.Errorf("el cuerpo no contiene %q:\n%s", fragmento, cuerpo)
@@ -371,5 +373,59 @@ func TestFalsoGuardaYFalla(t *testing.T) {
 	}
 	if err := f.EnviarRecuperacion(context.Background(), "c@d.test", "u"); err == nil || len(f.Enviados()) != 3 {
 		t.Fatal("la recuperación con Error tampoco guarda")
+	}
+}
+
+// Los textos de los correos no pasan por diseno/textos/es.json: esta prueba es lo único que los cuida. Compara el asunto
+// y el cuerpo completo, con el pie, palabra por palabra contra E14-PCP: 4.2 quater (verificación; D-176 y D-192),
+// 4.2 bis (aviso de correo ya registrado; D-192) y 4.4 bis (recuperación del acceso; D-143).
+func TestLosTresCorreosSonPalabraPorPalabraLosDeE14(t *testing.T) {
+	const pie = "Si tienes dudas sobre tus datos, escribe a privacidad@ejemplo.test.\r\n"
+	casos := []struct {
+		nombre, asunto, cuerpo string
+		envio                  func(s *correo.SMTP) error
+	}{
+		{"verificación (4.2 quater)", "Elige tu contraseña para tu cuenta de Alcanzamos",
+			"Hola,\r\n\r\n" +
+				"Pediste crear una cuenta en Alcanzamos con este correo. Para confirmarlo y elegir tu contraseña, abre este enlace. Sirve durante 24 horas y una sola vez:\r\n\r\n" +
+				"https://app.ejemplo.test/verificar?t=tok-en_123\r\n\r\n" +
+				"Si no lo pediste, ignora este mensaje: no se crea ninguna cuenta.\r\n\r\n" +
+				"--\r\n" +
+				"Este mensaje sale de una dirección que no recibe respuestas.\r\n" + pie,
+			func(s *correo.SMTP) error {
+				return s.EnviarVerificacion(context.Background(), "laura@ejemplo.test", "tok-en_123")
+			}},
+		{"aviso (4.2 bis)", "Alguien intentó crear una cuenta con tu correo",
+			"Hola.\r\n\r\n" +
+				"Alguien intentó crear una cuenta en Alcanzamos con este correo.\r\n\r\n" +
+				"No creamos ninguna cuenta nueva. Tu cuenta sigue igual.\r\n\r\n" +
+				"Si fuiste tú, puedes iniciar sesión. Si no recuerdas tu contraseña, puedes recuperar el acceso desde la pantalla de inicio de sesión.\r\n\r\n" +
+				"Si no fuiste tú, no tienes que hacer nada.\r\n\r\n" +
+				"--\r\n" + pie,
+			func(s *correo.SMTP) error {
+				return s.EnviarAvisoDeCorreoRegistrado(context.Background(), "laura@ejemplo.test")
+			}},
+		{"recuperación (4.4 bis)", "Recupera el acceso a tu cuenta de Alcanzamos",
+			"Hola,\r\n\r\n" +
+				"Pediste recuperar el acceso a tu cuenta de Alcanzamos. Para elegir una contraseña nueva, abre este enlace. Sirve durante 1 hora y una sola vez:\r\n\r\n" +
+				"https://app.ejemplo.test/recuperar?t=tok-en_123\r\n\r\n" +
+				"Si no lo pediste, ignora este mensaje: tu contraseña sigue igual.\r\n\r\n" +
+				"--\r\n" +
+				"Este mensaje sale de una dirección que no recibe respuestas.\r\n" + pie,
+			func(s *correo.SMTP) error {
+				return s.EnviarRecuperacion(context.Background(), "laura@ejemplo.test", "tok-en_123")
+			}},
+	}
+	for _, c := range casos {
+		t.Run(c.nombre, func(t *testing.T) {
+			enc, cuerpo := leerMensaje(t, mensajeEnviado(t, c.envio))
+			asunto, err := new(mime.WordDecoder).DecodeHeader(enc.Get("Subject"))
+			if err != nil || asunto != c.asunto {
+				t.Errorf("asunto %q (%v), se esperaba %q", asunto, err, c.asunto)
+			}
+			if cuerpo != c.cuerpo {
+				t.Errorf("cuerpo:\n%q\nse esperaba:\n%q", cuerpo, c.cuerpo)
+			}
+		})
 	}
 }
