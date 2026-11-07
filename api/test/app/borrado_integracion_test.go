@@ -6,7 +6,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -32,7 +31,7 @@ func servir(t *testing.T, pool *pgxpool.Pool) (llamar func(metodo, ruta, cuerpo 
 	ctx := context.Background()
 	entorno := map[string]string{
 		"CORREO_SMTP": "127.0.0.1:1", "CORREO_REMITENTE": "a@b.test", "CORREO_PRIVACIDAD": "p@b.test",
-		"URL_PUBLICA": "https://app.b.test", "SESION_SENUELO_CLAVE": base64.StdEncoding.EncodeToString(make([]byte, 32)),
+		"URL_PUBLICA": "https://app.b.test",
 	}
 	cfg, err := config.Cargar(func(k string) string { return entorno[k] })
 	if err != nil {

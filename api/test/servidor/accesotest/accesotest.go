@@ -26,14 +26,14 @@ type Clase string
 
 const (
 	SinSesion              Clase = "sin sesión"
-	Limitada               Clase = "sesión limitada (cuenta sin verificar)"
-	Senuelo                Clase = "sesión de mentira (D-141)"
+	SinCorreoVerificado    Clase = "sesión sin correo verificado (un menor, hasta I11)"
 	VerificadaSinAutorizar Clase = "cuenta verificada sin autorizar"
 	Autorizada             Clase = "cuenta verificada y autorizada"
 )
 
-// Clases son todas las clases de Sujeto, en orden de menos a más acceso.
-var Clases = []Clase{SinSesion, Limitada, Senuelo, VerificadaSinAutorizar, Autorizada}
+// Clases son todas las clases de Sujeto, en orden de menos a más acceso. Una cuenta de adulto sin verificar no tiene
+// sesión (D-172), así que no es una clase.
+var Clases = []Clase{SinSesion, SinCorreoVerificado, VerificadaSinAutorizar, Autorizada}
 
 const personaDePrueba = "0192f3c4-0000-7000-8000-0000000000aa"
 
@@ -43,11 +43,10 @@ type Resultado struct {
 	Error  string
 }
 
-// Esperado dice qué debe responder una ruta del nivel dado a cada clase de Sujeto (D-138):
+// Esperado dice qué debe responder una ruta del nivel dado a cada clase de Sujeto (D-138, D-172 (5)):
 //
-//	nivel                   sin sesión  limitada / mentira            verificada sin autorizar       autorizada
+//	nivel                   sin sesión  sin correo verificado         verificada sin autorizar       autorizada
 //	publica                 200         200                           200                            200
-//	sin_verificar           401         200                           200                            200
 //	sin_autorizacion        401         403 verificacion_pendiente    200                            200
 //	requiere_autorizacion   401         403 verificacion_pendiente    403 autorizacion_pendiente     200
 func Esperado(n seguridad.NivelDeAcceso, c Clase) Resultado {
@@ -58,16 +57,11 @@ func Esperado(n seguridad.NivelDeAcceso, c Clase) Resultado {
 	switch n {
 	case seguridad.Publica:
 		return pasa
-	case seguridad.SinVerificar:
-		if c == SinSesion {
-			return sinSesion
-		}
-		return pasa
 	case seguridad.SinAutorizacion:
 		switch c {
 		case SinSesion:
 			return sinSesion
-		case Limitada, Senuelo:
+		case SinCorreoVerificado:
 			return sinVerificar
 		}
 		return pasa
@@ -75,7 +69,7 @@ func Esperado(n seguridad.NivelDeAcceso, c Clase) Resultado {
 		switch c {
 		case SinSesion:
 			return sinSesion
-		case Limitada, Senuelo:
+		case SinCorreoVerificado:
 			return sinVerificar
 		case VerificadaSinAutorizar:
 			return sinAutorizar
@@ -87,10 +81,8 @@ func Esperado(n seguridad.NivelDeAcceso, c Clase) Resultado {
 
 func sujetoDe(c Clase) (seguridad.Sujeto, bool) {
 	switch c {
-	case Limitada:
+	case SinCorreoVerificado:
 		return seguridad.Sujeto{Persona: personaDePrueba}, true
-	case Senuelo:
-		return seguridad.Sujeto{Senuelo: true}, true
 	case VerificadaSinAutorizar:
 		return seguridad.Sujeto{Persona: personaDePrueba, Verificada: true}, true
 	case Autorizada:
@@ -112,7 +104,7 @@ var comodin = regexp.MustCompile(`\{[^}]*\}`)
 
 // ProbarRutas recorre rutas (las de Enrutador.Rutas) y, para cada una y cada clase de Sujeto, hace la petición y
 // compara con Esperado. Falla si no hay ninguna ruta (una lista vacía no prueba nada), si el nivel no es uno de los
-// cuatro, o si una negación no deja su evento de seguridad.
+// tres, o si una negación no deja su evento de seguridad.
 func ProbarRutas(t *testing.T, rutas []servidor.Ruta) {
 	t.Helper()
 	if len(rutas) == 0 {

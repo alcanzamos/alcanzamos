@@ -90,16 +90,17 @@ func (s *SMTP) enlaceDeVerificacion(token string) string {
 	return s.urlPublica + "/verificar?t=" + url.QueryEscape(token)
 }
 
-// mensajeDeVerificacion arma el mensaje de verificación.
+// mensajeDeVerificacion arma el correo de verificación con el asunto y el cuerpo de E14-PCP 4.2 quater, palabra por
+// palabra (aprobados por D-176; la duración del enlace, D-192, aprobada por el dueño el 2026-11-06).
 func (s *SMTP) mensajeDeVerificacion(destino, token string) ([]byte, error) {
 	cuerpo := "Hola,\r\n\r\n" +
-		"Para confirmar tu correo y seguir con tu cuenta de Alcanzamos, abre este enlace. Sirve durante 24 horas:\r\n\r\n" +
+		"Pediste crear una cuenta en Alcanzamos con este correo. Para confirmarlo y elegir tu contraseña, abre este enlace. Sirve durante 24 horas y una sola vez:\r\n\r\n" +
 		s.enlaceDeVerificacion(token) + "\r\n\r\n" +
-		"Si no creaste una cuenta, ignora este mensaje: no pasa nada.\r\n\r\n" +
+		"Si no lo pediste, ignora este mensaje: no se crea ninguna cuenta.\r\n\r\n" +
 		"--\r\n" +
 		"Este mensaje sale de una dirección que no recibe respuestas.\r\n" +
 		s.pie()
-	return s.mensaje(destino, "Confirma tu correo en Alcanzamos", cuerpo)
+	return s.mensaje(destino, "Elige tu contraseña para tu cuenta de Alcanzamos", cuerpo)
 }
 
 // enlaceDeRecuperacion es URL_PUBLICA + /recuperar?t=<token> (PN-62).
@@ -120,8 +121,7 @@ func (s *SMTP) mensajeDeRecuperacion(destino, token string) ([]byte, error) {
 	return s.mensaje(destino, "Recupera el acceso a tu cuenta de Alcanzamos", cuerpo)
 }
 
-// Texto del aviso de correo ya registrado: E14-PCP v1.11, 4.2 bis, palabra por palabra (texto propuesto, lo revisa el
-// dueño). No lleva enlaces ni contraseñas. El pie sale de CORREO_PRIVACIDAD.
+// Texto del aviso de correo ya registrado: E14-PCP 4.2 bis, palabra por palabra (aprobado por D-192). No lleva enlaces ni contraseñas. El pie sale de CORREO_PRIVACIDAD.
 const (
 	asuntoDelAviso = "Alguien intentó crear una cuenta con tu correo"
 	cuerpoDelAviso = "Hola.\r\n\r\n" +

@@ -40,8 +40,8 @@ async function pantallaInicial(): Promise<keyof Rutas> {
 // del sistema y el Atrás de Android hace lo que la persona espera (vuelve a la pantalla anterior y, en la primera,
 // sale de la app). La marca de E14 va encima: fondo de página y sin barra, salvo en las pantallas que la piden
 // (`conBarra`). PN-65 se apila sobre PN-60 (el Atrás del sistema vuelve a PN-60, E14-PCP 4.8); PN-58 la reemplaza; de
-// PN-58 a PN-59, de entrar a PN-71 o a PN-59 y de cerrar sesión a PN-60 se cambia con `reemplazarPila`, para que Atrás
-// no vuelva al formulario, a una sesión limitada ni a una sesión cerrada. PN-63 es la primera de su pila (sin Atrás: el del
+// PN-58 a PN-59, de PN-59 a PN-58 («Usar otro correo») o a PN-60 («Ya elegí mi contraseña», D-184), de entrar a PN-71 y de
+// cerrar sesión a PN-60 se cambia con `reemplazarPila`, para que Atrás no vuelva al formulario ni a una sesión cerrada. PN-63 es la primera de su pila (sin Atrás: el del
 // sistema sale de la app); PN-64 se apila sobre PN-63 (su Atrás vuelve a PN-63), y de PN-64 a PN-71 («Autorizar y continuar»)
 // y a PN-60 («No autorizo») se cambia con `reemplazarPila`: Atrás no vuelve a PN-64 ni a una cuenta borrada. PN-61 se apila sobre PN-60. PN-62 no está: el
 // enlace del correo abre la web (D-155) y la app no recibe enlaces hasta los App Links de I08. PN-01 («Movimientos») se apila

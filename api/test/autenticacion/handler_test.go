@@ -44,9 +44,9 @@ func TestIniciarSesionEnLaWebDaLaCookie(t *testing.T) {
 
 func TestIniciarSesionEnAndroidDaElTokenEnElCuerpo(t *testing.T) {
 	e := nuevoEntorno(t)
-	rr := llamar(e.api(t, nil), "POST", rutaSesiones, entrar("sinverificar@ej.test", claveDePrueba), "203.0.113.7", "X-Alcanzamos-Cliente", "android")
+	rr := llamar(e.api(t, nil), "POST", rutaSesiones, entrar(correoDePrueba, claveDePrueba), "203.0.113.7", "X-Alcanzamos-Cliente", "android")
 	m := cuerpoDe(t, rr.Body.String())
-	if rr.Code != 200 || m["estado"] != "verificacion_pendiente" || len(rr.Result().Cookies()) != 0 {
+	if rr.Code != 200 || m["estado"] != "activa" || len(rr.Result().Cookies()) != 0 {
 		t.Fatalf("%d %s %v", rr.Code, rr.Body, rr.Header())
 	}
 	if _, err := seguridad.HuellaDeToken(m["token"].(string)); err != nil {
@@ -158,7 +158,7 @@ func TestIniciarSesionRechazaCuerposMalos(t *testing.T) {
 func TestCerrarSesionBorraLaFilaYLaCookie(t *testing.T) {
 	e := nuevoEntorno(t)
 	token, huella := seguridad.NuevoTokenOpaco()
-	h := e.api(t, &seguridad.Sujeto{Persona: personaDePrueba})
+	h := e.api(t, &seguridad.Sujeto{Persona: personaDePrueba, Verificada: true})
 	rr := llamar(h, "DELETE", "/api/v1/sesiones/actual", "", "203.0.113.7", "Cookie", sesion.NombreDeLaCookie+"="+token)
 	if rr.Code != 204 || len(e.repo.cerradas) != 1 || string(e.repo.cerradas[0]) != string(huella) {
 		t.Fatalf("%d %v", rr.Code, e.repo.cerradas)
@@ -175,18 +175,22 @@ func TestCerrarSesionBorraLaFilaYLaCookie(t *testing.T) {
 	}
 }
 
-// La sesión de mentira cierra igual que una limitada real (D-141): mismo estado, mismas cabeceras y mismo cuerpo.
-func TestCerrarSesionDeMentiraRespondeIgual(t *testing.T) {
+// SEG-010: cerrar sesión es `sin_autorizacion`: la cierra una cuenta verificada, autorizada o no, con el mismo estado,
+// las mismas cabeceras y el mismo cuerpo; una sesión sin correo verificado (un menor, hasta I11) recibe 403.
+func TestCerrarSesionLaCierraUnaCuentaVerificadaAutorizadaOno(t *testing.T) {
 	token, _ := seguridad.NuevoTokenOpaco()
 	respuesta := func(s seguridad.Sujeto) (int, string, string) {
 		e := nuevoEntorno(t)
 		rr := llamar(e.api(t, &s), "DELETE", "/api/v1/sesiones/actual", "", "203.0.113.7", "Authorization", "Bearer "+token)
 		return rr.Code, rr.Header().Get("Set-Cookie") + "|" + rr.Header().Get("Cache-Control"), rr.Body.String()
 	}
-	c1, h1, b1 := respuesta(seguridad.Sujeto{Persona: personaDePrueba})
-	c2, h2, b2 := respuesta(seguridad.Sujeto{Senuelo: true})
+	c1, h1, b1 := respuesta(seguridad.Sujeto{Persona: personaDePrueba, Verificada: true})
+	c2, h2, b2 := respuesta(seguridad.Sujeto{Persona: personaDePrueba, Verificada: true, Autorizada: true})
 	if c1 != 204 || c1 != c2 || h1 != h2 || b1 != b2 {
-		t.Errorf("limitada %d %s %q; de mentira %d %s %q", c1, h1, b1, c2, h2, b2)
+		t.Errorf("sin autorizar %d %s %q; autorizada %d %s %q", c1, h1, b1, c2, h2, b2)
+	}
+	if c, _, b := respuesta(seguridad.Sujeto{Persona: personaDePrueba}); c != 403 || b != `{"error":"verificacion_pendiente"}`+"\n" {
+		t.Errorf("sin correo verificado: %d %q", c, b)
 	}
 }
 

@@ -7,18 +7,9 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/alcanzamos/alcanzamos/api/src/cuenta"
-)
-
-const (
-	codigoViolacionDeUnico = "23505"
-	restriccionDelCorreo   = "uq_perfil_adulto_correo"
-	// intentosDeCreacion: si dos creaciones del mismo correo corren a la vez, la segunda choca con la restricción
-	// única y se repite, ya viendo la cuenta de la primera.
-	intentosDeCreacion = 3
 )
 
 // Cuentas implementa cuenta.Repositorio.
@@ -27,163 +18,179 @@ type Cuentas struct{ pool *pgxpool.Pool }
 // NuevoCuentas crea el repositorio sobre un pool.
 func NuevoCuentas(pool *pgxpool.Pool) *Cuentas { return &Cuentas{pool: pool} }
 
-// Crear guarda persona, perfil_adulto, credencial, enlace_un_uso de verificación y la sesión limitada en una sola
-// transacción (D-141). El correo se normaliza con lower(btrim()) en la base, que es lo que exige ck_perfil_adulto_correo.
+// SolicitarVerificacion guarda el enlace de verificación nuevo de un correo en una sola transacción (D-172 (2)). El
+// correo se normaliza con lower(btrim()) en la base, que es lo que exige ck_perfil_adulto_correo.
 //
-//   - Sin cuenta con ese correo: la crea.
-//   - Con una cuenta sin verificar: la borra (ON DELETE CASCADE se lleva su perfil, credencial, sesiones y enlaces, así
-//     el enlace y la sesión anteriores dejan de servir) y crea la nueva con la contraseña de ahora. Una cuenta sin
-//     verificar no tiene datos: no pudo autorizar nada (D-141 (1)).
+//   - Sin cuenta con ese correo: crea persona y perfil de adulto, sin credencial (la contraseña la elige quien abre el
+//     enlace, PN-74) y con el nombre provisional.
+//   - Con una cuenta sin verificar: borra solo sus enlaces pendientes y guarda el nuevo. **No borra ni recrea la cuenta**:
+//     quien pide el correo de otra persona no cambia nada de ella (pre-hijacking, SEG-012) y la fecha de creación sigue
+//     siendo la primera, así que la tarea de D-135 la borra a los 7 días.
 //   - Con una cuenta verificada: no toca nada y devuelve cuenta.ErrCorreoYaRegistrado.
-func (r *Cuentas) Crear(ctx context.Context, c cuenta.NuevaCuenta) (string, error) {
-	var err error
-	for range intentosDeCreacion {
-		var persona string
-		persona, err = r.crearUnaVez(ctx, c)
-		if !errors.Is(err, errCorreoOcupado) {
-			return persona, err
-		}
-	}
-	return "", fmt.Errorf("crear la cuenta: el correo cambió de dueña varias veces seguidas: %w", err)
-}
-
-var errCorreoOcupado = errors.New("el correo se ocupó mientras se creaba la cuenta")
-
-func (r *Cuentas) crearUnaVez(ctx context.Context, c cuenta.NuevaCuenta) (string, error) {
+//   - Sin cuenta y con SoloSiExiste (el reenvío): no crea nada y devuelve cuenta.ErrSinCuenta.
+func (r *Cuentas) SolicitarVerificacion(ctx context.Context, v cuenta.NuevaVerificacion) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		return "", fmt.Errorf("abrir la transacción: %w", err)
+		return fmt.Errorf("abrir la transacción: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
-	// Dos creaciones del mismo correo a la vez se turnan: sin esto, ninguna ve la cuenta de la otra (no hay fila que
-	// bloquear) y se pelearían borrándose la una a la otra. El candado se suelta con la transacción.
-	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended(lower(btrim($1)), 0))`, c.Correo); err != nil {
-		return "", fmt.Errorf("turnarse para crear la cuenta: %w", err)
+	// Dos pedidos del mismo correo a la vez se turnan: sin esto, ninguno ve la cuenta del otro (no hay fila que bloquear)
+	// y los dos la crearían. El candado se suelta con la transacción.
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended(lower(btrim($1)), 0))`, v.Correo); err != nil {
+		return fmt.Errorf("turnarse para pedir la verificación: %w", err)
 	}
-	var existente string
-	var verificada bool
-	err = tx.QueryRow(ctx,
-		`SELECT persona_id::text, correo_verificado FROM perfil_adulto WHERE correo = lower(btrim($1)) FOR UPDATE`,
-		c.Correo).Scan(&existente, &verificada)
+	persona, verificada, existe, err := bloquearCuentaDelCorreo(ctx, tx, v.Correo)
 	switch {
-	case errors.Is(err, pgx.ErrNoRows):
 	case err != nil:
-		return "", fmt.Errorf("buscar el correo: %w", err)
-	case verificada:
-		return "", cuenta.ErrCorreoYaRegistrado
+		return err
+	case existe && verificada:
+		return cuenta.ErrCorreoYaRegistrado
+	case existe:
+		if err := invalidarEnlaces(ctx, tx, persona); err != nil {
+			return err
+		}
+	case v.SoloSiExiste:
+		return cuenta.ErrSinCuenta
 	default:
-		if _, err := tx.Exec(ctx, `DELETE FROM persona WHERE id = $1::uuid`, existente); err != nil {
-			return "", fmt.Errorf("borrar la cuenta sin verificar: %w", err)
+		if persona, err = crearPersonaPendiente(ctx, tx, v); err != nil {
+			return err
 		}
-	}
-
-	var persona string
-	if err := tx.QueryRow(ctx,
-		`INSERT INTO persona (nombre, etapa, creada_en) VALUES ($1, 'adulta', $2) RETURNING id::text`,
-		c.Nombre, c.Ahora).Scan(&persona); err != nil {
-		return "", fmt.Errorf("crear la persona: %w", err)
-	}
-	if _, err := tx.Exec(ctx,
-		`INSERT INTO perfil_adulto (persona_id, correo) VALUES ($1::uuid, lower(btrim($2)))`,
-		persona, c.Correo); err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == codigoViolacionDeUnico && pgErr.ConstraintName == restriccionDelCorreo {
-			return "", errCorreoOcupado
-		}
-		return "", fmt.Errorf("crear el perfil de adulto: %w", err)
-	}
-	if _, err := tx.Exec(ctx,
-		`INSERT INTO credencial (persona_id, hash, es_temporal) VALUES ($1::uuid, $2, false)`,
-		persona, c.HashContrasena); err != nil {
-		return "", fmt.Errorf("crear la credencial: %w", err)
 	}
 	if _, err := tx.Exec(ctx,
 		`INSERT INTO enlace_un_uso (hash_token, persona_id, proposito, creado_en, vence_en)
 		 VALUES ($1, $2::uuid, 'verificacion', $3, $4)`,
-		c.HuellaDelEnlace, persona, c.Ahora, c.VenceElEnlaceEn); err != nil {
-		return "", fmt.Errorf("crear el enlace de verificación: %w", err)
-	}
-	if err := insertarSesion(ctx, tx, persona, c.HuellaDeSesion, c.Ahora); err != nil {
-		return "", err
+		v.HuellaDelEnlace, persona, v.Ahora, v.VenceElEnlaceEn); err != nil {
+		return fmt.Errorf("crear el enlace de verificación: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return "", fmt.Errorf("confirmar la transacción: %w", err)
+		return fmt.Errorf("confirmar la transacción: %w", err)
+	}
+	return nil
+}
+
+// bloquearCuentaDelCorreo busca la cuenta del correo y, si existe, toma sus candados en el orden global (credencial,
+// persona, perfil; ver bloquearCuentaParaEnlace) para no cruzarse con el borrado de la cuenta. Se busca sin bloquear y,
+// con los candados, se vuelve a leer: si la cuenta se borró mientras se esperaba, es como si no existiera.
+func bloquearCuentaDelCorreo(ctx context.Context, tx pgx.Tx, correo string) (persona string, verificada, existe bool, err error) {
+	err = tx.QueryRow(ctx, `SELECT persona_id::text FROM perfil_adulto WHERE correo = lower(btrim($1))`, correo).Scan(&persona)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", false, false, nil
+	}
+	if err != nil {
+		return "", false, false, fmt.Errorf("buscar el correo: %w", err)
+	}
+	if err := bloquearCuentaParaEnlace(ctx, tx, persona); err != nil {
+		return "", false, false, err
+	}
+	err = tx.QueryRow(ctx,
+		`SELECT correo_verificado FROM perfil_adulto WHERE persona_id = $1::uuid AND correo = lower(btrim($2)) FOR UPDATE`,
+		persona, correo).Scan(&verificada)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", false, false, nil
+	}
+	if err != nil {
+		return "", false, false, fmt.Errorf("buscar el correo: %w", err)
+	}
+	return persona, verificada, true, nil
+}
+
+// crearPersonaPendiente crea la persona y el perfil de adulto de un correo sin cuenta, sin credencial ni sesión.
+func crearPersonaPendiente(ctx context.Context, tx pgx.Tx, v cuenta.NuevaVerificacion) (string, error) {
+	var persona string
+	if err := tx.QueryRow(ctx,
+		`INSERT INTO persona (nombre, etapa, creada_en) VALUES ($1, 'adulta', $2) RETURNING id::text`,
+		v.Nombre, v.Ahora).Scan(&persona); err != nil {
+		return "", fmt.Errorf("crear la persona: %w", err)
+	}
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO perfil_adulto (persona_id, correo) VALUES ($1::uuid, lower(btrim($2)))`,
+		persona, v.Correo); err != nil {
+		return "", fmt.Errorf("crear el perfil de adulto: %w", err)
 	}
 	return persona, nil
 }
 
-// VerificarCorreo marca el enlace como usado y el correo como verificado en una sola transacción. El UPDATE con las
-// condiciones en el WHERE es atómico: dos usos simultáneos del mismo enlace no pasan los dos. Devuelve la persona.
-func (r *Cuentas) VerificarCorreo(ctx context.Context, huella []byte, ahora time.Time) (string, error) {
+// CorreoDelEnlace lee el correo de la cuenta de un enlace de verificación vigente y sin usar, sin consumirlo.
+func (r *Cuentas) CorreoDelEnlace(ctx context.Context, huella []byte, ahora time.Time) (string, error) {
+	var correo *string
+	err := r.pool.QueryRow(ctx,
+		`SELECT pa.correo FROM enlace_un_uso e JOIN perfil_adulto pa ON pa.persona_id = e.persona_id
+		 WHERE e.hash_token = $1 AND e.proposito = 'verificacion' AND e.usado_en IS NULL AND e.vence_en > $2
+		   AND NOT pa.correo_verificado`, huella, ahora).Scan(&correo)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && correo == nil) {
+		return "", cuenta.ErrEnlaceInvalido
+	}
+	if err != nil {
+		return "", fmt.Errorf("buscar el enlace de verificación: %w", err)
+	}
+	return *correo, nil
+}
+
+// CompletarCuenta consume el enlace, guarda el nombre y la credencial, verifica el correo y crea la sesión, todo en una
+// transacción: si algo falla no queda nada, y en particular no queda una sesión sin contraseña (D-172 (3)). El UPDATE del
+// enlace, con las condiciones en el WHERE, es atómico: de dos usos simultáneos pasa uno. Primero se toman los candados de
+// la cuenta, en el mismo orden que el borrado y que los demás enlaces, y solo después se consume el enlace.
+func (r *Cuentas) CompletarCuenta(ctx context.Context, c cuenta.CuentaElegida) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		return "", fmt.Errorf("abrir la transacción: %w", err)
+		return fmt.Errorf("abrir la transacción: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
 	var persona string
 	err = tx.QueryRow(ctx,
+		`SELECT persona_id::text FROM enlace_un_uso WHERE hash_token = $1 AND proposito = 'verificacion' AND usado_en IS NULL AND vence_en > $2`,
+		c.HuellaDelEnlace, c.Ahora).Scan(&persona)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return cuenta.ErrEnlaceInvalido
+	}
+	if err != nil {
+		return fmt.Errorf("buscar el enlace: %w", err)
+	}
+	if err := bloquearCuentaParaEnlace(ctx, tx, persona); err != nil {
+		return err
+	}
+	var verificada bool
+	err = tx.QueryRow(ctx, `SELECT correo_verificado FROM perfil_adulto WHERE persona_id = $1::uuid FOR UPDATE`, persona).Scan(&verificada)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && verificada) {
+		return cuenta.ErrEnlaceInvalido // la cuenta se borró mientras se esperaba, o ya estaba confirmada
+	}
+	if err != nil {
+		return fmt.Errorf("leer el perfil: %w", err)
+	}
+	if err := tx.QueryRow(ctx,
 		`UPDATE enlace_un_uso SET usado_en = $2
 		 WHERE hash_token = $1 AND proposito = 'verificacion' AND usado_en IS NULL AND vence_en > $2
-		 RETURNING persona_id::text`, huella, ahora).Scan(&persona)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return "", cuenta.ErrEnlaceInvalido
+		 RETURNING persona_id::text`, c.HuellaDelEnlace, c.Ahora).Scan(&persona); errors.Is(err, pgx.ErrNoRows) {
+		return cuenta.ErrEnlaceInvalido
+	} else if err != nil {
+		return fmt.Errorf("consumir el enlace: %w", err)
 	}
-	if err != nil {
-		return "", fmt.Errorf("consumir el enlace: %w", err)
+	if _, err := tx.Exec(ctx, `UPDATE persona SET nombre = $2 WHERE id = $1::uuid`, persona, c.Nombre); err != nil {
+		return fmt.Errorf("guardar el nombre: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE perfil_adulto SET correo_verificado = true WHERE persona_id = $1::uuid`, persona); err != nil {
+		return fmt.Errorf("verificar el correo: %w", err)
 	}
 	if _, err := tx.Exec(ctx,
-		`UPDATE perfil_adulto SET correo_verificado = true WHERE persona_id = $1::uuid`, persona); err != nil {
-		return "", fmt.Errorf("verificar el correo: %w", err)
+		`INSERT INTO credencial (persona_id, hash, es_temporal) VALUES ($1::uuid, $2, false)
+		 ON CONFLICT (persona_id) DO UPDATE SET hash = EXCLUDED.hash, es_temporal = false`,
+		persona, c.HashContrasena); err != nil {
+		return fmt.Errorf("guardar la credencial: %w", err)
 	}
-	if err := tx.Commit(ctx); err != nil {
-		return "", fmt.Errorf("confirmar la transacción: %w", err)
-	}
-	return persona, nil
-}
-
-// NuevoEnlaceDeVerificacion borra los enlaces de verificación pendientes de la persona y guarda el nuevo, en una
-// transacción: pedir uno nuevo invalida los pendientes (E13 §5.4). Bloquea el perfil, así dos pedidos
-// simultáneos no dejan dos enlaces vigentes.
-func (r *Cuentas) NuevoEnlaceDeVerificacion(ctx context.Context, persona string, huella []byte, ahora, vence time.Time) (string, error) {
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return "", fmt.Errorf("abrir la transacción: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
-	var correo *string
-	var verificado bool
-	if err := tx.QueryRow(ctx,
-		`SELECT correo, correo_verificado FROM perfil_adulto WHERE persona_id = $1::uuid FOR UPDATE`,
-		persona).Scan(&correo, &verificado); err != nil {
-		return "", fmt.Errorf("leer el perfil: %w", err)
-	}
-	if verificado {
-		return "", cuenta.ErrYaVerificado
-	}
-	if correo == nil {
-		return "", errors.New("la cuenta no tiene correo que verificar")
-	}
-	if err := reemplazarEnlace(ctx, tx, persona, huella, ahora, vence); err != nil {
-		return "", err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return "", fmt.Errorf("confirmar la transacción: %w", err)
-	}
-	return *correo, nil
-}
-
-// reemplazarEnlace borra los enlaces de verificación sin usar de la persona y guarda el nuevo.
-func reemplazarEnlace(ctx context.Context, tx pgx.Tx, persona string, huella []byte, ahora, vence time.Time) error {
 	if err := invalidarEnlaces(ctx, tx, persona); err != nil {
 		return err
 	}
-	if _, err := tx.Exec(ctx,
-		`INSERT INTO enlace_un_uso (hash_token, persona_id, proposito, creado_en, vence_en)
-		 VALUES ($1, $2::uuid, 'verificacion', $3, $4)`, huella, persona, ahora, vence); err != nil {
-		return fmt.Errorf("crear el enlace de verificación: %w", err)
+	// Las sesiones que la persona pendiente pudiera tener (no debería) no sobreviven a elegir la contraseña.
+	if _, err := tx.Exec(ctx, `DELETE FROM sesion WHERE persona_id = $1::uuid`, persona); err != nil {
+		return fmt.Errorf("borrar las sesiones previas: %w", err)
+	}
+	if err := insertarSesion(ctx, tx, persona, c.HuellaDeSesion, c.Ahora); err != nil {
+		return err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("confirmar la transacción: %w", err)
 	}
 	return nil
 }
@@ -193,62 +200,6 @@ func invalidarEnlaces(ctx context.Context, tx pgx.Tx, persona string) error {
 		`DELETE FROM enlace_un_uso WHERE persona_id = $1::uuid AND proposito = 'verificacion' AND usado_en IS NULL`,
 		persona); err != nil {
 		return fmt.Errorf("invalidar los enlaces pendientes: %w", err)
-	}
-	return nil
-}
-
-// CambiarCorreoSinVerificar cambia el correo de una cuenta sin verificar con las reglas de D-141 (ver
-// cuenta.Repositorio). Toma el candado del correo nuevo, igual que Crear, para turnarse con quien lo esté creando.
-func (r *Cuentas) CambiarCorreoSinVerificar(ctx context.Context, persona, nuevo string, huella []byte, ahora, vence time.Time) error {
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("abrir la transacción: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
-	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended(lower(btrim($1)), 0))`, nuevo); err != nil {
-		return fmt.Errorf("turnarse para cambiar el correo: %w", err)
-	}
-	var verificado bool
-	if err := tx.QueryRow(ctx,
-		`SELECT correo_verificado FROM perfil_adulto WHERE persona_id = $1::uuid FOR UPDATE`, persona).Scan(&verificado); err != nil {
-		return fmt.Errorf("leer el perfil: %w", err)
-	}
-	if verificado {
-		return cuenta.ErrYaVerificado
-	}
-	var otra string
-	var otraVerificada bool
-	err = tx.QueryRow(ctx,
-		`SELECT persona_id::text, correo_verificado FROM perfil_adulto WHERE correo = lower(btrim($1)) FOR UPDATE`,
-		nuevo).Scan(&otra, &otraVerificada)
-	switch {
-	case errors.Is(err, pgx.ErrNoRows), err == nil && otra == persona:
-	case err != nil:
-		return fmt.Errorf("buscar el correo nuevo: %w", err)
-	case otraVerificada:
-		// El correo es de una cuenta verificada: no cambia nada de la cuenta, y los enlaces pendientes se anulan.
-		if err := invalidarEnlaces(ctx, tx, persona); err != nil {
-			return err
-		}
-		if err := tx.Commit(ctx); err != nil {
-			return fmt.Errorf("confirmar la transacción: %w", err)
-		}
-		return cuenta.ErrCorreoYaRegistrado
-	default:
-		// Una cuenta sin verificar con ese correo: se trata como en la creación y se borra (D-141 (1)).
-		if _, err := tx.Exec(ctx, `DELETE FROM persona WHERE id = $1::uuid`, otra); err != nil {
-			return fmt.Errorf("borrar la cuenta sin verificar del correo nuevo: %w", err)
-		}
-	}
-	if _, err := tx.Exec(ctx, `UPDATE perfil_adulto SET correo = lower(btrim($2)) WHERE persona_id = $1::uuid`, persona, nuevo); err != nil {
-		return fmt.Errorf("cambiar el correo: %w", err)
-	}
-	if err := reemplazarEnlace(ctx, tx, persona, huella, ahora, vence); err != nil {
-		return err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("confirmar la transacción: %w", err)
 	}
 	return nil
 }

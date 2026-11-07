@@ -51,8 +51,11 @@ describe("App · rutas", () => {
     ).toBeInTheDocument();
   });
 
-  it("/verificar muestra el estado de PN-59 sin token", () => {
+  it("/verificar muestra PN-74 y, sin token, «Ese enlace ya no sirve.»", () => {
     irA("/verificar");
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Elige tu contraseña" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("Ese enlace ya no sirve.")).toBeInTheDocument();
   });
 

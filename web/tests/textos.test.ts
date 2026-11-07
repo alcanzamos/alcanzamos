@@ -35,14 +35,27 @@ describe("textos de E14", () => {
     ],
     [
       "contrasena_personal",
-      "Falta una contraseña que no incluya tu correo ni el nombre de la app.",
+      "Falta una contraseña que no incluya tu correo ni la palabra «Alcanzamos».",
     ],
     ["nombre_vacio", "Falta el nombre para mostrar."],
     // E14-PCP 4.16 T5 (D-153)
     ["nombre_largo", "Escribe un nombre de hasta 60 caracteres."],
+  ])("en PN-74 el código %s da su texto", (codigo, texto) => {
+    expect(textoDeErrorDeCampo(codigo, "eligeTuContrasena")).toBe(texto);
+  });
+
+  it.each([
+    ["correo_vacio", "Falta el correo electrónico."],
     ["mayor_de_edad_requerido", "Falta marcar que eres mayor de edad."],
   ])("en PN-58 el código %s da su texto", (codigo, texto) => {
     expect(textoDeErrorDeCampo(codigo, "crearCuenta")).toBe(texto);
+  });
+
+  it("PN-58 ya no tiene errores de contraseña ni de nombre, y PN-74 no tiene los del correo", () => {
+    for (const codigo of ["contrasena_corta", "nombre_vacio"])
+      expect(textoDeErrorDeCampo(codigo, "crearCuenta")).toBeUndefined();
+    for (const codigo of ["correo_vacio", "mayor_de_edad_requerido"])
+      expect(textoDeErrorDeCampo(codigo, "eligeTuContrasena")).toBeUndefined();
   });
 
   it.each([
@@ -77,7 +90,7 @@ describe("textos de E14", () => {
     expect(textoDeErrorDeCampo("desconocido")).toBeUndefined();
   });
 
-  // Textos de avisos de E14-PCP 4.1, 4.2 y 4.16 (T6, T8, T9, T11), palabra por palabra.
+  // Textos de avisos de E14-PCP 4.1, 4.2 y 4.16 (T6, T11), palabra por palabra.
   it.each([
     [
       avisos.errorAlCrearCuenta,
@@ -88,21 +101,6 @@ describe("textos de E14", () => {
       avisos.errorAlEnviarCorreo,
       "No pudimos enviar el correo.",
       "Intenta de nuevo.",
-    ],
-    [
-      avisos.errorAlRevisarElCorreo,
-      "No pudimos revisar si confirmaste tu correo.",
-      "Intenta de nuevo.",
-    ],
-    [
-      avisos.errorAlConfirmarElCorreo,
-      "No pudimos confirmar tu correo.",
-      "Intenta de nuevo.",
-    ],
-    [
-      avisos.sinConfirmarTodavia,
-      "Todavía no confirmaste tu correo.",
-      "Abre el enlace que te enviamos.",
     ],
     [avisos.correoReenviado, "Te enviamos otro correo.", undefined],
     [avisos.correoConfirmado, "Listo, confirmamos tu correo.", undefined],

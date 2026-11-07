@@ -1,6 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { leerCorreo } from "../../src/correoPendiente";
 import { irConAviso } from "../../src/llegada";
 import { Entrar } from "../../src/pantallas/Entrar";
 import { json, simularApi } from "../ayudas";
@@ -64,15 +63,17 @@ describe("PN-60 · Iniciar sesión", () => {
     ]);
   });
 
-  it("una cuenta sin verificar va a PN-59 con su correo", async () => {
-    simularApi(() => json(200, { estado: "verificacion_pendiente" }));
+  // D-172: una cuenta sin verificar no tiene contraseña ni sesión; el API la trata como una contraseña errónea.
+  it("una cuenta sin verificar recibe el 401 de siempre y no va a PN-59", async () => {
+    simularApi(() => json(401, { error: "credenciales_invalidas" }));
     render(<Entrar />);
     llenar();
     entrar();
-    await waitFor(() =>
-      expect(window.location.pathname).toBe("/revisa-tu-correo"),
-    );
-    expect(leerCorreo()).toBe("laura@ejemplo.com");
+    expect(
+      await screen.findByText("No pudimos entrar con esos datos."),
+    ).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/");
+    expect(sessionStorage.getItem("correo-pendiente")).toBeNull();
   });
 
   it("401 dice «No pudimos entrar con esos datos.» sin decir qué dato falló y conserva lo escrito", async () => {

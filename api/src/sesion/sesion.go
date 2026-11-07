@@ -5,7 +5,6 @@ package sesion
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -31,8 +30,7 @@ const (
 const NombreDeLaCookie = "__Host-sesion"
 
 // Cookie arma la cookie de sesión de la web: `HttpOnly; Secure; SameSite=Strict; Path=/` (D-081, D-083). Dura lo que
-// el tope, 90 días: el vencimiento real lo decide el servidor, que la desliza. Es la misma función para una sesión
-// real y para la de mentira: no deben distinguirse por fuera.
+// el tope, 90 días: el vencimiento real lo decide el servidor, que la desliza.
 func Cookie(token string) *http.Cookie {
 	return &http.Cookie{
 		Name:     NombreDeLaCookie,
@@ -46,7 +44,7 @@ func Cookie(token string) *http.Cookie {
 }
 
 // CookieVencida es la orden de borrar la cookie de sesión al cerrarla: mismo nombre y mismos atributos que Cookie, con
-// `Max-Age=0`. Se manda igual para una sesión real, de mentira o ya vencida: no deben distinguirse por fuera.
+// `Max-Age=0`. Se manda igual para una sesión real o ya vencida: no deben distinguirse por fuera.
 func CookieVencida() *http.Cookie {
 	c := Cookie("")
 	c.MaxAge = -1 // net/http lo escribe como `Max-Age=0`
@@ -72,38 +70,23 @@ type Almacen interface {
 	Sujeto(ctx context.Context, huella []byte, ahora time.Time) (seguridad.Sujeto, error)
 }
 
-// Resolutor implementa servidor.Sesiones: del token de la petición al Sujeto, pasando por el almacén real y, si no
-// está, por el reconocimiento de las sesiones de mentira (D-141). Una sesión de mentira da un Sujeto con Senuelo, que
-// el Enrutador trata en todas las rutas como la sesión limitada de una cuenta sin verificar.
+// Resolutor implementa servidor.Sesiones: del token de la petición al Sujeto, pasando por el almacén real. No hay
+// sesiones de mentira (D-172 (5)): un token que el almacén no tiene no tiene sesión.
 type Resolutor struct {
-	almacen  Almacen
-	senuelos *Senuelos
-	reloj    reloj.Reloj
+	almacen Almacen
+	reloj   reloj.Reloj
 }
 
-// NuevoResolutor arma el resolutor. senuelos puede ser nil si no hay sesiones de mentira.
-func NuevoResolutor(a Almacen, s *Senuelos, r reloj.Reloj) *Resolutor {
-	return &Resolutor{almacen: a, senuelos: s, reloj: r}
+// NuevoResolutor arma el resolutor.
+func NuevoResolutor(a Almacen, r reloj.Reloj) *Resolutor {
+	return &Resolutor{almacen: a, reloj: r}
 }
 
-// SujetoDe resuelve la sesión de la petición. Un token ausente, mal formado o desconocido es seguridad.ErrSinSesion;
-// siempre se consulta primero el almacén, también para un token que será de mentira, para que ni el tiempo de la
-// consulta lo delate. El reconocimiento de la mentira no usa la base: solo la clave y la hora.
+// SujetoDe resuelve la sesión de la petición. Un token ausente, mal formado o desconocido es seguridad.ErrSinSesion.
 func (r *Resolutor) SujetoDe(req *http.Request) (seguridad.Sujeto, error) {
-	token := TokenDe(req)
-	huella, err := seguridad.HuellaDeToken(token)
+	huella, err := seguridad.HuellaDeToken(TokenDe(req))
 	if err != nil {
 		return seguridad.Sujeto{}, seguridad.ErrSinSesion
 	}
-	sujeto, err := r.almacen.Sujeto(req.Context(), huella, r.reloj.Ahora())
-	if err == nil {
-		return sujeto, nil
-	}
-	if !errors.Is(err, seguridad.ErrSinSesion) {
-		return seguridad.Sujeto{}, err
-	}
-	if r.senuelos != nil && r.senuelos.Reconoce(token) {
-		return seguridad.Sujeto{Senuelo: true}, nil
-	}
-	return seguridad.Sujeto{}, seguridad.ErrSinSesion
+	return r.almacen.Sujeto(req.Context(), huella, r.reloj.Ahora())
 }
