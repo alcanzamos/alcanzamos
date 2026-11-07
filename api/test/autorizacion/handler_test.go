@@ -17,6 +17,7 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/src/servidor"
 	"github.com/alcanzamos/alcanzamos/api/src/sesion"
 	"github.com/alcanzamos/alcanzamos/api/test/reloj/relojtest"
+	"github.com/alcanzamos/alcanzamos/api/test/servidor/csrftest"
 )
 
 const personaDePrueba = "0192f3c4-0000-7000-8000-0000000000aa"
@@ -86,7 +87,7 @@ func nuevoEntorno(t *testing.T) *entorno {
 	if err != nil {
 		t.Fatal(err)
 	}
-	e.api = servidor.ManejadorConAPI(h)
+	e.api = csrftest.ConCabeceras(servidor.ManejadorConAPI(h))
 	return e
 }
 

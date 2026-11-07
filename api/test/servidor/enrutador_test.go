@@ -149,7 +149,8 @@ func TestRegistroInvalidoNoArranca(t *testing.T) {
 		{"sin nivel", func(e *servidor.Enrutador) { e.Registrar(0, "GET /api/v1/x", alcanzado) }, "no declara su nivel de acceso"},
 		{"nivel desconocido", func(e *servidor.Enrutador) { e.Registrar(99, "GET /api/v1/x", alcanzado) }, "no declara su nivel de acceso"},
 		{"fuera de /api/", func(e *servidor.Enrutador) { e.Registrar(seguridad.Publica, "GET /v1/x", alcanzado) }, "no está bajo /api/"},
-		{"la propia /api/", func(e *servidor.Enrutador) { e.Registrar(seguridad.Publica, "/api/", alcanzado) }, "no está bajo /api/"},
+		{"la propia /api/", func(e *servidor.Enrutador) { e.Registrar(seguridad.Publica, "GET /api/", alcanzado) }, "no está bajo /api/"},
+		{"sin método", func(e *servidor.Enrutador) { e.Registrar(seguridad.Publica, "/api/v1/x", alcanzado) }, "no empieza por un método"},
 		{"repetida con el mismo nivel", func(e *servidor.Enrutador) {
 			e.Registrar(seguridad.Publica, "GET /api/v1/x", alcanzado)
 			e.Registrar(seguridad.Publica, "GET /api/v1/x", alcanzado)

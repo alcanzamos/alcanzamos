@@ -29,6 +29,7 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/test/correo/correotest"
 	"github.com/alcanzamos/alcanzamos/api/test/pgtest"
 	"github.com/alcanzamos/alcanzamos/api/test/reloj/relojtest"
+	"github.com/alcanzamos/alcanzamos/api/test/servidor/csrftest"
 )
 
 const (
@@ -99,7 +100,7 @@ func nuevoServidor(t *testing.T) *servidorDePrueba {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &servidorDePrueba{t: t, pool: pool, h: servidor.ManejadorConAPI(api), reloj: reloj, correo: correo, cuentas: cuentas, eventos: eventos}
+	return &servidorDePrueba{t: t, pool: pool, h: csrftest.ConCabeceras(servidor.ManejadorConAPI(api)), reloj: reloj, correo: correo, cuentas: cuentas, eventos: eventos}
 }
 
 // cliente es quien llama: la web con la cookie, o Android con el token en el cuerpo y Bearer. Android no manda `Origin`

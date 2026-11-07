@@ -22,7 +22,8 @@ type Cuerpo = Record<string, unknown>;
 /**
  * Las cabeceras de todo pedido. Manda `X-Alcanzamos-Cliente: android`, para que el API entregue el token en el cuerpo
  * (D-143 (3)), y `Authorization: Bearer` si hay sesión. Nunca `Origin` ni `Sec-Fetch-Site`: React Native no las agrega
- * y el API rechaza el modo Android si llegan. Tampoco se agregan aquí.
+ * y el API rechaza el modo Android si llegan. Tampoco se agregan aquí. `conCuerpo` es también verdadero en todo POST,
+ * con o sin cuerpo: el API rechaza con 415 el que no trae `Content-Type: application/json` (D-175, E17 3.15 (d)).
  */
 export function cabeceras(token: string | null, conCuerpo: boolean): Record<string, string> {
   return {
@@ -77,7 +78,7 @@ export async function pedir<T = Cuerpo>(
   try {
     respuesta = await fetch(`${base}${ruta}`, {
       method: metodo,
-      headers: cabeceras(await leerToken(), cuerpo !== undefined),
+      headers: cabeceras(await leerToken(), cuerpo !== undefined || metodo === 'POST'),
       body: typeof cuerpo === 'string' || cuerpo === undefined ? cuerpo : JSON.stringify(cuerpo),
     });
   } catch {

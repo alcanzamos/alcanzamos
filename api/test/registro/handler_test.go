@@ -15,6 +15,7 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/src/seguridad"
 	"github.com/alcanzamos/alcanzamos/api/src/servidor"
 	"github.com/alcanzamos/alcanzamos/api/test/reloj/relojtest"
+	"github.com/alcanzamos/alcanzamos/api/test/servidor/csrftest"
 )
 
 const persona = "0192f3c4-0000-7000-8000-0000000000aa"
@@ -112,8 +113,8 @@ func api(t *testing.T, repo *repoFalso, ahora string) http.Handler {
 		t.Fatal(err)
 	}
 	log := slog.New(slog.NewJSONHandler(io.Discard, nil))
-	e := servidor.NuevoEnrutador(sesionFalsa{}, seguridad.NuevoRegistro(log), log)
-	registro.NuevoHandler(registro.NuevoServicio(repo, &relojtest.Fijo{T: hora}), log).ConURLPublica(urlPublica).Registrar(e)
+	e := servidor.NuevoEnrutador(sesionFalsa{}, seguridad.NuevoRegistro(log), log).ConURLPublica(urlPublica)
+	registro.NuevoHandler(registro.NuevoServicio(repo, &relojtest.Fijo{T: hora}), log).Registrar(e)
 	h, err := e.Construir()
 	if err != nil {
 		t.Fatal(err)
@@ -123,7 +124,7 @@ func api(t *testing.T, repo *repoFalso, ahora string) http.Handler {
 
 func llamar(h http.Handler, metodo, ruta, cuerpo string) (int, string, http.Header) {
 	rr := httptest.NewRecorder()
-	h.ServeHTTP(rr, httptest.NewRequest(metodo, ruta, strings.NewReader(cuerpo)))
+	csrftest.ConCabeceras(h).ServeHTTP(rr, httptest.NewRequest(metodo, ruta, strings.NewReader(cuerpo)))
 	return rr.Code, strings.TrimSpace(rr.Body.String()), rr.Header()
 }
 
