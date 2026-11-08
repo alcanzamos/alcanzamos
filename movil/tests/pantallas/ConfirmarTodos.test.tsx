@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { reiniciarBorrador } from '../../src/borradorDeRegistro';
 import { Navegacion } from '../../src/navegacion/Navegacion';
 import { atras, instalarAtras } from '../ayudas/atras';
-import { anunciados, esperarAnuncio, limpiarAnuncios } from '../ayudas/anuncios';
+import { anunciados, esperarAnuncio, esperarRegion, limpiarAnuncios, regionesVivas, textoDe, usarMecanismo } from '../ayudas/anuncios';
 import { respuestaJson } from '../ayudas/fetchFalso';
 import { apiFalsa, BASE, celular, energia, listado, pendiente, pendientes } from '../ayudas/movimientosFalsos';
 import { fijarHoy } from '../ayudas/reloj';
@@ -397,5 +397,24 @@ describe('«Confirmar todos», Android (E14-PRR 4.8, US-60)', () => {
     expect(
       within(screen.getByRole('button', { name: 'Guardar 2 movimientos' })).getByText('Guardar 2 movimientos'),
     ).toBeOnTheScreen();
+  });
+
+  describe('ACC-004, variante «region» (EXPO_PUBLIC_ANUNCIOS, temporal)', () => {
+    usarMecanismo('region');
+    beforeEach(() => limpiarAnuncios());
+
+    it('bug 226: el error de la hoja del monto lo dice la región de la hoja, no la de la pantalla de atrás', async () => {
+      apiFalsa(respuestaJson, { pendientes: pendientes(energia, celular) });
+      await abrirTodos();
+      await elegir('Servicios públicos', 'Cambiar el monto');
+      await fireEvent.changeText(await screen.findByLabelText('Monto'), '0');
+      await fireEvent.press(screen.getByRole('button', { name: 'Listo' }));
+      const region = await esperarRegion('El monto debe ser mayor que $0.');
+      let ancestro = region.parent;
+      while (ancestro && !ancestro.props.accessibilityViewIsModal) ancestro = ancestro.parent;
+      expect(ancestro).not.toBeNull();
+      expect(regionesVivas().filter((r) => textoDe(r) === 'El monto debe ser mayor que $0.')).toHaveLength(1);
+      expect(anunciados()).toEqual([]);
+    });
   });
 });

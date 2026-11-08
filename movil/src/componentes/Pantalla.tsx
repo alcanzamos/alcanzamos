@@ -6,6 +6,7 @@ import type { DatosDeAviso } from '../textos';
 import { tokens } from '../tokens/tokens.generated';
 import { Logo } from './Logo';
 import { MensajeDeEstado } from './MensajeDeEstado';
+import { RegionDeAnuncios } from './RegionDeAnuncios';
 
 // La base de toda pantalla: fondo de página, desplazable (el teclado no tapa los campos) y con los márgenes de
 // E14-PCP 1. El título (`tipografia.titulo-2`) es el encabezado que el lector de pantalla anuncia.
@@ -13,6 +14,8 @@ import { MensajeDeEstado } from './MensajeDeEstado';
 // - `conLogo`: el Logo horizontal en color arriba (PN-58, PN-60 y PN-65).
 // - `conBarra`: la pantalla lleva la barra nativa (Barra superior, E14-SDD 5.10) con su título; ya cubre el borde
 //   de arriba, así que no se suma el margen de la barra de estado, y la pantalla no repite el título.
+// Con la variante `region` de los anuncios (ACC-004, temporal) lleva la región viva de la pantalla, fuera de lo que se
+// desplaza: así no se va de la pantalla cuando la persona baja hasta «Guardar».
 export function Pantalla({
   titulo,
   conLogo = false,
@@ -28,24 +31,27 @@ export function Pantalla({
 }) {
   const margenes = useSafeAreaInsets();
   return (
-    <ScrollView
-      keyboardShouldPersistTaps="handled"
-      style={estilos.fondo}
-      contentContainerStyle={[
-        estilos.contenido,
-        { paddingTop: conBarra ? tokens.espacio['4'] : margenes.top + tokens.espacio['6'] },
-        { paddingBottom: margenes.bottom + tokens.espacio['6'] },
-      ]}
-    >
-      {estado && <MensajeDeEstado aviso={estado} />}
-      {conLogo && <Logo />}
-      {titulo && (
-        <Text accessibilityRole="header" style={estilos.titulo}>
-          {titulo}
-        </Text>
-      )}
-      {children}
-    </ScrollView>
+    <>
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        style={estilos.fondo}
+        contentContainerStyle={[
+          estilos.contenido,
+          { paddingTop: conBarra ? tokens.espacio['4'] : margenes.top + tokens.espacio['6'] },
+          { paddingBottom: margenes.bottom + tokens.espacio['6'] },
+        ]}
+      >
+        {estado && <MensajeDeEstado aviso={estado} />}
+        {conLogo && <Logo />}
+        {titulo && (
+          <Text accessibilityRole="header" style={estilos.titulo}>
+            {titulo}
+          </Text>
+        )}
+        {children}
+      </ScrollView>
+      <RegionDeAnuncios />
+    </>
   );
 }
 

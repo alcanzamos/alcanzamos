@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import { TextInput } from 'react-native';
 import { Entrar } from '../../src/pantallas/Entrar';
 import { instalarFetchFalso, respuestaJson } from '../ayudas/fetchFalso';
-import { anunciados, esperarAnuncio, focoDeTalkBack } from '../ayudas/anuncios';
+import { anunciados, esperarAnuncio, esperarRegion, focoDeTalkBack, limpiarAnuncios, regionesVivas, usarMecanismo } from '../ayudas/anuncios';
 import { navegacionFalsa, propiedades } from '../ayudas/pantalla';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
 
@@ -264,6 +264,28 @@ describe('PN-60 · Iniciar sesión, Android (E14-PCP 4.3)', () => {
       await mostrar();
       await entrar();
       expect(await screen.findByText('No pudimos entrar con esos datos.')).toBeOnTheScreen();
+    });
+  });
+
+  describe('ACC-004, variante «region» (EXPO_PUBLIC_ANUNCIOS, temporal)', () => {
+    usarMecanismo('region');
+    beforeEach(() => limpiarAnuncios());
+
+    it('bug 226: vacío, la región viva de la pantalla dice los dos errores y el foco de TalkBack va al correo', async () => {
+      instalarFetchFalso(
+        respuestaJson(422, {
+          error: 'validacion',
+          campos: { identificador: 'identificador_vacio', contrasena: 'contrasena_vacia' },
+        }),
+      );
+      await mostrar();
+      await entrar();
+      const region = await esperarRegion('Falta el correo electrónico. Falta la contraseña.');
+      expect(region.props.collapsable).toBe(false);
+      expect(region.props.accessibilityLiveRegion).toBe('polite');
+      expect(regionesVivas()).toHaveLength(1);
+      expect(focoDeTalkBack()?.props.accessibilityLabel).toBe('Correo electrónico');
+      expect(anunciados()).toEqual([]);
     });
   });
 });

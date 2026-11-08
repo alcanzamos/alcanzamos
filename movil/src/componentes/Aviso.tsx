@@ -15,7 +15,7 @@ const iconos: Record<TipoAviso, ComponentType<{ color: string }>> = {
 
 // Aviso de E14-SDD 5.4: ícono + título + mensaje, un solo elemento para el lector de pantalla. Es un mensaje de estado:
 // TalkBack lo anuncia cuando aparece y cada vez que cambia, sin mover el foco (`useAnuncio`, ACC-004, bug 225; ahí
-// está por qué no es una región viva). Con `viva` en falso es contenido fijo de la pantalla («Vas a borrar tu cuenta»)
+// está por qué el aviso no es una región viva y por dónde sale el anuncio). Con `viva` en falso es contenido fijo de la pantalla («Vas a borrar tu cuenta»)
 // y no se anuncia: se lee al recorrerla. Con `tituloHablado` (un título con un monto, ACC-004) el nombre del elemento y
 // el anuncio son ese título más el mensaje, para que TalkBack diga los pesos y no «$».
 export function Aviso({ tipo, titulo, tituloHablado, mensaje, viva = true }: DatosDeAviso & { viva?: boolean }) {

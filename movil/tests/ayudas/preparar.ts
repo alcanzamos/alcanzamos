@@ -10,3 +10,9 @@ jest.mock('react-native-safe-area-context', () => {
 jest.mock('@react-native-async-storage/async-storage', () =>
   jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
+
+// Los anuncios de TalkBack (ACC-004) tienen dos variantes mientras se prueban en el celular (EXPO_PUBLIC_ANUNCIOS,
+// temporal; ver `src/anuncios.ts`). Las pruebas de siempre son las de `anuncio` (announceForAccessibility); las de la
+// región viva la eligen con `usarMecanismo('region')` de tests/ayudas/anuncios.ts. `src/anuncios.ts` lee la variable
+// al cargarse, después de este archivo.
+process.env.EXPO_PUBLIC_ANUNCIOS = 'anuncio';

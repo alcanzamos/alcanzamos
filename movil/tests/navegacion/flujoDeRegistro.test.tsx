@@ -1,9 +1,9 @@
 import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { BackHandler } from 'react-native';
 import { reiniciarBorrador } from '../../src/borradorDeRegistro';
 import { Navegacion } from '../../src/navegacion/Navegacion';
-import { esperarAnuncio } from '../ayudas/anuncios';
+import { anunciados, esperarAnuncio, esperarRegion, limpiarAnuncios, usarMecanismo } from '../ayudas/anuncios';
 import { respuestaJson } from '../ayudas/fetchFalso';
 import { fijarHoy } from '../ayudas/reloj';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
@@ -109,6 +109,25 @@ describe('flujo de registrar un movimiento en Android (PN-71 → PN-01 → Regis
     });
     // TalkBack anuncia el mensaje de estado, con el monto en pesos, sin mover el foco (ACC-004, bug 225).
     await esperarAnuncio('Listo, registramos tu gasto de 45000 pesos.');
+  });
+
+  describe('ACC-004, variante «region» (EXPO_PUBLIC_ANUNCIOS, temporal)', () => {
+    usarMecanismo('region');
+    beforeEach(() => limpiarAnuncios());
+
+    it('bug 225: al volver a PN-01 después de guardar, el aviso lo dice la región de PN-01', async () => {
+      api();
+      await abrirElFormulario();
+      await fireEvent.changeText(screen.getByLabelText('Monto'), '45.000');
+      await fireEvent.press(screen.getByRole('radio', { name: 'Otros gastos' }));
+      await fireEvent.press(screen.getByRole('radio', { name: 'Efectivo' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+      expect(await screen.findByText('Listo, registramos tu gasto de $45.000.')).toBeOnTheScreen();
+      const region = await esperarRegion('Listo, registramos tu gasto de 45000 pesos.');
+      expect(within(region.parent!).getByText(PN01)).toBeOnTheScreen();
+      expect(screen.queryByLabelText('Monto')).not.toBeOnTheScreen();
+      expect(anunciados()).toEqual([]);
+    });
   });
 
   it('Atrás en Registrar vuelve a PN-01 sin guardar nada', async () => {
