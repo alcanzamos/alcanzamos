@@ -1,5 +1,7 @@
 import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
+import { createRef } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import type { HostInstance } from 'react-native';
 import { CampoDeFecha } from '../../src/componentes/CampoDeFecha';
 import { tokens } from '../../src/tokens/tokens.generated';
 
@@ -79,5 +81,11 @@ describe('CampoDeFecha (PN-65, E14-PCP 4.8)', () => {
     expect(screen.queryByText('26 de octubre de 2026')).not.toBeOnTheScreen();
     await fireEvent.press(screen.getByRole('button'));
     expect(abrir.mock.calls[0][0].value).toBe(fecha);
+  });
+
+  it('deja la referencia al campo para llevarle el foco de TalkBack con un error (ACC-004, bug 226)', async () => {
+    const ref = createRef<HostInstance>();
+    await render(<CampoDeFecha {...propiedades} ref={ref} error="Falta la fecha de nacimiento." />);
+    expect(ref.current).not.toBeNull();
   });
 });

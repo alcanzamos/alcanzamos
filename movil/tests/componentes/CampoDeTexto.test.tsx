@@ -1,7 +1,7 @@
 import { createRef } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { Pressable, Text, type TextInputInstance } from 'react-native';
-import { CampoDeTexto } from '../../src/componentes/CampoDeTexto';
+import { CampoDeLectura, CampoDeTexto } from '../../src/componentes/CampoDeTexto';
 import { tokens } from '../../src/tokens/tokens.generated';
 
 const propiedades = { etiqueta: 'Correo electrónico', valor: '', alCambiar: jest.fn() };
@@ -11,6 +11,30 @@ describe('CampoDeTexto (E14-SDD 5.3)', () => {
     await render(<CampoDeTexto {...propiedades} />);
     expect(screen.getByText('Correo electrónico')).toBeOnTheScreen();
     expect(screen.getByLabelText('Correo electrónico')).toBeOnTheScreen();
+  });
+
+  it('ACC-004 (bug 227): con contenido, TalkBack sigue leyendo la etiqueta (el campo se nombra por la etiqueta visible)', async () => {
+    await render(<CampoDeTexto {...propiedades} valor="laura@ejemplo.com" />);
+    const campo = screen.getByDisplayValue('laura@ejemplo.com');
+    const etiqueta = screen.getByText('Correo electrónico');
+    // Android lee el texto de un EditText lleno en lugar de su contentDescription: la etiqueta llega con labeledBy.
+    expect(etiqueta.props.nativeID).toEqual(expect.any(String));
+    expect(campo.props.accessibilityLabelledBy).toBe(etiqueta.props.nativeID);
+    expect(campo.props.accessibilityLabel).toBe('Correo electrónico');
+    expect(screen.getByLabelText('Correo electrónico')).toBe(campo);
+  });
+
+  it('ACC-004 (bug 227): cada campo apunta a su propia etiqueta', async () => {
+    await render(
+      <>
+        <CampoDeTexto {...propiedades} valor="laura@ejemplo.com" />
+        <CampoDeTexto {...propiedades} etiqueta="Descripción" valor="Mercado" />
+      </>,
+    );
+    const correo = screen.getByDisplayValue('laura@ejemplo.com').props.accessibilityLabelledBy;
+    const descripcion = screen.getByDisplayValue('Mercado').props.accessibilityLabelledBy;
+    expect(correo).not.toBe(descripcion);
+    expect(screen.getByText('Descripción').props.nativeID).toBe(descripcion);
   });
 
   it('muestra la ayuda y la usa como pista de accesibilidad', async () => {
@@ -28,13 +52,14 @@ describe('CampoDeTexto (E14-SDD 5.3)', () => {
     expect(alCambiar).toHaveBeenCalledWith('laura@ejemplo.com');
   });
 
-  it('en error muestra el texto con su ícono, en una región viva, y el borde de Atención', async () => {
+  it('en error muestra el texto con su ícono y el borde de Atención; el anuncio lo hace la pantalla al guardar', async () => {
     await render(<CampoDeTexto {...propiedades} error="Falta el correo electrónico." />);
     expect(screen.getByText('Falta el correo electrónico.')).toBeOnTheScreen();
     expect(screen.getByText('Falta el correo electrónico.')).toHaveStyle({
       color: tokens.color.estado.atencion.texto,
     });
-    expect(JSON.stringify(screen.toJSON())).toContain('"accessibilityLiveRegion":"polite"');
+    // Una región viva en una vista sin más propiedades la aplana Android y no se oye (ACC-004, bug 226).
+    expect(JSON.stringify(screen.toJSON())).not.toContain('"accessibilityLiveRegion":"polite"');
     expect(JSON.stringify(screen.toJSON())).toContain(tokens.color.estado.atencion.borde);
   });
 
@@ -109,6 +134,13 @@ describe('CampoDeTexto (E14-SDD 5.3)', () => {
     expect(alSalir).not.toHaveBeenCalled();
     await fireEvent(screen.getByLabelText('Correo electrónico'), 'blur');
     expect(alSalir).toHaveBeenCalledTimes(1);
+  });
+
+  it('ACC-004 (bug 227): un campo de solo lectura dice su etiqueta junto con su valor', async () => {
+    await render(<CampoDeLectura etiqueta="Empieza el" valor="26 de octubre de 2026" />);
+    expect(screen.getByText('Empieza el')).toBeOnTheScreen();
+    expect(screen.getByText('26')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Empieza el, 26 de octubre de 2026')).toBeOnTheScreen();
   });
 
   it('perder el foco sin `alSalir` no falla', async () => {

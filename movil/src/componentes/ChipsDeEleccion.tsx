@@ -10,9 +10,10 @@ import { MarcaDeOculta } from './MarcaDeOculta';
 export type OpcionDeChip<V extends string | number> = { valor: V; etiqueta: string; oculta?: boolean };
 
 // Chips de categoría de E14-SDD (elección única): un grupo de botones de radio con su etiqueta y, si hace falta, su
-// error en una región viva cortés. Cada chip es toda un área táctil de 48 dp; el elegido lleva fondo de marca y una
-// marca de verificación, no solo color. Para TalkBack cada uno es un `radio` con el estado «marcado» o «sin marcar».
-// `enFila` los deja en una sola fila que se desplaza a lo ancho (la Categoría, E14-PPN 3.1 fila 9).
+// error, que la pantalla anuncia al guardar (`avisarErrores`, ACC-004, bug 226). Cada chip es toda un área táctil de
+// 48 dp; el elegido lleva fondo de marca y una marca de verificación, no solo color. Para TalkBack cada uno es un
+// `radio` con el estado «marcado» o «sin marcar». `enFila` los deja en una sola fila que se desplaza a lo ancho (la
+// Categoría, E14-PPN 3.1 fila 9).
 export function ChipsDeEleccion<V extends string | number>({
   etiqueta,
   opciones,
@@ -48,14 +49,12 @@ export function ChipsDeEleccion<V extends string | number>({
       ) : (
         <View style={[estilos.chips, estilos.chipsEnVarias]}>{chips}</View>
       )}
-      <View accessibilityLiveRegion="polite">
-        {error && (
-          <View style={estilos.error}>
-            <IconoAtencion color={tokens.color.estado.atencion.icono} />
-            <Text style={estilos.textoDeError}>{cifras(error)}</Text>
-          </View>
-        )}
-      </View>
+      {error && (
+        <View style={estilos.error}>
+          <IconoAtencion color={tokens.color.estado.atencion.icono} />
+          <Text style={estilos.textoDeError}>{cifras(error)}</Text>
+        </View>
+      )}
     </View>
   );
 }

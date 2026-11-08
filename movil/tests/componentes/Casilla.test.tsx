@@ -1,5 +1,6 @@
+import { createRef } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { Text } from 'react-native';
+import { Text, type HostInstance } from 'react-native';
 import { Casilla } from '../../src/componentes/Casilla';
 import { tokens } from '../../src/tokens/tokens.generated';
 
@@ -61,5 +62,13 @@ describe('Casilla de verificación (E14-SDD 5.17)', () => {
     expect(screen.getByText('Fila con monto')).toBeOnTheScreen();
     expect(screen.getByRole('checkbox', { name: 'Energía, $120.000' })).toBeOnTheScreen();
     expect(screen.queryByText('Energía, $120.000')).not.toBeOnTheScreen();
+  });
+
+  it('deja la referencia a la casilla para llevarle el foco de TalkBack con un error (ACC-004, bug 226)', async () => {
+    const ref = createRef<HostInstance>();
+    await render(<Casilla ref={ref} texto="Autorizo." marcada={false} alCambiar={jest.fn()} error="Falta." />);
+    expect(ref.current).not.toBeNull();
+    // El error se ve, pero no es una región viva: Android la aplana y no se oiría. Lo anuncia la pantalla al guardar.
+    expect(JSON.stringify(screen.toJSON())).not.toContain('"accessibilityLiveRegion":"polite"');
   });
 });

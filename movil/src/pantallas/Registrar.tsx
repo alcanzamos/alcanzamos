@@ -4,6 +4,7 @@ import { StyleSheet, Text, View, type TextInputInstance } from 'react-native';
 import { SIN_CONEXION } from '../api/cliente';
 import { corregirMovimiento, interpretarTexto, type Interpretacion, type Movimiento } from '../api/movimientos';
 import { guardarMovimiento, obtenerCategorias, type CatalogoDeCategorias, type Medio } from '../api/registro';
+import { useAvisarErrores } from '../anuncios';
 import { borradorDeMovimiento, cambiarBorrador, reiniciarBorrador, useBorrador, type Borrador } from '../borradorDeRegistro';
 import { Aviso } from '../componentes/Aviso';
 import { Boton, BotonDeTexto } from '../componentes/Boton';
@@ -34,7 +35,7 @@ import {
 import { fechaEnLaFila } from '../textosDeMovimientos';
 import { formatear, textos } from '../textos/es.generated';
 import { tokens } from '../tokens/tokens.generated';
-import { campoDeApi, CAMPOS, validarRegistro, type Errores } from '../validacionDeRegistro';
+import { campoDeApi, CAMPOS, validarRegistro, type Campo, type Errores } from '../validacionDeRegistro';
 
 type Catalogo =
   | { fase: 'cargando' }
@@ -82,6 +83,7 @@ export function FormularioDeMovimiento({
   const enfocarMonto = useRef(false);
   const campoDeMonto = useRef<TextInputInstance>(null);
   const campoDeDescripcion = useRef<TextInputInstance>(null);
+  const avisarErrores = useAvisarErrores();
 
   useEffect(() => {
     let vigente = true;
@@ -121,11 +123,14 @@ export function FormularioDeMovimiento({
     }
   }, [enPaso]);
 
+  // El foco va al primero con error si es un campo de texto (Monto o Descripción); TalkBack anuncia todos (ACC-004).
   const mostrar = (nuevos: Errores) => {
     setErrores(nuevos);
-    const primero = CAMPOS.find((campo) => nuevos[campo]);
-    if (primero === 'monto') campoDeMonto.current?.focus();
-    else if (primero === 'descripcion') campoDeDescripcion.current?.focus();
+    const campos: Partial<Record<Campo, typeof campoDeMonto>> = {
+      monto: campoDeMonto,
+      descripcion: campoDeDescripcion,
+    };
+    avisarErrores(CAMPOS.map((campo) => ({ error: nuevos[campo], campo: campos[campo] })));
   };
 
   // Lo que llenó el cuadro pasa por «Revisa y confirma» antes de guardarse (RN-001): `confirmado` solo es verdadero
@@ -155,7 +160,8 @@ export function FormularioDeMovimiento({
     setEnviando(false);
     if (respuesta.ok && corregir) {
       // Vuelve a PN-01: PN-02 y «Corregir» salen de la pila, así que el Atrás no vuelve al movimiento corregido.
-      navigation.popTo('ListaDeMovimientos', { aviso: avisos.cambiosGuardados }, { merge: true });
+      // Un aviso nuevo en cada vuelta: PN-01 lo anuncia aunque la vuelta anterior dijera lo mismo (ACC-004).
+      navigation.popTo('ListaDeMovimientos', { aviso: { ...avisos.cambiosGuardados } }, { merge: true });
       return;
     }
     if (respuesta.ok) {
@@ -198,7 +204,7 @@ export function FormularioDeMovimiento({
 
   function mostrarErrorDelCuadro(texto: string) {
     setErrorDelCuadro(texto);
-    campoDelCuadro.current?.focus();
+    avisarErrores([{ error: texto, campo: campoDelCuadro }]);
   }
 
   /** «Llenar el formulario»: el API interpreta con reglas y la pantalla muestra lo que recibe (E17-ECO 4.7). */
@@ -255,13 +261,12 @@ export function FormularioDeMovimiento({
         const lectura = leerMonto(texto);
         return lectura.ok ? formatearPesos(lectura.centavos) : texto;
       };
-      setErrores({
+      mostrar({
         monto: formatear(r.errores.montoAmbiguo, {
           miles: pesos(resultado.lecturas_del_monto.con_punto_de_miles),
           decimal: pesos(resultado.lecturas_del_monto.con_coma_decimal),
         }),
       });
-      campoDeMonto.current?.focus();
       return;
     }
     setErrores({});
@@ -477,7 +482,8 @@ export function FormularioDeMovimiento({
           </BotonDeTexto>
         </View>
       )}
-      {errores.repeticion && <Aviso tipo="atencion" titulo={errores.repeticion} />}
+      {/* Lo anuncia `avisarErrores` con los demás errores: el aviso no lo repite. */}
+      {errores.repeticion && <Aviso tipo="atencion" titulo={errores.repeticion} viva={false} />}
       <Boton
         variante={conTexto && !borrador.delCuadro ? 'secundario' : 'primario'}
         deshabilitado={enviando}

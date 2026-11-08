@@ -57,13 +57,13 @@ describe('ChipsDeEleccion (Chip de categoría, E14-SDD)', () => {
     expect(chip).not.toHaveStyle({ borderColor: tokens.color.borde.foco });
   });
 
-  it('el error sale con su ícono en una región viva cortés', async () => {
+  it('el error sale con su ícono; lo anuncia la pantalla al guardar, no una región viva que Android aplana (ACC-004)', async () => {
     await render(
       <ChipsDeEleccion etiqueta="Categoría" opciones={opciones} valor={null} alElegir={jest.fn()} error="Falta elegir la categoría." />,
     );
     const error = screen.getByText('Falta elegir la categoría.');
     expect(error).toBeOnTheScreen();
-    expect(error.parent?.parent?.props.accessibilityLiveRegion).toBe('polite');
+    expect(JSON.stringify(screen.toJSON())).not.toContain('"accessibilityLiveRegion":"polite"');
   });
 
   it('en fila se desplaza a lo ancho, sin barra', async () => {

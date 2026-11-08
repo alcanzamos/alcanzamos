@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import { BackHandler } from 'react-native';
 import { reiniciarBorrador } from '../../src/borradorDeRegistro';
 import { Navegacion } from '../../src/navegacion/Navegacion';
+import { esperarAnuncio } from '../ayudas/anuncios';
 import { respuestaJson } from '../ayudas/fetchFalso';
 import { fijarHoy } from '../ayudas/reloj';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
@@ -106,8 +107,8 @@ describe('flujo de registrar un movimiento en Android (PN-71 → PN-01 → Regis
       categoria_id: 16,
       medio: 'efectivo',
     });
-    // El mensaje de estado es una región viva cortés: TalkBack lo anuncia sin mover el foco.
-    expect(JSON.stringify(screen.toJSON())).toContain('"accessibilityLiveRegion":"polite"');
+    // TalkBack anuncia el mensaje de estado, con el monto en pesos, sin mover el foco (ACC-004, bug 225).
+    await esperarAnuncio('Listo, registramos tu gasto de 45000 pesos.');
   });
 
   it('Atrás en Registrar vuelve a PN-01 sin guardar nada', async () => {

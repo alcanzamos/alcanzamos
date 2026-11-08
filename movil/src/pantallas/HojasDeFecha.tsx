@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, type TextInputInstance } from 'react-native';
 import type { Pendiente } from '../api/repeticiones';
+import { useAvisarErrores } from '../anuncios';
 import { Boton } from '../componentes/Boton';
 import { CampoDeTexto } from '../componentes/CampoDeTexto';
 import { HojaInferior } from '../componentes/HojaInferior';
@@ -91,13 +92,15 @@ export function HojaDeMonto({
   const [monto, setMonto] = useState(formatearPesos(BigInt(fila.monto_habitual_centavos)));
   const [error, setError] = useState<string>();
   const campo = useRef<TextInputInstance>(null);
+  const avisarErrores = useAvisarErrores();
 
   const confirmar = () => {
     const lectura = leerMonto(monto);
     if (lectura.ok) alConfirmar(lectura.centavos);
     else {
-      setError(textoDelMonto(lectura));
-      campo.current?.focus();
+      const texto = textoDelMonto(lectura);
+      setError(texto);
+      avisarErrores([{ error: texto, campo }]);
     }
   };
 

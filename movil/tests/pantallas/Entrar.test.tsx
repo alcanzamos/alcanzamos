@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import { TextInput } from 'react-native';
 import { Entrar } from '../../src/pantallas/Entrar';
 import { instalarFetchFalso, respuestaJson } from '../ayudas/fetchFalso';
+import { anunciados, esperarAnuncio, focoDeTalkBack } from '../ayudas/anuncios';
 import { navegacionFalsa, propiedades } from '../ayudas/pantalla';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
 
@@ -182,6 +183,20 @@ describe('PN-60 · Iniciar sesión, Android (E14-PCP 4.3)', () => {
       expect(screen.getByText('Falta la contraseña.')).toBeOnTheScreen();
       expect(foco).toHaveBeenCalledTimes(1);
       expect(foco.mock.contexts[0].props.accessibilityLabel).toBe('Correo electrónico');
+    });
+
+    it('ACC-004 (bug 226): vacío, TalkBack anuncia los dos errores y su foco va al correo', async () => {
+      instalarFetchFalso(
+        respuestaJson(422, {
+          error: 'validacion',
+          campos: { identificador: 'identificador_vacio', contrasena: 'contrasena_vacia' },
+        }),
+      );
+      await mostrar();
+      await entrar();
+      await esperarAnuncio('Falta el correo electrónico. Falta la contraseña.');
+      expect(anunciados()).toEqual(['Falta el correo electrónico. Falta la contraseña.']);
+      expect(focoDeTalkBack()?.props.accessibilityLabel).toBe('Correo electrónico');
     });
 
     it('si solo falta la contraseña, el foco va a la contraseña', async () => {

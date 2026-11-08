@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import { TextInput } from 'react-native';
 import { CambiarContrasena } from '../../src/pantallas/CambiarContrasena';
 import { instalarFetchFalso, respuestaJson } from '../ayudas/fetchFalso';
+import { anunciados, esperarAnuncio, focoDeTalkBack } from '../ayudas/anuncios';
 import { navegacionFalsa, propiedades } from '../ayudas/pantalla';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
 
@@ -114,6 +115,28 @@ describe('PN-73 · Cambiar la contraseña (E14-PCP 4.15)', () => {
       ).toBeOnTheScreen();
       expect(foco.mock.contexts[0].props.accessibilityLabel).toBe('Tu contraseña de ahora');
       expect(screen.getByLabelText('Tu contraseña nueva').props.value).toBe('lluvia café tren azul');
+    });
+
+    it('ACC-004 (bug 226, el `400` de la sesión): TalkBack anuncia el error de la contraseña de ahora y su foco va ahí', async () => {
+      instalarFetchFalso(respuestaJson(400, { error: 'contrasena_actual_incorrecta' }));
+      await mostrar();
+      await llenar();
+      await guardar();
+      await esperarAnuncio('No pudimos confirmar tu contraseña de ahora. Escríbela de nuevo.');
+      expect(anunciados()).toEqual(['No pudimos confirmar tu contraseña de ahora. Escríbela de nuevo.']);
+      expect(focoDeTalkBack()?.props.accessibilityLabel).toBe('Tu contraseña de ahora');
+    });
+
+    it('ACC-004 (bug 226): vacía o corta, TalkBack anuncia los dos errores en el orden de la pantalla', async () => {
+      instalarFetchFalso(
+        respuestaJson(422, {
+          error: 'validacion',
+          campos: { contrasena_actual: 'contrasena_vacia', contrasena_nueva: 'contrasena_corta' },
+        }),
+      );
+      await mostrar();
+      await guardar();
+      await esperarAnuncio('Falta tu contraseña de ahora. Falta que la contraseña tenga al menos 15 caracteres.');
     });
 
     it('con los dos errores los muestra a la vez y el foco va al primero', async () => {

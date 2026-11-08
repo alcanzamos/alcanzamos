@@ -13,6 +13,7 @@ import {
 } from "../../src/borradorDeRegistro";
 import { Registrar } from "../../src/pantallas/Registrar";
 import { tokens } from "../../src/tokens/tokens.generated";
+import { esperarAnuncio } from "../ayudas/anuncios";
 import { respuestaJson } from "../ayudas/fetchFalso";
 import { navegacionFalsa, propiedades } from "../ayudas/pantalla";
 import { fijarHoy } from "../ayudas/reloj";
@@ -235,11 +236,13 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
       expect(guardados(pedidos)).toHaveLength(0);
     });
 
-    it("el aviso es una región viva de información, encima del formulario (antes de «Tipo»)", async () => {
+    it("el aviso de información va encima del formulario (antes de «Tipo») y TalkBack lo anuncia", async () => {
       api();
       await interpretarYLlenar();
       const aviso = screen.getByRole("alert");
-      expect(aviso.props.accessibilityLiveRegion).toBe("polite");
+      await esperarAnuncio(
+        "Llenamos el formulario con tu texto. Cambia lo que quieras.",
+      );
       expect(
         within(aviso).getByText(
           "Llenamos el formulario con tu texto. Cambia lo que quieras.",
@@ -447,8 +450,8 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
         ),
       ).toBeOnTheScreen();
       expect(aviso).toBeOnTheScreen();
-      expect(screen.getByRole("alert").props.accessibilityLiveRegion).toBe(
-        "polite",
+      await esperarAnuncio(
+        "Encontramos más de un movimiento Tomamos solo el primer movimiento. Registra los otros por separado.",
       );
       expect(antes("Encontramos más de un movimiento", "Tipo")).toBe(true);
     });
@@ -588,7 +591,7 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
         await tocar("Llenar el formulario");
         await screen.findByText(titulo);
         const aviso = screen.getByRole("alert");
-        expect(aviso.props.accessibilityLiveRegion).toBe("polite");
+        await esperarAnuncio(mensaje ? `${titulo} ${mensaje}` : titulo);
         if (mensaje) expect(within(aviso).getByText(mensaje)).toBeOnTheScreen();
         expect(screen.getByLabelText("Monto").props.value).toBe("");
         expect(
@@ -634,6 +637,8 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
       ).toBeOnTheScreen();
       expect(enfocados()).toEqual([CUADRO]);
       expect(interpretaciones(pedidos)).toHaveLength(0);
+      // ACC-004 (bug 226): TalkBack anuncia el error del cuadro.
+      await esperarAnuncio("Falta escribir el gasto o el ingreso.");
     });
 
     it.each([

@@ -2,6 +2,7 @@ import { CommonActions } from '@react-navigation/native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { SeguridadDeLaCuenta } from '../../src/pantallas/SeguridadDeLaCuenta';
 import type { DatosDeAviso } from '../../src/textos';
+import { anunciados, esperarAnuncio } from '../ayudas/anuncios';
 import { instalarFetchFalso, respuestaJson } from '../ayudas/fetchFalso';
 import { navegacionFalsa, propiedades } from '../ayudas/pantalla';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
@@ -92,6 +93,15 @@ describe('PN-71 · Seguridad de la cuenta (E14-PCP 4.14)', () => {
     await mostrar('contrasena_cambiada');
     expect(await screen.findByText('Listo, cambiamos tu contraseña.')).toBeOnTheScreen();
     expect(screen.getByText('Cerramos tus otras sesiones. Esta sigue abierta.')).toBeOnTheScreen();
+  });
+
+  it('ACC-004 (bug 225): al volver de PN-73 TalkBack anuncia «Listo, cambiamos tu contraseña.» y no la tarjeta de siempre', async () => {
+    instalarFetchFalso(respuestaJson(200, { ingreso_anterior: '2026-11-02T02:40:00Z' }));
+    await mostrar('contrasena_cambiada');
+    await screen.findByText('¿No reconoces este ingreso?');
+    await esperarAnuncio('Listo, cambiamos tu contraseña. Cerramos tus otras sesiones. Esta sigue abierta.');
+    await new Promise((listo) => setTimeout(listo, 1100));
+    expect(anunciados()).toEqual(['Listo, cambiamos tu contraseña. Cerramos tus otras sesiones. Esta sigue abierta.']);
   });
 
   describe('errores y rutas del API', () => {
@@ -188,7 +198,7 @@ describe('PN-71 · Seguridad de la cuenta (E14-PCP 4.14)', () => {
       instalarFetchFalso(respuestaJson(200, { ingreso_anterior: null }));
       await mostrar(undefined, { tipo: 'informacion', titulo: 'Listo, registramos tu gasto de $45.000.' });
       expect(await screen.findByText('Listo, registramos tu gasto de $45.000.')).toBeOnTheScreen();
-      expect(JSON.stringify(screen.toJSON())).toContain('"accessibilityLiveRegion":"polite"');
+      await esperarAnuncio('Listo, registramos tu gasto de $45.000.');
     });
 
     it('el aviso del registro gana sobre una llegada de las de siempre', async () => {

@@ -3,6 +3,7 @@ import { CommonActions } from '@react-navigation/native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { TextInput } from 'react-native';
 import { CrearCuenta } from '../../src/pantallas/CrearCuenta';
+import { anunciados, esperarAnuncio, focoDeTalkBack, limpiarAnuncios } from '../ayudas/anuncios';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
 import { instalarFetchFalso, respuestaJson } from '../ayudas/fetchFalso';
 import { navegacionFalsa, propiedades } from '../ayudas/pantalla';
@@ -158,6 +159,16 @@ describe('PN-58 · Crear la cuenta, Android (E14-PCP 4.1)', () => {
       expect(screen.getByLabelText('Correo electrónico').props.value).toBe('mal');
       expect(foco).toHaveBeenCalledTimes(1);
       expect(foco.mock.contexts[0].props.accessibilityLabel).toBe('Correo electrónico');
+    });
+
+    it('ACC-004 (bug 226): «Crear cuenta» vacío anuncia «Falta el correo electrónico.» y el foco de TalkBack va al campo', async () => {
+      instalarFetchFalso(respuestaJson(422, { error: 'validacion', campos: { correo: 'correo_vacio' } }));
+      await mostrar();
+      limpiarAnuncios();
+      await crear();
+      await esperarAnuncio('Falta el correo electrónico.');
+      expect(anunciados()).toEqual(['Falta el correo electrónico.']);
+      expect(focoDeTalkBack()?.props.accessibilityLabel).toBe('Correo electrónico');
     });
 
     it('un código de campo sin texto muestra el aviso general y no inventa un texto', async () => {

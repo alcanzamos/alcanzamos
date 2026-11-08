@@ -1,5 +1,7 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { HostInstance } from 'react-native';
+import { useAvisarErrores } from '../anuncios';
 import { Aviso } from '../componentes/Aviso';
 import { Boton } from '../componentes/Boton';
 import { CampoDeFecha } from '../componentes/CampoDeFecha';
@@ -20,6 +22,8 @@ export function Edad({ navigation }: NativeStackScreenProps<Rutas, 'Edad'>) {
   const [fase, setFase] = useState<'cargando' | 'campo' | 'menor'>('cargando');
   const [fecha, setFecha] = useState<Date>();
   const [error, setError] = useState<string>();
+  const campoDeFecha = useRef<HostInstance>(null);
+  const avisarErrores = useAvisarErrores();
 
   useEffect(() => {
     let vigente = true;
@@ -33,9 +37,11 @@ export function Edad({ navigation }: NativeStackScreenProps<Rutas, 'Edad'>) {
 
   async function continuar() {
     const resultado = resultadoDeEdad(fecha, new Date());
-    if (resultado === 'vacia') setError(textosDeEdad.vacia);
-    else if (resultado === 'futura') setError(textosDeEdad.futura);
-    else if (resultado === 'menor') {
+    if (resultado === 'vacia' || resultado === 'futura') {
+      const texto = resultado === 'vacia' ? textosDeEdad.vacia : textosDeEdad.futura;
+      setError(texto);
+      avisarErrores([{ error: texto, campo: campoDeFecha }]);
+    } else if (resultado === 'menor') {
       setFecha(undefined);
       setError(undefined);
       setFase('menor');
@@ -53,6 +59,7 @@ export function Edad({ navigation }: NativeStackScreenProps<Rutas, 'Edad'>) {
         <>
           <Texto>{textos.edad.frase}</Texto>
           <CampoDeFecha
+            ref={campoDeFecha}
             etiqueta={textos.edad.fecha.etiqueta}
             ayuda={textos.edad.fecha.ayuda}
             valor={fecha}

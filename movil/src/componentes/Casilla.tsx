@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useState, type ReactNode, type Ref } from 'react';
+import { Pressable, StyleSheet, Text, View, type HostInstance } from 'react-native';
 import { estiloDeTipografia } from '../fuentes';
 import { tokens } from '../tokens/tokens.generated';
 import { cifras } from './Cifras';
@@ -7,9 +7,10 @@ import { IconoAtencion, IconoCheck } from './Iconos';
 
 // Casilla de verificación de E14-SDD 5.17. Nunca viene marcada: quien la usa parte de `false`. Toda la fila, con su
 // texto, es el área táctil (mínimo 48 dp). Para TalkBack es un `checkbox` con el texto como nombre y el estado
-// «marcada» o «sin marcar»; con error, el texto del error es su pista (`accessibilityHint`) y una región viva cortés
-// lo anuncia al aparecer. `deshabilitada` (la fila «No pasó» de «Confirmar todos», E14-PRR 4.8) no cambia al tocarla;
-// `contenido` reemplaza el texto visible cuando la fila lleva más (nombre, apoyo y monto), y `texto` sigue siendo el nombre.
+// «marcada» o «sin marcar»; con error, el texto del error es su pista (`accessibilityHint`) y lo anuncia la pantalla al
+// guardar, con el foco en la casilla (`avisarErrores` y `ref`, ACC-004, bug 226). `deshabilitada` (la fila «No pasó» de
+// «Confirmar todos», E14-PRR 4.8) no cambia al tocarla; `contenido` reemplaza el texto visible cuando la fila lleva más
+// (nombre, apoyo y monto), y `texto` sigue siendo el nombre.
 export function Casilla({
   texto,
   marcada,
@@ -17,6 +18,7 @@ export function Casilla({
   contenido,
   alCambiar,
   error,
+  ref,
 }: {
   texto: string;
   marcada: boolean;
@@ -24,11 +26,13 @@ export function Casilla({
   contenido?: ReactNode;
   alCambiar: (marcada: boolean) => void;
   error?: string;
+  ref?: Ref<HostInstance>;
 }) {
   const [enFoco, setEnFoco] = useState(false);
   return (
     <View style={estilos.grupo}>
       <Pressable
+        ref={ref}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: marcada, disabled: deshabilitada }}
         accessibilityLabel={texto}
@@ -45,14 +49,12 @@ export function Casilla({
         </View>
         {contenido ?? <Text style={estilos.texto}>{cifras(texto)}</Text>}
       </Pressable>
-      <View accessibilityLiveRegion="polite">
-        {error && (
-          <View style={estilos.error}>
-            <IconoAtencion color={tokens.color.estado.atencion.icono} />
-            <Text style={estilos.textoDeError}>{cifras(error)}</Text>
-          </View>
-        )}
-      </View>
+      {error && (
+        <View style={estilos.error}>
+          <IconoAtencion color={tokens.color.estado.atencion.icono} />
+          <Text style={estilos.textoDeError}>{cifras(error)}</Text>
+        </View>
+      )}
     </View>
   );
 }

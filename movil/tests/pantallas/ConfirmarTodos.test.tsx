@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { reiniciarBorrador } from '../../src/borradorDeRegistro';
 import { Navegacion } from '../../src/navegacion/Navegacion';
 import { atras, instalarAtras } from '../ayudas/atras';
+import { anunciados, esperarAnuncio, limpiarAnuncios } from '../ayudas/anuncios';
 import { respuestaJson } from '../ayudas/fetchFalso';
 import { apiFalsa, BASE, celular, energia, listado, pendiente, pendientes } from '../ayudas/movimientosFalsos';
 import { fijarHoy } from '../ayudas/reloj';
@@ -111,6 +112,16 @@ describe('«Confirmar todos», Android (E14-PRR 4.8, US-60)', () => {
       await fireEvent.press(casilla('Servicios públicos'));
       expect(screen.getByText('3 de 3 marcados')).toBeOnTheScreen();
       expect(screen.queryByText('Sigue por confirmar')).not.toBeOnTheScreen();
+    });
+
+    it('ACC-004 (bug 225): al desmarcar, TalkBack anuncia la cuenta «2 de 3 marcados»; al abrir no la anuncia', async () => {
+      apiFalsa(respuestaJson, { pendientes: pendientes(energia, celular, salario) });
+      limpiarAnuncios();
+      await abrirTodos();
+      await new Promise((listo) => setTimeout(listo, 1100));
+      expect(anunciados()).not.toContain('3 de 3 marcados');
+      await fireEvent.press(casilla('Servicios públicos'));
+      await esperarAnuncio('2 de 3 marcados');
     });
 
     it('«Cambiar el monto» → «Listo» muestra el monto nuevo y «Monto cambiado», sigue marcada y no guarda', async () => {
@@ -234,6 +245,8 @@ describe('«Confirmar todos», Android (E14-PRR 4.8, US-60)', () => {
       await elegir('Comunicaciones', 'No pasó');
       await fireEvent.press(guardar('Guardar 2 movimientos'));
       expect(await screen.findByText('Listo, guardamos 2 movimientos y dejamos de contar 1 fecha.')).toBeOnTheScreen();
+      // ACC-004 (bug 225): de vuelta en PN-01, TalkBack lo anuncia.
+      await esperarAnuncio('Listo, guardamos 2 movimientos y dejamos de contar 1 fecha.');
     });
 
     it('sin «No pasó» y solo con «No pasó» dicen cada aviso de E14', async () => {

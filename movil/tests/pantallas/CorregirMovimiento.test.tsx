@@ -3,6 +3,7 @@ import { cambiarBorrador, reiniciarBorrador, useBorrador } from '../../src/borra
 import type { Movimiento } from '../../src/api/movimientos';
 import { Navegacion } from '../../src/navegacion/Navegacion';
 import { atras, instalarAtras } from '../ayudas/atras';
+import { esperarAnuncio } from '../ayudas/anuncios';
 import { respuestaJson } from '../ayudas/fetchFalso';
 import { apiFalsa, BASE, gastoDeAyer, listado, movimiento, type Pedido } from '../ayudas/movimientosFalsos';
 import { fijarHoy } from '../ayudas/reloj';
@@ -168,7 +169,7 @@ describe('Corregir un movimiento, Android (E14-PRR 4.2)', () => {
       expect(cuerpoDelPut(pedidos)).toBe(
         '{"monto_centavos":4000000,"tipo":"gasto","fecha":"2026-11-01","categoria_id":1,"medio":"efectivo","descripcion":"Mercado"}',
       );
-      expect(JSON.stringify(screen.toJSON())).toContain('"accessibilityLiveRegion":"polite"');
+      await esperarAnuncio('Listo, guardamos los cambios.');
       expect(screen.queryByLabelText('Monto')).not.toBeOnTheScreen();
       expect(screen.getByRole('button', { name: 'Registrar' })).toBeOnTheScreen();
     });

@@ -2,6 +2,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useRef, useState } from 'react';
 import type { TextInputInstance } from 'react-native';
 import { cambiarContrasena } from '../api/acceso';
+import { useAvisarErrores } from '../anuncios';
 import { Aviso } from '../componentes/Aviso';
 import { Boton } from '../componentes/Boton';
 import { CampoDeContrasena } from '../componentes/CampoDeContrasena';
@@ -23,6 +24,7 @@ export function CambiarContrasena({ navigation }: NativeStackScreenProps<Rutas, 
   const [enviando, setEnviando] = useState(false);
   const campoActual = useRef<TextInputInstance>(null);
   const campoNueva = useRef<TextInputInstance>(null);
+  const avisarErrores = useAvisarErrores();
 
   async function enviar() {
     if (enviando) return;
@@ -42,8 +44,10 @@ export function CambiarContrasena({ navigation }: NativeStackScreenProps<Rutas, 
     }
     setErrores(delCampo);
     setAviso(delCampo.actual || delCampo.nueva ? null : avisoDeFallo(respuesta, avisos.errorAlCambiarContrasena));
-    if (delCampo.actual) campoActual.current?.focus();
-    else if (delCampo.nueva) campoNueva.current?.focus();
+    avisarErrores([
+      { error: delCampo.actual, campo: campoActual },
+      { error: delCampo.nueva, campo: campoNueva },
+    ]);
   }
 
   return (

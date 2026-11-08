@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react-n
 import { TextInput } from 'react-native';
 import { cambiarBorrador, reiniciarBorrador } from '../../src/borradorDeRegistro';
 import { Registrar } from '../../src/pantallas/Registrar';
+import { anunciados, esperarAnuncio, focoDeTalkBack, limpiarAnuncios } from '../ayudas/anuncios';
 import { respuestaJson } from '../ayudas/fetchFalso';
 import { navegacionFalsa, propiedades } from '../ayudas/pantalla';
 import { fijarHoy } from '../ayudas/reloj';
@@ -231,6 +232,26 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
       expect(TextInput.prototype.focus).toHaveBeenCalledTimes(1);
       expect(jest.mocked(TextInput.prototype.focus).mock.contexts[0].props.accessibilityLabel).toBe('Monto');
       expect(guardados(pedidos)).toEqual([]);
+    });
+
+    it('ACC-004 (bug 226): «Guardar» vacío anuncia los errores en el orden del formulario y el foco va al monto', async () => {
+      api();
+      await abrir();
+      limpiarAnuncios();
+      await guardar();
+      await esperarAnuncio('Falta el monto. Falta elegir la categoría. Falta elegir el medio de pago.');
+      expect(anunciados()).toEqual(['Falta el monto. Falta elegir la categoría. Falta elegir el medio de pago.']);
+      expect(focoDeTalkBack()?.props.accessibilityLabel).toBe('Monto');
+    });
+
+    it('ACC-004 (bug 226): «Guardar» otra vez con los mismos errores los vuelve a anunciar', async () => {
+      api();
+      await abrir();
+      await guardar();
+      await esperarAnuncio('Falta el monto. Falta elegir la categoría. Falta elegir el medio de pago.');
+      limpiarAnuncios();
+      await guardar();
+      await esperarAnuncio('Falta el monto. Falta elegir la categoría. Falta elegir el medio de pago.');
     });
 
     it('sin categoría (D-165): «Falta elegir la categoría.» y no se manda nada', async () => {
@@ -495,6 +516,15 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
       expect(await screen.findByText(texto)).toBeOnTheScreen();
       expect(navegacion.popTo).not.toHaveBeenCalled();
       expect(screen.queryByText('No pudimos guardar tu gasto.')).not.toBeOnTheScreen();
+    });
+
+    it('ACC-004 (bug 226): el error de la repetición, que va en un aviso, se anuncia una sola vez', async () => {
+      api(() => respuestaJson(422, { error: 'datos_invalidos', campos: { repeticion: 'periodicidad_requerida' } }));
+      limpiarAnuncios();
+      await llenarYGuardar();
+      await esperarAnuncio('Falta elegir cada cuánto se repite.');
+      await new Promise((listo) => setTimeout(listo, 1100));
+      expect(anunciados()).toEqual(['Falta elegir cada cuánto se repite.']);
     });
 
     it('un 422 con el monto lleva el foco al monto', async () => {

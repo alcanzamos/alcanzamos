@@ -2,6 +2,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useRef, useState } from 'react';
 import type { TextInputInstance } from 'react-native';
 import { reenviarCorreo } from '../api/cuentas';
+import { useAvisarErrores } from '../anuncios';
 import { Aviso } from '../componentes/Aviso';
 import { Boton, BotonDeTexto } from '../componentes/Boton';
 import { CampoDeTexto } from '../componentes/CampoDeTexto';
@@ -33,6 +34,7 @@ export function RevisaTuCorreo({ navigation, route }: Pantalla59) {
   const [ocupado, setOcupado] = useState(false);
   const temporizador = useRef<ReturnType<typeof setTimeout>>(undefined);
   const campoDeCorreo = useRef<TextInputInstance>(null);
+  const avisarErrores = useAvisarErrores();
 
   useEffect(() => () => clearTimeout(temporizador.current), []);
 
@@ -64,7 +66,7 @@ export function RevisaTuCorreo({ navigation, route }: Pantalla59) {
         : undefined;
     setErrorDeCorreo(texto);
     setAviso(texto ? null : avisoDeFallo(respuesta, avisos.errorAlEnviarCorreo));
-    if (texto) campoDeCorreo.current?.focus();
+    avisarErrores([{ error: texto, campo: campoDeCorreo }]);
   }
 
   function alTocarReenviar() {

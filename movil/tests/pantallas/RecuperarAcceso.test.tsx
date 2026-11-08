@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { TextInput } from 'react-native';
 import { RecuperarAcceso } from '../../src/pantallas/RecuperarAcceso';
 import { instalarFetchFalso, respuestaJson } from '../ayudas/fetchFalso';
+import { anunciados, esperarAnuncio, focoDeTalkBack } from '../ayudas/anuncios';
 import { navegacionFalsa, propiedades } from '../ayudas/pantalla';
 
 async function mostrar() {
@@ -65,6 +66,24 @@ describe('PN-61 · Recuperar el acceso: pedir el enlace (E14-PCP 4.4)', () => {
     expect(screen.queryByRole('button', { name: 'Enviar el enlace' })).not.toBeOnTheScreen();
     await fireEvent.press(screen.getByRole('button', { name: 'Volver a iniciar sesión' }));
     expect(navegacion.goBack).toHaveBeenCalled();
+  });
+
+  it('ACC-004 (bug 225): TalkBack anuncia «Si ese correo tiene una cuenta, te enviamos un enlace.» aunque el foco vaya a la barra', async () => {
+    instalarFetchFalso(respuestaJson(202, { estado: 'enlace_enviado' }));
+    await mostrar();
+    await escribir('no.existe@ejemplo.test');
+    await enviar();
+    await esperarAnuncio('Si ese correo tiene una cuenta, te enviamos un enlace. Revisa también el correo no deseado.');
+    expect(anunciados()).toHaveLength(1);
+  });
+
+  it('ACC-004 (bug 226): «Enviar el enlace» vacío anuncia «Falta el correo electrónico.» y lleva el foco al campo', async () => {
+    instalarFetchFalso(respuestaJson(422, { error: 'validacion', campos: { correo: 'correo_vacio' } }));
+    await mostrar();
+    await enviar();
+    await esperarAnuncio('Falta el correo electrónico.');
+    expect(anunciados()).toEqual(['Falta el correo electrónico.']);
+    expect(focoDeTalkBack()?.props.accessibilityLabel).toBe('Correo electrónico');
   });
 
   it('no dice nada del enlace de la web ni ofrece abrir el correo (D-155)', async () => {
