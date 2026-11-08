@@ -655,12 +655,20 @@
   min-width: 0;
 }
 
+/* En «Confirmar todos», el monto baja debajo del nombre si no caben juntos (a 360 px, «Comunicaciones» y $60.000): sin
+   esto, la fila exige 320 px y el panel se sale de la columna de 328 (bug 239). La base 0 del nombre hace que solo baje
+   cuando su palabra más larga y el monto no caben en la línea; desde 768 px la fila queda igual. */
 .fila-por-confirmar .casilla > span:last-child {
   display: flex;
   flex: 1;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--espacio-3);
+}
+
+.fila-por-confirmar .casilla .fila {
+  flex: 1;
 }
 
 /* Hoja inferior (E14-SDD 5.12). En la web, un panel junto al botón que la abre y sin velo; por debajo de 768 px, anclada
