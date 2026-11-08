@@ -671,7 +671,7 @@ export const textos = {
       montoIlegible: "Escribe el monto con números, por ejemplo $45.000.",
       // E14-PPN 1.11 / D-165, aprobado por el dueño: errores de campo del Monto, monto que no cabe en centavos de 64 bits
       montoGrande: "El monto es demasiado grande. Revisa que no sobren ceros.",
-      // E14-PPN 1.11 / D-165, aprobado por el dueño: errores de campo de la Categoría, mientras no exista el motor de reglas que la sugiere
+      // E14-PPN 1.11 / D-165, aprobado por el dueño: errores de campo de la Categoría, llenando a mano (con el cuadro llega sugerida, D-193)
       categoria: "Falta elegir la categoría.",
     },
     avisos: {

@@ -42,7 +42,7 @@ const json = JSON.parse(
 // «Abono, crédito» es la palabra para un movimiento. En el texto que E14-PPN 3.1 fija para el pedido de una
 // recomendación (RF-021) «créditos» es el producto financiero que la app no recomienda, no un movimiento.
 const usosAprobados: Record<string, string[]> = {
-  "solo_web.registro.cuadro.recomendacion.titulo": ["crédito"],
+  "comun.registro.cuadro.recomendacion.titulo": ["crédito"],
 };
 
 const textos = Object.entries(json).flatMap(([seccion, contenido]) =>

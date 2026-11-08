@@ -651,7 +651,7 @@ export const textos = {
       montoIlegible: "Escribe el monto con números, por ejemplo $45.000.",
       // E14-PPN 1.11 / D-165, aprobado por el dueño: errores de campo del Monto, monto que no cabe en centavos de 64 bits
       montoGrande: "El monto es demasiado grande. Revisa que no sobren ceros.",
-      // E14-PPN 1.11 / D-165, aprobado por el dueño: errores de campo de la Categoría, mientras no exista el motor de reglas que la sugiere
+      // E14-PPN 1.11 / D-165, aprobado por el dueño: errores de campo de la Categoría, llenando a mano (con el cuadro llega sugerida, D-193)
       categoria: "Falta elegir la categoría.",
     },
     avisos: {
@@ -723,6 +723,60 @@ export const textos = {
       c25: "Otros ingresos",
       // E14-PPN 3.1, fila 9: categoría del catálogo de E09 (02-catalogo-de-categorias.md, gasto), id 26 del API
       c26: "Ayuda a la familia",
+    },
+    // E14-PPN 3.1, fila 13 (el botón cuando el cuadro llenó el formulario; sin el cuadro es «Guardar»)
+    revisarYGuardar: "Revisar y guardar",
+    cuadro: {
+      // E14-PPN 3.1, fila 3
+      etiqueta: "Escribe el gasto o el ingreso",
+      // E14-PPN 3.1, fila 3
+      ayuda: "Por ejemplo: mercado 45 mil ayer.",
+      // E14-PPN 3.1, fila 4 (NM-12)
+      privacidad: "No escribas datos de salud, religión ni de otras personas.",
+      // E14-PPN 3.1, fila 5
+      llenar: "Llenar el formulario",
+      // E14-PPN 3.1, fila 4a y estado «Lleno por el cuadro» (D-084)
+      lleno: "Llenamos el formulario con tu texto. Cambia lo que quieras.",
+      noEntendido: {
+        // E14-PPN 3.1, estado «No se entendió» (CU-03, 2c); también con tiempo agotado (D-084 (2), api/README «Interpretar un texto»)
+        titulo: "No pudimos entender el texto.",
+        // E14-PPN 3.1, estado «No se entendió» (CU-03, 2c)
+        mensaje: "Llena el formulario: lo que escribiste sigue ahí.",
+      },
+      // E14-PPN 3.1, estado «Pregunta o pedido de recomendación» (RF-044); sin la segunda frase «Tu pregunta se responde en {pantalla}.» hasta que exista esa pantalla
+      pregunta: "Aquí solo registramos movimientos.",
+      recomendacion: {
+        // E14-PPN 3.1, estado «Pregunta o pedido de recomendación» (RF-021)
+        titulo: "Aquí no damos recomendaciones sobre créditos ni inversiones.",
+        // E14-PPN 3.1, estado «Pregunta o pedido de recomendación» (RF-021)
+        mensaje: "Puedes registrar un movimiento cuando quieras.",
+      },
+      // E14-PPN 3.1, estado «Sin conexión» (ADR-005, sección 6)
+      sinConexion: "Sin conexión, puedes registrar con el formulario.",
+      // E14-PPN 3.1, errores de campo del cuadro: cuadro vacío al tocar «Llenar el formulario» (`texto_requerido`), aprobado (D-193)
+      textoRequerido: "Falta escribir el gasto o el ingreso.",
+      // E14-PPN 3.1, errores de campo del cuadro: cuadro con más de 280 caracteres (`texto_largo`), aprobado (D-193)
+      textoLargo: "El texto es demasiado largo. Usa hasta 280 caracteres.",
+      errorAlInterpretar: {
+        // E14-PPN 3.1, estados del cuadro: falla inesperada del servidor al llenar, aprobado (D-193)
+        titulo: "No pudimos llenar el formulario.",
+        // E14-PPN 3.1, estados del cuadro: falla inesperada del servidor al llenar, aprobado (D-193)
+        mensaje: "Llena el formulario: lo que escribiste sigue ahí.",
+      },
+    },
+    revisa: {
+      // E14-PPN 3.1, paso «Revisa y confirma», fila 1
+      titulo: "Revisa y confirma",
+      // E14-PPN 3.1, paso «Revisa y confirma», fila 2 (enlace en cada fila)
+      cambiar: "Cambiar",
+      // E14-PPN 3.1, paso «Revisa y confirma», fila 4
+      confirmar: "Confirmar y guardar",
+      // E14-PPN 3.1, paso «Revisa y confirma», fila 5
+      volver: "Volver al formulario",
+      // E14-PPN 3.1, aviso de varios movimientos (D-077, decisión 5)
+      variosTitulo: "Encontramos más de un movimiento",
+      // E14-PPN 3.1, aviso de varios movimientos (D-077, decisión 5)
+      variosMensaje: "Tomamos solo el primer movimiento. Registra los otros por separado.",
     },
   },
   periodicidad: {
