@@ -161,8 +161,8 @@ func TestSEG_006LosEventosDeSeguridadNoLlevanContrasenasTokensMontosNiTextos(t *
 		claveRecobrada = "faro dorado sobre colina"
 		claveMala      = "esta no es mi clave de verdad"
 		claveCorta     = "sol1234"
-		tokenFalso     = "c2VnMDA2LWVzdGUtdG9rZW4tbm8tZXhpc3RlLW51bmNhIQ"   // gitleaks:allow (token inventado para la prueba)
-		otroTokenFalso = "b3Ryby10b2tlbi1mYWxzby1kZS1zZWctMDA2LXBhcmEtdmVy" // gitleaks:allow (token inventado para la prueba)
+		tokenFalso     = "token-falso-de-prueba"
+		otroTokenFalso = "otro-token-falso-de-prueba"
 		descripcion    = "arepas de la tía Rosalba en el mercado"
 		correccion     = "cumpleaños de Fabiola con torta de guayaba"
 		texto          = "pagué 4.821.397 en zapatos para Mateo"
