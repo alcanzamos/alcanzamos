@@ -69,21 +69,13 @@ test.describe("PN-63 · Información de privacidad", () => {
     ]);
   });
 
-  // USA-003 (RNF-011, RF-059, E14-PCP 3 «A un toque del menú principal» y 4.9): desde el menú principal, la fila «Cómo
-  // cuidamos tus datos» abre PN-63 de un toque, en el modo «desde el menú» (E14-PCP 4.6): con Atrás y sin «Continuar».
-  // El menú principal es PN-66; mientras no exista, la pantalla de inicio de quien ya autorizó es PN-71, que tiene las
-  // filas 7 y 8 de PN-66 (SeguridadDeLaCuenta.tsx), y es ahí donde se busca la fila.
-  test("USA-003 a un toque del menú principal: «Cómo cuidamos tus datos» abre PN-63 con Atrás y sin «Continuar»", async ({
+  // USA-003 (RNF-011, RF-059; E14-PCP 4.6 y nota del 2026-11-08 de 4.14, bug 260): mientras no exista PN-66, el inicio de
+  // quien ya autorizó es PN-71, que lleva la entrada provisional «Cómo cuidamos tus datos». De un toque abre PN-63 desde
+  // el menú: las mismas ocho tarjetas, con Atrás y sin «Continuar», sin pedir nada al API. Atrás vuelve a PN-71.
+  test("USA-003 la información de privacidad está a un toque del inicio", async ({
     page,
   }) => {
-    // Defecto (USA-003, I06; hallado en la US-65): la web no tiene el menú PN-66 y su inicio provisional (PN-71) no lleva
-    // a PN-63: la información de privacidad solo se ve en el primer uso. PN-63 tampoco tiene el modo «desde el menú»
-    // (Privacidad.tsx: siempre con «Continuar» y sin Atrás). Cuando se construya, esta prueba pasa y hay que quitar esto.
-    test.fail(
-      true,
-      "PN-63 no está a un toque del menú principal: falta PN-66 y el modo «desde el menú» de PN-63",
-    );
-    await simularApi(page, {
+    const pedidos = await simularApi(page, {
       "GET /api/v1/cuenta/seguridad": responder(200, {
         ingreso_anterior: null,
       }),
@@ -91,22 +83,25 @@ test.describe("PN-63 · Información de privacidad", () => {
     await page.goto("/cuenta/seguridad");
     await expect(page.getByText("Este es tu primer ingreso.")).toBeVisible();
 
-    const fila = page
-      .getByRole("link", { name: "Cómo cuidamos tus datos" })
-      .or(page.getByRole("button", { name: "Cómo cuidamos tus datos" }));
-    await expect(fila).toBeVisible();
-    await fila.click();
-
-    await expect(page).toHaveURL(/\/privacidad$/);
-    await expect(
-      page.getByRole("heading", { level: 1, name: "Cómo cuidamos tus datos" }),
-    ).toBeVisible();
+    await page.getByRole("link", { name: "Cómo cuidamos tus datos" }).click();
+    await expect(page).toHaveURL(/\/cuenta\/privacidad$/);
+    const titulo = page.getByRole("heading", {
+      level: 1,
+      name: "Cómo cuidamos tus datos",
+    });
+    await expect(titulo).toBeVisible();
+    await expect(titulo).toBeFocused();
     await expect(page.getByRole("region")).toHaveCount(8);
     await expect(page.getByRole("link", { name: "Atrás" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Continuar" })).toHaveCount(
-      0,
-    );
+    await expect(page.getByRole("button")).toHaveCount(0);
     await sinViolaciones(page);
+    expect(pedidos.map((p) => `${p.metodo} ${p.ruta}`)).toEqual([
+      "GET /api/v1/cuenta/seguridad",
+    ]);
+
+    await page.getByRole("link", { name: "Atrás" }).click();
+    await expect(page).toHaveURL(/\/cuenta\/seguridad$/);
+    await expect(page.getByText("Este es tu primer ingreso.")).toBeVisible();
   });
 });
 

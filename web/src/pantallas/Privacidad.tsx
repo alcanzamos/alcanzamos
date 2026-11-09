@@ -25,12 +25,21 @@ const tarjetas: {
   { id: "donde-se-guardan", tarjeta: t.dondeSeGuardan },
 ];
 
-// PN-63 · Información de privacidad en el primer uso (E14-PCP 4.6): solo informa, no pide nada. Sin Atrás y con
-// «Continuar» a PN-64. Sin «Leer la política completa»: abre PN-68, que no está construida. «Desde el menú» (PN-66)
-// tampoco: PN-66 no existe. «Listo, confirmamos tu correo.» llega arriba como mensaje de estado (4.16 T11).
-export function Privacidad() {
+// PN-63 · Información de privacidad (E14-PCP 4.6): solo informa, no pide nada. Dos modos, una pantalla:
+// - primer uso (`/privacidad`): sin Atrás y con «Continuar» a PN-64; «Listo, confirmamos tu correo.» llega arriba como
+//   mensaje de estado (4.16 T11);
+// - desde el menú (`/cuenta/privacidad`): con Atrás y sin «Continuar». Mientras no exista PN-66, se abre con la entrada
+//   provisional «Cómo cuidamos tus datos» de PN-71 (nota del 2026-11-08 de 4.14, bug 260), así que Atrás vuelve a PN-71.
+// Sin «Leer la política completa»: abre PN-68, que no está construida.
+export function Privacidad({
+  desdeElMenu = false,
+}: { desdeElMenu?: boolean } = {}) {
   return (
-    <Pagina titulo={textos.privacidad.titulo} estado={avisoDeLlegada()}>
+    <Pagina
+      titulo={textos.privacidad.titulo}
+      atras={desdeElMenu ? "/cuenta/seguridad" : undefined}
+      estado={desdeElMenu ? null : avisoDeLlegada()}
+    >
       <p>{textos.privacidad.intro}</p>
       {tarjetas.map(({ id, tarjeta, Icono }) => (
         <section key={id} className="tarjeta" aria-labelledby={`titulo-${id}`}>
@@ -41,9 +50,11 @@ export function Privacidad() {
           <p>{tarjeta.cuerpo}</p>
         </section>
       ))}
-      <Boton alTocar={() => navegar("/autorizacion")}>
-        {textos.privacidad.continuar}
-      </Boton>
+      {!desdeElMenu && (
+        <Boton alTocar={() => navegar("/autorizacion")}>
+          {textos.privacidad.continuar}
+        </Boton>
+      )}
     </Pagina>
   );
 }

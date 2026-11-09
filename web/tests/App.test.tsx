@@ -22,6 +22,25 @@ describe("App · rutas", () => {
     ).toBeInTheDocument();
   });
 
+  // Bug 260 (USA-003): PN-63 desde el menú, con Atrás y sin «Continuar»; /privacidad sigue siendo el primer uso.
+  it("/cuenta/privacidad muestra PN-63 desde el menú y /privacidad, el primer uso", () => {
+    irA("/cuenta/privacidad");
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "Cómo cuidamos tus datos",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Atrás" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Continuar" })).toBeNull();
+    cleanup();
+    irA("/privacidad");
+    expect(screen.queryByRole("link", { name: "Atrás" })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Continuar" }),
+    ).toBeInTheDocument();
+  });
+
   it("/autorizacion muestra PN-64", () => {
     simularApi(() => json(500, { error: "interno" }));
     irA("/autorizacion");
