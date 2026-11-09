@@ -2,7 +2,8 @@
   "fuente": "docs/adso/proyecto/03-diseno/E15-diseno-algoritmico/01-diseno-algoritmico.md (repositorio de documentos)",
   "version_e15": "1.11",
   "construidos": [
-    "FP"
+    "FP",
+    "DV"
   ],
   "ids": {
     "RD": [
