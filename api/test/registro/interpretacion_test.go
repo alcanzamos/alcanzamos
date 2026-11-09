@@ -3,6 +3,7 @@ package registro_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -317,9 +318,12 @@ func TestInterpretarNoRegistraElTexto(t *testing.T) {
 	if salida.Len() == 0 {
 		t.Fatal("la prueba no vio ningún registro")
 	}
-	for _, trozo := range []string{"clínica", "Sofía", "7777"} {
-		if strings.Contains(salida.String(), trozo) {
-			t.Errorf("el registro contiene parte del texto %q: %s", trozo, salida.String())
+	for _, linea := range strings.Split(strings.TrimSpace(salida.String()), "\n") {
+		limpia := sinHoraNiPeticion(t, linea)
+		for _, trozo := range []string{"clínica", "Sofía", "7777"} {
+			if strings.Contains(limpia, trozo) {
+				t.Errorf("el registro contiene parte del texto %q: %s", trozo, linea)
+			}
 		}
 	}
 }
@@ -466,4 +470,24 @@ func TestRN005NingunCalculoDelAPIPasaPorElInterpretador(t *testing.T) {
 	if espia.llamadas != 1 {
 		t.Errorf("de control: la ruta de interpretación debía llamar al espía una vez, lo llamó %d", espia.llamadas)
 	}
+}
+
+// sinHoraNiPeticion devuelve una línea JSON del registro sin la hora ni el id de la petición. Son valores que cambian en
+// cada corrida, y un número que la prueba busca (un monto) puede aparecer en ellos por casualidad: «7777» salió una vez
+// en la hora «…57.847777254Z».
+func sinHoraNiPeticion(t *testing.T, linea string) string {
+	t.Helper()
+	d := json.NewDecoder(strings.NewReader(linea))
+	d.UseNumber()
+	var campos map[string]any
+	if err := d.Decode(&campos); err != nil {
+		t.Fatalf("una línea del registro no es JSON: %v: %s", err, linea)
+	}
+	delete(campos, slog.TimeKey)
+	delete(campos, "peticion")
+	b, err := json.Marshal(campos)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
 }

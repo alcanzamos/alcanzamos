@@ -384,7 +384,7 @@ func TestSEG_006LosEventosDeSeguridadNoLlevanContrasenasTokensMontosNiTextos(t *
 		}
 	}
 	for _, linea := range lineas {
-		minusculas := strings.ToLower(linea)
+		minusculas := strings.ToLower(sinHoraNiPeticion(t, linea))
 		for _, s := range secretos {
 			if strings.Contains(minusculas, strings.ToLower(s)) {
 				t.Errorf("el registro lleva %q: %s", s, linea)
@@ -395,4 +395,24 @@ func TestSEG_006LosEventosDeSeguridadNoLlevanContrasenasTokensMontosNiTextos(t *
 		}
 	}
 	t.Logf("%d líneas en el registro; eventos: %v", len(lineas), vistos)
+}
+
+// sinHoraNiPeticion devuelve una línea JSON del registro sin la hora ni el id de la petición. Son valores que cambian en
+// cada corrida, y un número que la prueba busca (un monto) puede aparecer en ellos por casualidad: «7777» salió una vez
+// en la hora «…57.847777254Z».
+func sinHoraNiPeticion(t *testing.T, linea string) string {
+	t.Helper()
+	d := json.NewDecoder(strings.NewReader(linea))
+	d.UseNumber()
+	var campos map[string]any
+	if err := d.Decode(&campos); err != nil {
+		t.Fatalf("una línea del registro no es JSON: %v: %s", err, linea)
+	}
+	delete(campos, slog.TimeKey)
+	delete(campos, "peticion")
+	b, err := json.Marshal(campos)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
 }
