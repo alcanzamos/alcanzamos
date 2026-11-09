@@ -18,8 +18,12 @@ export type Rutas = {
   CrearCuenta: { mayorDeEdad: true; correo?: string };
   /** PN-59, sin sesión: el correo se pasa para mostrarlo y reenviarlo; solo vive en la memoria, nunca se guarda. */
   RevisaTuCorreo: { correo?: string } | undefined;
-  /** PN-63, solo el primer uso (sin Atrás); `llegada` es el mensaje de estado de arriba («Listo, confirmamos tu correo.»). */
-  InformacionDePrivacidad: { llegada?: Llegada } | undefined;
+  /**
+   * PN-63. Sin `desdeElMenu`, el primer uso (sin Atrás y con «Continuar»); `llegada` es el mensaje de estado de arriba
+   * («Listo, confirmamos tu correo.»). Con `desdeElMenu`, la barra con su título y Atrás, y sin «Continuar»: se apila
+   * sobre PN-71 desde su entrada provisional «Cómo cuidamos tus datos» (bug 260) y su Atrás vuelve a PN-71.
+   */
+  InformacionDePrivacidad: { llegada?: Llegada; desdeElMenu?: true } | undefined;
   /** PN-64: solo se abre desde «Continuar» de PN-63; su Atrás vuelve a PN-63. */
   AutorizacionDeDatos: undefined;
   /**

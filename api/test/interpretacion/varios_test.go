@@ -12,28 +12,28 @@ func TestDetectorDeVariosMovimientosCuentaLosMontosDeE15(t *testing.T) {
 		id, texto string
 		montos    int
 	}{
-		{"DV-01", "almuerzo 15 mil y taxi 8 mil", 2},
-		{"DV-02", "almuerzo 15 mil", 1},
-		{"DV-03", "pagué 50 mil el 15 de marzo", 1},
-		{"DV-04", "arriendo $800.000 el 5", 1},
-		{"DV-05", "compré 3 gaseosas a 2 mil", 1},
-		{"DV-06", "3 almuerzos a 5 mil, total 15 mil", 1},
-		{"DV-07", "televisor 1.200.000 en 12 cuotas de 100.000", 1},
-		{"DV-08", "mercado 120.000 y gasolina 80.000 y peluquería 25 mil", 3},
-		{"DV-09", "almuerzo quince mil y taxi ocho mil", 2},
-		{"DV-10", "gasté 20k en cine y 10k en dulces", 2},
-		{"DV-11", "hola", 0},
-		{"DV-12", "llamé al 3001234567", 0},
-		{"DV-13", "pagué la factura de 2026", 0},
-		{"DV-14", "taxi 8.500, almuerzo 14.000", 2},
-		{"DV-15", "ayer pagué 30 lucas de la luz y 12 lucas de agua", 2},
-		{"DV-16", "10% de 200 mil", 1},
-		{"DV-17", "pagué 40000 el 05/11", 1},
-		{"DV-18", "compré 2 camisas de 50 mil", 1},
-		{"DV-19", "$25.000 + $10.000", 2},
-		{"DV-20", "", 0},
-		{"DV-21", "gasté 15 y 8 mil", 1},              // límite conocido: falso negativo
-		{"DV-22", "tengo 20 mil pero gasté 5 mil", 2}, // límite conocido: falso positivo
+		{id: "DV-01", texto: "almuerzo 15 mil y taxi 8 mil", montos: 2},
+		{id: "DV-02", texto: "almuerzo 15 mil", montos: 1},
+		{id: "DV-03", texto: "pagué 50 mil el 15 de marzo", montos: 1},
+		{id: "DV-04", texto: "arriendo $800.000 el 5", montos: 1},
+		{id: "DV-05", texto: "compré 3 gaseosas a 2 mil", montos: 1},
+		{id: "DV-06", texto: "3 almuerzos a 5 mil, total 15 mil", montos: 1},
+		{id: "DV-07", texto: "televisor 1.200.000 en 12 cuotas de 100.000", montos: 1},
+		{id: "DV-08", texto: "mercado 120.000 y gasolina 80.000 y peluquería 25 mil", montos: 3},
+		{id: "DV-09", texto: "almuerzo quince mil y taxi ocho mil", montos: 2},
+		{id: "DV-10", texto: "gasté 20k en cine y 10k en dulces", montos: 2},
+		{id: "DV-11", texto: "hola", montos: 0},
+		{id: "DV-12", texto: "llamé al 3001234567", montos: 0},
+		{id: "DV-13", texto: "pagué la factura de 2026", montos: 0},
+		{id: "DV-14", texto: "taxi 8.500, almuerzo 14.000", montos: 2},
+		{id: "DV-15", texto: "ayer pagué 30 lucas de la luz y 12 lucas de agua", montos: 2},
+		{id: "DV-16", texto: "10% de 200 mil", montos: 1},
+		{id: "DV-17", texto: "pagué 40000 el 05/11", montos: 1},
+		{id: "DV-18", texto: "compré 2 camisas de 50 mil", montos: 1},
+		{id: "DV-19", texto: "$25.000 + $10.000", montos: 2},
+		{id: "DV-20", texto: "", montos: 0},
+		{id: "DV-21", texto: "gasté 15 y 8 mil", montos: 1},              // límite conocido: falso negativo
+		{id: "DV-22", texto: "tengo 20 mil pero gasté 5 mil", montos: 2}, // límite conocido: falso positivo
 	}
 	var d interpretacion.DetectorDeVariosMovimientos
 	for _, c := range casos {

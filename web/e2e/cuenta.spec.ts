@@ -400,7 +400,7 @@ test.describe("PN-74 · Elige tu contraseña (/verificar?t=)", () => {
     await sinViolaciones(page);
   });
 
-  test("guardada: PN-58 → PN-59 → enlace → PN-74 → PN-63 con «Listo, confirmamos tu correo.» arriba como role=status (T11)", async ({
+  test("USA-003 guardada: PN-58 → PN-59 → enlace → PN-74 → PN-63 con «Listo, confirmamos tu correo.» arriba como role=status (T11)", async ({
     page,
   }) => {
     const pedidos = await simularApi(page, {

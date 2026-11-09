@@ -114,7 +114,9 @@ test.describe("PN-60 · Iniciar sesión", () => {
     await expect(page.getByText("Este es tu primer ingreso.")).toBeVisible();
   });
 
-  test("cuenta activa sin autorización va a PN-63", async ({ page }) => {
+  test("USA-003 cuenta activa sin autorización va a PN-63", async ({
+    page,
+  }) => {
     await simularApi(page, {
       "POST /api/v1/sesiones": responder(200, { estado: "activa" }),
       "GET /api/v1/cuenta/seguridad": responder(403, {
@@ -339,6 +341,27 @@ test.describe("PN-62 · Elegir la contraseña nueva", () => {
 });
 
 test.describe("PN-71 · Seguridad de la cuenta", () => {
+  // E14-PCP 4.14, nota del 2026-11-08 (bug 260) y 4.16 T2 ter: la entrada provisional a PN-63 va arriba de «Cerrar
+  // sesión» y «Borrar mi cuenta» queda última, como en PN-66.
+  test("«Cómo cuidamos tus datos» arriba de «Cerrar sesión» y «Borrar mi cuenta» última, sin violaciones", async ({
+    page,
+  }) => {
+    await simularApi(page, {
+      "GET /api/v1/cuenta/seguridad": responder(200, {
+        ingreso_anterior: null,
+      }),
+    });
+    await page.goto("/cuenta/seguridad");
+    await expect(page.getByText("Este es tu primer ingreso.")).toBeVisible();
+    await expect(page.locator("main a, main button")).toHaveText([
+      "Movimientos",
+      "Cómo cuidamos tus datos",
+      "Cerrar sesión",
+      "Borrar mi cuenta",
+    ]);
+    await sinViolaciones(page);
+  });
+
   test("con ingreso anterior: fecha en palabras en Bogotá, cifras en Figtree sin ss02, sin violaciones", async ({
     page,
   }) => {
@@ -505,7 +528,7 @@ test.describe("PN-73 · Cambiar la contraseña", () => {
     });
   });
 
-  test("sin autorización el API manda a PN-63", async ({ page }) => {
+  test("USA-003 sin autorización el API manda a PN-63", async ({ page }) => {
     await simularApi(page, {
       "POST /api/v1/cuenta/contrasena": responder(403, {
         error: "autorizacion_pendiente",

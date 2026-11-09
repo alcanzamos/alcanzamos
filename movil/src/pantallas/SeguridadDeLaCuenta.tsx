@@ -23,7 +23,9 @@ type Estado = { fase: 'cargando' } | { fase: 'error'; aviso: DatosDeAviso } | { 
 // provisional de quien entra con autorización, hasta que haya un Inicio. La fecha va en palabras y en la hora de Colombia.
 // «Movimientos» es su entrada a PN-01 (E14-SDD 5.9), que ya trae «Registrar» (D-164): aquí no hay botón para registrar.
 // «Cerrar sesión» y «Borrar mi cuenta» (filas 7 y 8 de PN-66, que todavía no existe) viven aquí hasta que haya un Perfil:
-// el borrado abre PN-69.
+// el borrado abre PN-69. Arriba de «Cerrar sesión», la entrada provisional «Cómo cuidamos tus datos» abre PN-63 desde el
+// menú (4.14, nota del 2026-11-08, bug 260, y 4.16 T2 ter); «Borrar mi cuenta» queda última, como en PN-66. La de PN-68
+// («Política de tratamiento y consultas») espera a que exista la pantalla.
 export function SeguridadDeLaCuenta({ navigation, route }: NativeStackScreenProps<Rutas, 'SeguridadDeLaCuenta'>) {
   const [estado, setEstado] = useState<Estado>({ fase: 'cargando' });
   const [intento, setIntento] = useState(0);
@@ -104,6 +106,9 @@ export function SeguridadDeLaCuenta({ navigation, route }: NativeStackScreenProp
       <Boton variante="secundario" alTocar={() => navigation.navigate('ListaDeMovimientos')}>
         {textos.movimientos.titulo}
       </Boton>
+      <BotonDeTexto alTocar={() => navigation.navigate('InformacionDePrivacidad', { desdeElMenu: true })}>
+        {textos.privacidad.titulo}
+      </BotonDeTexto>
       <BotonDeTexto alTocar={() => void salir()}>{textos.acciones.cerrarSesion}</BotonDeTexto>
       <BotonDeTexto alTocar={() => navigation.navigate('BorrarCuenta')}>{textos.borrarCuenta.borrarMiCuenta}</BotonDeTexto>
     </Pantalla>

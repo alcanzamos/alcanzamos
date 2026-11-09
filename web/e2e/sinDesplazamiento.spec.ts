@@ -204,6 +204,18 @@ const pantallas: Pantalla[] = [
     abrir: abrirConTitulo("/privacidad", "Cómo cuidamos tus datos"),
   },
   {
+    nombre: "PN-63 /cuenta/privacidad (desde el menú)",
+    preparar: sinApi,
+    abrir: async (page) => {
+      await page.goto("/cuenta/privacidad");
+      await expect(encabezado(page, "Cómo cuidamos tus datos")).toBeVisible();
+      await expect(page.getByRole("link", { name: "Atrás" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Continuar" })).toHaveCount(
+        0,
+      );
+    },
+  },
+  {
     nombre: "PN-64 /autorizacion",
     preparar: (page) =>
       simularApi(page, {
@@ -373,11 +385,6 @@ test.describe("Sin desplazamiento horizontal de 360 a 1920 px (S13, E14-MCO 4.2 
   for (const pantalla of pantallas) {
     for (const ancho of anchos) {
       test(`${pantalla.nombre} a ${ancho} px`, async ({ page }) => {
-        // Bug 239 (USA-008, I06): «Confirmar todos» a 360 px mide 368 px de ancho (scrollWidth 368, clientWidth 360).
-        test.fail(
-          pantalla.nombre.startsWith("«Confirmar todos»") && ancho === 360,
-          "«Confirmar todos» se desborda 8 px a 360 px",
-        );
         await page.setViewportSize({ width: ancho, height: 900 });
         await hoyEs14DeDiciembre(page);
         await pantalla.preparar(page);
