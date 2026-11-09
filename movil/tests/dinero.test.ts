@@ -1,4 +1,4 @@
-import { formatearPesos, leerMonto, MONTO_MAXIMO } from '../src/dinero';
+import { formatearPesos, leerMonto, MONTO_MAXIMO, montoEnElCampo, SIMBOLO_DE_PESOS } from '../src/dinero';
 
 describe('formatearPesos', () => {
   it('muestra pesos enteros sin centavos', () => {
@@ -182,5 +182,40 @@ describe('EXA-001 ejemplos de dinero de E12 §6.1', () => {
 
   it('EXA-001 «1,234» tiene más de dos decimales y no se redondea en silencio', () => {
     expect(leerMonto('1,234')).toEqual({ ok: false, motivo: 'decimales' });
+  });
+});
+
+describe('montoEnElCampo (ACC-004, opción A del dueño)', () => {
+  it.each([
+    ['$15.000', '15.000', '15000'],
+    ['15000', '15.000', '15000'],
+    ['15.000', '15.000', '15000'],
+    ['$123.456,78', '123.456,78', '123456,78'],
+    ['15000,50', '15.000,50', '15000,50'],
+    ['15000,5', '15.000,50', '15000,50'],
+    ['0,05', '0,05', '0,05'],
+    ['$1.200.000', '1.200.000', '1200000'],
+    ['92.233.720.368.547.758,07', '92.233.720.368.547.758,07', '92233720368547758,07'],
+  ])('«%s» se muestra «%s» con puntos de miles y «%s» sin ellos, siempre sin «$»', (texto, conMiles, sinMiles) => {
+    expect(montoEnElCampo(texto, { conMiles: true })).toBe(conMiles);
+    expect(montoEnElCampo(texto, { conMiles: false })).toBe(sinMiles);
+  });
+
+  it.each(['', '12.5', 'abc', '0', '1,234'])('«%s» no es un monto que se lea: queda como se escribió', (texto) => {
+    expect(montoEnElCampo(texto, { conMiles: true })).toBe(texto);
+    expect(montoEnElCampo(texto, { conMiles: false })).toBe(texto);
+  });
+
+  it('las dos formas se leen igual: el monto guardado no cambia', () => {
+    for (const texto of ['$15.000', '15000,50', '$123.456,78']) {
+      const lectura = leerMonto(texto);
+      expect(leerMonto(montoEnElCampo(texto, { conMiles: true }))).toEqual(lectura);
+      expect(leerMonto(montoEnElCampo(texto, { conMiles: false }))).toEqual(lectura);
+    }
+  });
+
+  it('el «$» es el mismo símbolo de formatearPesos', () => {
+    expect(SIMBOLO_DE_PESOS).toBe('$');
+    expect(formatearPesos(1500000)).toBe(`${SIMBOLO_DE_PESOS}${montoEnElCampo('15000', { conMiles: true })}`);
   });
 });

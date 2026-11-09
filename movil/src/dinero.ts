@@ -1,7 +1,20 @@
 // Lee y escribe dinero en el formulario de registro (D-082, E17-ECO 4.8): los montos son centavos enteros. Es solo
 // formato y lectura de lo que escribe la persona, no una regla de negocio: el API vuelve a validar todo. Mismo código
-// que `web/src/dinero.ts`. Sin `Intl` ni `parseFloat`: el resultado no depende de los datos de idioma de Hermes ni de
-// decimales binarios, y un entero de 64 bits no cabe exacto en un `number`, por eso `bigint`.
+// que `web/src/dinero.ts`, más `montoEnElCampo` (el campo de monto con TalkBack, solo en Android). Sin `Intl` ni
+// `parseFloat`: el resultado no depende de los datos de idioma de Hermes ni de decimales binarios, y un entero de
+// 64 bits no cabe exacto en un `number`, por eso `bigint`.
+
+/** El símbolo del peso: va antes de la cifra en `formatearPesos` y como prefijo fijo del campo de monto. */
+export const SIMBOLO_DE_PESOS = '$';
+
+/** La cifra de un monto positivo, sin símbolo: con punto de miles o sin él, y coma para los centavos si no son cero. */
+function cifraDePesos(absoluto: bigint, conMiles: boolean): string {
+  const resto = absoluto % 100n;
+  const pesos = String(absoluto / 100n);
+  const decimales = resto === 0n ? '' : `,${String(resto).padStart(2, '0')}`;
+  return `${conMiles ? pesos.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : pesos}${decimales}`;
+}
+
 // Formato colombiano: punto para los miles, coma para los centavos, y los centavos solo si no son cero.
 export function formatearPesos(centavos: number | bigint): string {
   if (typeof centavos === 'number' && !Number.isSafeInteger(centavos)) {
@@ -9,10 +22,7 @@ export function formatearPesos(centavos: number | bigint): string {
   }
   const valor = BigInt(centavos);
   const absoluto = valor < 0n ? -valor : valor;
-  const resto = absoluto % 100n;
-  const miles = String(absoluto / 100n).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  const decimales = resto === 0n ? '' : `,${String(resto).padStart(2, '0')}`;
-  return `${valor < 0n ? '-' : ''}$${miles}${decimales}`;
+  return `${valor < 0n ? '-' : ''}${SIMBOLO_DE_PESOS}${cifraDePesos(absoluto, true)}`;
 }
 
 /** El mayor monto que guarda el API: un entero de centavos de 64 bits con signo. */
@@ -71,4 +81,15 @@ export function leerMonto(texto: string): LecturaDeMonto {
   if (negativo || centavos === 0n) return { ok: false, motivo: 'cero' };
   if (centavos > MONTO_MAXIMO) return { ok: false, motivo: 'grande' };
   return { ok: true, centavos };
+}
+
+/**
+ * Lo que muestra el campo de monto (ACC-004, opción A del dueño): sin «$», que va como prefijo fuera del campo, con
+ * punto de miles («15.000,50») o sin él («15000,50»), que es como TalkBack lo lee bien («quince mil»; «15.000» lo leía
+ * «15, cero cero cero»). Un texto que no se lee como monto queda como se escribió. Las dos formas son los mismos
+ * centavos para `leerMonto`.
+ */
+export function montoEnElCampo(texto: string, { conMiles }: { conMiles: boolean }): string {
+  const lectura = leerMonto(texto);
+  return lectura.ok ? cifraDePesos(lectura.centavos, conMiles) : texto;
 }

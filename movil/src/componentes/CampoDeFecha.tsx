@@ -6,14 +6,14 @@ import { fechaLocalEnPalabras } from '../fechas';
 import { tokens } from '../tokens/tokens.generated';
 import { cifras } from './Cifras';
 import { IconoCalendario } from './Iconos';
-import { MarcoDeCampo } from './CampoDeTexto';
+import { MarcoDeCampo, nombreConError } from './CampoDeTexto';
 
 // Campo de fecha de PN-65 (E14-PCP 4.8): Campo de texto con el ícono Calendario. Al tocarlo abre el selector de fecha
 // nativo de Android (ADR-003, condición 1: selectores del sistema), no uno dibujado en JavaScript. No hay fecha por
 // defecto ni año sugerido: el campo está vacío hasta que la persona confirma una fecha, y no se fija una fecha máxima
 // ni mínima, para no dar pistas sobre la edad que se espera. El dispositivo siempre abre el diálogo en una fecha
 // (la de hoy, o la última elegida): no se puede abrir «sin elegir nada». `ref` es para llevarle el foco de TalkBack
-// cuando tiene un error (`avisarErrores`, ACC-004).
+// cuando tiene un error (`avisarErrores`, ACC-004): el error es parte de su nombre y lo dice al recibir el foco.
 export function CampoDeFecha({
   etiqueta,
   valor,
@@ -47,7 +47,7 @@ export function CampoDeFecha({
       <Pressable
         ref={ref}
         accessibilityRole="button"
-        accessibilityLabel={texto ? [etiqueta, texto].join(', ') : etiqueta}
+        accessibilityLabel={nombreConError(etiqueta, texto, error)}
         accessibilityHint={ayuda}
         onPress={abrir}
         onFocus={() => setEnFoco(true)}

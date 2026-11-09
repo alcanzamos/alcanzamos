@@ -5,6 +5,7 @@ import { BackHandler } from 'react-native';
 import { Navegacion } from '../../src/navegacion/Navegacion';
 import { instalarFetchFalso, respuestaJson } from '../ayudas/fetchFalso';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
+import { campo } from '../ayudas/campos';
 
 jest.mock('@react-native-community/datetimepicker', () => ({ DateTimePickerAndroid: { open: jest.fn() } }));
 jest.mock('expo-secure-store', () => jest.requireActual('../ayudas/secureStoreFalso').crearSecureStoreFalso());
@@ -72,7 +73,7 @@ describe('flujo de crear la cuenta en Android (PN-60 → PN-65 → PN-58 → PN-
     await elegirFecha(new Date(1990, 4, 14));
     await fireEvent.press(screen.getByRole('button', { name: 'Continuar' }));
     await screen.findByRole('header', { name: 'Crea tu cuenta' });
-    await fireEvent.changeText(screen.getByLabelText('Correo electrónico'), correo);
+    await fireEvent.changeText(campo('Correo electrónico'), correo);
     await fireEvent.press(screen.getByRole('button', { name: 'Crear cuenta' }));
     return screen.findByRole('header', { name: 'Revisa tu correo' });
   }
@@ -105,8 +106,8 @@ describe('flujo de crear la cuenta en Android (PN-60 → PN-65 → PN-58 → PN-
     await crearHastaPN59();
     await fireEvent.press(screen.getByRole('button', { name: 'Usar otro correo' }));
     expect(await screen.findByRole('header', { name: 'Crea tu cuenta' })).toBeOnTheScreen();
-    expect(screen.getByLabelText('Correo electrónico').props.value).toBe('laura@ejemplo.com');
-    await fireEvent.changeText(screen.getByLabelText('Correo electrónico'), 'otro@ejemplo.com');
+    expect(campo('Correo electrónico').props.value).toBe('laura@ejemplo.com');
+    await fireEvent.changeText(campo('Correo electrónico'), 'otro@ejemplo.com');
     await fireEvent.press(screen.getByRole('button', { name: 'Crear cuenta' }));
     expect(
       await screen.findByText(
@@ -127,9 +128,9 @@ describe('flujo de crear la cuenta en Android (PN-60 → PN-65 → PN-58 → PN-
     await crearHastaPN59();
     await fireEvent.press(screen.getByRole('button', { name: 'Ya elegí mi contraseña' }));
     expect(await screen.findByRole('header', { name: 'Inicia sesión' })).toBeOnTheScreen();
-    expect(screen.getByLabelText('Correo electrónico').props.value).toBe('laura@ejemplo.com');
+    expect(campo('Correo electrónico').props.value).toBe('laura@ejemplo.com');
     expect(titulo('Revisa tu correo')).not.toBeOnTheScreen();
-    await fireEvent.changeText(screen.getByLabelText('Contraseña'), 'lluvia café tren azul');
+    await fireEvent.changeText(campo('Contraseña'), 'lluvia café tren azul');
     await fireEvent.press(screen.getByRole('button', { name: 'Iniciar sesión' }));
     await waitFor(() => expect(almacen.guardado.get('sesion')).toBe('tk-laura'));
     expect(JSON.parse(pedidos[1]?.init.body as string)).toEqual({

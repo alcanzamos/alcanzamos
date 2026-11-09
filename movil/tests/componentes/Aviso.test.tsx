@@ -1,9 +1,18 @@
+import type { ComponentProps } from 'react';
 import { act, render, screen } from '@testing-library/react-native';
-import { AccessibilityInfo } from 'react-native';
 import { ESPERA_DEL_ANUNCIO_MS } from '../../src/anuncios';
 import { Aviso } from '../../src/componentes/Aviso';
+import { RegionDeAnuncios } from '../../src/componentes/RegionDeAnuncios';
 import { tokens } from '../../src/tokens/tokens.generated';
-import { anunciados } from '../ayudas/anuncios';
+import { anunciados, regionesVivas, textosDe } from '../ayudas/anuncios';
+
+// El aviso en una pantalla: lo anuncia la región viva de la pantalla (ACC-004, bug 225).
+const EnPantalla = (propiedades: ComponentProps<typeof Aviso>) => (
+  <>
+    <Aviso {...propiedades} />
+    <RegionDeAnuncios />
+  </>
+);
 
 const adelantar = (ms: number) =>
   act(async () => {
@@ -40,13 +49,15 @@ describe('Aviso (E14-SDD 5.4)', () => {
     beforeEach(() => jest.useFakeTimers());
 
     it('anuncia el título y el mensaje una sola vez, pasada la espera del anuncio', async () => {
-      await render(<Aviso tipo="logro" titulo="Listo, cambiamos tu contraseña." mensaje="Cerramos las demás sesiones." />);
+      await render(<EnPantalla tipo="logro" titulo="Listo, cambiamos tu contraseña." mensaje="Cerramos las demás sesiones." />);
       await adelantar(ESPERA_DEL_ANUNCIO_MS - 1);
       expect(anunciados()).toEqual([]);
       await adelantar(1);
       expect(anunciados()).toEqual(['Listo, cambiamos tu contraseña. Cerramos las demás sesiones.']);
+      const dicho = textosDe(regionesVivas()[0]!)[0];
       await adelantar(ESPERA_DEL_ANUNCIO_MS * 5);
-      expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledTimes(1);
+      // El mismo `Text` de la región: no se volvió a decir.
+      expect(textosDe(regionesVivas()[0]!)[0]).toBe(dicho);
     });
 
     it('no depende de una región viva: Android aplana la vista y TalkBack no la oiría', async () => {
@@ -56,31 +67,34 @@ describe('Aviso (E14-SDD 5.4)', () => {
 
     it('con un título hablado anuncia los pesos, no «$»', async () => {
       await render(
-        <Aviso tipo="logro" titulo="Listo, registramos tu gasto de $45.000." tituloHablado="Listo, registramos tu gasto de 45000 pesos." />,
+        <EnPantalla tipo="logro" titulo="Listo, registramos tu gasto de $45.000." tituloHablado="Listo, registramos tu gasto de 45000 pesos." />,
       );
       await adelantar(ESPERA_DEL_ANUNCIO_MS);
       expect(anunciados()).toEqual(['Listo, registramos tu gasto de 45000 pesos.']);
     });
 
     it('si cambia el texto anuncia el nuevo; si no cambia, no repite', async () => {
-      await render(<Aviso tipo="atencion" titulo="No pudimos guardar." />);
+      await render(<EnPantalla tipo="atencion" titulo="No pudimos guardar." />);
       await adelantar(ESPERA_DEL_ANUNCIO_MS);
-      await screen.rerender(<Aviso tipo="atencion" titulo="No pudimos guardar." />);
+      expect(anunciados()).toEqual(['No pudimos guardar.']);
+      const dicho = textosDe(regionesVivas()[0]!)[0];
+      await screen.rerender(<EnPantalla tipo="atencion" titulo="No pudimos guardar." />);
       await adelantar(ESPERA_DEL_ANUNCIO_MS);
-      await screen.rerender(<Aviso tipo="atencion" titulo="Sin conexión." />);
+      expect(textosDe(regionesVivas()[0]!)[0]).toBe(dicho);
+      await screen.rerender(<EnPantalla tipo="atencion" titulo="Sin conexión." />);
       await adelantar(ESPERA_DEL_ANUNCIO_MS);
-      expect(anunciados()).toEqual(['No pudimos guardar.', 'Sin conexión.']);
+      expect(anunciados()).toEqual(['Sin conexión.']);
     });
 
     it('si se va antes de la espera, no se anuncia', async () => {
-      await render(<Aviso tipo="atencion" titulo="No pudimos guardar." />);
-      await screen.unmount();
+      await render(<EnPantalla tipo="atencion" titulo="No pudimos guardar." />);
+      await screen.rerender(<RegionDeAnuncios />);
       await adelantar(ESPERA_DEL_ANUNCIO_MS);
       expect(anunciados()).toEqual([]);
     });
 
     it('con `viva` en falso es contenido de la pantalla, no un estado: no se anuncia', async () => {
-      await render(<Aviso tipo="atencion" titulo="Vas a borrar tu cuenta." viva={false} />);
+      await render(<EnPantalla tipo="atencion" titulo="Vas a borrar tu cuenta." viva={false} />);
       await adelantar(ESPERA_DEL_ANUNCIO_MS);
       expect(anunciados()).toEqual([]);
     });

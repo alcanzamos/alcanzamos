@@ -1,7 +1,7 @@
 import { CommonActions } from '@react-navigation/native';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { AutorizacionDeDatos } from '../../src/pantallas/AutorizacionDeDatos';
-import { anunciados, esperarAnuncio, focoDeTalkBack, limpiarAnuncios } from '../ayudas/anuncios';
+import { esperarSinAnuncios, focoDeTalkBack, limpiarAnuncios, nombreDe } from '../ayudas/anuncios';
 import { instalarFetchFalso, respuestaJson } from '../ayudas/fetchFalso';
 import { navegacionFalsa, propiedades } from '../ayudas/pantalla';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
@@ -87,25 +87,25 @@ describe('PN-64 · Autorización de datos (E14-PCP 4.7)', () => {
       const { pedidos } = await mostrar();
       await fireEvent.press(boton('Autorizar y continuar'));
       expect(await screen.findByText('Falta tu autorización para lo necesario.')).toBeOnTheScreen();
-      expect(screen.getByLabelText(NECESARIAS)).toHaveProp('accessibilityHint', 'Falta tu autorización para lo necesario.');
+      expect(screen.getByRole('checkbox', { name: `${NECESARIAS}, Falta tu autorización para lo necesario.` })).toBeOnTheScreen();
       expect(pedidos).toHaveLength(1);
       expect(boton('Autorizar y continuar')).toBeEnabled();
     });
 
-    it('ACC-004 (bug 226): sin lo necesario, TalkBack anuncia el error y su foco va a la casilla', async () => {
+    it('ACC-004 (bug 226): sin lo necesario, el foco de TalkBack va a la casilla, que lee su error; no hay anuncio aparte', async () => {
       await mostrar();
       limpiarAnuncios();
       await fireEvent.press(boton('Autorizar y continuar'));
-      await esperarAnuncio('Falta tu autorización para lo necesario.');
-      expect(anunciados()).toEqual(['Falta tu autorización para lo necesario.']);
-      expect(focoDeTalkBack()?.props.accessibilityLabel).toBe(NECESARIAS);
+      await screen.findByText('Falta tu autorización para lo necesario.');
+      expect(nombreDe(focoDeTalkBack())).toBe(`${NECESARIAS}, Falta tu autorización para lo necesario.`);
+      await esperarSinAnuncios();
     });
 
     it('marcar lo necesario quita el error; desmarcarlo no lo vuelve a poner', async () => {
       await mostrar();
       await fireEvent.press(boton('Autorizar y continuar'));
       await screen.findByText('Falta tu autorización para lo necesario.');
-      await fireEvent.press(screen.getByLabelText(NECESARIAS));
+      await fireEvent.press(screen.getByLabelText(`${NECESARIAS}, Falta tu autorización para lo necesario.`));
       expect(screen.queryByText('Falta tu autorización para lo necesario.')).not.toBeOnTheScreen();
       await fireEvent.press(screen.getByLabelText(NECESARIAS));
       expect(screen.queryByText('Falta tu autorización para lo necesario.')).not.toBeOnTheScreen();

@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, type TextInputInstance } from 'react-nativ
 import type { Pendiente } from '../api/repeticiones';
 import { useAvisarErrores } from '../anuncios';
 import { Boton } from '../componentes/Boton';
-import { CampoDeTexto } from '../componentes/CampoDeTexto';
+import { CampoDeMonto } from '../componentes/CampoDeMonto';
 import { HojaInferior } from '../componentes/HojaInferior';
 import { IconoSiguiente } from '../componentes/Iconos';
 import { Texto } from '../componentes/Texto';
@@ -106,19 +106,7 @@ export function HojaDeMonto({
 
   return (
     <HojaInferior visible titulo={textosDeFilaPorConfirmar(fila).tituloDelMonto} alCerrar={alCerrar}>
-      <CampoDeTexto
-        ref={campo}
-        etiqueta={textos.registro.monto.etiqueta}
-        teclado="decimal-pad"
-        cifra
-        valor={monto}
-        alCambiar={setMonto}
-        alSalir={() => {
-          const lectura = leerMonto(monto);
-          if (lectura.ok) setMonto(formatearPesos(lectura.centavos));
-        }}
-        error={error}
-      />
+      <CampoDeMonto ref={campo} valor={monto} alCambiar={setMonto} error={error} />
       <Texto variante="ayuda">{textos.movimientos.detalle.soloEstaFecha}</Texto>
       <Boton deshabilitado={enviando} alTocar={confirmar}>
         {textoDelBoton}

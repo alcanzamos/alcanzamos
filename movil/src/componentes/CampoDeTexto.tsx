@@ -1,4 +1,4 @@
-import { useId, useState, type ReactNode, type Ref } from 'react';
+import { useState, type ReactNode, type Ref } from 'react';
 import { StyleSheet, Text, TextInput, View, type KeyboardTypeOptions, type TextInputInstance, type TextInputProps } from 'react-native';
 import { estiloDeTipografia } from '../fuentes';
 import { tokens } from '../tokens/tokens.generated';
@@ -7,19 +7,17 @@ import { IconoAtencion } from './Iconos';
 
 // El marco de E14-SDD 5.3 que comparten los campos: la etiqueta siempre visible arriba (nunca un texto de ejemplo
 // dentro de la caja), la caja de 48 dp, la ayuda y, en error, el ícono de Atención con un texto que dice qué falta.
-// `enFoco` pinta el borde de foco; el error pinta el borde de Atención (E14-SDD 5.3). El error lo anuncia la pantalla
-// al guardar, con `avisarErrores` (ACC-004, bug 226): una región viva aquí la aplana React Native y no se oye.
-// `idDeEtiqueta` es el `nativeID` de la etiqueta, para que el control se nombre con ella (`accessibilityLabelledBy`).
+// `enFoco` pinta el borde de foco; el error pinta el borde de Atención (E14-SDD 5.3). La etiqueta y el error se ven,
+// pero TalkBack no los lee aparte: el control de adentro los lleva en su nombre y los dice al recibir el foco (ACC-004,
+// bugs 226 y 227), así no se leen dos veces. Una región viva aquí la aplana React Native y no se oye.
 export function MarcoDeCampo({
   etiqueta,
-  idDeEtiqueta,
   ayuda,
   error,
   enFoco = false,
   children,
 }: {
   etiqueta: string;
-  idDeEtiqueta?: string;
   ayuda?: string;
   error?: string;
   enFoco?: boolean;
@@ -27,8 +25,8 @@ export function MarcoDeCampo({
 }) {
   return (
     <View style={estilos.campo}>
-      {/* El nombre lo da el control (accessibilityLabel y accessibilityLabelledBy): así el lector no lo dice dos veces. */}
-      <Text nativeID={idDeEtiqueta} importantForAccessibility="no" style={estilos.etiqueta}>
+      {/* El nombre lo da el control: así el lector no lo dice dos veces. */}
+      <Text importantForAccessibility="no" style={estilos.etiqueta}>
         {etiqueta}
       </Text>
       <View style={[estilos.caja, enFoco && estilos.cajaEnFoco, error !== undefined && estilos.cajaConError]}>
@@ -38,21 +36,26 @@ export function MarcoDeCampo({
       {error && (
         <View style={estilos.error}>
           <IconoAtencion color={tokens.color.estado.atencion.icono} />
-          <Text style={estilos.textoDeError}>{cifras(error)}</Text>
+          <Text importantForAccessibility="no" style={estilos.textoDeError}>
+            {cifras(error)}
+          </Text>
         </View>
       )}
     </View>
   );
 }
 
+/** El nombre accesible de un control con su error: «Monto, Falta el monto.»; sin error, solo la etiqueta. */
+export const nombreConError = (...partes: (string | undefined)[]) => partes.filter(Boolean).join(', ');
+
 // Un campo de solo lectura en el marco de 5.3 («Empieza el» de PN-03): TalkBack lee la etiqueta junto con el valor,
-// como un solo elemento (ACC-004, bug 227).
-export function CampoDeLectura({ etiqueta, valor }: { etiqueta: string; valor: string }) {
+// como un solo elemento (ACC-004, bug 227), y el error si lo hay (bug 226).
+export function CampoDeLectura({ etiqueta, valor, error }: { etiqueta: string; valor: string; error?: string }) {
   return (
-    <MarcoDeCampo etiqueta={etiqueta}>
+    <MarcoDeCampo etiqueta={etiqueta} error={error}>
       <Text
         accessible
-        accessibilityLabel={[etiqueta, valor].join(', ')}
+        accessibilityLabel={nombreConError(etiqueta, valor, error)}
         accessibilityHint={undefined}
         style={estilos.lectura}
       >
@@ -76,15 +79,20 @@ export type PropiedadesDeCampo = {
   maxLength?: number;
   /** Un campo de varias líneas con ese mínimo de líneas (el cuadro de lenguaje natural, E14-PPN 3.1 fila 3). */
   lineas?: number;
+  /** La persona entra al campo (recibe el foco de edición). */
+  alEntrar?: () => void;
   /** La persona sale del campo (se pierde el foco). */
   alSalir?: () => void;
   ref?: Ref<TextInputInstance>;
 };
 
-// Campo de texto de E14-SDD 5.3. `accion` es el botón al final de la caja (Ver u Ocultar en la contraseña).
-// El nombre va dos veces a propósito (ACC-004, bug 227): con el campo lleno, TalkBack lee el valor del EditText y no su
-// `accessibilityLabel` (contentDescription), pero sí la etiqueta a la que apunta `accessibilityLabelledBy` (labeledBy).
-// Vacío, el `accessibilityLabel` es el que ya se oía bien en el celular.
+// Campo de texto de E14-SDD 5.3. `accion` es el botón al final de la caja (Ver u Ocultar en la contraseña); `prefijo`,
+// un texto fijo antes del valor (el «$» del monto) que TalkBack no lee.
+// El nombre es el texto de ejemplo, transparente: la etiqueta, y el error si lo hay («Monto, Falta el monto.»). Es lo
+// que se oyó en el celular (ACC-004, sesión 4): vacío, TalkBack lee el texto de ejemplo («Monto, Falta el monto.,
+// Editar casilla»); lleno, lee el valor y después el texto de ejemplo («15000, Editar casilla, Monto»; bug 227). Sin
+// `accessibilityLabel`: con el campo vacío, el contentDescription taparía el texto de ejemplo o haría decir la etiqueta
+// dos veces, y con el campo lleno TalkBack no lo leía. Sin `accessibilityLabelledBy`: TalkBack no lo leyó.
 export function CampoDeTexto({
   etiqueta,
   valor,
@@ -96,26 +104,37 @@ export function CampoDeTexto({
   cifra = false,
   maxLength,
   lineas,
+  alEntrar,
   alSalir,
   ref,
   textoSeguro = false,
   accion,
-}: PropiedadesDeCampo & { textoSeguro?: boolean; accion?: ReactNode }) {
+  prefijo,
+}: PropiedadesDeCampo & { textoSeguro?: boolean; accion?: ReactNode; prefijo?: string }) {
   const [enFoco, setEnFoco] = useState(false);
-  const idDeEtiqueta = useId();
   return (
-    <MarcoDeCampo etiqueta={etiqueta} idDeEtiqueta={idDeEtiqueta} ayuda={ayuda} error={error} enFoco={enFoco}>
+    <MarcoDeCampo etiqueta={etiqueta} ayuda={ayuda} error={error} enFoco={enFoco}>
+      {prefijo && (
+        <Text importantForAccessibility="no" style={[estilos.prefijo, cifra && estilos.cifra]}>
+          {prefijo}
+        </Text>
+      )}
+      {/* El nombre es el texto de ejemplo (ACC-004): un accessibilityLabel lo taparía con el campo vacío. */}
+      {/* eslint-disable-next-line react-native-a11y/has-valid-accessibility-descriptors */}
       <TextInput
         ref={ref}
         value={valor}
         onChangeText={alCambiar}
-        onFocus={() => setEnFoco(true)}
+        onFocus={() => {
+          setEnFoco(true);
+          alEntrar?.();
+        }}
         onBlur={() => {
           setEnFoco(false);
           alSalir?.();
         }}
-        accessibilityLabel={etiqueta}
-        accessibilityLabelledBy={idDeEtiqueta}
+        placeholder={nombreConError(etiqueta, error)}
+        placeholderTextColor="transparent"
         accessibilityHint={ayuda}
         autoComplete={autocompletar}
         importantForAutofill="yes"
@@ -126,7 +145,12 @@ export function CampoDeTexto({
         secureTextEntry={textoSeguro}
         autoCapitalize="none"
         autoCorrect={false}
-        style={[estilos.entrada, cifra && estilos.cifra, lineas !== undefined && estilos.variasLineas]}
+        style={[
+          estilos.entrada,
+          cifra && estilos.cifra,
+          lineas !== undefined && estilos.variasLineas,
+          prefijo !== undefined && estilos.conPrefijo,
+        ]}
       />
       {accion}
     </MarcoDeCampo>
@@ -158,6 +182,9 @@ const estilos = StyleSheet.create({
   // Alto mínimo de 96 dp, dos veces `espacio.12` (E14-PPN 3.1, fila 3): el texto empieza arriba y la caja crece con él.
   variasLineas: { minHeight: tokens.espacio['12'] * 2, textAlignVertical: 'top', paddingVertical: tokens.espacio['3'] },
   cifra: { ...estiloDeTipografia('cifra'), fontVariant: ['tabular-nums'] },
+  // El prefijo va pegado al valor: la caja le da el margen de la izquierda y el campo no repite el suyo.
+  prefijo: { ...estiloDeTipografia('cuerpo'), paddingLeft: tokens.espacio['3'], color: tokens.color.texto.principal },
+  conPrefijo: { paddingLeft: tokens.espacio['1'] },
   lectura: {
     ...estiloDeTipografia('cuerpo'),
     flex: 1,

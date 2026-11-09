@@ -1,5 +1,5 @@
-import type { ComponentType } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import type { ComponentType, Ref } from 'react';
+import { StyleSheet, Text, View, type HostInstance } from 'react-native';
 import { useAnuncio } from '../anuncios';
 import { estiloDeTipografia } from '../fuentes';
 import type { DatosDeAviso, TipoAviso } from '../textos';
@@ -14,17 +14,27 @@ const iconos: Record<TipoAviso, ComponentType<{ color: string }>> = {
 };
 
 // Aviso de E14-SDD 5.4: ícono + título + mensaje, un solo elemento para el lector de pantalla. Es un mensaje de estado:
-// TalkBack lo anuncia cuando aparece y cada vez que cambia, sin mover el foco (`useAnuncio`, ACC-004, bug 225; ahí
-// está por qué el aviso no es una región viva y por dónde sale el anuncio). Con `viva` en falso es contenido fijo de la pantalla («Vas a borrar tu cuenta»)
-// y no se anuncia: se lee al recorrerla. Con `tituloHablado` (un título con un monto, ACC-004) el nombre del elemento y
-// el anuncio son ese título más el mensaje, para que TalkBack diga los pesos y no «$».
-export function Aviso({ tipo, titulo, tituloHablado, mensaje, viva = true }: DatosDeAviso & { viva?: boolean }) {
+// TalkBack lo anuncia cuando aparece y cada vez que cambia, sin mover el foco, por la región viva de la pantalla o de la
+// hoja (`useAnuncio`, ACC-004, bug 225; en `src/anuncios.ts` está por qué el aviso no lleva una región viva propia).
+// Con `viva` en falso es contenido fijo de la pantalla («Vas a borrar tu cuenta») y no se anuncia: se lee al
+// recorrerla. Con `tituloHablado` (un título con un monto, ACC-004) el nombre del elemento y el anuncio son ese título
+// más el mensaje, para que TalkBack diga los pesos y no «$». `ref` es para llevarle el foco de TalkBack cuando el aviso
+// es un error del formulario (la repetición en Registrar, `avisarErrores`).
+export function Aviso({
+  tipo,
+  titulo,
+  tituloHablado,
+  mensaje,
+  viva = true,
+  ref,
+}: DatosDeAviso & { viva?: boolean; ref?: Ref<HostInstance> }) {
   const Icono = iconos[tipo];
   const estado = tokens.color.estado[tipo];
   const hablado = textoHablado({ tipo, titulo, tituloHablado, mensaje });
   useAnuncio(viva ? hablado : undefined);
   return (
     <View
+      ref={ref}
       accessible
       accessibilityRole="alert"
       accessibilityLabel={tituloHablado && hablado}

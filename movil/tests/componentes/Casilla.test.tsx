@@ -23,15 +23,19 @@ describe('Casilla de verificación (E14-SDD 5.17)', () => {
     expect(alCambiar).toHaveBeenLastCalledWith(false);
   });
 
-  it('con error muestra el texto con su ícono y se lo da a TalkBack como pista', async () => {
+  it('ACC-004 (bug 226): con error, el error es parte de su nombre («Acepto, Falta tu autorización.»), una sola vez', async () => {
     await render(<Casilla texto="Acepto" marcada={false} alCambiar={jest.fn()} error="Falta tu autorización." />);
     expect(screen.getByText('Falta tu autorización.')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Acepto')).toHaveProp('accessibilityHint', 'Falta tu autorización.');
+    const casilla = screen.getByRole('checkbox', { name: 'Acepto, Falta tu autorización.' });
+    expect(casilla.props.accessibilityHint).toBeUndefined();
+    // El texto visible del error no se lee aparte: TalkBack ya lo dice con la casilla.
+    expect(screen.getByText('Falta tu autorización.').props.importantForAccessibility).toBe('no');
   });
 
-  it('sin error no hay texto ni pista', async () => {
+  it('sin error su nombre es solo el texto, sin pista', async () => {
     await render(<Casilla texto="Acepto" marcada={false} alCambiar={jest.fn()} />);
-    expect(screen.getByLabelText('Acepto').props.accessibilityHint).toBeUndefined();
+    expect(screen.getByRole('checkbox', { name: 'Acepto' }).props.accessibilityHint).toBeUndefined();
+    expect(screen.queryByText(/Falta/)).not.toBeOnTheScreen();
   });
 
   it('el foco pinta el anillo de foco', async () => {
@@ -68,7 +72,7 @@ describe('Casilla de verificación (E14-SDD 5.17)', () => {
     const ref = createRef<HostInstance>();
     await render(<Casilla ref={ref} texto="Autorizo." marcada={false} alCambiar={jest.fn()} error="Falta." />);
     expect(ref.current).not.toBeNull();
-    // El error se ve, pero no es una región viva: Android la aplana y no se oiría. Lo anuncia la pantalla al guardar.
+    // El error se ve, pero no es una región viva: Android la aplana y no se oiría. Lo dice la casilla al recibir el foco.
     expect(JSON.stringify(screen.toJSON())).not.toContain('"accessibilityLiveRegion":"polite"');
   });
 });

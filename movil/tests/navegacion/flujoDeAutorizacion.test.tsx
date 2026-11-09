@@ -3,6 +3,7 @@ import { BackHandler } from 'react-native';
 import { Navegacion } from '../../src/navegacion/Navegacion';
 import { instalarFetchFalso, respuestaJson } from '../ayudas/fetchFalso';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
+import { buscarCampo, campo } from '../ayudas/campos';
 
 jest.mock('expo-secure-store', () => jest.requireActual('../ayudas/secureStoreFalso').crearSecureStoreFalso());
 const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crearSecureStoreFalso>;
@@ -25,8 +26,8 @@ const catalogo = {
 const NECESARIAS = 'Autorizo el uso de mis datos para estas finalidades necesarias.';
 
 async function entrarSinAutorizacion() {
-  await fireEvent.changeText(await screen.findByLabelText('Correo electrónico'), 'laura@ejemplo.com');
-  await fireEvent.changeText(screen.getByLabelText('Contraseña'), 'lluvia café tren azul');
+  await fireEvent.changeText(await buscarCampo('Correo electrónico'), 'laura@ejemplo.com');
+  await fireEvent.changeText(campo('Contraseña'), 'lluvia café tren azul');
   await fireEvent.press(screen.getByRole('button', { name: 'Iniciar sesión' }));
   await screen.findByRole('header', { name: 'Cómo cuidamos tus datos' });
 }

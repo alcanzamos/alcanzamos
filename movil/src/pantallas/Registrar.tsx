@@ -1,6 +1,6 @@
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View, type TextInputInstance } from 'react-native';
+import { useEffect, useRef, useState, type RefObject } from 'react';
+import { StyleSheet, Text, View, type HostInstance, type TextInputInstance } from 'react-native';
 import { SIN_CONEXION } from '../api/cliente';
 import { corregirMovimiento, interpretarTexto, type Interpretacion, type Movimiento } from '../api/movimientos';
 import { guardarMovimiento, obtenerCategorias, type CatalogoDeCategorias, type Medio } from '../api/registro';
@@ -9,6 +9,7 @@ import { borradorDeMovimiento, cambiarBorrador, reiniciarBorrador, useBorrador, 
 import { Aviso } from '../componentes/Aviso';
 import { Boton, BotonDeTexto } from '../componentes/Boton';
 import { CampoDeFecha } from '../componentes/CampoDeFecha';
+import { CampoDeMonto } from '../componentes/CampoDeMonto';
 import { CampoDeTexto } from '../componentes/CampoDeTexto';
 import { ChipsDeEleccion } from '../componentes/ChipsDeEleccion';
 import { HojaDeElecciones } from '../componentes/HojaDeElecciones';
@@ -83,6 +84,12 @@ export function FormularioDeMovimiento({
   const enfocarMonto = useRef(false);
   const campoDeMonto = useRef<TextInputInstance>(null);
   const campoDeDescripcion = useRef<TextInputInstance>(null);
+  // Los demás campos, para llevarles el foco de TalkBack cuando el primer error es suyo (ACC-004, bug 226).
+  const campoDeTipo = useRef<HostInstance>(null);
+  const campoDeFecha = useRef<HostInstance>(null);
+  const campoDeCategoria = useRef<HostInstance>(null);
+  const campoDeMedio = useRef<HostInstance>(null);
+  const avisoDeRepeticion = useRef<HostInstance>(null);
   const avisarErrores = useAvisarErrores();
 
   useEffect(() => {
@@ -123,12 +130,17 @@ export function FormularioDeMovimiento({
     }
   }, [enPaso]);
 
-  // El foco va al primero con error si es un campo de texto (Monto o Descripción); TalkBack anuncia todos (ACC-004).
+  // El foco va al primero con error, que TalkBack lee con su error; los demás se leen al recorrer la pantalla (ACC-004).
   const mostrar = (nuevos: Errores) => {
     setErrores(nuevos);
-    const campos: Partial<Record<Campo, typeof campoDeMonto>> = {
+    const campos: Record<Campo, RefObject<HostInstance | null>> = {
+      tipo: campoDeTipo,
       monto: campoDeMonto,
+      fecha: campoDeFecha,
+      categoria: campoDeCategoria,
+      medio: campoDeMedio,
       descripcion: campoDeDescripcion,
+      repeticion: avisoDeRepeticion,
     };
     avisarErrores(CAMPOS.map((campo) => ({ error: nuevos[campo], campo: campos[campo] })));
   };
@@ -402,6 +414,7 @@ export function FormularioDeMovimiento({
       {esRecurrente && <Nota>{textos.movimientos.detalle.soloEstaFecha}</Nota>}
       {!esRecurrente && (
         <ChipsDeEleccion
+          ref={campoDeTipo}
           etiqueta={r.tipo.etiqueta}
           opciones={[
             { valor: 'gasto', etiqueta: r.tipo.gasto },
@@ -412,21 +425,15 @@ export function FormularioDeMovimiento({
           error={errores.tipo}
         />
       )}
-      <CampoDeTexto
+      <CampoDeMonto
         ref={campoDeMonto}
-        etiqueta={r.monto.etiqueta}
-        teclado="decimal-pad"
-        cifra
         valor={borrador.monto}
         alCambiar={(monto) => cambiar({ monto })}
-        alSalir={() => {
-          const lectura = leerMonto(borrador.monto);
-          if (lectura.ok) cambiar({ monto: formatearPesos(lectura.centavos) });
-        }}
         error={errores.monto}
       />
       {!esRecurrente && (
         <CampoDeFecha
+          ref={campoDeFecha}
           etiqueta={r.fecha.etiqueta}
           valor={desdeIso(fecha)}
           texto={fecha === hoy ? r.fecha.hoy : (diaEnPalabras(fecha) ?? undefined)}
@@ -435,6 +442,7 @@ export function FormularioDeMovimiento({
         />
       )}
       <ChipsDeEleccion
+        ref={campoDeCategoria}
         etiqueta={r.categoria.etiqueta}
         enFila
         opciones={categorias.map((c) => ({ valor: c.id, etiqueta: c.nombre, oculta: c.oculta }))}
@@ -451,6 +459,7 @@ export function FormularioDeMovimiento({
         alElegir={elegirCategoria}
       />
       <ChipsDeEleccion
+        ref={campoDeMedio}
         etiqueta={r.medio.etiqueta}
         opciones={medios}
         valor={borrador.medio}
@@ -482,8 +491,8 @@ export function FormularioDeMovimiento({
           </BotonDeTexto>
         </View>
       )}
-      {/* Lo anuncia `avisarErrores` con los demás errores: el aviso no lo repite. */}
-      {errores.repeticion && <Aviso tipo="atencion" titulo={errores.repeticion} viva={false} />}
+      {/* Es un error del formulario: no se anuncia como estado, lo lee TalkBack cuando `avisarErrores` le lleva el foco. */}
+      {errores.repeticion && <Aviso ref={avisoDeRepeticion} tipo="atencion" titulo={errores.repeticion} viva={false} />}
       <Boton
         variante={conTexto && !borrador.delCuadro ? 'secundario' : 'primario'}
         deshabilitado={enviando}

@@ -83,6 +83,16 @@ describe('CampoDeFecha (PN-65, E14-PCP 4.8)', () => {
     expect(abrir.mock.calls[0][0].value).toBe(fecha);
   });
 
+  it('ACC-004 (bug 226): con error lo dice en su nombre, una sola vez («Fecha de nacimiento, Falta la fecha de nacimiento.»)', async () => {
+    await render(<CampoDeFecha {...propiedades} error="Falta la fecha de nacimiento." />);
+    expect(screen.getByRole('button', { name: 'Fecha de nacimiento, Falta la fecha de nacimiento.' })).toBeOnTheScreen();
+    expect(screen.getByText('Falta la fecha de nacimiento.').props.importantForAccessibility).toBe('no');
+    await screen.rerender(<CampoDeFecha {...propiedades} valor={new Date(2030, 0, 1)} error="La fecha no puede ser futura." />);
+    expect(
+      screen.getByRole('button', { name: 'Fecha de nacimiento, 1 de enero de 2030, La fecha no puede ser futura.' }),
+    ).toBeOnTheScreen();
+  });
+
   it('deja la referencia al campo para llevarle el foco de TalkBack con un error (ACC-004, bug 226)', async () => {
     const ref = createRef<HostInstance>();
     await render(<CampoDeFecha {...propiedades} ref={ref} error="Falta la fecha de nacimiento." />);

@@ -14,8 +14,8 @@ import { RegionDeAnuncios } from './RegionDeAnuncios';
 // - `conLogo`: el Logo horizontal en color arriba (PN-58, PN-60 y PN-65).
 // - `conBarra`: la pantalla lleva la barra nativa (Barra superior, E14-SDD 5.10) con su título; ya cubre el borde
 //   de arriba, así que no se suma el margen de la barra de estado, y la pantalla no repite el título.
-// Con la variante `region` de los anuncios (ACC-004, temporal) lleva la región viva de la pantalla, fuera de lo que se
-// desplaza: así no se va de la pantalla cuando la persona baja hasta «Guardar».
+// Lleva la región viva de la pantalla (los avisos de estado, ACC-004), fuera de lo que se desplaza: así no se va de la
+// pantalla cuando la persona baja hasta «Guardar».
 export function Pantalla({
   titulo,
   conLogo = false,

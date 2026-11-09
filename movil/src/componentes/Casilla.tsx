@@ -2,13 +2,15 @@ import { useState, type ReactNode, type Ref } from 'react';
 import { Pressable, StyleSheet, Text, View, type HostInstance } from 'react-native';
 import { estiloDeTipografia } from '../fuentes';
 import { tokens } from '../tokens/tokens.generated';
+import { nombreConError } from './CampoDeTexto';
 import { cifras } from './Cifras';
 import { IconoAtencion, IconoCheck } from './Iconos';
 
 // Casilla de verificación de E14-SDD 5.17. Nunca viene marcada: quien la usa parte de `false`. Toda la fila, con su
 // texto, es el área táctil (mínimo 48 dp). Para TalkBack es un `checkbox` con el texto como nombre y el estado
-// «marcada» o «sin marcar»; con error, el texto del error es su pista (`accessibilityHint`) y lo anuncia la pantalla al
-// guardar, con el foco en la casilla (`avisarErrores` y `ref`, ACC-004, bug 226). `deshabilitada` (la fila «No pasó» de
+// «marcada» o «sin marcar»; con error, el error es parte del nombre («…, Falta tu autorización…») y TalkBack lo dice
+// cuando la pantalla le lleva el foco al guardar (`avisarErrores` y `ref`, ACC-004, bug 226); el texto visible del error
+// no se lee aparte. En la sesión del celular se oyó la casilla con su error. `deshabilitada` (la fila «No pasó» de
 // «Confirmar todos», E14-PRR 4.8) no cambia al tocarla; `contenido` reemplaza el texto visible cuando la fila lleva más
 // (nombre, apoyo y monto), y `texto` sigue siendo el nombre.
 export function Casilla({
@@ -35,8 +37,8 @@ export function Casilla({
         ref={ref}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: marcada, disabled: deshabilitada }}
-        accessibilityLabel={texto}
-        accessibilityHint={error}
+        accessibilityLabel={nombreConError(texto, error)}
+        accessibilityHint={undefined}
         onPress={() => {
           if (!deshabilitada) alCambiar(!marcada);
         }}
@@ -52,7 +54,9 @@ export function Casilla({
       {error && (
         <View style={estilos.error}>
           <IconoAtencion color={tokens.color.estado.atencion.icono} />
-          <Text style={estilos.textoDeError}>{cifras(error)}</Text>
+          <Text importantForAccessibility="no" style={estilos.textoDeError}>
+            {cifras(error)}
+          </Text>
         </View>
       )}
     </View>

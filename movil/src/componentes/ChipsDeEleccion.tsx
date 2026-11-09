@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useState, type Ref } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View, type HostInstance } from 'react-native';
 import { estiloDeTipografia } from '../fuentes';
 import { tokens } from '../tokens/tokens.generated';
+import { nombreConError } from './CampoDeTexto';
 import { cifras } from './Cifras';
 import { IconoAtencion, IconoCheck } from './Iconos';
 import { MarcaDeOculta } from './MarcaDeOculta';
@@ -10,7 +11,9 @@ import { MarcaDeOculta } from './MarcaDeOculta';
 export type OpcionDeChip<V extends string | number> = { valor: V; etiqueta: string; oculta?: boolean };
 
 // Chips de categoría de E14-SDD (elección única): un grupo de botones de radio con su etiqueta y, si hace falta, su
-// error, que la pantalla anuncia al guardar (`avisarErrores`, ACC-004, bug 226). Cada chip es toda un área táctil de
+// error. Con error, la etiqueta del grupo lo lleva en su nombre («Categoría, Falta elegir la categoría.») y TalkBack lo
+// dice cuando la pantalla le lleva el foco al guardar (`avisarErrores` y `ref`, ACC-004, bug 226); el texto visible del
+// error no se lee aparte y los chips no lo repiten. Cada chip es toda un área táctil de
 // 48 dp; el elegido lleva fondo de marca y una marca de verificación, no solo color. Para TalkBack cada uno es un
 // `radio` con el estado «marcado» o «sin marcar». `enFila` los deja en una sola fila que se desplaza a lo ancho (la
 // Categoría, E14-PPN 3.1 fila 9).
@@ -21,6 +24,7 @@ export function ChipsDeEleccion<V extends string | number>({
   alElegir,
   error,
   enFila = false,
+  ref,
 }: {
   etiqueta: string;
   opciones: OpcionDeChip<V>[];
@@ -29,6 +33,8 @@ export function ChipsDeEleccion<V extends string | number>({
   alElegir?: (valor: V) => void;
   error?: string;
   enFila?: boolean;
+  /** La etiqueta del grupo, para llevarle el foco de TalkBack con un error. */
+  ref?: Ref<HostInstance>;
 }) {
   const chips = opciones.map((opcion) => (
     <Chip
@@ -41,7 +47,9 @@ export function ChipsDeEleccion<V extends string | number>({
   ));
   return (
     <View accessibilityRole="radiogroup" style={estilos.grupo}>
-      <Text style={estilos.etiqueta}>{etiqueta}</Text>
+      <Text ref={ref} accessibilityLabel={nombreConError(etiqueta, error)} accessibilityHint={undefined} style={estilos.etiqueta}>
+        {etiqueta}
+      </Text>
       {enFila ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={estilos.chips}>
           {chips}
@@ -52,7 +60,9 @@ export function ChipsDeEleccion<V extends string | number>({
       {error && (
         <View style={estilos.error}>
           <IconoAtencion color={tokens.color.estado.atencion.icono} />
-          <Text style={estilos.textoDeError}>{cifras(error)}</Text>
+          <Text importantForAccessibility="no" style={estilos.textoDeError}>
+            {cifras(error)}
+          </Text>
         </View>
       )}
     </View>

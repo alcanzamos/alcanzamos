@@ -3,11 +3,12 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react-n
 import { TextInput } from 'react-native';
 import { cambiarBorrador, reiniciarBorrador } from '../../src/borradorDeRegistro';
 import { Registrar } from '../../src/pantallas/Registrar';
-import { anunciados, esperarAnuncio, focoDeTalkBack, limpiarAnuncios } from '../ayudas/anuncios';
+import { esperarSinAnuncios, focosDeTalkBack, limpiarAnuncios, nombreDe } from '../ayudas/anuncios';
 import { respuestaJson } from '../ayudas/fetchFalso';
 import { navegacionFalsa, propiedades } from '../ayudas/pantalla';
 import { fijarHoy } from '../ayudas/reloj';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
+import { buscarCampo, campo, quizasCampo } from '../ayudas/campos';
 
 jest.mock('expo-secure-store', () => jest.requireActual('../ayudas/secureStoreFalso').crearSecureStoreFalso());
 const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crearSecureStoreFalso>;
@@ -49,10 +50,10 @@ const enviado = (pedidos: Pedido[]) => JSON.parse(guardados(pedidos)[0]!.cuerpo!
 async function abrir() {
   const navegacion = navegacionFalsa();
   await render(<Registrar {...propiedades('FormularioDeRegistro', navegacion)} />);
-  await screen.findByLabelText('Monto');
+  await buscarCampo('Monto');
   return navegacion;
 }
-const escribirMonto = (valor: string) => fireEvent.changeText(screen.getByLabelText('Monto'), valor);
+const escribirMonto = (valor: string) => fireEvent.changeText(campo('Monto'), valor);
 const elegir = (nombre: string) => fireEvent.press(screen.getByRole('radio', { name: nombre }));
 const guardar = () => fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
 const nombresDe = (etiqueta: string) => {
@@ -85,8 +86,8 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
     expect(screen.getByRole('radio', { name: 'Gasto' })).toBeChecked();
     expect(screen.getByRole('radio', { name: 'Solo mío' })).toBeChecked();
     expect(screen.getByRole('button', { name: 'Fecha, Hoy' })).toBeOnTheScreen();
-    expect(screen.getByLabelText('Monto').props.keyboardType).toBe('decimal-pad');
-    expect(screen.getByLabelText('Descripción (opcional)').props.maxLength).toBe(280);
+    expect(campo('Monto').props.keyboardType).toBe('decimal-pad');
+    expect(campo('Descripción (opcional)').props.maxLength).toBe(280);
     // La advertencia está dos veces: bajo el cuadro (fila 4) y como ayuda de la descripción (fila 12).
     expect(screen.getAllByText('No escribas datos de salud, religión ni de otras personas.')).toHaveLength(2);
     expect(screen.getByText('Se repite')).toBeOnTheScreen();
@@ -115,7 +116,7 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
   it('el monto, la fecha y las cifras van en Figtree (D-123) y no hay ss02', async () => {
     api();
     await abrir();
-    expect(screen.getByLabelText('Monto')).toHaveStyle({ fontFamily: 'Figtree-SemiBold', fontVariant: ['tabular-nums'] });
+    expect(campo('Monto')).toHaveStyle({ fontFamily: 'Figtree-SemiBold', fontVariant: ['tabular-nums'] });
     expect(JSON.stringify(screen.toJSON())).not.toMatch(/stylistic|ss02/);
   });
 
@@ -213,12 +214,18 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
   it('el monto se muestra con la regla de E14-SDD 5.5 al salir del campo, y una lectura ambigua se deja como está', async () => {
     api();
     await abrir();
+    await fireEvent(campo('Monto'), 'focus');
     await escribirMonto('123456,78');
-    await fireEvent(screen.getByLabelText('Monto'), 'blur');
-    expect(screen.getByLabelText('Monto').props.value).toBe('$123.456,78');
+    await fireEvent(campo('Monto'), 'blur');
+    // ACC-004, opción A: el «$» es un prefijo fijo fuera del campo, que TalkBack no lee.
+    expect(campo('Monto').props.value).toBe('123.456,78');
+    expect(screen.getByText('$').props.importantForAccessibility).toBe('no');
+    // Al volver a editarlo, el número va sin puntos («123456,78»): TalkBack lo lee como un número.
+    await fireEvent(campo('Monto'), 'focus');
+    expect(campo('Monto').props.value).toBe('123456,78');
     await escribirMonto('12.5');
-    await fireEvent(screen.getByLabelText('Monto'), 'blur');
-    expect(screen.getByLabelText('Monto').props.value).toBe('12.5');
+    await fireEvent(campo('Monto'), 'blur');
+    expect(campo('Monto').props.value).toBe('12.5');
   });
 
   describe('validación antes de enviar', () => {
@@ -230,28 +237,37 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
       expect(screen.getByText('Falta elegir la categoría.')).toBeOnTheScreen();
       expect(screen.getByText('Falta elegir el medio de pago.')).toBeOnTheScreen();
       expect(TextInput.prototype.focus).toHaveBeenCalledTimes(1);
-      expect(jest.mocked(TextInput.prototype.focus).mock.contexts[0].props.accessibilityLabel).toBe('Monto');
+      expect(nombreDe(jest.mocked(TextInput.prototype.focus).mock.contexts[0])).toBe('Monto, Falta el monto.');
       expect(guardados(pedidos)).toEqual([]);
     });
 
-    it('ACC-004 (bug 226): «Guardar» vacío anuncia los errores en el orden del formulario y el foco va al monto', async () => {
+    it('ACC-004 (bug 226): «Guardar» vacío lleva el foco al monto, que lee «Monto, Falta el monto.»; cada campo lleva su error en el nombre y no hay anuncio aparte', async () => {
       api();
       await abrir();
       limpiarAnuncios();
       await guardar();
-      await esperarAnuncio('Falta el monto. Falta elegir la categoría. Falta elegir el medio de pago.');
-      expect(anunciados()).toEqual(['Falta el monto. Falta elegir la categoría. Falta elegir el medio de pago.']);
-      expect(focoDeTalkBack()?.props.accessibilityLabel).toBe('Monto');
+      expect(focosDeTalkBack().map(nombreDe)).toEqual(['Monto, Falta el monto.']);
+      expect(screen.getByText('Categoría').props.accessibilityLabel).toBe('Categoría, Falta elegir la categoría.');
+      expect(screen.getByText('Medio de pago').props.accessibilityLabel).toBe('Medio de pago, Falta elegir el medio de pago.');
+      await esperarSinAnuncios();
     });
 
-    it('ACC-004 (bug 226): «Guardar» otra vez con los mismos errores los vuelve a anunciar', async () => {
+    it('ACC-004 (bug 226): «Guardar» otra vez con los mismos errores vuelve a llevar el foco al monto, para que TalkBack lo lea de nuevo', async () => {
       api();
       await abrir();
-      await guardar();
-      await esperarAnuncio('Falta el monto. Falta elegir la categoría. Falta elegir el medio de pago.');
       limpiarAnuncios();
       await guardar();
-      await esperarAnuncio('Falta el monto. Falta elegir la categoría. Falta elegir el medio de pago.');
+      await guardar();
+      expect(focosDeTalkBack().map(nombreDe)).toEqual(['Monto, Falta el monto.', 'Monto, Falta el monto.']);
+    });
+
+    it('ACC-004 (bug 226): con el monto bien, el foco va al primer grupo de chips con error, que lo dice en su nombre', async () => {
+      api();
+      await abrir();
+      await escribirMonto('45.000');
+      limpiarAnuncios();
+      await guardar();
+      expect(focosDeTalkBack().map(nombreDe)).toEqual(['Categoría, Falta elegir la categoría.']);
     });
 
     it('sin categoría (D-165): «Falta elegir la categoría.» y no se manda nada', async () => {
@@ -365,7 +381,7 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
       const pedidos = api();
       const navegacion = await abrir();
       await llenar('$123.456,78');
-      await fireEvent.changeText(screen.getByLabelText('Descripción (opcional)'), '  Mercado  ');
+      await fireEvent.changeText(campo('Descripción (opcional)'), '  Mercado  ');
       await guardar();
       expect(enviado(pedidos)).toMatchObject({ monto_centavos: 12345678, descripcion: 'Mercado' });
       expect(avisoDeVuelta(navegacion).titulo).toBe('Listo, registramos tu gasto de $123.456,78.');
@@ -403,7 +419,7 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
       await guardar();
       await screen.unmount();
       await abrir();
-      expect(screen.getByLabelText('Monto').props.value).toBe('');
+      expect(campo('Monto').props.value).toBe('');
     });
 
     it('no manda dos veces si se toca otra vez mientras guarda', async () => {
@@ -426,7 +442,7 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
       await escribirMonto('45.000');
       await fireEvent.press(screen.getByRole('button', { name: 'Cambiar' }));
       expect(navegacion.navigate).toHaveBeenCalledWith('SeRepite');
-      expect(screen.getByLabelText('Monto').props.value).toBe('45.000');
+      expect(campo('Monto').props.value).toBe('45.000');
     });
 
     it('con una periodicidad la fila dice «Se repite: Cada mes» y se manda la repetición', async () => {
@@ -518,13 +534,14 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
       expect(screen.queryByText('No pudimos guardar tu gasto.')).not.toBeOnTheScreen();
     });
 
-    it('ACC-004 (bug 226): el error de la repetición, que va en un aviso, se anuncia una sola vez', async () => {
+    it('ACC-004 (bug 226): el error de la repetición, que va en un aviso, lo lee TalkBack al llevarle el foco; no se anuncia', async () => {
       api(() => respuestaJson(422, { error: 'datos_invalidos', campos: { repeticion: 'periodicidad_requerida' } }));
       limpiarAnuncios();
       await llenarYGuardar();
-      await esperarAnuncio('Falta elegir cada cuánto se repite.');
-      await new Promise((listo) => setTimeout(listo, 1100));
-      expect(anunciados()).toEqual(['Falta elegir cada cuánto se repite.']);
+      await screen.findByText('Falta elegir cada cuánto se repite.');
+      expect(focosDeTalkBack()).toHaveLength(1);
+      expect(focosDeTalkBack()[0]!.props.accessibilityRole).toBe('alert');
+      await esperarSinAnuncios();
     });
 
     it('un 422 con el monto lleva el foco al monto', async () => {
@@ -532,7 +549,7 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
       jest.mocked(TextInput.prototype.focus).mockClear();
       await llenarYGuardar();
       await screen.findByText('Falta el monto.');
-      expect(jest.mocked(TextInput.prototype.focus).mock.contexts[0].props.accessibilityLabel).toBe('Monto');
+      expect(nombreDe(jest.mocked(TextInput.prototype.focus).mock.contexts[0])).toBe('Monto, Falta el monto.');
     });
 
     it.each([
@@ -563,7 +580,7 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
       await elegir('Transferencia');
       await guardar();
       expect(await screen.findByText('No pudimos guardar tu ingreso.')).toBeOnTheScreen();
-      expect(screen.getByLabelText('Monto').props.value).toBe('1.500.000');
+      expect(campo('Monto').props.value).toBe('1.500.000');
       falla = false;
       await fireEvent.press(screen.getByRole('button', { name: 'Intentar de nuevo' }));
       expect(guardados(pedidos)).toHaveLength(2);
@@ -620,10 +637,10 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
       }) as unknown as typeof fetch;
       await render(<Registrar {...propiedades('FormularioDeRegistro', navegacionFalsa())} />);
       expect(await screen.findByText('No pudimos cargar la información.')).toBeOnTheScreen();
-      expect(screen.queryByLabelText('Monto')).not.toBeOnTheScreen();
+      expect(quizasCampo('Monto')).not.toBeOnTheScreen();
       falla = false;
       await fireEvent.press(screen.getByRole('button', { name: 'Intentar de nuevo' }));
-      expect(await screen.findByLabelText('Monto')).toBeOnTheScreen();
+      expect(await buscarCampo('Monto')).toBeOnTheScreen();
       expect(pedidos).toEqual([`${BASE}/api/v1/categorias`, `${BASE}/api/v1/categorias`]);
     });
 
@@ -632,7 +649,7 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
         throw new TypeError('Network request failed');
       }) as unknown as typeof fetch;
       await render(<Registrar {...propiedades('FormularioDeRegistro', navegacionFalsa())} />);
-      expect(screen.queryByLabelText('Monto')).not.toBeOnTheScreen();
+      expect(quizasCampo('Monto')).not.toBeOnTheScreen();
       expect(screen.queryByRole('button', { name: 'Guardar' })).not.toBeOnTheScreen();
       expect(await screen.findByText('Sin conexión. Intenta de nuevo cuando vuelvas a tener internet.')).toBeOnTheScreen();
     });

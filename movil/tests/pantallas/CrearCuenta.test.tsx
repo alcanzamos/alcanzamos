@@ -3,10 +3,11 @@ import { CommonActions } from '@react-navigation/native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { TextInput } from 'react-native';
 import { CrearCuenta } from '../../src/pantallas/CrearCuenta';
-import { anunciados, esperarAnuncio, focoDeTalkBack, limpiarAnuncios } from '../ayudas/anuncios';
+import { esperarSinAnuncios, focoDeTalkBack, limpiarAnuncios, nombreDe } from '../ayudas/anuncios';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
 import { instalarFetchFalso, respuestaJson } from '../ayudas/fetchFalso';
 import { navegacionFalsa, propiedades } from '../ayudas/pantalla';
+import { campo, quizasCampo } from '../ayudas/campos';
 
 jest.mock('expo-secure-store', () => jest.requireActual('../ayudas/secureStoreFalso').crearSecureStoreFalso());
 const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crearSecureStoreFalso>;
@@ -23,7 +24,7 @@ async function mostrar(correo?: string) {
 }
 
 async function llenar(correo = 'laura@ejemplo.com') {
-  await fireEvent.changeText(screen.getByLabelText('Correo electrónico'), correo);
+  await fireEvent.changeText(campo('Correo electrónico'), correo);
 }
 
 const crear = () => fireEvent.press(screen.getByRole('button', { name: 'Crear cuenta' }));
@@ -57,20 +58,20 @@ describe('PN-58 · Crear la cuenta, Android (E14-PCP 4.1)', () => {
   it('USA-005 el formulario pide solo el correo: sin contraseña, nombre, casilla de edad ni otro campo', async () => {
     await mostrar();
     expect(screen.getAllByDisplayValue(/^/)).toHaveLength(1);
-    expect(screen.getByLabelText('Correo electrónico')).toBeOnTheScreen();
-    expect(screen.queryByLabelText('Contraseña')).not.toBeOnTheScreen();
-    expect(screen.queryByLabelText('Nombre para mostrar')).not.toBeOnTheScreen();
+    expect(campo('Correo electrónico')).toBeOnTheScreen();
+    expect(quizasCampo('Contraseña')).not.toBeOnTheScreen();
+    expect(quizasCampo('Nombre para mostrar')).not.toBeOnTheScreen();
     expect(screen.queryByRole('checkbox')).not.toBeOnTheScreen();
   });
 
   it('el campo pide el autocompletado de Android: email', async () => {
     await mostrar();
-    expect(screen.getByLabelText('Correo electrónico').props.autoComplete).toBe('email');
+    expect(campo('Correo electrónico').props.autoComplete).toBe('email');
   });
 
   it('con el correo que trae PN-59 («Usar otro correo») el campo viene con lo escrito', async () => {
     await mostrar('laura@ejemplo.com');
-    expect(screen.getByLabelText('Correo electrónico').props.value).toBe('laura@ejemplo.com');
+    expect(campo('Correo electrónico').props.value).toBe('laura@ejemplo.com');
   });
 
   it('«Ya tengo una cuenta» vuelve a PN-60', async () => {
@@ -156,19 +157,19 @@ describe('PN-58 · Crear la cuenta, Android (E14-PCP 4.1)', () => {
       await crear();
       expect(await screen.findByText(texto)).toBeOnTheScreen();
       expect(screen.queryByText('No pudimos crear la cuenta.')).not.toBeOnTheScreen();
-      expect(screen.getByLabelText('Correo electrónico').props.value).toBe('mal');
+      expect(campo('Correo electrónico').props.value).toBe('mal');
       expect(foco).toHaveBeenCalledTimes(1);
-      expect(foco.mock.contexts[0].props.accessibilityLabel).toBe('Correo electrónico');
+      expect(nombreDe(foco.mock.contexts[0])).toBe(`Correo electrónico, ${texto}`);
     });
 
-    it('ACC-004 (bug 226): «Crear cuenta» vacío anuncia «Falta el correo electrónico.» y el foco de TalkBack va al campo', async () => {
+    it('ACC-004 (bug 226): «Crear cuenta» vacío lleva el foco de TalkBack al campo, que lee su error; no hay anuncio aparte', async () => {
       instalarFetchFalso(respuestaJson(422, { error: 'validacion', campos: { correo: 'correo_vacio' } }));
       await mostrar();
       limpiarAnuncios();
       await crear();
-      await esperarAnuncio('Falta el correo electrónico.');
-      expect(anunciados()).toEqual(['Falta el correo electrónico.']);
-      expect(focoDeTalkBack()?.props.accessibilityLabel).toBe('Correo electrónico');
+      await screen.findByText('Falta el correo electrónico.');
+      expect(nombreDe(focoDeTalkBack())).toBe('Correo electrónico, Falta el correo electrónico.');
+      await esperarSinAnuncios();
     });
 
     it('un código de campo sin texto muestra el aviso general y no inventa un texto', async () => {
@@ -198,7 +199,7 @@ describe('PN-58 · Crear la cuenta, Android (E14-PCP 4.1)', () => {
       await crear();
       expect(await screen.findByText('No pudimos crear la cuenta.')).toBeOnTheScreen();
       expect(screen.getByText('Tus datos no se perdieron. Intenta de nuevo.')).toBeOnTheScreen();
-      expect(screen.getByLabelText('Correo electrónico').props.value).toBe('laura@ejemplo.com');
+      expect(campo('Correo electrónico').props.value).toBe('laura@ejemplo.com');
       await fireEvent.press(screen.getByRole('button', { name: 'Intentar de nuevo' }));
       await waitFor(() => expect(fetchFalso).toHaveBeenCalledTimes(2));
       await waitFor(() => expect(navegacion.dispatch).toHaveBeenCalled());
@@ -231,7 +232,7 @@ describe('PN-58 · Crear la cuenta, Android (E14-PCP 4.1)', () => {
       expect(
         await screen.findByText('Sin conexión. Intenta de nuevo cuando vuelvas a tener internet.'),
       ).toBeOnTheScreen();
-      expect(screen.getByLabelText('Correo electrónico').props.value).toBe('laura@ejemplo.com');
+      expect(campo('Correo electrónico').props.value).toBe('laura@ejemplo.com');
     });
 
     it('sin la dirección del API muestra «Sin conexión…» y no hace pedidos', async () => {

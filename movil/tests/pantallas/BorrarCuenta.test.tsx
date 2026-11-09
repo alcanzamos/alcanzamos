@@ -2,10 +2,11 @@ import { CommonActions } from '@react-navigation/native';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { TextInput } from 'react-native';
 import { BorrarCuenta } from '../../src/pantallas/BorrarCuenta';
-import { anunciados, esperarAnuncio, focoDeTalkBack, limpiarAnuncios } from '../ayudas/anuncios';
+import { anunciados, esperarAnuncio, esperarSinAnuncios, focoDeTalkBack, limpiarAnuncios, nombreDe } from '../ayudas/anuncios';
 import { instalarFetchFalso, respuestaJson } from '../ayudas/fetchFalso';
 import { navegacionFalsa, propiedades } from '../ayudas/pantalla';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
+import { campo } from '../ayudas/campos';
 
 const descarga = { resultado: { ok: true } as { ok: boolean; estado?: number; codigo?: string; campos?: object }, llamadas: 0 };
 jest.mock('../../src/api/descarga', () => ({
@@ -42,7 +43,7 @@ async function abrir(resumen: unknown, ...siguientes: (Response | Error)[]) {
   return { ...falso, navegacion };
 }
 
-const escribir = (clave = 'lluvia café tren azul') => fireEvent.changeText(screen.getByLabelText('Tu contraseña'), clave);
+const escribir = (clave = 'lluvia café tren azul') => fireEvent.changeText(campo('Tu contraseña'), clave);
 const borrar = () => fireEvent.press(screen.getByRole('button', { name: 'Borrar mi cuenta' }));
 
 describe('PN-69 · Borrar la cuenta (E14-PCP 4.12)', () => {
@@ -71,7 +72,7 @@ describe('PN-69 · Borrar la cuenta (E14-PCP 4.12)', () => {
     ).toBeOnTheScreen();
     expect(screen.getByText('Tu contraseña')).toBeOnTheScreen();
     expect(screen.getByText('La pedimos para confirmar que eres tú.')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Tu contraseña').props.autoComplete).toBe('current-password');
+    expect(campo('Tu contraseña').props.autoComplete).toBe('current-password');
     expect(screen.getByRole('button', { name: 'Ahora no' })).toBeOnTheScreen();
     expect(screen.queryByText('Menores a tu cargo')).not.toBeOnTheScreen();
     expect(screen.queryByRole('checkbox')).not.toBeOnTheScreen();
@@ -227,7 +228,7 @@ describe('PN-69 · Borrar la cuenta (E14-PCP 4.12)', () => {
     ).toBeOnTheScreen();
     expect(screen.getByText('No pudimos borrar tu cuenta.')).toBeOnTheScreen();
     expect(screen.getByRole('checkbox').props.accessibilityState).toMatchObject({ checked: false, disabled: false });
-    expect(screen.getByLabelText('Tu contraseña').props.value).toBe('lluvia café tren azul');
+    expect(campo('Tu contraseña').props.value).toBe('lluvia café tren azul');
     expect(navegacion.dispatch).not.toHaveBeenCalled();
     expect(almacen.guardado.get('sesion')).toBe('tk-activa');
     await fireEvent.press(screen.getByRole('checkbox'));
@@ -247,19 +248,19 @@ describe('PN-69 · Borrar la cuenta (E14-PCP 4.12)', () => {
     foco.mockClear();
     await borrar();
     expect(await screen.findByText('Falta tu contraseña.')).toBeOnTheScreen();
-    expect(foco.mock.contexts[0].props.accessibilityLabel).toBe('Tu contraseña');
+    expect(nombreDe(foco.mock.contexts[0])).toBe('Tu contraseña, Falta tu contraseña.');
   });
 
-  it('ACC-004 (bug 226): sin contraseña, TalkBack anuncia «Falta tu contraseña.» y no el aviso fijo de la pantalla', async () => {
+  it('ACC-004 (bug 226): sin contraseña, el campo lee «Tu contraseña, Falta tu contraseña.»; no se anuncia nada, ni el aviso fijo de la pantalla', async () => {
     await abrir(sinHogar, respuestaJson(422, { error: 'validacion', campos: { contrasena: 'contrasena_vacia' } }));
     limpiarAnuncios();
     await borrar();
-    await esperarAnuncio('Falta tu contraseña.');
-    expect(anunciados()).toEqual(['Falta tu contraseña.']);
-    expect(focoDeTalkBack()?.props.accessibilityLabel).toBe('Tu contraseña');
+    await screen.findByText('Falta tu contraseña.');
+    expect(nombreDe(focoDeTalkBack())).toBe('Tu contraseña, Falta tu contraseña.');
+    await esperarSinAnuncios();
   });
 
-  it('ACC-004 (bug 226): con el menor sin confirmar y sin contraseña, el foco va a la casilla y se anuncian los dos', async () => {
+  it('ACC-004 (bug 226): con el menor sin confirmar y sin contraseña, el foco va a la casilla, que lee su error', async () => {
     await abrir(
       conOtraAdulta,
       respuestaJson(422, {
@@ -269,8 +270,10 @@ describe('PN-69 · Borrar la cuenta (E14-PCP 4.12)', () => {
     );
     limpiarAnuncios();
     await borrar();
-    await esperarAnuncio('Falta confirmar lo de Mateo. Falta tu contraseña.');
+    await screen.findByText('Falta tu contraseña.');
     expect(focoDeTalkBack()?.props.accessibilityRole).toBe('checkbox');
+    expect(nombreDe(focoDeTalkBack())).toMatch(/, Falta confirmar lo de Mateo\.$/);
+    await esperarSinAnuncios();
   });
 
   it('una contraseña que no coincide (400) se muestra en su campo y conserva lo escrito', async () => {
@@ -278,7 +281,7 @@ describe('PN-69 · Borrar la cuenta (E14-PCP 4.12)', () => {
     await escribir('la que no es');
     await borrar();
     expect(await screen.findByText('No pudimos confirmar tu contraseña. Escríbela de nuevo.')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Tu contraseña').props.value).toBe('la que no es');
+    expect(campo('Tu contraseña').props.value).toBe('la que no es');
     expect(navegacion.dispatch).not.toHaveBeenCalled();
     expect(almacen.guardado.get('sesion')).toBe('tk-activa');
   });
@@ -308,7 +311,7 @@ describe('PN-69 · Borrar la cuenta (E14-PCP 4.12)', () => {
     await escribir();
     await borrar();
     expect(await screen.findByText('Sin conexión. Intenta de nuevo cuando vuelvas a tener internet.')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Tu contraseña').props.value).toBe('lluvia café tren azul');
+    expect(campo('Tu contraseña').props.value).toBe('lluvia café tren azul');
   });
 
   it.each([

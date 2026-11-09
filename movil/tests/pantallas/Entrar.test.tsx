@@ -3,9 +3,10 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import { TextInput } from 'react-native';
 import { Entrar } from '../../src/pantallas/Entrar';
 import { instalarFetchFalso, respuestaJson } from '../ayudas/fetchFalso';
-import { anunciados, esperarAnuncio, esperarRegion, focoDeTalkBack, limpiarAnuncios, regionesVivas, usarMecanismo } from '../ayudas/anuncios';
+import { esperarSinAnuncios, focoDeTalkBack, nombreDe, regionesVivas } from '../ayudas/anuncios';
 import { navegacionFalsa, propiedades } from '../ayudas/pantalla';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
+import { campo } from '../ayudas/campos';
 
 jest.mock('expo-secure-store', () => jest.requireActual('../ayudas/secureStoreFalso').crearSecureStoreFalso());
 const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crearSecureStoreFalso>;
@@ -22,8 +23,8 @@ async function mostrar(llegada?: 'sesion_cerrada' | 'correo_confirmado' | 'contr
 }
 
 async function llenar(correo = 'laura@ejemplo.com', contrasena = 'lluvia café tren azul') {
-  await fireEvent.changeText(screen.getByLabelText('Correo electrónico'), correo);
-  await fireEvent.changeText(screen.getByLabelText('Contraseña'), contrasena);
+  await fireEvent.changeText(campo('Correo electrónico'), correo);
+  await fireEvent.changeText(campo('Contraseña'), contrasena);
 }
 
 const entrar = () => fireEvent.press(screen.getByRole('button', { name: 'Iniciar sesión' }));
@@ -43,8 +44,8 @@ describe('PN-60 · Iniciar sesión, Android (E14-PCP 4.3)', () => {
     expect(screen.getByText('Contraseña')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Iniciar sesión' })).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Crear una cuenta' })).toBeOnTheScreen();
-    expect(screen.getByLabelText('Correo electrónico').props.autoComplete).toBe('email');
-    expect(screen.getByLabelText('Contraseña').props.autoComplete).toBe('current-password');
+    expect(campo('Correo electrónico').props.autoComplete).toBe('email');
+    expect(campo('Contraseña').props.autoComplete).toBe('current-password');
   });
 
   it('en la US-49 no ofrece el ingreso con nombre de usuario (D-137)', async () => {
@@ -69,13 +70,13 @@ describe('PN-60 · Iniciar sesión, Android (E14-PCP 4.3)', () => {
   describe('con el correo que trae PN-59 («Ya elegí mi contraseña», D-184)', () => {
     it('el campo del correo viene escrito y la contraseña vacía', async () => {
       await mostrar(undefined, 'laura@ejemplo.com');
-      expect(screen.getByLabelText('Correo electrónico').props.value).toBe('laura@ejemplo.com');
-      expect(screen.getByLabelText('Contraseña').props.value).toBe('');
+      expect(campo('Correo electrónico').props.value).toBe('laura@ejemplo.com');
+      expect(campo('Contraseña').props.value).toBe('');
     });
 
     it('sin correo el campo viene vacío', async () => {
       await mostrar();
-      expect(screen.getByLabelText('Correo electrónico').props.value).toBe('');
+      expect(campo('Correo electrónico').props.value).toBe('');
     });
   });
 
@@ -182,10 +183,10 @@ describe('PN-60 · Iniciar sesión, Android (E14-PCP 4.3)', () => {
       expect(await screen.findByText('Falta el correo electrónico.')).toBeOnTheScreen();
       expect(screen.getByText('Falta la contraseña.')).toBeOnTheScreen();
       expect(foco).toHaveBeenCalledTimes(1);
-      expect(foco.mock.contexts[0].props.accessibilityLabel).toBe('Correo electrónico');
+      expect(nombreDe(foco.mock.contexts[0])).toBe('Correo electrónico, Falta el correo electrónico.');
     });
 
-    it('ACC-004 (bug 226): vacío, TalkBack anuncia los dos errores y su foco va al correo', async () => {
+    it('ACC-004 (bug 226): vacío, el foco de TalkBack va al correo, que lee su error; la región viva no anuncia los errores', async () => {
       instalarFetchFalso(
         respuestaJson(422, {
           error: 'validacion',
@@ -194,9 +195,11 @@ describe('PN-60 · Iniciar sesión, Android (E14-PCP 4.3)', () => {
       );
       await mostrar();
       await entrar();
-      await esperarAnuncio('Falta el correo electrónico. Falta la contraseña.');
-      expect(anunciados()).toEqual(['Falta el correo electrónico. Falta la contraseña.']);
-      expect(focoDeTalkBack()?.props.accessibilityLabel).toBe('Correo electrónico');
+      await screen.findByText('Falta el correo electrónico.');
+      expect(nombreDe(focoDeTalkBack())).toBe('Correo electrónico, Falta el correo electrónico.');
+      expect(campo('Contraseña').props.placeholder).toBe('Contraseña, Falta la contraseña.');
+      expect(regionesVivas()).toHaveLength(1);
+      await esperarSinAnuncios();
     });
 
     it('si solo falta la contraseña, el foco va a la contraseña', async () => {
@@ -206,7 +209,7 @@ describe('PN-60 · Iniciar sesión, Android (E14-PCP 4.3)', () => {
       foco.mockClear();
       await entrar();
       await screen.findByText('Falta la contraseña.');
-      expect(foco.mock.contexts[0].props.accessibilityLabel).toBe('Contraseña');
+      expect(nombreDe(foco.mock.contexts[0])).toBe('Contraseña, Falta la contraseña.');
     });
 
     it('un 401 dice «No pudimos entrar con esos datos.» sin decir cuál falló, y conserva lo escrito', async () => {
@@ -216,7 +219,7 @@ describe('PN-60 · Iniciar sesión, Android (E14-PCP 4.3)', () => {
       await entrar();
       expect(await screen.findByText('No pudimos entrar con esos datos.')).toBeOnTheScreen();
       expect(screen.getByText('Revisa lo que escribiste e intenta de nuevo.')).toBeOnTheScreen();
-      expect(screen.getByLabelText('Correo electrónico').props.value).toBe('laura@ejemplo.com');
+      expect(campo('Correo electrónico').props.value).toBe('laura@ejemplo.com');
       expect(almacen.guardado.has('sesion')).toBe(false);
     });
 
@@ -228,7 +231,7 @@ describe('PN-60 · Iniciar sesión, Android (E14-PCP 4.3)', () => {
       expect(
         await screen.findByText('Hiciste muchos intentos. Espera unos minutos e intenta de nuevo.'),
       ).toBeOnTheScreen();
-      expect(screen.getByLabelText('Contraseña').props.value).toBe('lluvia café tren azul');
+      expect(campo('Contraseña').props.value).toBe('lluvia café tren azul');
     });
 
     it('un 500 (T7) nunca dice que los datos están mal', async () => {
@@ -264,28 +267,6 @@ describe('PN-60 · Iniciar sesión, Android (E14-PCP 4.3)', () => {
       await mostrar();
       await entrar();
       expect(await screen.findByText('No pudimos entrar con esos datos.')).toBeOnTheScreen();
-    });
-  });
-
-  describe('ACC-004, variante «region» (EXPO_PUBLIC_ANUNCIOS, temporal)', () => {
-    usarMecanismo('region');
-    beforeEach(() => limpiarAnuncios());
-
-    it('bug 226: vacío, la región viva de la pantalla dice los dos errores y el foco de TalkBack va al correo', async () => {
-      instalarFetchFalso(
-        respuestaJson(422, {
-          error: 'validacion',
-          campos: { identificador: 'identificador_vacio', contrasena: 'contrasena_vacia' },
-        }),
-      );
-      await mostrar();
-      await entrar();
-      const region = await esperarRegion('Falta el correo electrónico. Falta la contraseña.');
-      expect(region.props.collapsable).toBe(false);
-      expect(region.props.accessibilityLiveRegion).toBe('polite');
-      expect(regionesVivas()).toHaveLength(1);
-      expect(focoDeTalkBack()?.props.accessibilityLabel).toBe('Correo electrónico');
-      expect(anunciados()).toEqual([]);
     });
   });
 });
