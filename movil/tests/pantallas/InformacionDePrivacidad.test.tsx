@@ -2,6 +2,12 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { InformacionDePrivacidad } from '../../src/pantallas/InformacionDePrivacidad';
 import { navegacionFalsa, propiedades } from '../ayudas/pantalla';
 
+async function mostrarDesdeElMenu() {
+  const navegacion = navegacionFalsa();
+  await render(<InformacionDePrivacidad {...propiedades('InformacionDePrivacidad', navegacion, { desdeElMenu: true })} />);
+  return navegacion;
+}
+
 async function mostrar(llegada?: 'correo_confirmado') {
   const navegacion = navegacionFalsa();
   await render(
@@ -56,5 +62,32 @@ describe('PN-63 · Información de privacidad en el primer uso (E14-PCP 4.6)', (
   it('sin llegada no hay mensaje de estado', async () => {
     await mostrar();
     expect(screen.queryByText('Listo, confirmamos tu correo.')).not.toBeOnTheScreen();
+  });
+});
+
+// E14-PCP 4.6 («Dos modos, una pantalla») y nota del 2026-11-08 (bug 260, USA-003): desde el menú, las mismas tarjetas;
+// el título y el Atrás van en la barra nativa (Navegacion.tsx), y no hay «Continuar».
+describe('PN-63 · Información de privacidad desde el menú (E14-PCP 4.6)', () => {
+  it('lleva la frase de entrada y las ocho tarjetas; el título no se repite en la pantalla (va en la barra)', async () => {
+    await mostrarDesdeElMenu();
+    expect(screen.getByText('Antes de seguir, esto es lo que hacemos con tu información.')).toBeOnTheScreen();
+    expect(screen.queryByRole('header', { name: 'Cómo cuidamos tus datos' })).not.toBeOnTheScreen();
+    expect(screen.getAllByRole('header').map((titulo) => titulo.props.children)).toEqual([
+      'Lo que guardamos',
+      'Para qué lo usamos',
+      'Lo tuyo es solo tuyo',
+      'Los avisos no cuentan nada',
+      'Cuida lo que escribes',
+      'Tus derechos',
+      'Quién responde',
+      'Dónde se guardan',
+    ]);
+  });
+
+  it('no lleva «Continuar» ni otro botón, y no lleva a PN-64', async () => {
+    const navegacion = await mostrarDesdeElMenu();
+    expect(screen.queryByRole('button')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Continuar')).not.toBeOnTheScreen();
+    expect(navegacion.navigate).not.toHaveBeenCalled();
   });
 });

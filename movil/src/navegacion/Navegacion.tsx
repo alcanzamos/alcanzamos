@@ -43,7 +43,8 @@ async function pantallaInicial(): Promise<keyof Rutas> {
 // PN-58 a PN-59, de PN-59 a PN-58 («Usar otro correo») o a PN-60 («Ya elegí mi contraseña», D-184), de entrar a PN-71 y de
 // cerrar sesión a PN-60 se cambia con `reemplazarPila`, para que Atrás no vuelva al formulario ni a una sesión cerrada. PN-63 es la primera de su pila (sin Atrás: el del
 // sistema sale de la app); PN-64 se apila sobre PN-63 (su Atrás vuelve a PN-63), y de PN-64 a PN-71 («Autorizar y continuar»)
-// y a PN-60 («No autorizo») se cambia con `reemplazarPila`: Atrás no vuelve a PN-64 ni a una cuenta borrada. PN-61 se apila sobre PN-60. PN-62 no está: el
+// y a PN-60 («No autorizo») se cambia con `reemplazarPila`: Atrás no vuelve a PN-64 ni a una cuenta borrada. PN-63 desde
+// el menú (con barra y sin «Continuar») se apila sobre PN-71 y su Atrás vuelve a PN-71 (bug 260). PN-61 se apila sobre PN-60. PN-62 no está: el
 // enlace del correo abre la web (D-155) y la app no recibe enlaces hasta los App Links de I08. PN-01 («Movimientos») se apila
 // sobre PN-71 (su Atrás vuelve a PN-71) y «Registrar» sobre PN-01 (su Atrás vuelve a PN-01 sin guardar); PN-03 se apila
 // sobre «Registrar» (su Atrás vuelve al formulario). PN-02 se apila sobre PN-01 (su Atrás vuelve a PN-01) y «Corregir»
@@ -69,7 +70,11 @@ export function Navegacion() {
         <Pila.Screen name="Edad" component={Edad} />
         <Pila.Screen name="CrearCuenta" component={CrearCuenta} />
         <Pila.Screen name="RevisaTuCorreo" component={RevisaTuCorreo} />
-        <Pila.Screen name="InformacionDePrivacidad" component={InformacionDePrivacidad} />
+        <Pila.Screen
+          name="InformacionDePrivacidad"
+          component={InformacionDePrivacidad}
+          options={({ route }) => (route.params?.desdeElMenu ? conBarra(textos.privacidad.titulo) : {})}
+        />
         <Pila.Screen
           name="AutorizacionDeDatos"
           component={AutorizacionDeDatos}

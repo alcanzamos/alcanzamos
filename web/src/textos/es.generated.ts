@@ -480,7 +480,7 @@ export const textos = {
     cambiarContrasena: "Cambiar mi contraseña",
   },
   privacidad: {
-    // E14-PCP 4.6 (PN-63), fila 1
+    // E14-PCP 4.6 (PN-63), fila 1 y barra desde el menú; E14-PCP 4.9 (PN-66), fila 6; E14-PCP 4.10 (PN-67), fila 10; E14-PCP 4.14 (PN-71) y 4.16 T2 ter: entrada provisional a PN-63 desde el menú (bug 260)
     titulo: "Cómo cuidamos tus datos",
     // E14-PCP 4.6 (PN-63), fila 2
     intro: "Antes de seguir, esto es lo que hacemos con tu información.",

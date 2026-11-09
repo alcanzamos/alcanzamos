@@ -28,6 +28,41 @@ test.describe("PN-63 · Información de privacidad", () => {
     await page.getByRole("button", { name: "Continuar" }).click();
     await expect(page).toHaveURL(/\/autorizacion$/);
   });
+
+  // USA-003 (RNF-011, RF-059; E14-PCP 4.6 y nota del 2026-11-08 de 4.14, bug 260): mientras no exista PN-66, el inicio de
+  // quien ya autorizó es PN-71, que lleva la entrada provisional «Cómo cuidamos tus datos». De un toque abre PN-63 desde
+  // el menú: las mismas ocho tarjetas, con Atrás y sin «Continuar», sin pedir nada al API. Atrás vuelve a PN-71.
+  test("USA-003 la información de privacidad está a un toque del inicio", async ({
+    page,
+  }) => {
+    const pedidos = await simularApi(page, {
+      "GET /api/v1/cuenta/seguridad": responder(200, {
+        ingreso_anterior: null,
+      }),
+    });
+    await page.goto("/cuenta/seguridad");
+    await expect(page.getByText("Este es tu primer ingreso.")).toBeVisible();
+
+    await page.getByRole("link", { name: "Cómo cuidamos tus datos" }).click();
+    await expect(page).toHaveURL(/\/cuenta\/privacidad$/);
+    const titulo = page.getByRole("heading", {
+      level: 1,
+      name: "Cómo cuidamos tus datos",
+    });
+    await expect(titulo).toBeVisible();
+    await expect(titulo).toBeFocused();
+    await expect(page.getByRole("region")).toHaveCount(8);
+    await expect(page.getByRole("link", { name: "Atrás" })).toBeVisible();
+    await expect(page.getByRole("button")).toHaveCount(0);
+    await sinViolaciones(page);
+    expect(pedidos.map((p) => `${p.metodo} ${p.ruta}`)).toEqual([
+      "GET /api/v1/cuenta/seguridad",
+    ]);
+
+    await page.getByRole("link", { name: "Atrás" }).click();
+    await expect(page).toHaveURL(/\/cuenta\/seguridad$/);
+    await expect(page.getByText("Este es tu primer ingreso.")).toBeVisible();
+  });
 });
 
 test.describe("PN-64 · Autorización de datos", () => {
