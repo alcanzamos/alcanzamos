@@ -655,12 +655,26 @@
   min-width: 0;
 }
 
+/* En «Confirmar todos», el monto queda siempre a la derecha, como en Android, y el nombre pasa a otra línea cuando no
+   cabe, partiendo la palabra si hace falta (a 360 px, «Comunicaciones» y $60.000): sin esto, la fila exige 320 px y el
+   panel se sale de la columna de 328 (bug 239, USA-008 punto 5). Desde 768 px la fila queda igual. */
 .fila-por-confirmar .casilla > span:last-child {
   display: flex;
   flex: 1;
   align-items: center;
   justify-content: space-between;
   gap: var(--espacio-3);
+  min-width: 0;
+}
+
+.fila-por-confirmar .casilla .fila {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.fila-por-confirmar .casilla .cifra {
+  flex-shrink: 0;
 }
 
 /* Hoja inferior (E14-SDD 5.12). En la web, un panel junto al botón que la abre y sin velo; por debajo de 768 px, anclada
