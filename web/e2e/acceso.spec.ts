@@ -114,7 +114,9 @@ test.describe("PN-60 · Iniciar sesión", () => {
     await expect(page.getByText("Este es tu primer ingreso.")).toBeVisible();
   });
 
-  test("cuenta activa sin autorización va a PN-63", async ({ page }) => {
+  test("USA-003 cuenta activa sin autorización va a PN-63", async ({
+    page,
+  }) => {
     await simularApi(page, {
       "POST /api/v1/sesiones": responder(200, { estado: "activa" }),
       "GET /api/v1/cuenta/seguridad": responder(403, {
@@ -526,7 +528,7 @@ test.describe("PN-73 · Cambiar la contraseña", () => {
     });
   });
 
-  test("sin autorización el API manda a PN-63", async ({ page }) => {
+  test("USA-003 sin autorización el API manda a PN-63", async ({ page }) => {
     await simularApi(page, {
       "POST /api/v1/cuenta/contrasena": responder(403, {
         error: "autorizacion_pendiente",

@@ -15,7 +15,7 @@ const NECESARIAS =
   "Autorizo el uso de mis datos para estas finalidades necesarias.";
 
 test.describe("PN-63 · Información de privacidad", () => {
-  test("sin violaciones de axe, con las ocho tarjetas, sin Atrás y con «Continuar» a PN-64", async ({
+  test("USA-003 sin violaciones de axe, con las ocho tarjetas, sin Atrás y con «Continuar» a PN-64", async ({
     page,
   }) => {
     await page.goto("/privacidad");
@@ -27,6 +27,46 @@ test.describe("PN-63 · Información de privacidad", () => {
     await sinViolaciones(page);
     await page.getByRole("button", { name: "Continuar" }).click();
     await expect(page).toHaveURL(/\/autorizacion$/);
+  });
+
+  // USA-003 (RNF-011, E14-PCP 3 «Información antes de autorizar»): en el primer uso, PN-74 lleva a PN-63 y no a PN-64;
+  // PN-63 no pide nada ni consulta la autorización, y PN-64 sale solo después de «Continuar».
+  test("USA-003 en el primer uso la información sale antes de la autorización: PN-74 → PN-63 → «Continuar» → PN-64", async ({
+    page,
+  }) => {
+    const pedidos = await simularApi(page, {
+      "POST /api/v1/cuentas/verificacion": responder(200, { estado: "activa" }),
+      "GET /api/v1/autorizaciones": responder(200, catalogo),
+    });
+    await page.goto("/verificar?t=abc123");
+    await page
+      .getByLabel("Contraseña", { exact: true })
+      .fill("lluvia café tren azul");
+    await page.getByLabel("Nombre para mostrar").fill("Laura");
+    await page.getByRole("button", { name: "Guardar la contraseña" }).click();
+
+    await expect(page).toHaveURL(/\/privacidad$/);
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Cómo cuidamos tus datos" }),
+    ).toBeVisible();
+    await expect(page.getByRole("region")).toHaveCount(8);
+    await expect(
+      page.getByRole("heading", { name: "Tu autorización" }),
+    ).toHaveCount(0);
+    await expect(page.getByRole("checkbox")).toHaveCount(0);
+    expect(pedidos.map((p) => `${p.metodo} ${p.ruta}`)).toEqual([
+      "POST /api/v1/cuentas/verificacion",
+    ]);
+
+    await page.getByRole("button", { name: "Continuar" }).click();
+    await expect(page).toHaveURL(/\/autorizacion$/);
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Tu autorización" }),
+    ).toBeVisible();
+    expect(pedidos.map((p) => `${p.metodo} ${p.ruta}`)).toEqual([
+      "POST /api/v1/cuentas/verificacion",
+      "GET /api/v1/autorizaciones",
+    ]);
   });
 
   // USA-003 (RNF-011, RF-059; E14-PCP 4.6 y nota del 2026-11-08 de 4.14, bug 260): mientras no exista PN-66, el inicio de
@@ -119,7 +159,7 @@ test.describe("PN-64 · Autorización de datos", () => {
   // «Este es tu primer ingreso.»». El API está simulado: igual que el real, autorizar no reautentica ni toca el ingreso
   // anterior, y PN-71 contesta `ingreso_anterior: null` solo porque nada vuelve a iniciar sesión (la prueba de integración
   // del API, TestS2LaPersonaNuevaAutorizaYVeSuPrimerIngresoEnLaMismaSesion, prueba el lado del servidor).
-  test("S2: una persona nueva que entra, autoriza en PN-64 y llega a PN-71 en la misma sesión ve «Este es tu primer ingreso.»", async ({
+  test("USA-003 S2: una persona nueva que entra, autoriza en PN-64 y llega a PN-71 en la misma sesión ve «Este es tu primer ingreso.»", async ({
     page,
   }) => {
     let autorizada = false;
