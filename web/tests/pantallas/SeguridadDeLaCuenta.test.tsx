@@ -78,6 +78,46 @@ describe("PN-71 · Seguridad de la cuenta", () => {
     expect(window.location.pathname).toBe("/cuenta/borrar");
   });
 
+  // E14-PCP 4.14, nota del 2026-11-08 (bug 260, USA-003) y 4.16 T2 ter: mientras no exista PN-66, PN-71 lleva la entrada
+  // provisional a PN-63 desde el menú arriba de «Cerrar sesión», y «Borrar mi cuenta» queda última, como en PN-66.
+  it("«Cómo cuidamos tus datos» es un botón de texto que abre PN-63 desde el menú", async () => {
+    simularApi(() => json(200, { ingreso_anterior: null }));
+    render(<SeguridadDeLaCuenta />);
+    await screen.findByText("Este es tu primer ingreso.");
+    const enlace = screen.getByRole("link", {
+      name: "Cómo cuidamos tus datos",
+    });
+    expect(enlace).toHaveAttribute("href", "/cuenta/privacidad");
+    expect(enlace).toHaveClass("boton--texto");
+    fireEvent.click(enlace);
+    expect(window.location.pathname).toBe("/cuenta/privacidad");
+  });
+
+  it("orden: «Movimientos», «Cómo cuidamos tus datos», «Cerrar sesión» y, última, «Borrar mi cuenta»", async () => {
+    simularApi(() => json(200, { ingreso_anterior: null }));
+    render(<SeguridadDeLaCuenta />);
+    await screen.findByText("Este es tu primer ingreso.");
+    expect(
+      [...document.querySelectorAll("main a, main button")].map(
+        (elemento) => elemento.textContent,
+      ),
+    ).toEqual([
+      "Movimientos",
+      "Cómo cuidamos tus datos",
+      "Cerrar sesión",
+      "Borrar mi cuenta",
+    ]);
+  });
+
+  it("la entrada a PN-63 también está con el error de carga", async () => {
+    simularApi(() => json(500, { error: "interno" }));
+    render(<SeguridadDeLaCuenta />);
+    await screen.findByText("No pudimos cargar tu último ingreso.");
+    expect(
+      screen.getByRole("link", { name: "Cómo cuidamos tus datos" }),
+    ).toHaveAttribute("href", "/cuenta/privacidad");
+  });
+
   it("«Cerrar sesión» es un botón de texto", async () => {
     simularApi(() => json(200, { ingreso_anterior: null }));
     render(<SeguridadDeLaCuenta />);

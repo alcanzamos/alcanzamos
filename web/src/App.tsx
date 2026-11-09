@@ -21,6 +21,9 @@ function Redirigir({ a }: { a: string }) {
   return null;
 }
 
+// PN-63 desde el menú (E14-PCP 4.6): con Atrás y sin «Continuar»; `/privacidad` sigue siendo el primer uso.
+const PrivacidadDesdeElMenu = () => <Privacidad desdeElMenu />;
+
 const pantallas: Record<string, () => ReactElement> = {
   "/entrar": Entrar,
   "/crear-cuenta": CrearCuenta,
@@ -33,6 +36,7 @@ const pantallas: Record<string, () => ReactElement> = {
   "/cuenta/seguridad": SeguridadDeLaCuenta,
   "/cuenta/contrasena": CambiarContrasena,
   "/cuenta/borrar": BorrarCuenta,
+  "/cuenta/privacidad": PrivacidadDesdeElMenu,
   "/movimientos": Movimientos,
   "/registrar": Registrar,
   "/registrar/se-repite": SeRepite,

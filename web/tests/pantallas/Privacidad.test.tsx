@@ -110,3 +110,49 @@ describe("PN-63 · Información de privacidad (primer uso)", () => {
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 });
+
+// E14-PCP 4.6 («Dos modos, una pantalla») y nota del 2026-11-08 (bug 260, USA-003): desde el menú, las mismas tarjetas con
+// Atrás y sin «Continuar». Mientras no exista PN-66, se abre desde la entrada provisional de PN-71.
+describe("PN-63 · Información de privacidad desde el menú", () => {
+  it("tiene el mismo título, la frase de entrada y las ocho tarjetas, en orden", () => {
+    render(<Privacidad desdeElMenu />);
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "Cómo cuidamos tus datos",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Antes de seguir, esto es lo que hacemos con tu información.",
+      ),
+    ).toBeInTheDocument();
+    const secciones = screen.getAllByRole("region");
+    expect(secciones).toHaveLength(8);
+    secciones.forEach((seccion, i) => {
+      const [titulo, texto] = tarjetas[i] as [string, string];
+      expect(seccion).toHaveAccessibleName(titulo);
+      expect(seccion).toHaveTextContent(texto);
+    });
+  });
+
+  it("lleva Atrás en la barra y no lleva «Continuar» ni otro botón", () => {
+    render(<Privacidad desdeElMenu />);
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.queryByText("Continuar")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("link")).toHaveLength(1);
+    expect(screen.getByRole("link", { name: "Atrás" })).toHaveAttribute(
+      "href",
+      "/cuenta/seguridad",
+    );
+    expect(
+      screen.queryByText("Leer la política completa"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("Atrás vuelve a PN-71", () => {
+    render(<Privacidad desdeElMenu />);
+    fireEvent.click(screen.getByRole("link", { name: "Atrás" }));
+    expect(window.location.pathname).toBe("/cuenta/seguridad");
+  });
+});
