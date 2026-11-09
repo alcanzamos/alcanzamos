@@ -254,7 +254,7 @@ describe('PN-01 · «Por confirmar», Android (E14-PRR 4.1, US-60)', () => {
       await abrirMas();
       await fireEvent.press(screen.getByRole('button', { name: 'Cambiar el monto' }));
       expect(await screen.findByRole('header', { name: '¿Cuánto llegó?' })).toBeOnTheScreen();
-      const monto = campo('Monto');
+      const monto = campo('Monto en pesos');
       // ACC-004, opción A: el «$» es un prefijo fuera del campo.
       expect(monto.props.value).toBe('1.200.000');
       expect(screen.getByText('$')).toBeOnTheScreen();
@@ -267,7 +267,7 @@ describe('PN-01 · «Por confirmar», Android (E14-PRR 4.1, US-60)', () => {
         ruta: '/api/v1/repeticiones/r-salario/confirmacion',
         cuerpo: '{"fecha":"2026-11-16","monto_centavos":110000000}',
       });
-      await waitFor(() => expect(quizasCampo('Monto')).not.toBeOnTheScreen());
+      await waitFor(() => expect(quizasCampo('Monto en pesos')).not.toBeOnTheScreen());
     });
 
     it('un gasto pregunta «¿Cuánto pagaste?»', async () => {
@@ -283,20 +283,20 @@ describe('PN-01 · «Por confirmar», Android (E14-PRR 4.1, US-60)', () => {
       await abrirLista();
       await abrirMas();
       await fireEvent.press(screen.getByRole('button', { name: 'Cambiar el monto' }));
-      const monto = await buscarCampo('Monto');
+      const monto = await buscarCampo('Monto en pesos');
       await fireEvent.changeText(monto, '');
       await fireEvent.press(screen.getByRole('button', { name: 'Confirmar' }));
       expect(await screen.findByText('Falta el monto.')).toBeOnTheScreen();
       expect(pedidos.some((p) => p.metodo === 'POST')).toBe(false);
-      await fireEvent(campo('Monto'), 'focus');
-      await fireEvent.changeText(campo('Monto'), '45000');
-      await fireEvent(campo('Monto'), 'blur');
-      expect(campo('Monto').props.value).toBe('45.000');
-      await fireEvent(campo('Monto'), 'focus');
-      expect(campo('Monto').props.value).toBe('45000');
-      await fireEvent.changeText(campo('Monto'), 'abc');
-      await fireEvent(campo('Monto'), 'blur');
-      expect(campo('Monto').props.value).toBe('abc');
+      await fireEvent(campo('Monto en pesos'), 'focus');
+      await fireEvent.changeText(campo('Monto en pesos'), '45000');
+      await fireEvent(campo('Monto en pesos'), 'blur');
+      expect(campo('Monto en pesos').props.value).toBe('45.000');
+      await fireEvent(campo('Monto en pesos'), 'focus');
+      expect(campo('Monto en pesos').props.value).toBe('45000');
+      await fireEvent.changeText(campo('Monto en pesos'), 'abc');
+      await fireEvent(campo('Monto en pesos'), 'blur');
+      expect(campo('Monto en pesos').props.value).toBe('abc');
     });
 
     it('«Ahora no» cierra la hoja del monto sin mandar nada', async () => {
@@ -305,7 +305,7 @@ describe('PN-01 · «Por confirmar», Android (E14-PRR 4.1, US-60)', () => {
       await abrirMas();
       await fireEvent.press(screen.getByRole('button', { name: 'Cambiar el monto' }));
       await fireEvent.press(await screen.findByRole('button', { name: 'Ahora no' }));
-      await waitFor(() => expect(quizasCampo('Monto')).not.toBeOnTheScreen());
+      await waitFor(() => expect(quizasCampo('Monto en pesos')).not.toBeOnTheScreen());
       expect(pedidos.some((p) => p.metodo === 'POST')).toBe(false);
     });
 

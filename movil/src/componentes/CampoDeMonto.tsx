@@ -31,6 +31,8 @@ export function CampoDeMonto({
     <CampoDeTexto
       ref={ref}
       etiqueta={textos.registro.monto.etiqueta}
+      // El nombre que lee TalkBack lleva la moneda (dueño, 2026-11-08); el rótulo visible sigue siendo «Monto».
+      nombreAccesible={textos.registro.monto.nombreAccesible}
       teclado="decimal-pad"
       cifra
       prefijo={SIMBOLO_DE_PESOS}

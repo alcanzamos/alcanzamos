@@ -21,7 +21,7 @@ function ConEstado({ inicial, error, avisar }: { inicial: string; error?: string
   );
 }
 
-const monto = () => campo('Monto');
+const monto = () => campo('Monto en pesos');
 
 /** El que escucha los cambios del lector de pantalla (`screenReaderChanged`). */
 function escuchaDelLector() {
@@ -132,11 +132,12 @@ describe('CampoDeMonto (E14-PPN 3.1, ACC-004)', () => {
     });
   });
 
-  it('se nombra con su etiqueta, y con el error si lo hay (ACC-004, bugs 226 y 227)', async () => {
+  it('TalkBack lo nombra «Monto en pesos», y con el error si lo hay; el rótulo visible sigue siendo «Monto» (ACC-004, bugs 226 y 227)', async () => {
     await render(<ConEstado inicial="" />);
-    expect(screen.getByPlaceholderText('Monto')).toBeOnTheScreen();
+    expect(screen.getByPlaceholderText('Monto en pesos')).toBeOnTheScreen();
+    expect(screen.getByText('Monto')).toBeOnTheScreen();
     await screen.rerender(<ConEstado inicial="" error="Falta el monto." />);
-    expect(screen.getByPlaceholderText('Monto, Falta el monto.')).toBeOnTheScreen();
+    expect(screen.getByPlaceholderText('Monto en pesos, Falta el monto.')).toBeOnTheScreen();
   });
 
   it('es un campo de cifras con el teclado decimal y deja la referencia para llevarle el foco', async () => {

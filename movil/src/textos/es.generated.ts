@@ -591,6 +591,8 @@ export const textos = {
     monto: {
       // E14-PPN 3.1, fila 7
       etiqueta: "Monto",
+      // Aprobado por el dueño el 2026-11-08 (US-63, sesión 4 del celular): nombre accesible del campo Monto, para que TalkBack diga la moneda; el rótulo visible sigue siendo «Monto» (E14-PPN 3.1, fila 7)
+      nombreAccesible: "Monto en pesos",
     },
     fecha: {
       // E14-PPN 3.1, fila 8

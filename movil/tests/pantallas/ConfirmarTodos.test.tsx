@@ -41,9 +41,9 @@ const elegir = async (fila: string, opcion: string) => {
 };
 const cambiarMonto = async (fila: string, valor: string) => {
   await elegir(fila, 'Cambiar el monto');
-  await fireEvent.changeText(await buscarCampo('Monto'), valor);
+  await fireEvent.changeText(await buscarCampo('Monto en pesos'), valor);
   await fireEvent.press(screen.getByRole('button', { name: 'Listo' }));
-  await waitFor(() => expect(quizasCampo('Monto')).not.toBeOnTheScreen());
+  await waitFor(() => expect(quizasCampo('Monto en pesos')).not.toBeOnTheScreen());
 };
 const guardar = (nombre: string | RegExp, opciones: { disabled?: boolean } = {}) =>
   screen.getByRole('button', { name: nombre, ...opciones });
@@ -130,10 +130,10 @@ describe('«Confirmar todos», Android (E14-PRR 4.8, US-60)', () => {
       await abrirTodos();
       await elegir('Salario', 'Cambiar el monto');
       expect(await screen.findByRole('header', { name: '¿Cuánto llegó?' })).toBeOnTheScreen();
-      expect(campo('Monto').props.value).toBe('1.200.000');
-      await fireEvent.changeText(campo('Monto'), '1.100.000');
+      expect(campo('Monto en pesos').props.value).toBe('1.200.000');
+      await fireEvent.changeText(campo('Monto en pesos'), '1.100.000');
       await fireEvent.press(screen.getByRole('button', { name: 'Listo' }));
-      await waitFor(() => expect(quizasCampo('Monto')).not.toBeOnTheScreen());
+      await waitFor(() => expect(quizasCampo('Monto en pesos')).not.toBeOnTheScreen());
       expect(screen.getByText('$1.100.000')).toBeOnTheScreen();
       expect(screen.getByText('Monto cambiado')).toBeOnTheScreen();
       expect(casilla('Salario', { checked: true })).toBeOnTheScreen();
@@ -153,11 +153,11 @@ describe('«Confirmar todos», Android (E14-PRR 4.8, US-60)', () => {
       apiFalsa(respuestaJson, { pendientes: pendientes(energia, celular) });
       await abrirTodos();
       await elegir('Servicios públicos', 'Cambiar el monto');
-      await fireEvent.changeText(await buscarCampo('Monto'), '0');
+      await fireEvent.changeText(await buscarCampo('Monto en pesos'), '0');
       await fireEvent.press(screen.getByRole('button', { name: 'Listo' }));
       expect(await screen.findByText('El monto debe ser mayor que $0.')).toBeOnTheScreen();
       await fireEvent.press(screen.getByRole('button', { name: 'Ahora no' }));
-      await waitFor(() => expect(quizasCampo('Monto')).not.toBeOnTheScreen());
+      await waitFor(() => expect(quizasCampo('Monto en pesos')).not.toBeOnTheScreen());
       expect(screen.queryByText('Monto cambiado')).not.toBeOnTheScreen();
     });
 
@@ -407,10 +407,10 @@ describe('«Confirmar todos», Android (E14-PRR 4.8, US-60)', () => {
       apiFalsa(respuestaJson, { pendientes: pendientes(energia, celular) });
       await abrirTodos();
       await elegir('Servicios públicos', 'Cambiar el monto');
-      await fireEvent.changeText(await buscarCampo('Monto'), '0');
+      await fireEvent.changeText(await buscarCampo('Monto en pesos'), '0');
       await fireEvent.press(screen.getByRole('button', { name: 'Listo' }));
       await screen.findByText('El monto debe ser mayor que $0.');
-      expect(focosDeTalkBack().map(nombreDe)).toEqual(['Monto, El monto debe ser mayor que $0.']);
+      expect(focosDeTalkBack().map(nombreDe)).toEqual(['Monto en pesos, El monto debe ser mayor que $0.']);
       await esperarSinAnuncios();
     });
   });

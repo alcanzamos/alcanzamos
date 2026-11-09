@@ -50,10 +50,10 @@ const enviado = (pedidos: Pedido[]) => JSON.parse(guardados(pedidos)[0]!.cuerpo!
 async function abrir() {
   const navegacion = navegacionFalsa();
   await render(<Registrar {...propiedades('FormularioDeRegistro', navegacion)} />);
-  await buscarCampo('Monto');
+  await buscarCampo('Monto en pesos');
   return navegacion;
 }
-const escribirMonto = (valor: string) => fireEvent.changeText(campo('Monto'), valor);
+const escribirMonto = (valor: string) => fireEvent.changeText(campo('Monto en pesos'), valor);
 const elegir = (nombre: string) => fireEvent.press(screen.getByRole('radio', { name: nombre }));
 const guardar = () => fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
 const nombresDe = (etiqueta: string) => {
@@ -86,7 +86,7 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
     expect(screen.getByRole('radio', { name: 'Gasto' })).toBeChecked();
     expect(screen.getByRole('radio', { name: 'Solo mío' })).toBeChecked();
     expect(screen.getByRole('button', { name: 'Fecha, Hoy' })).toBeOnTheScreen();
-    expect(campo('Monto').props.keyboardType).toBe('decimal-pad');
+    expect(campo('Monto en pesos').props.keyboardType).toBe('decimal-pad');
     expect(campo('Descripción (opcional)').props.maxLength).toBe(280);
     // La advertencia está dos veces: bajo el cuadro (fila 4) y como ayuda de la descripción (fila 12).
     expect(screen.getAllByText('No escribas datos de salud, religión ni de otras personas.')).toHaveLength(2);
@@ -116,7 +116,7 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
   it('el monto, la fecha y las cifras van en Figtree (D-123) y no hay ss02', async () => {
     api();
     await abrir();
-    expect(campo('Monto')).toHaveStyle({ fontFamily: 'Figtree-SemiBold', fontVariant: ['tabular-nums'] });
+    expect(campo('Monto en pesos')).toHaveStyle({ fontFamily: 'Figtree-SemiBold', fontVariant: ['tabular-nums'] });
     expect(JSON.stringify(screen.toJSON())).not.toMatch(/stylistic|ss02/);
   });
 
@@ -214,18 +214,18 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
   it('el monto se muestra con la regla de E14-SDD 5.5 al salir del campo, y una lectura ambigua se deja como está', async () => {
     api();
     await abrir();
-    await fireEvent(campo('Monto'), 'focus');
+    await fireEvent(campo('Monto en pesos'), 'focus');
     await escribirMonto('123456,78');
-    await fireEvent(campo('Monto'), 'blur');
+    await fireEvent(campo('Monto en pesos'), 'blur');
     // ACC-004, opción A: el «$» es un prefijo fijo fuera del campo, que TalkBack no lee.
-    expect(campo('Monto').props.value).toBe('123.456,78');
+    expect(campo('Monto en pesos').props.value).toBe('123.456,78');
     expect(screen.getByText('$').props.importantForAccessibility).toBe('no');
     // Al volver a editarlo, el número va sin puntos («123456,78»): TalkBack lo lee como un número.
-    await fireEvent(campo('Monto'), 'focus');
-    expect(campo('Monto').props.value).toBe('123456,78');
+    await fireEvent(campo('Monto en pesos'), 'focus');
+    expect(campo('Monto en pesos').props.value).toBe('123456,78');
     await escribirMonto('12.5');
-    await fireEvent(campo('Monto'), 'blur');
-    expect(campo('Monto').props.value).toBe('12.5');
+    await fireEvent(campo('Monto en pesos'), 'blur');
+    expect(campo('Monto en pesos').props.value).toBe('12.5');
   });
 
   describe('validación antes de enviar', () => {
@@ -237,7 +237,7 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
       expect(screen.getByText('Falta elegir la categoría.')).toBeOnTheScreen();
       expect(screen.getByText('Falta elegir el medio de pago.')).toBeOnTheScreen();
       expect(TextInput.prototype.focus).toHaveBeenCalledTimes(1);
-      expect(nombreDe(jest.mocked(TextInput.prototype.focus).mock.contexts[0])).toBe('Monto, Falta el monto.');
+      expect(nombreDe(jest.mocked(TextInput.prototype.focus).mock.contexts[0])).toBe('Monto en pesos, Falta el monto.');
       expect(guardados(pedidos)).toEqual([]);
     });
 
@@ -246,7 +246,7 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
       await abrir();
       limpiarAnuncios();
       await guardar();
-      expect(focosDeTalkBack().map(nombreDe)).toEqual(['Monto, Falta el monto.']);
+      expect(focosDeTalkBack().map(nombreDe)).toEqual(['Monto en pesos, Falta el monto.']);
       expect(screen.getByText('Categoría').props.accessibilityLabel).toBe('Categoría, Falta elegir la categoría.');
       expect(screen.getByText('Medio de pago').props.accessibilityLabel).toBe('Medio de pago, Falta elegir el medio de pago.');
       await esperarSinAnuncios();
@@ -258,7 +258,7 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
       limpiarAnuncios();
       await guardar();
       await guardar();
-      expect(focosDeTalkBack().map(nombreDe)).toEqual(['Monto, Falta el monto.', 'Monto, Falta el monto.']);
+      expect(focosDeTalkBack().map(nombreDe)).toEqual(['Monto en pesos, Falta el monto.', 'Monto en pesos, Falta el monto.']);
     });
 
     it('ACC-004 (bug 226): con el monto bien, el foco va al primer grupo de chips con error, que lo dice en su nombre', async () => {
@@ -419,7 +419,7 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
       await guardar();
       await screen.unmount();
       await abrir();
-      expect(campo('Monto').props.value).toBe('');
+      expect(campo('Monto en pesos').props.value).toBe('');
     });
 
     it('no manda dos veces si se toca otra vez mientras guarda', async () => {
@@ -442,7 +442,7 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
       await escribirMonto('45.000');
       await fireEvent.press(screen.getByRole('button', { name: 'Cambiar' }));
       expect(navegacion.navigate).toHaveBeenCalledWith('SeRepite');
-      expect(campo('Monto').props.value).toBe('45.000');
+      expect(campo('Monto en pesos').props.value).toBe('45.000');
     });
 
     it('con una periodicidad la fila dice «Se repite: Cada mes» y se manda la repetición', async () => {
@@ -549,7 +549,7 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
       jest.mocked(TextInput.prototype.focus).mockClear();
       await llenarYGuardar();
       await screen.findByText('Falta el monto.');
-      expect(nombreDe(jest.mocked(TextInput.prototype.focus).mock.contexts[0])).toBe('Monto, Falta el monto.');
+      expect(nombreDe(jest.mocked(TextInput.prototype.focus).mock.contexts[0])).toBe('Monto en pesos, Falta el monto.');
     });
 
     it.each([
@@ -580,7 +580,7 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
       await elegir('Transferencia');
       await guardar();
       expect(await screen.findByText('No pudimos guardar tu ingreso.')).toBeOnTheScreen();
-      expect(campo('Monto').props.value).toBe('1.500.000');
+      expect(campo('Monto en pesos').props.value).toBe('1.500.000');
       falla = false;
       await fireEvent.press(screen.getByRole('button', { name: 'Intentar de nuevo' }));
       expect(guardados(pedidos)).toHaveLength(2);
@@ -637,10 +637,10 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
       }) as unknown as typeof fetch;
       await render(<Registrar {...propiedades('FormularioDeRegistro', navegacionFalsa())} />);
       expect(await screen.findByText('No pudimos cargar la información.')).toBeOnTheScreen();
-      expect(quizasCampo('Monto')).not.toBeOnTheScreen();
+      expect(quizasCampo('Monto en pesos')).not.toBeOnTheScreen();
       falla = false;
       await fireEvent.press(screen.getByRole('button', { name: 'Intentar de nuevo' }));
-      expect(await buscarCampo('Monto')).toBeOnTheScreen();
+      expect(await buscarCampo('Monto en pesos')).toBeOnTheScreen();
       expect(pedidos).toEqual([`${BASE}/api/v1/categorias`, `${BASE}/api/v1/categorias`]);
     });
 
@@ -649,7 +649,7 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
         throw new TypeError('Network request failed');
       }) as unknown as typeof fetch;
       await render(<Registrar {...propiedades('FormularioDeRegistro', navegacionFalsa())} />);
-      expect(quizasCampo('Monto')).not.toBeOnTheScreen();
+      expect(quizasCampo('Monto en pesos')).not.toBeOnTheScreen();
       expect(screen.queryByRole('button', { name: 'Guardar' })).not.toBeOnTheScreen();
       expect(await screen.findByText('Sin conexión. Intenta de nuevo cuando vuelvas a tener internet.')).toBeOnTheScreen();
     });

@@ -79,7 +79,7 @@ describe('flujo de registrar un movimiento en Android (PN-71 → PN-01 → Regis
   async function abrirElFormulario() {
     await abrirPN01();
     await fireEvent.press(screen.getByRole('button', { name: 'Registrar' }));
-    await buscarCampo('Monto');
+    await buscarCampo('Monto en pesos');
   }
 
   // Control del número de pasos del registro (RNF-001, D-165, punto 2): sin categoría sugerida (no hay motor de reglas), un gasto en efectivo cuesta CINCO
@@ -93,14 +93,14 @@ describe('flujo de registrar un movimiento en Android (PN-71 → PN-01 → Regis
     };
     await abrirPN01();
     await tocar(() => fireEvent.press(screen.getByRole('button', { name: 'Registrar' })));
-    await tocar(async () => fireEvent.changeText(await buscarCampo('Monto'), '45.000'));
+    await tocar(async () => fireEvent.changeText(await buscarCampo('Monto en pesos'), '45.000'));
     await tocar(() => fireEvent.press(screen.getByRole('radio', { name: 'Otros gastos' })));
     await tocar(() => fireEvent.press(screen.getByRole('radio', { name: 'Efectivo' })));
     await tocar(() => fireEvent.press(screen.getByRole('button', { name: 'Guardar' })));
     expect(await screen.findByText('Listo, registramos tu gasto de $45.000.')).toBeOnTheScreen();
     expect(interacciones).toBe(5);
     expect(screen.getByText(PN01)).toBeOnTheScreen();
-    expect(quizasCampo('Monto')).not.toBeOnTheScreen();
+    expect(quizasCampo('Monto en pesos')).not.toBeOnTheScreen();
     expect(JSON.parse(guardados(pedidos)[0]!.cuerpo!)).toEqual({
       monto_centavos: 4500000,
       tipo: 'gasto',
@@ -115,7 +115,7 @@ describe('flujo de registrar un movimiento en Android (PN-71 → PN-01 → Regis
   it('ACC-004 (bug 225): al volver a PN-01 después de guardar, el aviso lo dice la región viva de PN-01', async () => {
     api();
     await abrirElFormulario();
-    await fireEvent.changeText(campo('Monto'), '45.000');
+    await fireEvent.changeText(campo('Monto en pesos'), '45.000');
     await fireEvent.press(screen.getByRole('radio', { name: 'Otros gastos' }));
     await fireEvent.press(screen.getByRole('radio', { name: 'Efectivo' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
@@ -123,34 +123,34 @@ describe('flujo de registrar un movimiento en Android (PN-71 → PN-01 → Regis
     const region = await esperarAnuncio('Listo, registramos tu gasto de 45000 pesos.');
     expect(region.props.collapsable).toBe(false);
     expect(within(region.parent!).getByText(PN01)).toBeOnTheScreen();
-    expect(quizasCampo('Monto')).not.toBeOnTheScreen();
+    expect(quizasCampo('Monto en pesos')).not.toBeOnTheScreen();
   });
 
   it('Atrás en Registrar vuelve a PN-01 sin guardar nada', async () => {
     const pedidos = api();
     await abrirElFormulario();
-    await fireEvent.changeText(campo('Monto'), '45.000');
+    await fireEvent.changeText(campo('Monto en pesos'), '45.000');
     await tocarAtras(true);
-    await waitFor(() => expect(quizasCampo('Monto')).not.toBeOnTheScreen());
+    await waitFor(() => expect(quizasCampo('Monto en pesos')).not.toBeOnTheScreen());
     expect(screen.getByText(PN01)).toBeOnTheScreen();
     expect(guardados(pedidos)).toEqual([]);
     expect(screen.queryByText(/Listo, registramos/)).not.toBeOnTheScreen();
     // Al volver a entrar, el formulario empieza vacío (D-164, L10).
     await fireEvent.press(screen.getByRole('button', { name: 'Registrar' }));
-    expect((await buscarCampo('Monto')).props.value).toBe('');
+    expect((await buscarCampo('Monto en pesos')).props.value).toBe('');
   });
 
   it('después de guardar, el Atrás no vuelve al formulario: va a PN-01, luego a PN-71 y sale de la app', async () => {
     api();
     await abrirElFormulario();
-    await fireEvent.changeText(campo('Monto'), '45.000');
+    await fireEvent.changeText(campo('Monto en pesos'), '45.000');
     await fireEvent.press(screen.getByRole('radio', { name: 'Otros gastos' }));
     await fireEvent.press(screen.getByRole('radio', { name: 'Efectivo' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
     await screen.findByText('Listo, registramos tu gasto de $45.000.');
     await tocarAtras(true);
     await screen.findByText(PN71);
-    expect(quizasCampo('Monto')).not.toBeOnTheScreen();
+    expect(quizasCampo('Monto en pesos')).not.toBeOnTheScreen();
     await tocarAtras(false);
   });
 
@@ -164,7 +164,7 @@ describe('flujo de registrar un movimiento en Android (PN-71 → PN-01 → Regis
   it('PN-03: el Atrás vuelve al formulario sin cambiar nada y «Listo» deja «Se repite: Cada mes»', async () => {
     api(['2026-11-26', '2026-12-26', '2027-01-26']);
     await abrirElFormulario();
-    await fireEvent.changeText(campo('Monto'), '45.000');
+    await fireEvent.changeText(campo('Monto en pesos'), '45.000');
     await fireEvent.press(screen.getByRole('button', { name: 'Cambiar' }));
     await screen.findByText('Lo registras una vez. En cada fecha te pedimos confirmarlo con un toque.');
     await fireEvent.press(screen.getByRole('radio', { name: 'Cada mes' }));
@@ -173,12 +173,12 @@ describe('flujo de registrar un movimiento en Android (PN-71 → PN-01 → Regis
     await waitFor(() => expect(screen.queryByText('Lo registras una vez.', { exact: false })).not.toBeOnTheScreen());
     // Atrás no guardó la elección: el formulario sigue como estaba, con lo escrito.
     expect(screen.getByText('No se repite')).toBeOnTheScreen();
-    expect(campo('Monto').props.value).toBe('45.000');
+    expect(campo('Monto en pesos').props.value).toBe('45.000');
     await fireEvent.press(screen.getByRole('button', { name: 'Cambiar' }));
     await fireEvent.press(await screen.findByRole('radio', { name: 'Cada mes' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Listo' }));
     expect(await screen.findByText('Se repite: Cada mes')).toBeOnTheScreen();
-    expect(campo('Monto').props.value).toBe('45.000');
+    expect(campo('Monto en pesos').props.value).toBe('45.000');
   });
 
   // S4 (D-164, D-165): el arriendo del 15 de agosto escrito el 26 de octubre, de punta a punta con la pila de verdad.
@@ -187,7 +187,7 @@ describe('flujo de registrar un movimiento en Android (PN-71 → PN-01 → Regis
     await abrirElFormulario();
     await fireEvent.press(screen.getByRole('button', { name: 'Fecha, Hoy' }));
     await act(async () => abrirSelector.mock.calls[0][0].onValueChange({}, new Date(2026, 7, 15)));
-    await fireEvent.changeText(campo('Monto'), '1.200.000');
+    await fireEvent.changeText(campo('Monto en pesos'), '1.200.000');
     await fireEvent.press(screen.getByRole('radio', { name: 'Arriendo o cuota de vivienda' }));
     await fireEvent.press(screen.getByRole('radio', { name: 'Transferencia' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Cambiar' }));

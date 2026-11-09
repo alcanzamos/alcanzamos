@@ -183,3 +183,11 @@ describe('CampoDeTexto (E14-SDD 5.3)', () => {
     await expect(fireEvent(campo('Correo electrónico'), 'blur')).resolves.not.toThrow();
   });
 });
+
+describe('CampoDeTexto con nombreAccesible (dueño, 2026-11-08)', () => {
+  it('TalkBack lo nombra con nombreAccesible y el rótulo visible no cambia', async () => {
+    await render(<CampoDeTexto etiqueta="Monto" nombreAccesible="Monto en pesos" valor="" alCambiar={() => {}} error="Falta el monto." />);
+    expect(screen.getByPlaceholderText('Monto en pesos, Falta el monto.')).toBeOnTheScreen();
+    expect(screen.getByText('Monto')).toBeOnTheScreen();
+  });
+});

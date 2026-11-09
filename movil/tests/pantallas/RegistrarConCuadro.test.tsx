@@ -92,7 +92,7 @@ async function abrir() {
   await render(
     <Registrar {...propiedades("FormularioDeRegistro", navegacion)} />,
   );
-  await buscarCampo("Monto");
+  await buscarCampo("Monto en pesos");
   return navegacion;
 }
 const CUADRO = "Escribe el gasto o el ingreso";
@@ -197,7 +197,7 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
     it("llenar a mano y guardar sigue guardando directo, sin interpretar y sin «Revisa y confirma» (RF-002)", async () => {
       const pedidos = api();
       const navegacion = await abrir();
-      await fireEvent.changeText(campo("Monto"), "45.000");
+      await fireEvent.changeText(campo("Monto en pesos"), "45.000");
       await elegir("Alimentación");
       await elegir("Efectivo");
       await tocar("Guardar");
@@ -226,7 +226,7 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
         interpretaciones(pedidos).map((p) => [p.metodo, JSON.parse(p.cuerpo!)]),
       ).toEqual([["POST", { texto: "mercado 45 mil ayer" }]]);
       expect(screen.getByRole("radio", { name: "Gasto" })).toBeChecked();
-      expect(campo("Monto").props.value).toBe("45.000");
+      expect(campo("Monto en pesos").props.value).toBe("45.000");
       expect(
         screen.getByRole("button", { name: "Fecha, 25 de octubre de 2026" }),
       ).toBeOnTheScreen();
@@ -364,7 +364,7 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
       expect(fondoDe("Confirmar y guardar")).toHaveStyle(PRIMARIO);
       expect(fondoDe("Volver al formulario")).toHaveStyle(SECUNDARIO);
       // El formulario y el cuadro salen: el paso ocupa la pantalla.
-      expect(quizasCampo("Monto")).not.toBeOnTheScreen();
+      expect(quizasCampo("Monto en pesos")).not.toBeOnTheScreen();
       expect(quizasCampo(CUADRO)).not.toBeOnTheScreen();
       expect(guardados(pedidos)).toHaveLength(0);
     });
@@ -393,11 +393,11 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
       const pedidos = api();
       await irAlPaso();
       await tocar("Volver al formulario");
-      expect(campo("Monto").props.value).toBe("45.000");
+      expect(campo("Monto en pesos").props.value).toBe("45.000");
       expect(screen.getByRole("radio", { name: "Efectivo" })).toBeChecked();
       expect(screen.queryByText("Revisa y confirma")).not.toBeOnTheScreen();
       expect(guardados(pedidos)).toHaveLength(0);
-      await fireEvent.changeText(campo("Monto"), "46.000");
+      await fireEvent.changeText(campo("Monto en pesos"), "46.000");
       await tocar("Revisar y guardar");
       expect(screen.getByText("$46.000")).toBeOnTheScreen();
     });
@@ -409,8 +409,8 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
       await fireEvent.press(
         screen.getAllByRole("button", { name: "Cambiar" })[1]!,
       );
-      expect(campo("Monto")).toBeOnTheScreen();
-      expect(enfocados()).toEqual(["Monto"]);
+      expect(campo("Monto en pesos")).toBeOnTheScreen();
+      expect(enfocados()).toEqual(["Monto en pesos"]);
       await tocar("Revisar y guardar");
       await fireEvent.press(
         screen.getAllByRole("button", { name: "Cambiar" })[4]!,
@@ -476,7 +476,7 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
       await irAlPaso();
       await tocar("Confirmar y guardar");
       await act(async () => {});
-      expect(campo("Monto")).toBeOnTheScreen();
+      expect(campo("Monto en pesos")).toBeOnTheScreen();
       expect(
         screen.getByText("El monto debe ser mayor que $0."),
       ).toBeOnTheScreen();
@@ -549,12 +549,12 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
       });
       jest.mocked(TextInput.prototype.focus).mockClear();
       await interpretarYLlenar("mercado 12.5");
-      expect(campo("Monto").props.value).toBe("");
+      expect(campo("Monto en pesos").props.value).toBe("");
       expect(
         screen.getByText("¿Quisiste decir $12.500 o $12,50?"),
       ).toBeOnTheScreen();
       // ACC-004 (bug 226): el campo lee la pregunta con su nombre.
-      expect(enfocados()).toEqual(["Monto, ¿Quisiste decir $12.500 o $12,50?"]);
+      expect(enfocados()).toEqual(["Monto en pesos, ¿Quisiste decir $12.500 o $12,50?"]);
       // Lo demás sí se propone.
       expect(screen.getByRole("radio", { name: "Alimentación" })).toBeChecked();
       // Sin monto no hay paso ni guardado.
@@ -595,7 +595,7 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
         const aviso = screen.getByRole("alert");
         await esperarAnuncio(mensaje ? `${titulo} ${mensaje}` : titulo);
         if (mensaje) expect(within(aviso).getByText(mensaje)).toBeOnTheScreen();
-        expect(campo("Monto").props.value).toBe("");
+        expect(campo("Monto en pesos").props.value).toBe("");
         expect(
           screen.queryByText(
             "Llenamos el formulario con tu texto. Cambia lo que quieras.",
@@ -683,7 +683,7 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
       await screen.findByText(
         "Sin conexión, puedes registrar con el formulario.",
       );
-      expect(campo("Monto")).toBeOnTheScreen();
+      expect(campo("Monto en pesos")).toBeOnTheScreen();
     });
 
     it("un fallo del servidor es un aviso, no un error del cuadro: «No pudimos llenar el formulario.» con «Llena el formulario: lo que escribiste sigue ahí.» y el texto intacto (E14-PPN 1.13, D-193)", async () => {

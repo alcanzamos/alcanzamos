@@ -110,7 +110,8 @@ export function CampoDeTexto({
   textoSeguro = false,
   accion,
   prefijo,
-}: PropiedadesDeCampo & { textoSeguro?: boolean; accion?: ReactNode; prefijo?: string }) {
+  nombreAccesible,
+}: PropiedadesDeCampo & { textoSeguro?: boolean; accion?: ReactNode; prefijo?: string; nombreAccesible?: string }) {
   const [enFoco, setEnFoco] = useState(false);
   return (
     <MarcoDeCampo etiqueta={etiqueta} ayuda={ayuda} error={error} enFoco={enFoco}>
@@ -133,7 +134,7 @@ export function CampoDeTexto({
           setEnFoco(false);
           alSalir?.();
         }}
-        placeholder={nombreConError(etiqueta, error)}
+        placeholder={nombreConError(nombreAccesible ?? etiqueta, error)}
         placeholderTextColor="transparent"
         accessibilityHint={ayuda}
         autoComplete={autocompletar}

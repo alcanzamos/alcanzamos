@@ -333,10 +333,10 @@ describe('PN-01 · Movimientos, Android (E14-PRR 4.1)', () => {
       await fireEvent.press(await screen.findByRole('radio', { name: 'Octubre' }));
       await waitFor(() => expect(pedidos.at(-1)).toBe('/api/v1/movimientos?periodo=2026-10'));
       await fireEvent.press(screen.getByRole('button', { name: 'Registrar' }));
-      expect((await buscarCampo('Monto')).props.value).toBe('');
+      expect((await buscarCampo('Monto en pesos')).props.value).toBe('');
       expect(monto).toBe('');
       await atras();
-      await waitFor(() => expect(quizasCampo('Monto')).not.toBeOnTheScreen());
+      await waitFor(() => expect(quizasCampo('Monto en pesos')).not.toBeOnTheScreen());
       // PN-01 sigue en octubre: los filtros viajan en la ruta y la lista se pide otra vez al volver.
       await waitFor(() => expect(pedidos.at(-1)).toBe('/api/v1/movimientos?periodo=2026-10'));
       expect(screen.getByRole('radio', { name: 'Octubre' }).props.accessibilityState.checked).toBe(true);

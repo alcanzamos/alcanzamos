@@ -1917,6 +1917,14 @@
         "texto": "Ya elegí mi contraseña",
         "e14": "E14-PCP 4.2 (PN-59, fila 4 bis, solo Android hasta I08); D-184"
       }
+    },
+    "registro": {
+      "monto": {
+        "nombreAccesible": {
+          "texto": "Monto en pesos",
+          "e14": "Aprobado por el dueño el 2026-11-08 (US-63, sesión 4 del celular): nombre accesible del campo Monto, para que TalkBack diga la moneda; el rótulo visible sigue siendo «Monto» (E14-PPN 3.1, fila 7)"
+        }
+      }
     }
   }
 }
