@@ -174,6 +174,35 @@ describe('PN-71 · Seguridad de la cuenta (E14-PCP 4.14)', () => {
     });
   });
 
+  // E14-PCP 4.14, nota del 2026-11-08 (bug 260, USA-003) y 4.16 T2 ter: mientras no exista PN-66, la entrada provisional a
+  // PN-63 desde el menú va arriba de «Cerrar sesión», y «Borrar mi cuenta» queda última, como en PN-66.
+  describe('«Cómo cuidamos tus datos» (bug 260)', () => {
+    it('es un botón con ese nombre accesible que abre PN-63 desde el menú', async () => {
+      instalarFetchFalso(respuestaJson(200, { ingreso_anterior: null }));
+      const navegacion = await mostrar();
+      await screen.findByText('Este es tu primer ingreso.');
+      await fireEvent.press(screen.getByRole('button', { name: 'Cómo cuidamos tus datos' }));
+      expect(navegacion.navigate).toHaveBeenCalledWith('InformacionDePrivacidad', { desdeElMenu: true });
+    });
+
+    it('orden: «Movimientos», «Cómo cuidamos tus datos», «Cerrar sesión» y, última, «Borrar mi cuenta»', async () => {
+      instalarFetchFalso(respuestaJson(200, { ingreso_anterior: null }));
+      await mostrar();
+      await screen.findByText('Este es tu primer ingreso.');
+      const botones = screen.getAllByRole('button');
+      const orden = ['Movimientos', 'Cómo cuidamos tus datos', 'Cerrar sesión', 'Borrar mi cuenta'];
+      expect(botones).toHaveLength(orden.length);
+      orden.forEach((nombre, i) => expect(botones[i]).toBe(screen.getByRole('button', { name: nombre })));
+    });
+
+    it('también está con el error de carga', async () => {
+      instalarFetchFalso(respuestaJson(500));
+      await mostrar();
+      await screen.findByText('No pudimos cargar tu último ingreso.');
+      expect(screen.getByRole('button', { name: 'Cómo cuidamos tus datos' })).toBeOnTheScreen();
+    });
+  });
+
   describe('«Movimientos» (US-52, D-164: la entrada a PN-01 donde estaba el botón provisional)', () => {
     it('abre PN-01 y ya no hay un botón para registrar', async () => {
       instalarFetchFalso(respuestaJson(200, { ingreso_anterior: null }));

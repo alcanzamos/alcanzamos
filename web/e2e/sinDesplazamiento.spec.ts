@@ -204,6 +204,18 @@ const pantallas: Pantalla[] = [
     abrir: abrirConTitulo("/privacidad", "Cómo cuidamos tus datos"),
   },
   {
+    nombre: "PN-63 /cuenta/privacidad (desde el menú)",
+    preparar: sinApi,
+    abrir: async (page) => {
+      await page.goto("/cuenta/privacidad");
+      await expect(encabezado(page, "Cómo cuidamos tus datos")).toBeVisible();
+      await expect(page.getByRole("link", { name: "Atrás" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Continuar" })).toHaveCount(
+        0,
+      );
+    },
+  },
+  {
     nombre: "PN-64 /autorizacion",
     preparar: (page) =>
       simularApi(page, {
