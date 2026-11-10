@@ -62,7 +62,7 @@ func ingresosDelMes(ctx context.Context, tx pgx.Tx, persona string, mes time.Tim
 }
 
 // Presupuesto lee, en una lectura consistente, los presupuestos del periodo, lo gastado por categoría (la suma exacta de
-// la base: `sum(bigint)` es `numeric`), los ingresos del periodo y las repeticiones. Lo gastado es solo de los movimientos
+// la base: `sum(bigint)` es `numeric`), los ingresos del periodo, la marca «en cero» y las repeticiones. Lo gastado es solo de los movimientos
 // de tipo gasto: un aporte o un retiro de una meta no tiene categoría y no cuenta (RN-013).
 func (p *Presupuestos) Presupuesto(ctx context.Context, persona string, mes time.Time) (presupuesto.DatosDelPresupuesto, error) {
 	var d presupuesto.DatosDelPresupuesto
@@ -98,6 +98,10 @@ func (p *Presupuestos) Presupuesto(ctx context.Context, persona string, mes time
 		}
 		if d.Ingresos, err = ingresosDelMes(ctx, tx, persona, mes); err != nil {
 			return err
+		}
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM presupuesto_en_cero WHERE persona_id = $1::uuid AND periodo = $2)`,
+			persona, mes).Scan(&d.EnCero); err != nil {
+			return fmt.Errorf("leer la marca en cero: %w", err)
 		}
 		d.Recurrentes, err = recurrentesEn(ctx, tx, persona)
 		return err

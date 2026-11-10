@@ -120,10 +120,10 @@ var camposDeUnEvento = []string{"time", "level", "msg", "evento_seguridad", "cue
 // con el registro capturado y un buzón SMTP de mentira, y recorre de verdad todo lo que deja eventos de seguridad o pasa
 // por ellos: crear la cuenta y confirmarla con el enlace del correo (también con un enlace falso y una contraseña que no
 // cumple), una ruta sin autorizar, autorizar, registrar y corregir un movimiento con descripción, interpretar un texto,
-// poner, corregir y quitar un presupuesto, rechazos de CSRF con montos y textos en el cuerpo, «No autorizo» ya
-// autorizada, inicios fallidos hasta el 429, entrar en la web y en Android, Bearer falso, cambiar la contraseña (mal y
-// bien), recuperar el acceso (enlace falso y bueno), cerrar la sesión y usarla después, y borrar la cuenta con la
-// contraseña mal y bien.
+// poner, corregir y quitar un presupuesto, dejar el mes en cero, rechazos de CSRF con montos y textos en el cuerpo, «No
+// autorizo» ya autorizada, inicios fallidos hasta el 429, entrar en la web y en Android, Bearer falso, cambiar la
+// contraseña (mal y bien), recuperar el acceso (enlace falso y bueno), cerrar la sesión y usarla después, y borrar la
+// cuenta con la contraseña mal y bien.
 //
 // Comprueba: (1) salió cada evento esperado (tipo, ruta y código); (2) cada evento lleva solo los campos de E17-VTE 2.1,
 // con la ruta como patrón registrado (sin ids) y la cuenta desconocida o el id de la persona; (3) ninguna línea del
@@ -278,6 +278,8 @@ func TestSEG_006LosEventosDeSeguridadNoLlevanContrasenasTokensMontosNiTextos(t *
 	secretos = append(secretos, puesto.ID)
 	debe("corregir presupuesto", pedir("PUT", "/api/v1/presupuestos/"+puesto.ID, `{"monto_centavos":`+presupuestoMas+`}`, "2", conCookie(sesion)), 200)
 	debe("quitar presupuesto", pedir("DELETE", "/api/v1/presupuestos/"+puesto.ID, "", "2", conCookie(sesion)), 204)
+	// Sin ingresos y sin nada asignado, el mes se deja en cero (L6 (5) de la US-77).
+	debe("dejar en cero", pedir("POST", "/api/v1/presupuestos/en-cero", `{"periodo":"`+vHoy().Format("2006-01")+`"}`, "2", conCookie(sesion)), 204)
 
 	// Rechazos de CSRF (E17 3.15) con el monto y el texto en el cuerpo: ni pasan ni quedan en el registro.
 	debe("CSRF de otro sitio", pedir("POST", "/api/v1/movimientos", movimiento, "3", conCookie(sesion),
@@ -396,7 +398,7 @@ func TestSEG_006LosEventosDeSeguridadNoLlevanContrasenasTokensMontosNiTextos(t *
 	// (3) y (4): ninguna línea, evento o no, lleva un dato de la persona; el id de la persona, solo en eventos. El registro
 	// capturado es el de todo el API, no solo el de los eventos: trae también las líneas de registrar e interpretar.
 	for _, msg := range []string{`"msg":"movimiento registrado"`, `"msg":"movimiento corregido"`, `"msg":"texto interpretado"`,
-		`"msg":"presupuesto guardado"`, `"msg":"presupuesto corregido"`, `"msg":"presupuesto quitado"`} {
+		`"msg":"presupuesto guardado"`, `"msg":"presupuesto corregido"`, `"msg":"presupuesto quitado"`, `"msg":"presupuesto dejado en cero"`} {
 		if !strings.Contains(registro.String(), msg) {
 			t.Errorf("el registro capturado no tiene %s:\n%s", msg, registro)
 		}

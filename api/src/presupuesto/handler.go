@@ -31,10 +31,12 @@ func (h *Handler) Registrar(e *servidor.Enrutador) {
 	e.Registrar(seguridad.RequiereAutorizacion, "POST /api/v1/presupuestos", http.HandlerFunc(h.poner))
 	e.Registrar(seguridad.RequiereAutorizacion, "PUT /api/v1/presupuestos/{id}", http.HandlerFunc(h.corregir))
 	e.Registrar(seguridad.RequiereAutorizacion, "DELETE /api/v1/presupuestos/{id}", http.HandlerFunc(h.quitar))
+	e.Registrar(seguridad.RequiereAutorizacion, "POST /api/v1/presupuestos/en-cero", http.HandlerFunc(h.dejarEnCero))
 }
 
-// responder escribe los errores comunes: `422 datos_invalidos`, `404 no_encontrado`, `409 periodo_no_editable`, `403
-// solo_personas_adultas`, `401 sin_sesion` (la cuenta se borró mientras tanto) o un fallo. Devuelve true si ya respondió.
+// responder escribe los errores comunes: `422 datos_invalidos`, `404 no_encontrado`, `409 periodo_no_editable`, `409
+// periodo_con_ingreso_o_presupuesto`, `403 solo_personas_adultas`, `401 sin_sesion` (la cuenta se borró mientras tanto) o
+// un fallo. Devuelve true si ya respondió.
 func (h *Handler) responder(w http.ResponseWriter, r *http.Request, que string, err error) bool {
 	var invalido *registro.ErrValidacion
 	switch {
@@ -46,6 +48,8 @@ func (h *Handler) responder(w http.ResponseWriter, r *http.Request, que string, 
 		servidor.EscribirError(w, http.StatusNotFound, "no_encontrado")
 	case errors.Is(err, ErrPeriodoNoEditable):
 		servidor.EscribirError(w, http.StatusConflict, "periodo_no_editable")
+	case errors.Is(err, ErrPeriodoConIngresoOPresupuesto):
+		servidor.EscribirError(w, http.StatusConflict, "periodo_con_ingreso_o_presupuesto")
 	case errors.Is(err, ErrSoloAdultos):
 		servidor.EscribirError(w, http.StatusForbidden, CodigoSoloAdultos)
 	case errors.Is(err, registro.ErrSinCuenta):
@@ -130,6 +134,24 @@ func (h *Handler) quitar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.log.InfoContext(r.Context(), "presupuesto quitado", "peticion", seguridad.PeticionDe(r.Context()))
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// dejarEnCero atiende POST /api/v1/presupuestos/en-cero con `{"periodo":"AAAA-MM"}` («Dejar el presupuesto en cero»,
+// PN-07): `204` sin cuerpo, también si ya estaba en cero. `422 datos_invalidos` con `periodo`; `409 periodo_no_editable`
+// si no es el mes en curso; `409 periodo_con_ingreso_o_presupuesto` si el mes tiene ingreso registrado o algo asignado;
+// `400 solicitud_invalida` con un campo fuera del contrato.
+func (h *Handler) dejarEnCero(w http.ResponseWriter, r *http.Request) {
+	var sol SolicitudEnCero
+	if !servidor.LeerJSON(w, r, &sol) {
+		return
+	}
+	sujeto, _ := servidor.SujetoDe(r.Context())
+	if h.responder(w, r, "no se pudo dejar el presupuesto en cero", h.servicio.DejarEnCero(r.Context(), sujeto.Persona, sol)) {
+		return
+	}
+	h.log.InfoContext(r.Context(), "presupuesto dejado en cero", "peticion", seguridad.PeticionDe(r.Context()))
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusNoContent)
 }

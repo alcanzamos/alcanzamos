@@ -100,3 +100,37 @@ func (p *Presupuestos) Quitar(ctx context.Context, persona, id string, periodo t
 	}
 	return nil
 }
+
+// DejarEnCero guarda la marca «en cero» de la persona en el periodo (`presupuesto_en_cero`, 0004) si el periodo sigue en
+// cero: la suma de sus ingresos registrados y la de lo asignado, las mismas de la lectura, son cero. Si ya la tiene, no
+// cambia nada (ON CONFLICT DO NOTHING): es idempotente. No bloquea: si a la vez llega un ingreso o un presupuesto, la marca
+// puede quedar, y no importa, porque la lectura solo la muestra mientras el mes siga en cero. La llave de 0004 apunta a
+// `perfil_adulto` y se borra con la cuenta.
+func (p *Presupuestos) DejarEnCero(ctx context.Context, persona string, periodo time.Time) error {
+	var adulta, enCero bool
+	err := p.pool.QueryRow(ctx,
+		`SELECT p.etapa = 'adulta' AND EXISTS (SELECT 1 FROM perfil_adulto a WHERE a.persona_id = p.id),
+		        (SELECT coalesce(sum(m.monto), 0) FROM movimiento m WHERE m.persona_id = p.id AND m.tipo = 'ingreso' AND m.fecha >= $2 AND m.fecha < $3) = 0
+		    AND (SELECT coalesce(sum(x.monto_asignado), 0) FROM presupuesto x WHERE x.persona_id = p.id AND x.periodo = $2) = 0
+		 FROM persona p WHERE p.id = $1::uuid`, persona, periodo, periodo.AddDate(0, 1, 0)).Scan(&adulta, &enCero)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return registro.ErrSinCuenta
+	case err != nil:
+		return fmt.Errorf("revisar el periodo: %w", err)
+	case !adulta:
+		return presupuesto.ErrSoloAdultos
+	case !enCero:
+		return presupuesto.ErrPeriodoConIngresoOPresupuesto
+	}
+	_, err = p.pool.Exec(ctx, `INSERT INTO presupuesto_en_cero (persona_id, periodo) VALUES ($1::uuid, $2) ON CONFLICT ON CONSTRAINT pk_presupuesto_en_cero DO NOTHING`,
+		persona, periodo)
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23503" && pgErr.ConstraintName == "fk_presupuesto_en_cero_persona_id" {
+		return registro.ErrSinCuenta // la cuenta se borró mientras tanto
+	}
+	if err != nil {
+		return fmt.Errorf("dejar el presupuesto en cero: %w", err)
+	}
+	return nil
+}

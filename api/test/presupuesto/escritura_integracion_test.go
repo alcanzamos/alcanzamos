@@ -203,7 +203,8 @@ func TestIntegracionPonerALaVezDejaUnaSolaFila(t *testing.T) {
 	}
 }
 
-// SEG-016 (E17 3.15, D-194) en las tres rutas que escriben: lo que la defensa rechaza no guarda, corrige ni quita nada.
+// SEG-016 (E17 3.15, D-194) en las cuatro rutas que escriben: lo que la defensa rechaza no guarda, corrige ni quita nada,
+// ni deja el mes en cero.
 func TestIntegracionLaDefensaContraCSRFNoCambiaNada(t *testing.T) {
 	s := nuevoServidor(t)
 	c := s.nuevaPersona("laura@ejemplo.test", false, true)
@@ -211,6 +212,7 @@ func TestIntegracionLaDefensaContraCSRFNoCambiaNada(t *testing.T) {
 	antes := s.fotoDePresupuestos()
 	for _, r := range []struct{ metodo, ruta, cuerpo string }{
 		{"POST", "/api/v1/presupuestos", `{"periodo":"2026-11","categoria_id":1,"monto_centavos":1}`},
+		{"POST", "/api/v1/presupuestos/en-cero", `{"periodo":"2026-11"}`},
 		{"PUT", "/api/v1/presupuestos/" + p.ID, `{"monto_centavos":1}`},
 		{"DELETE", "/api/v1/presupuestos/" + p.ID, ""},
 	} {
@@ -234,6 +236,9 @@ func TestIntegracionLaDefensaContraCSRFNoCambiaNada(t *testing.T) {
 	if despues := s.fotoDePresupuestos(); despues != antes {
 		t.Errorf("cambió:\n%s\n%s", antes, despues)
 	}
+	if got := s.fotoDeEnCero(); got != "" {
+		t.Errorf("quedó en cero: %q", got)
+	}
 }
 
 // Con la base caída o una tabla que falta, cada operación del repositorio devuelve un error de infraestructura y no una
@@ -242,24 +247,27 @@ func TestIntegracionLaDefensaContraCSRFNoCambiaNada(t *testing.T) {
 func TestIntegracionConLaBaseRotaCadaOperacionFalla(t *testing.T) {
 	ctx := context.Background()
 	noviembre := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
-	deNegocio := []error{registro.ErrSinCuenta, registro.ErrCategoriaInvalida, presupuesto.ErrNoEncontrado, presupuesto.ErrSoloAdultos}
+	deNegocio := []error{registro.ErrSinCuenta, registro.ErrCategoriaInvalida, presupuesto.ErrNoEncontrado, presupuesto.ErrSoloAdultos,
+		presupuesto.ErrPeriodoConIngresoOPresupuesto}
 	operaciones := func(repo *pg.Presupuestos, persona, id string) map[string]error {
 		_, errP := repo.Presupuesto(ctx, persona, noviembre)
 		_, errI := repo.Ingresos(ctx, persona, noviembre)
 		_, _, errPoner := repo.Poner(ctx, persona, transporte, noviembre, 100)
 		_, errO := repo.Obtener(ctx, persona, id)
 		return map[string]error{"Presupuesto": errP, "Ingresos": errI, "Poner": errPoner, "Obtener": errO,
-			"Corregir": repo.Corregir(ctx, persona, id, noviembre, 200), "Quitar": repo.Quitar(ctx, persona, id, noviembre)}
+			"Corregir": repo.Corregir(ctx, persona, id, noviembre, 200), "Quitar": repo.Quitar(ctx, persona, id, noviembre),
+			"DejarEnCero": repo.DejarEnCero(ctx, persona, noviembre)}
 	}
 	casos := []struct {
 		nombre, preparar string
 		fallan           []string
 	}{
-		{"pool cerrado", "", []string{"Presupuesto", "Ingresos", "Poner", "Obtener", "Corregir", "Quitar"}},
-		{"sin perfil de adulta", `ALTER TABLE perfil_adulto RENAME TO perfil_adulto_x`, []string{"Presupuesto", "Ingresos", "Poner"}},
+		{"pool cerrado", "", []string{"Presupuesto", "Ingresos", "Poner", "Obtener", "Corregir", "Quitar", "DejarEnCero"}},
+		{"sin perfil de adulta", `ALTER TABLE perfil_adulto RENAME TO perfil_adulto_x`, []string{"Presupuesto", "Ingresos", "Poner", "DejarEnCero"}},
 		{"sin ocultamientos", `ALTER TABLE ocultamiento_categoria RENAME TO ocultamiento_x`, []string{"Presupuesto", "Ingresos", "Poner"}},
-		{"sin presupuestos", `ALTER TABLE presupuesto RENAME TO presupuesto_x`, []string{"Presupuesto", "Poner", "Obtener", "Corregir", "Quitar"}},
-		{"sin movimientos", `ALTER TABLE movimiento RENAME TO movimiento_x`, []string{"Presupuesto", "Ingresos"}},
+		{"sin presupuestos", `ALTER TABLE presupuesto RENAME TO presupuesto_x`, []string{"Presupuesto", "Poner", "Obtener", "Corregir", "Quitar", "DejarEnCero"}},
+		{"sin la marca en cero", `ALTER TABLE presupuesto_en_cero RENAME TO en_cero_x`, []string{"Presupuesto"}},
+		{"sin movimientos", `ALTER TABLE movimiento RENAME TO movimiento_x`, []string{"Presupuesto", "Ingresos", "DejarEnCero"}},
 		{"sin la descripción de los movimientos", `ALTER TABLE movimiento RENAME COLUMN descripcion TO descripcion_x`, []string{"Presupuesto", "Ingresos"}},
 		{"sin repeticiones", `ALTER TABLE movimiento_recurrente RENAME TO recurrente_x`, []string{"Presupuesto", "Ingresos"}},
 	}

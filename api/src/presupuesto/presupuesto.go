@@ -80,6 +80,7 @@ type DatosDelPresupuesto struct {
 	Gastado      map[int]*big.Int       // por categoría, la suma exacta de los gastos del periodo
 	Ingresos     []IngresoRegistrado    // los del periodo
 	Recurrentes  []registro.Recurrente  // todas las de la persona, para lo que llega después
+	EnCero       bool                   // la persona dejó el periodo en cero (`presupuesto_en_cero`)
 }
 
 // DatosDeIngresos es lo que el repositorio lee para PN-08, en una sola lectura consistente.
@@ -122,7 +123,10 @@ type Vista struct {
 // Resumen es la tarjeta «Tu presupuesto este mes». `SinAsignarCentavos` solo viene en el modo normal y
 // `AsignadoSuperaPorCentavos` solo con ingreso bajo: el API da los hechos y la app los dice sin signo menos (RNF-017).
 type Resumen struct {
-	Modo                      string   `json:"modo"`
+	Modo string `json:"modo"`
+	// EnCero dice que la persona dejó el periodo en cero («Dejar el presupuesto en cero», PN-07) y que sigue en cero: sin
+	// ingreso registrado ni nada asignado. Con true la app no vuelve a ofrecer el botón (E14-PPA 4.2).
+	EnCero                    bool     `json:"en_cero"`
 	IngresoRegistradoCentavos *big.Int `json:"ingreso_registrado_centavos"`
 	AsignadoCentavos          *big.Int `json:"asignado_centavos"`
 	SinAsignarCentavos        *big.Int `json:"sin_asignar_centavos"`
@@ -187,7 +191,8 @@ func (s *Servicio) Ver(ctx context.Context, persona, periodo string) (Vista, err
 
 // resumir hace las cuentas de la tarjeta de resumen. «Sin asignar» es el ingreso registrado menos lo asignado (RF-007);
 // lo esperado y lo por confirmar van aparte (D-094, P-1). PN-07 se muestra cuando el ingreso registrado es cero o menor
-// que lo asignado (D-094, P-3); con ingreso nulo no hay diferencia que mostrar (E14-PPA 4.2).
+// que lo asignado (D-094, P-3); con ingreso nulo no hay diferencia que mostrar (E14-PPA 4.2). `en_cero` es la marca de
+// «Dejar el presupuesto en cero» mientras el periodo siga en cero (L6 (5) de la US-77).
 func resumir(d DatosDelPresupuesto, llegaDespues []IngresoPendiente) Resumen {
 	ingreso, asignado, despues := new(big.Int), new(big.Int), new(big.Int)
 	for _, i := range d.Ingresos {
@@ -200,6 +205,8 @@ func resumir(d DatosDelPresupuesto, llegaDespues []IngresoPendiente) Resumen {
 		despues.Add(despues, big.NewInt(p.MontoCentavos))
 	}
 	r := Resumen{IngresoRegistradoCentavos: ingreso, AsignadoCentavos: asignado, LlegaDespuesCentavos: despues}
+	// La marca «en cero» queda guardada aunque llegue un ingreso o se asigne algo; solo vale mientras el mes siga en cero.
+	r.EnCero = d.EnCero && ingreso.Sign() == 0 && asignado.Sign() == 0
 	switch {
 	case ingreso.Sign() == 0:
 		r.Modo = ModoIngresoNulo

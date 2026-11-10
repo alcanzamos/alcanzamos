@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"math/big"
@@ -113,6 +114,10 @@ func (r *repoFalso) Quitar(context.Context, string, string, time.Time) error {
 	return errors.New("no se escribe")
 }
 
+func (r *repoFalso) DejarEnCero(context.Context, string, time.Time) error {
+	return errors.New("no se escribe")
+}
+
 type sesionFalsa struct{}
 
 func (sesionFalsa) SujetoDe(*http.Request) (seguridad.Sujeto, error) {
@@ -201,7 +206,7 @@ func verPresupuesto(t *testing.T, repo *repoFalso, ahora, consulta string) strin
 func TestPN06NoviembreDeLauraConSinAsignarYLlegaDespues(t *testing.T) {
 	repo := &repoFalso{presupuesto: noviembreDeLaura()}
 	const quiere = `{"periodo_actual":"2026-11","periodo":"2026-11","editable":true,` +
-		`"resumen":{"modo":"normal","ingreso_registrado_centavos":120000000,"asignado_centavos":4000000,"sin_asignar_centavos":116000000,` +
+		`"resumen":{"modo":"normal","en_cero":false,"ingreso_registrado_centavos":120000000,"asignado_centavos":4000000,"sin_asignar_centavos":116000000,` +
 		`"asignado_supera_por_centavos":null,"llega_despues_centavos":120000000},` +
 		`"llega_despues":[{"recurrente_id":"` + recSalario + `","fecha":"2026-11-16","categoria_id":17,"monto_centavos":120000000,"marca":"esperado"}],` +
 		`"categorias":[` +
@@ -249,7 +254,7 @@ func TestPN06LasSumasSonExactasAlCentavoSinDesbordar(t *testing.T) {
 func TestPN07MesVacioEsIngresoNuloSinSinAsignar(t *testing.T) {
 	repo := &repoFalso{presupuesto: presupuesto.DatosDelPresupuesto{Adulta: true, Categorias: catalogo()}}
 	const quiere = `{"periodo_actual":"2026-11","periodo":"2026-11","editable":true,` +
-		`"resumen":{"modo":"ingreso_nulo","ingreso_registrado_centavos":0,"asignado_centavos":0,"sin_asignar_centavos":null,` +
+		`"resumen":{"modo":"ingreso_nulo","en_cero":false,"ingreso_registrado_centavos":0,"asignado_centavos":0,"sin_asignar_centavos":null,` +
 		`"asignado_supera_por_centavos":null,"llega_despues_centavos":0},"llega_despues":[],"categorias":[]}`
 	if got := verPresupuesto(t, repo, dosDeNoviembre, ""); got != quiere {
 		t.Errorf("respuesta\n%s\nse esperaba\n%s", got, quiere)
@@ -264,7 +269,7 @@ func TestPN07IngresoBajoDaLoQueSuperaLoAsignado(t *testing.T) {
 		Presupuestos: []presupuesto.Guardado{
 			{ID: "p-transporte", CategoriaID: transporte, Monto: 6000000}, {ID: "p-alimentacion", CategoriaID: alimentacion, Monto: 10000000}}}
 	const quiere = `{"periodo_actual":"2026-11","periodo":"2026-11","editable":true,` +
-		`"resumen":{"modo":"ingreso_bajo","ingreso_registrado_centavos":15000000,"asignado_centavos":16000000,"sin_asignar_centavos":null,` +
+		`"resumen":{"modo":"ingreso_bajo","en_cero":false,"ingreso_registrado_centavos":15000000,"asignado_centavos":16000000,"sin_asignar_centavos":null,` +
 		`"asignado_supera_por_centavos":1000000,"llega_despues_centavos":0},"llega_despues":[],"categorias":[` +
 		`{"categoria_id":1,"nombre":"Alimentación","oculta":false,"presupuesto":{"id":"p-alimentacion","monto_centavos":10000000},"gastado_centavos":0,"estado":"quedan","quedan_centavos":10000000},` +
 		`{"categoria_id":8,"nombre":"Transporte","oculta":false,"presupuesto":{"id":"p-transporte","monto_centavos":6000000},"gastado_centavos":0,"estado":"quedan","quedan_centavos":6000000}]}`
@@ -299,6 +304,41 @@ func TestElModoSigueDP3(t *testing.T) {
 			if !strings.Contains(got, `"modo":"`+c.modo+`"`) || !strings.Contains(got, `"sin_asignar_centavos":`+c.sin+`,`) ||
 				!strings.Contains(got, `"asignado_supera_por_centavos":`+c.supera+`,`) {
 				t.Errorf("%s", got)
+			}
+		})
+	}
+}
+
+// «Dejar el presupuesto en cero» (E14-PPA 4.2, CU-10 2a; L6 (5) de la US-77): `en_cero` es true solo si la persona dejó
+// el periodo en cero y sigue en cero, sin ingreso registrado ni nada asignado. Cuando llega un ingreso o asigna algo, la
+// marca sigue guardada pero `en_cero` es false y la pantalla vuelve a su modo («Cuando llegue un ingreso, puedes
+// repartirlo.»); si el periodo vuelve a quedar en cero, vuelve a ser true. Sin la marca, false.
+func TestEnCeroSoloMientrasElPeriodoSigueEnCero(t *testing.T) {
+	casos := []struct {
+		nombre            string
+		marca             bool
+		ingreso, asignado int64
+		modo              string
+		enCero            bool
+	}{
+		{"con la marca y en cero", true, 0, 0, "ingreso_nulo", true},
+		{"sin la marca", false, 0, 0, "ingreso_nulo", false},
+		{"con la marca y un ingreso", true, 1, 0, "normal", false},
+		{"con la marca y algo asignado", true, 0, 1, "ingreso_nulo", false},
+		{"con la marca, un ingreso y algo asignado", true, 1, 2, "ingreso_bajo", false},
+	}
+	for _, c := range casos {
+		t.Run(c.nombre, func(t *testing.T) {
+			d := presupuesto.DatosDelPresupuesto{Adulta: true, Categorias: catalogo(), EnCero: c.marca}
+			if c.ingreso > 0 {
+				d.Ingresos = []presupuesto.IngresoRegistrado{{MovimientoID: "m-1", CategoriaID: salario, Monto: c.ingreso, Fecha: dia("2026-11-01"), Medio: "efectivo"}}
+			}
+			if c.asignado > 0 {
+				d.Presupuestos = []presupuesto.Guardado{{ID: "p-1", CategoriaID: alimentacion, Monto: c.asignado}}
+			}
+			got := verPresupuesto(t, &repoFalso{presupuesto: d}, dosDeNoviembre, "")
+			if quiere := fmt.Sprintf(`"resumen":{"modo":%q,"en_cero":%t,`, c.modo, c.enCero); !strings.Contains(got, quiere) {
+				t.Errorf("%s\nse esperaba %s", got, quiere)
 			}
 		})
 	}
@@ -397,7 +437,7 @@ func TestPN06MesPasadoNoEditableConLoPorConfirmarYSinLoOmitido(t *testing.T) {
 		arriendoMensual()}}
 	got := verPresupuesto(t, &repoFalso{presupuesto: d}, dosDeNoviembre, "?periodo=2026-10")
 	const quiere = `{"periodo_actual":"2026-11","periodo":"2026-10","editable":false,` +
-		`"resumen":{"modo":"ingreso_nulo","ingreso_registrado_centavos":0,"asignado_centavos":0,"sin_asignar_centavos":null,` +
+		`"resumen":{"modo":"ingreso_nulo","en_cero":false,"ingreso_registrado_centavos":0,"asignado_centavos":0,"sin_asignar_centavos":null,` +
 		`"asignado_supera_por_centavos":null,"llega_despues_centavos":120000000},` +
 		`"llega_despues":[{"recurrente_id":"` + recSalario + `","fecha":"2026-10-16","categoria_id":17,"monto_centavos":120000000,"marca":"por_confirmar"}],"categorias":[]}`
 	if got != quiere {

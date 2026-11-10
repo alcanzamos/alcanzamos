@@ -30,15 +30,26 @@ type repoDeEscritura struct {
 	guardados map[string]presupuesto.Guardado
 	siguiente int
 	errorAlPoner,
-	errorAlCorregir error
-	pedidos []string // lo que el servicio pidió, en orden
+	errorAlCorregir,
+	errorAlDejarEnCero error
+	enCero  map[string]bool // las marcas «en cero», por periodo AAAA-MM-DD: una por persona y mes, como la tabla de 0004
+	pedidos []string        // lo que el servicio pidió, en orden
 }
 
 func nuevoRepoDeEscritura() *repoDeEscritura {
 	return &repoDeEscritura{guardados: map[string]presupuesto.Guardado{
 		idNoviembre: {ID: idNoviembre, CategoriaID: transporte, Periodo: dia("2026-11-01"), Monto: 4000000},
 		idOctubre:   {ID: idOctubre, CategoriaID: alimentacion, Periodo: dia("2026-10-01"), Monto: 9900},
-	}}
+	}, enCero: map[string]bool{}}
+}
+
+func (r *repoDeEscritura) DejarEnCero(_ context.Context, p string, periodo time.Time) error {
+	r.pedidos = append(r.pedidos, "en cero "+p+" "+periodo.Format(time.DateOnly))
+	if r.errorAlDejarEnCero != nil {
+		return r.errorAlDejarEnCero
+	}
+	r.enCero[periodo.Format(time.DateOnly)] = true
+	return nil
 }
 
 func (r *repoDeEscritura) Poner(_ context.Context, p string, categoria int, periodo time.Time, monto int64) (presupuesto.Guardado, bool, error) {
@@ -306,6 +317,72 @@ func TestElMesEnCursoEsElDeColombia(t *testing.T) {
 	}
 }
 
+// «Dejar el presupuesto en cero» (PN-07, E14-PPA 4.2, CU-10 2a; L6 (5) de la US-77): `204` sin cuerpo y la marca del
+// mes en curso de la persona de la sesión. Otra vez, también `204`: es idempotente y la marca es una sola.
+func TestDejarEnCeroElMesEnCurso(t *testing.T) {
+	repo := nuevoRepoDeEscritura()
+	h := api(t, repo, dosDeNoviembre)
+	for i := range 2 {
+		codigo, cuerpo, cabeceras := llamar(h, "POST", "/api/v1/presupuestos/en-cero", `{"periodo":"2026-11"}`)
+		if codigo != 204 || cuerpo != "" || cabeceras.Get("Cache-Control") != "no-store" {
+			t.Fatalf("vez %d: %d %s %v", i+1, codigo, cuerpo, cabeceras)
+		}
+	}
+	quiere := "en cero " + persona + " 2026-11-01"
+	if strings.Join(repo.pedidos, "|") != quiere+"|"+quiere || len(repo.enCero) != 1 || !repo.enCero["2026-11-01"] {
+		t.Errorf("pedidos %v, marcas %v", repo.pedidos, repo.enCero)
+	}
+}
+
+// Los errores de «Dejar el presupuesto en cero», en orden: forma (`422` o `400`, sin tocar el repositorio), mes en curso
+// (`409 periodo_no_editable`, sin tocar el repositorio) y lo que el repositorio rechaza: el periodo ya tiene ingreso
+// registrado o algo asignado (`409 periodo_con_ingreso_o_presupuesto`: el botón solo se ofrece con ingreso nulo y nada
+// asignado, E14-PPA 4.2), una persona menor (`403`), la cuenta borrada (`401`) o un fallo (`500`). Ninguno guarda la marca.
+func TestDejarEnCeroErrores(t *testing.T) {
+	casos := []struct {
+		nombre, cuerpo string
+		err            error
+		codigo         int
+		respuesta      string
+		pedidos        int
+	}{
+		{"sin periodo", `{}`, nil, 422, `{"campos":{"periodo":"periodo_requerido"},"error":"datos_invalidos"}`, 0},
+		{"periodo vacío", `{"periodo":""}`, nil, 422, `{"campos":{"periodo":"periodo_requerido"},"error":"datos_invalidos"}`, 0},
+		{"periodo mal formado", `{"periodo":"2026-13"}`, nil, 422, `{"campos":{"periodo":"periodo_invalido"},"error":"datos_invalidos"}`, 0},
+		{"periodo con día", `{"periodo":"2026-11-01"}`, nil, 422, `{"campos":{"periodo":"periodo_invalido"},"error":"datos_invalidos"}`, 0},
+		{"campo fuera del contrato", `{"periodo":"2026-11","persona_id":"` + idAjeno + `"}`, nil, 400, `{"error":"solicitud_invalida"}`, 0},
+		{"un mes pasado", `{"periodo":"2026-10"}`, nil, 409, `{"error":"periodo_no_editable"}`, 0},
+		{"un mes futuro", `{"periodo":"2026-12"}`, nil, 409, `{"error":"periodo_no_editable"}`, 0},
+		{"con ingreso o con algo asignado", `{"periodo":"2026-11"}`, presupuesto.ErrPeriodoConIngresoOPresupuesto, 409, `{"error":"periodo_con_ingreso_o_presupuesto"}`, 1},
+		{"una persona menor", `{"periodo":"2026-11"}`, presupuesto.ErrSoloAdultos, 403, `{"error":"solo_personas_adultas"}`, 1},
+		{"la cuenta borrada", `{"periodo":"2026-11"}`, registro.ErrSinCuenta, 401, `{"error":"sin_sesion"}`, 1},
+		{"un fallo", `{"periodo":"2026-11"}`, errors.New("la base se cayó"), 500, `{"error":"error_interno"}`, 1},
+	}
+	for _, c := range casos {
+		repo := nuevoRepoDeEscritura()
+		repo.errorAlDejarEnCero = c.err
+		codigo, cuerpo, _ := llamar(api(t, repo, dosDeNoviembre), "POST", "/api/v1/presupuestos/en-cero", c.cuerpo)
+		if codigo != c.codigo || cuerpo != c.respuesta || len(repo.pedidos) != c.pedidos || len(repo.enCero) != 0 {
+			t.Errorf("%s: %d %s, pedidos %v, marcas %v; se esperaba %d %s", c.nombre, codigo, cuerpo, repo.pedidos, repo.enCero, c.codigo, c.respuesta)
+		}
+	}
+}
+
+// El mes en curso de «Dejar el presupuesto en cero» también es el de Colombia: a las 23:59:59 del 30 de noviembre en
+// Colombia (04:59:59 UTC del 1 de diciembre) noviembre se deja en cero; a las 00:00 del 1 de diciembre ya no.
+func TestDejarEnCeroEnElMesDeColombia(t *testing.T) {
+	repo := nuevoRepoDeEscritura()
+	if codigo, cuerpo, _ := llamar(api(t, repo, "2026-12-01T04:59:59Z"), "POST", "/api/v1/presupuestos/en-cero", `{"periodo":"2026-11"}`); codigo != 204 {
+		t.Errorf("el 30 de noviembre en Colombia: %d %s", codigo, cuerpo)
+	}
+	if codigo, cuerpo, _ := llamar(api(t, repo, "2026-12-01T05:00:00Z"), "POST", "/api/v1/presupuestos/en-cero", `{"periodo":"2026-11"}`); codigo != 409 || cuerpo != `{"error":"periodo_no_editable"}` {
+		t.Errorf("el 1 de diciembre en Colombia: %d %s", codigo, cuerpo)
+	}
+	if len(repo.pedidos) != 1 {
+		t.Errorf("pedidos: %v", repo.pedidos)
+	}
+}
+
 // SEG-006: el registro dice qué pasó, nunca el monto, la categoría, el id ni la persona.
 func TestElRegistroNoLlevaMontosNiIds(t *testing.T) {
 	repo := nuevoRepoDeEscritura()
@@ -314,8 +391,10 @@ func TestElRegistroNoLlevaMontosNiIds(t *testing.T) {
 	llamar(h, "POST", "/api/v1/presupuestos", `{"periodo":"2026-11","categoria_id":5,"monto_centavos":48213977}`)
 	llamar(h, "PUT", "/api/v1/presupuestos/"+idNoviembre, `{"monto_centavos":73915533}`)
 	llamar(h, "DELETE", "/api/v1/presupuestos/"+idNoviembre, "")
+	llamar(h, "POST", "/api/v1/presupuestos/en-cero", `{"periodo":"2026-11"}`)
 	texto := log.String()
-	for _, msg := range []string{`"msg":"presupuesto guardado"`, `"msg":"presupuesto corregido"`, `"msg":"presupuesto quitado"`} {
+	for _, msg := range []string{`"msg":"presupuesto guardado"`, `"msg":"presupuesto corregido"`, `"msg":"presupuesto quitado"`,
+		`"msg":"presupuesto dejado en cero"`} {
 		if !strings.Contains(texto, msg) {
 			t.Errorf("falta %s en %s", msg, texto)
 		}

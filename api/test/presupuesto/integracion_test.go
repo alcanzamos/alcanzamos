@@ -186,6 +186,7 @@ type vistaLeida struct {
 	Editable      bool   `json:"editable"`
 	Resumen       struct {
 		Modo              string       `json:"modo"`
+		EnCero            bool         `json:"en_cero"`
 		IngresoRegistrado json.Number  `json:"ingreso_registrado_centavos"`
 		Asignado          json.Number  `json:"asignado_centavos"`
 		SinAsignar        *json.Number `json:"sin_asignar_centavos"`
