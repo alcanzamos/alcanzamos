@@ -2,12 +2,14 @@ package presupuesto_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -36,8 +38,11 @@ const (
 const (
 	alimentacion = 1
 	arriendo     = 4
+	servicios    = 5
+	hogar        = 6
 	transporte   = 8
 	recreacion   = 11
+	educacion    = 12
 	restaurantes = 13
 	salario      = 17
 	ventas       = 18
@@ -235,7 +240,7 @@ func TestPN07MesVacioEsIngresoNuloSinSinAsignar(t *testing.T) {
 }
 
 // Caso P bajo (E14-PPA 2.3): $150.000 registrados y $160.000 asignados. Lo asignado supera lo registrado por $10.000; no
-// hay «Sin asignar». Sin gasto, cada presupuesto «queda» entero; con el mismo gasto, por id.
+// hay «Sin asignar». Sin gasto, cada presupuesto «queda» entero; con el mismo gasto, por nombre.
 func TestPN07IngresoBajoDaLoQueSuperaLoAsignado(t *testing.T) {
 	d := presupuesto.DatosDelPresupuesto{Adulta: true, Categorias: catalogo(),
 		Ingresos: []presupuesto.IngresoRegistrado{{MovimientoID: "m-1", CategoriaID: ventas, Monto: 15000000, Fecha: dia("2026-11-02"), Medio: "efectivo"}},
@@ -312,6 +317,54 @@ func TestPN06LaCategoriaOcultaConPresupuestoSigueYLaOcultaSinPresupuestoNo(t *te
 		`{"categoria_id":1,"nombre":"Alimentación","oculta":false,"presupuesto":null,"gastado_centavos":100,"estado":null,"quedan_centavos":null}]}`
 	if !strings.HasSuffix(got, filas) {
 		t.Errorf("filas\n%s\nse esperaba que terminara en\n%s", got, filas)
+	}
+}
+
+// idsDeLasFilas son los `categoria_id` de «Por categoría», en el orden de la respuesta.
+func idsDeLasFilas(t *testing.T, cuerpo string) []int {
+	t.Helper()
+	var v struct {
+		Categorias []struct {
+			CategoriaID int `json:"categoria_id"`
+		} `json:"categorias"`
+	}
+	if err := json.Unmarshal([]byte(cuerpo), &v); err != nil {
+		t.Fatal(err)
+	}
+	ids := make([]int, len(v.Categorias))
+	for i, c := range v.Categorias {
+		ids[i] = c.CategoriaID
+	}
+	return ids
+}
+
+// E14-PPA 4.1, PN-06 fila 4, y L6 (6) de la US-77: con el mismo gasto, por nombre y no por id. Con presupuesto y sin
+// gasto, Educación (12) va antes que Transporte (8); sin presupuesto y con el mismo gasto, Hogar y mantenimiento (6) va
+// antes que Servicios públicos (5). Las que tienen presupuesto siguen primero.
+func TestPN06ConElMismoGastoOrdenaPorNombre(t *testing.T) {
+	d := presupuesto.DatosDelPresupuesto{Adulta: true, Categorias: catalogo(),
+		Presupuestos: []presupuesto.Guardado{{ID: "p-t", CategoriaID: transporte, Monto: 100}, {ID: "p-e", CategoriaID: educacion, Monto: 100}},
+		Gastado:      map[int]*big.Int{servicios: big.NewInt(500), hogar: big.NewInt(500)}}
+	got := idsDeLasFilas(t, verPresupuesto(t, &repoFalso{presupuesto: d}, dosDeNoviembre, ""))
+	if quiere := []int{educacion, transporte, hogar, servicios}; !slices.Equal(got, quiere) {
+		t.Errorf("orden %v, se esperaba %v", got, quiere)
+	}
+}
+
+// El nombre se compara con la intercalación del español de Unicode (CLDR, golang.org/x/text/collate), no por bytes: la
+// tilde y la mayúscula no mandan a una categoría al final, la «ñ» va entre la «n» y la «o», sin tilde va antes que con
+// tilde, y dos nombres iguales quedan por id. Por bytes saldría Arbol, Bebida, Igual, Igual, Nube, Oso, abeja, Árbol,
+// Ñame, Óleo; por id, del 1 al 10.
+func TestPN06ElNombreSeComparaComoEnEspanol(t *testing.T) {
+	nombres := []string{"Óleo", "Ñame", "Nube", "Árbol", "Bebida", "Oso", "Igual", "Igual", "Arbol", "abeja"}
+	d := presupuesto.DatosDelPresupuesto{Adulta: true, Gastado: map[int]*big.Int{}}
+	for i, n := range nombres {
+		d.Categorias = append(d.Categorias, presupuesto.CategoriaDelCatalogo{ID: i + 1, Nombre: n, Tipo: registro.Gasto})
+		d.Gastado[i+1] = big.NewInt(700)
+	}
+	got := idsDeLasFilas(t, verPresupuesto(t, &repoFalso{presupuesto: d}, dosDeNoviembre, ""))
+	if quiere := []int{10, 9, 4, 5, 7, 8, 3, 2, 1, 6}; !slices.Equal(got, quiere) {
+		t.Errorf("orden %v, se esperaba %v", got, quiere)
 	}
 }
 

@@ -366,6 +366,22 @@ func TestIntegracionAportesFueraYCategoriasOcultas(t *testing.T) {
 	}
 }
 
+// E14-PPA 4.1, PN-06 fila 4 (L6 (6) de la US-77), con los nombres del catálogo de la base: con el mismo gasto, por nombre
+// y no por id. Educación (12) antes que Transporte (8), con presupuesto y sin gasto; Hogar y mantenimiento (6) antes que
+// Servicios públicos (5), sin presupuesto y con el mismo gasto.
+func TestIntegracionConElMismoGastoPorNombre(t *testing.T) {
+	s := nuevoServidor(t)
+	c := s.nuevaPersona("laura@ejemplo.test", false, true)
+	c.registrar(registro.Gasto, 500000, "2026-11-02", servicios, "")
+	c.registrar(registro.Gasto, 500000, "2026-11-02", hogar, "")
+	s.ejecutar(`INSERT INTO presupuesto (persona_id, categoria_id, periodo, monto_asignado) VALUES ($1::uuid, $2, '2026-11-01', 100), ($1::uuid, $3, '2026-11-01', 100)`,
+		c.persona, transporte, educacion)
+	v := leerJSON[vistaLeida](t, c.llamar("GET", "/api/v1/presupuestos", ""))
+	if got := filasDeLaVista(v); got != "12:0:100:quedan 8:0:100:quedan 6:500000:-:- 5:500000:-:-" {
+		t.Errorf("por categoría: %s", got)
+	}
+}
+
 // ingresosLeidos es `Ingresos` con los montos como texto.
 type ingresosLeidos struct {
 	PeriodoActual string   `json:"periodo_actual"`

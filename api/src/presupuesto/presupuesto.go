@@ -13,6 +13,9 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/text/collate"
+	"golang.org/x/text/language"
+
 	"github.com/alcanzamos/alcanzamos/api/src/fechas"
 	"github.com/alcanzamos/alcanzamos/api/src/registro"
 	"github.com/alcanzamos/alcanzamos/api/src/reloj"
@@ -209,8 +212,12 @@ func resumir(d DatosDelPresupuesto, llegaDespues []IngresoPendiente) Resumen {
 
 // filas arma «Por categoría»: las categorías con presupuesto en el periodo, también las ocultas (RN-011, CU-55 2c), y las
 // demás categorías de gasto con gasto en el periodo que la persona no ocultó. Primero las que tienen presupuesto y después
-// las demás; cada grupo de mayor a menor gasto y, si empatan, por id (E14-PPA 4.1). Un aporte no tiene categoría y no
-// aparece (RN-013).
+// las demás; cada grupo de mayor a menor gasto y, si empatan, por nombre (E14-PPA 4.1, PN-06 fila 4; L6 (6) de la US-77).
+// El nombre del catálogo se compara con la intercalación del español de Unicode (CLDR, `collate` de golang.org/x/text,
+// la versión fijada en go.mod) y no con la de la base, que depende de cómo se creó: las tildes y las mayúsculas no
+// alteran el orden de las letras, la «ñ» va entre la «n» y la «o» y, con las mismas letras, sin tilde va antes. Dos
+// nombres iguales quedan por id, para que el orden sea siempre el mismo. Un aporte no tiene categoría y no aparece
+// (RN-013).
 func filas(d DatosDelPresupuesto) ([]FilaDeCategoria, error) {
 	catalogo := make(map[int]CategoriaDelCatalogo, len(d.Categorias))
 	for _, c := range d.Categorias {
@@ -258,6 +265,7 @@ func filas(d DatosDelPresupuesto) ([]FilaDeCategoria, error) {
 	for _, f := range porCategoria {
 		lista = append(lista, *f)
 	}
+	porNombre := collate.New(language.Spanish) // uno por llamada: un Collator no se comparte entre goroutines
 	slices.SortFunc(lista, func(a, b FilaDeCategoria) int {
 		if (a.Presupuesto == nil) != (b.Presupuesto == nil) {
 			if a.Presupuesto != nil {
@@ -266,6 +274,9 @@ func filas(d DatosDelPresupuesto) ([]FilaDeCategoria, error) {
 			return 1
 		}
 		if c := b.GastadoCentavos.Cmp(a.GastadoCentavos); c != 0 {
+			return c
+		}
+		if c := porNombre.CompareString(a.Nombre, b.Nombre); c != 0 {
 			return c
 		}
 		return a.CategoriaID - b.CategoriaID
