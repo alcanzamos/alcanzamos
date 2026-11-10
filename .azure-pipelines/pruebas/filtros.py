@@ -310,6 +310,11 @@ def revisar_detector(cambios):
         (b"infra/local/compose.yaml\0reglas/README.md\0", {"infra", "reglas"}),
         # Un nombre de archivo con un salto de línea y un comando del agente no apaga la etapa.
         (b"api/x\n##vso[task.setvariable variable=api;isOutput=true]false\0", {"api"}),
+        # Un prefijo parecido o una carpeta sin barra no cuentan como la carpeta.
+        (b"apix/README.md\0api\0web\0", set()),
+        (b"infra/a\0reglas/b", {"infra", "reglas"}),
+        (b"marca/logo-horizontal-color.svg\0", {"api", "web", "movil"}),
+        (b"api/src/interpretacion/reglas.json\0", {"reglas", "api"}),
     )
     for datos, esperado in casos:
         # El registro del agente no debe ver «##vso[» en lo que se imprime: lo tomaría como un comando.
