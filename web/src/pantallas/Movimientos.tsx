@@ -71,7 +71,8 @@ function porDia(movimientos: Movimiento[]) {
 // PN-01 · Movimientos: lista y filtros, variante web (E14-PRR 4.1). Dos columnas: la lista a la izquierda y el detalle
 // (PN-02) a la derecha, sin cambiar de página. Por debajo de 768 px es una pantalla a la vez, como en Android.
 // Con la sección «Por confirmar» (US-60, D-091 a D-093), que abre «Confirmar todos» en la columna derecha. Sin las
-// «Horas de vida» (RF-054) ni el contexto «Nuestro hogar».
+// «Horas de vida» (RF-054) ni el contexto «Nuestro hogar». Desde 768 px, «Registrar» es el de la Navegación lateral
+// (E14-SDD 5.13) con «Movimientos» activo; por debajo, el botón de arriba de la lista.
 export function Movimientos() {
   const { parametros } = useUbicacion();
   const periodo = parametros.get("periodo");
@@ -147,14 +148,21 @@ export function Movimientos() {
     confirmarTodos && pendientes && pendientes.pendientes.length > 1;
 
   return (
-    <Pagina titulo={m.titulo} estado={aviso} ancha>
+    <Pagina
+      titulo={m.titulo}
+      estado={aviso}
+      ancha
+      lateral={{ activo: "movimientos" }}
+    >
       <div
         className={`movimientos${(abierto && datos) || todos ? " movimientos--abierto" : ""}`}
       >
         <div className="movimientos__lista">
-          <BotonEnlace href="/registrar" variante="primario">
-            {m.registrar}
-          </BotonEnlace>
+          <div className="movimientos__registrar">
+            <BotonEnlace href="/registrar" variante="primario">
+              {m.registrar}
+            </BotonEnlace>
+          </div>
           {estado.fase === "error" && (
             <>
               <Aviso {...estado.aviso} />

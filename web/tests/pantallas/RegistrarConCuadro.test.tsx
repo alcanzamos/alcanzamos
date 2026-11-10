@@ -331,7 +331,7 @@ describe("El paso «Revisa y confirma» (RF-004, RN-001, D-084)", () => {
     const titulo = screen.getByRole("heading", { name: "Revisa y confirma" });
     expect(titulo.tagName).toBe("H2");
     expect(titulo).toHaveFocus();
-    const filas = screen.getAllByRole("listitem");
+    const filas = within(screen.getByRole("main")).getAllByRole("listitem");
     expect(filas.map((f) => f.textContent?.replace(/Cambiar$/, ""))).toEqual([
       "TipoGasto",
       "Monto$45.000",
@@ -415,7 +415,7 @@ describe("El paso «Revisa y confirma» (RF-004, RN-001, D-084)", () => {
     async (fila, id) => {
       api();
       await irAlPaso();
-      const filaCompleta = screen
+      const filaCompleta = within(screen.getByRole("main"))
         .getAllByRole("listitem")
         .find((f) => f.textContent?.startsWith(fila))!;
       fireEvent.click(
@@ -446,8 +446,9 @@ describe("El paso «Revisa y confirma» (RF-004, RN-001, D-084)", () => {
     ).toBeInTheDocument();
     expect(aviso.closest(".aviso")).toHaveClass("aviso--informacion");
     expect(
-      aviso.compareDocumentPosition(screen.getAllByRole("listitem")[0]!) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
+      aviso.compareDocumentPosition(
+        within(screen.getByRole("main")).getAllByRole("listitem")[0]!,
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   });
 
