@@ -5,13 +5,15 @@ Definiciones de pipelines de Azure Pipelines, uno por carpeta del monorepo, con 
 - Cada pipeline compila y prueba su carpeta; el de `reglas/` verifica además el SHA-256 de los conjuntos congelados.
 - Reglas: estándar de codificación (E17-ECO), `commitlint` valida el título del PR (Conventional Commits) y `main` exige PR y verificaciones.
 - Una prueba comprueba que cada carpeta dispara solo su pipeline.
-- Los pasos de cada pipeline viven en `plantillas/<pipeline>.yml`; el YAML del pipeline solo tiene sus disparadores y sus filtros, que incluyen su plantilla.
+- **Control único (D-177, D-178 (4)):** `control.yml` corre en todo PR, sin filtros de ruta, ejecuta los trabajos de las carpetas que cambiaron y falla si alguno falla. Cuando el dueño lo haga obligatorio, reemplaza a los seis pipelines por carpeta (ver «Control único» abajo).
+- Los pasos de cada pipeline viven una sola vez, en `plantillas/<carpeta>.yml`: los usan el pipeline por carpeta y la etapa de `control.yml`.
 
 ## Pipelines
 
 | Archivo | Corre con | Qué hace |
 |---|---|---|
-| `comun.yml` | Todo PR hacia `main` que no sea borrador | `gitleaks` (imagen fijada por digest) sobre el historial; `commitlint` (instalado con `commitlint/package.json`, su lockfile y su `.npmrc`) sobre el título del PR; prueba de los filtros por carpeta (`pruebas/filtros.py`) |
+| `control.yml` | Todo PR hacia `main` que no sea borrador (sin filtros de ruta) | Etapa `cambios` (lista los archivos del PR con `pruebas/cambios.py`), etapa `comun` siempre, una etapa por carpeta (`reglas`, `api`, `web`, `movil`, `infra`) solo si cambió su carpeta, y etapa final `control` que falla si alguna falló o se canceló. Cada etapa usa la misma plantilla que su pipeline por carpeta |
+| `comun.yml` | Todo PR hacia `main` que no sea borrador | `gitleaks` (imagen fijada por digest) sobre el historial; `commitlint` (instalado con `commitlint/package.json`, su lockfile y su `.npmrc`) sobre el título del PR; prueba de los filtros por carpeta y del control único (`pruebas/filtros.py`) |
 | `reglas.yml` | Cambios en `reglas/` o en su YAML, en un PR hacia `main` que no sea borrador | Verifica los conjuntos congelados, `reglas.json` y la salida congelada del prototipo contra `SHA256SUMS` y contra los SHA-256 fijados en el pipeline, y que la copia de `reglas.json` embebida en el API sea idéntica (`cmp`) |
 | `api.yml` | Cambios en `api/`, `web/`, `diseno/` o su YAML, en un PR hacia `main` que no sea borrador | Instala Go 1.27.3 desde el tarball oficial con SHA-256 verificado; `gofmt`, `go vet`, `golangci-lint` (`go tool golangci-lint run`, ver abajo), `govulncheck` (`go tool govulncheck ./...`, ver abajo), `go test -race`, **barrera de cobertura** (levanta `postgres:18.6-alpine` fijado por digest en Docker, aplica `migrar`, corre las pruebas de integración con `-coverpkg=./src/...` y `pruebas/cobertura.py` falla si «núcleo y seguridad» queda bajo 90 %, «resto del API» bajo 75 %, cualquiera bajo `api/test/cobertura-base.json` o si un paquete de `api/src/` no está en las dos listas explícitas de E17-ECO 5.5), `go build` y `docker build` de la imagen, con la raíz del monorepo como contexto (`docker build -f api/Dockerfile .`): una etapa de Node compila `web/` y la de Go la embebe |
 | `web.yml` | Cambios en `web/`, `diseno/` (tokens, textos y fuentes) o su YAML, en un PR hacia `main` que no sea borrador | Instala Node 24.22.1 desde el tarball oficial con SHA-256 verificado y npm 12.2.1 desde el tarball del registro con SHA-512 verificado; `npm run antiguedad` (antigüedad mínima de las versiones del lockfile, antes de instalar, D-158), `npm ci` (con `web/.npmrc`), `npm audit signatures`, tipos, ESLint (con la regla de textos sueltos en JSX, D-162), Prettier, tokens y textos regenerados sin diff (`git diff --exit-code diseno/ web/ movil/`; los textos salen de `diseno/textos/es.json`, D-160), pruebas con cobertura (mínimo 60 % de líneas), `vite build` y Playwright con axe-core |
@@ -30,7 +32,35 @@ Para subir commitlint: en esa carpeta, `npm install --save-exact @commitlint/cli
 
 El pipeline de `diseno/` se agrega cuando haga falta, con sus filtros y sus casos en `pruebas/filtros.py`. Un cambio en `diseno/` (también en `diseno/textos/`, la fuente única de los textos, D-160) dispara el de `web/` y el de `movil/`, que construyen con sus tokens, textos y fuentes, y el de `api/`, porque la imagen del API embebe la web. Un cambio en `web/` dispara también el de `api/`.
 
-**Cupo:** el plan gratuito de Microsoft-hosted da 1 trabajo a la vez y 1.800 minutos al mes. Los filtros evitan compilar lo que no cambió.
+**Cupo:** el plan gratuito de Microsoft-hosted da 1 trabajo a la vez y 1.800 minutos al mes. Los filtros (y en `control.yml`, las condiciones de cada etapa) evitan compilar lo que no cambió.
+
+## Control único (D-177)
+
+`control.yml` es el pipeline que el dueño deja como **único check obligatorio** de `main`. No tiene `paths`: corre en todo PR que no sea borrador, así ningún PR queda esperando un pipeline que no se disparó y ninguno entra sin las verificaciones de lo que cambia.
+
+| Etapa | Corre | Qué hace |
+|---|---|---|
+| `cambios` | Siempre | Sobre el commit de fusión del PR (`refs/pull/<n>/merge`, `fetchDepth: 2`) corre `git diff --name-only --no-renames -z HEAD^1 HEAD`: el primer padre es la punta de `main`, así que la diferencia es lo que el PR cambia. `pruebas/cambios.py detectar` fija una variable de salida `true` o `false` por carpeta. Sin commit de fusión (una corrida manual) corren todas las etapas |
+| `comun` | Siempre (`dependsOn: []`) | `plantillas/comun.yml` |
+| `reglas`, `api`, `web`, `movil`, `infra` | Solo si cambió su carpeta: `and(succeeded(), eq(dependencies.cambios.outputs['cambios.detectar.<carpeta>'], 'true'))` | `plantillas/<carpeta>.yml`, los mismos pasos que su pipeline por carpeta |
+| `control` | Siempre (`condition: always()`) | Falla si alguna etapa terminó en algo distinto de correcta o saltada (`Failed`, `Canceled` o sin resultado). Una etapa que se saltó porque su carpeta no cambió cuenta como correcta. Si `cambios` falla, las etapas por carpeta se saltan y `control` falla por `cambios` |
+
+**Mapa de carpetas.** `pruebas/cambios.py` (`CARPETAS`) tiene, para cada etapa, las mismas rutas que los `paths.include` de su pipeline por carpeta, con las mismas reglas (`carpeta/*` cubre todo lo de debajo; una ruta sin comodín, ese archivo). Cambiar `control.yml`, `pruebas/cambios.py` o `pruebas/filtros.py` solo corre `comun`, que corre la prueba.
+
+**Qué comprueba `pruebas/filtros.py` del control único:** que `control.yml` tenga `trigger: none`, `pr.drafts: false`, `main` en `pr.branches` y **ningún** `paths`; que tenga exactamente las etapas `cambios`, `comun`, las de `CARPETAS` y `control`; que cada etapa por carpeta tenga su condición de cambio, `dependsOn: cambios` y su plantilla; que `comun` corra siempre con su plantilla; que `control` dependa de todas, corra con `always()` y revise el resultado de cada una; que el mapa sea igual a los filtros de cada pipeline por carpeta (ninguna carpeta queda sin etapa) y que cada pipeline por carpeta use su plantilla; que cada caso de `ESPERADO` dé las mismas etapas que los pipelines por carpeta; que `cambios.py` lea nombres con «ñ», con salto de línea o con un comando `##vso` sin que un nombre de archivo apague una etapa; y que la revisión rechace diez cambios rotos de `control.yml` (`MUTACIONES`).
+
+**Minutos.** `control.yml` corre los mismos trabajos que los pipelines por carpeta que hoy se disparan, más dos trabajos chicos: `cambios` (checkout de 2 commits y un script) y `control` (sin checkout). Con 1 trabajo a la vez las etapas corren una tras otra, igual que hoy los pipelines. Estimación antes de medir: unos 20 a 35 s más por PR (un PR solo de documentos: `comun`, unos 35 s, pasa a 1 min aprox.; uno de `api` y `web`, unos 18 min, casi no cambia). **Método (D-178 (4)):** el PR que agrega `control.yml` cambia los seis YAML y sus plantillas, así que en su única corrida se disparan los seis pipelines por carpeta y todas las etapas de `control`: se suma la duración de los trabajos de la corrida de `control` (Azure DevOps → la corrida → cada trabajo) y se compara con la suma de las seis corridas viejas del mismo commit. La diferencia es el costo del control único por PR.
+
+**Cambio de la protección (lo hace el dueño, en este orden):**
+
+1. Registrar el pipeline en Azure DevOps: Pipelines → New pipeline → GitHub → `alcanzamos/alcanzamos` → «Existing Azure Pipelines YAML file» → rama `ci/control-unico`, ruta `/.azure-pipelines/control.yml` → Save (sin correr). Renombrarlo a `control` (el nombre del check en GitHub). Agregarle la variable secreta `GITHUB_TOKEN_PR` (el mismo token de `comun`, D-167), o `comun` pedirá el título sin token.
+2. Marcar listo el PR de este cambio: corre una vez y es el PR de prueba del consumo de minutos (método de arriba). Debe pasar `control` con todas sus etapas.
+3. Si pasa y el consumo es el esperado: en GitHub, Settings → Branches → `main`, cambiar la verificación obligatoria de `comun` a `control` (sigue `strict`). Desde ahí un PR sin `control.yml` (que no se puso al día con `main`) no puede fusionarse: se pone al día con `pasar-pr.sh`, como siempre.
+4. Fusionar el PR. En el pipeline `control` (Edit → Triggers → YAML → Get sources), la rama por defecto debe quedar `main`, no `ci/control-unico`.
+5. Para que cada PR corra una sola vez (D-183), desactivar en Azure DevOps los seis pipelines por carpeta (`comun`, `reglas`, `api`, `web`, `movil`, `infra`: Settings → «Disabled»). Desde ahí solo corre `control`.
+6. En un PR siguiente: borrar los seis YAML por carpeta, dejar el mapa solo en `pruebas/cambios.py` (con sus casos en `pruebas/filtros.py`) y eliminar las definiciones desactivadas en Azure DevOps.
+
+Mientras el dueño no haga los pasos 3 y 5 rige D-118: el check obligatorio es `comun` y los demás se miran antes de fusionar.
 
 Versiones fijadas (verificadas en sus fuentes oficiales el 2026-10-21): gitleaks v8.30.1 (imagen del 2026-03-21; digest del índice multiarquitectura `sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f`, resuelto en ghcr.io el 2026-10-24), `@commitlint/cli` y `@commitlint/config-conventional` 21.2.3 (la versión más nueva con 7 días o más que resolvió npm el 2026-10-24; la 21.2.4 es del 2026-10-18), Node 24.22.1 LTS (nodejs.org), npm 12.2.1 (registro de npm, 2026-10-24; SHA-512 del tarball fijado en `web.yml`, `movil.yml`, `comun.yml` y `api/Dockerfile`; reglas de instalación en `web/.npmrc`, `movil/.npmrc` y `commitlint/.npmrc`), OpenTofu 1.13.2 (GitHub releases, 2026-10-22; SHA-256 del zip fijado en el pipeline, tomado de `tofu_1.13.2_SHA256SUMS`), Go 1.27.3 (go.dev/dl, 2026-10-22; SHA-256 del tarball fijado en el pipeline), Node 24.22.1 para `web.yml` y `comun.yml` (nodejs.org, `SHASUMS256.txt`, 2026-10-22; SHA-256 del tarball fijado en el pipeline; las dependencias de `web/` están en su README), imagen `ubuntu-24.04`.
 
@@ -48,13 +78,13 @@ Cada corrida gasta minutos del cupo gratuito (1.800 por mes, D-116). Para que ca
 - **Los PR encadenados** (con base en otra rama) no corren hasta que su base es `main`.
 - **Cambios chicos del mismo componente** van juntos en un PR, bajo el tope de unas 600 líneas.
 
-`pruebas/filtros.py` comprueba que cada pipeline tenga `trigger: none` y `pr.drafts: false`.
+`pruebas/filtros.py` comprueba que cada pipeline tenga `trigger: none` y `pr.drafts: false`, también `control.yml`.
 
-Ojo: el único check obligatorio para fusionar es `comun`. Los de `api`, `web`, `movil`, `infra` y `reglas` hay que mirarlos antes de fusionar.
+Ojo: hasta que el dueño cambie la protección (sección «Control único»), el único check obligatorio para fusionar es `comun`. Los de `api`, `web`, `movil`, `infra` y `reglas` hay que mirarlos antes de fusionar. Después, el único check obligatorio es `control`, que ya incluye los de las carpetas que cambiaron.
 
 ## Token de GitHub de `comun` (D-167)
 
-El paso de commitlint pide el título del PR a la API de GitHub. Sin token, GitHub permite 60 pedidos por hora por IP, y los agentes de Azure comparten IP: a veces responde 403 y `comun` falla sin que el PR tenga la culpa. Por eso el pipeline `comun` tiene una **variable secreta `GITHUB_TOKEN_PR`** (Azure DevOps → Pipelines → `comun` → Edit → Variables, «Keep this value secret»).
+El paso de commitlint pide el título del PR a la API de GitHub. Sin token, GitHub permite 60 pedidos por hora por IP, y los agentes de Azure comparten IP: a veces responde 403 y `comun` falla sin que el PR tenga la culpa. Por eso el pipeline `comun` (y `control`, que corre la misma plantilla) tiene una **variable secreta `GITHUB_TOKEN_PR`** (Azure DevOps → Pipelines → `comun` → Edit → Variables, «Keep this value secret»).
 
 - **Token:** fine-grained, solo para `alcanzamos/alcanzamos`, permiso «Pull requests: Read-only», vence a los 90 días. Lo crea y lo renueva el dueño. **Creado el 2026-10-27; vence el 2027-01-25: renovarlo antes** (D-167).
 - **Cómo se usa:** entra al paso como variable de entorno y va a `curl` por su entrada estándar, nunca en la línea de comandos. Azure lo oculta en los registros.

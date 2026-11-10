@@ -1,6 +1,6 @@
-# Trabajo de `comun`: secretos (gitleaks), título del PR (commitlint) y prueba de los filtros por carpeta.
-# Lo usa comun.yml; los pasos viven aquí para poder compartirlos. Qué hace cada paso y cuándo corre el
-# pipeline: en comun.yml y en el README de esta carpeta.
+# Trabajo de `comun`: secretos (gitleaks), título del PR (commitlint) y prueba de los filtros y del control único.
+# Lo usan comun.yml y la etapa comun del control único (control.yml, D-177): los pasos
+# viven una sola vez. Qué hace cada paso y cuándo corre el pipeline: en comun.yml y en el README de esta carpeta.
 jobs:
   - job: comun
     pool:
@@ -96,4 +96,4 @@ jobs:
         displayName: El título del PR sigue Conventional Commits (commitlint)
 
       - script: python3 -I -B .azure-pipelines/pruebas/filtros.py
-        displayName: Cada carpeta dispara solo sus pipelines
+        displayName: Cada carpeta dispara solo sus pipelines y sus etapas del control único

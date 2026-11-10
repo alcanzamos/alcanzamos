@@ -1,6 +1,6 @@
 # Trabajo de web/.
-# Lo usa web.yml; los pasos viven aquí para poder compartirlos. Qué hace cada paso y cuándo corre el
-# pipeline: en web.yml y en el README de esta carpeta.
+# Lo usan web.yml (el pipeline por carpeta) y la etapa web del control único (control.yml, D-177): los pasos
+# viven una sola vez. Qué hace cada paso y cuándo corre el pipeline: en web.yml y en el README de esta carpeta.
 jobs:
   - job: web
     pool:

@@ -1,0 +1,133 @@
+# Control único de los PR a main (D-177, D-178 (4)): el único check obligatorio de main.
+# Sin `paths`: corre en todo PR, así ningún PR queda esperando un pipeline que no se disparó. Ejecuta los trabajos de las
+# carpetas que cambiaron y falla si alguno falla:
+# - `cambios` lista los archivos que cambia el PR y fija una variable de salida por carpeta (pruebas/cambios.py, con el
+#   mismo mapa que los filtros de cada pipeline por carpeta; pruebas/filtros.py lo comprueba);
+# - `comun` corre siempre; cada etapa por carpeta corre solo si cambió su carpeta, con la misma plantilla que su pipeline
+#   por carpeta (plantillas/<carpeta>.yml): los pasos viven una sola vez;
+# - `control` corre siempre al final y falla si alguna etapa falló o se canceló. Una etapa que se saltó porque su
+#   carpeta no cambió cuenta como correcta.
+# D-183: no corre al fusionar en main ni en un PR borrador; corre una vez cuando el PR se marca «listo para revisar».
+trigger: none
+pr:
+  # D-183: un PR borrador no corre; corre cuando se marca «listo para revisar», ya al día con main.
+  drafts: false
+  branches:
+    include:
+      - main
+
+stages:
+  # El PR se prueba sobre su commit de fusión con main (refs/pull/<n>/merge): su primer padre es la punta de main, así
+  # que la diferencia con él es lo que el PR cambia. Con dos commits de historia alcanza. --no-renames lista también la
+  # ruta vieja de un archivo movido; -z evita que git cite los nombres con «ñ». Si no hay commit de fusión (una corrida
+  # manual), corren todas las etapas.
+  - stage: cambios
+    displayName: Carpetas que cambió el PR
+    jobs:
+      - job: cambios
+        pool:
+          vmImage: ubuntu-24.04
+        steps:
+          - checkout: self
+            fetchDepth: 2
+
+          - script: |
+              set -euo pipefail
+              padres=$(git rev-list --parents -n 1 HEAD | wc -w)
+              if [ "$(Build.Reason)" = PullRequest ] && [ "$padres" -eq 3 ]; then
+                git diff --name-only --no-renames -z HEAD^1 HEAD | python3 -I -B .azure-pipelines/pruebas/cambios.py detectar
+              else
+                echo "##vso[task.logissue type=warning]Sin commit de fusión de un PR: corren todas las etapas."
+                python3 -I -B .azure-pipelines/pruebas/cambios.py todas
+              fi
+            name: detectar
+            displayName: Etapas que corren (pruebas/cambios.py)
+
+  - stage: comun
+    displayName: comun (siempre)
+    dependsOn: []
+    jobs:
+      - template: plantillas/comun.yml
+
+  - stage: reglas
+    displayName: reglas (si cambió)
+    dependsOn: cambios
+    condition: and(succeeded(), eq(dependencies.cambios.outputs['cambios.detectar.reglas'], 'true'))
+    jobs:
+      - template: plantillas/reglas.yml
+
+  - stage: api
+    displayName: api (si cambió)
+    dependsOn: cambios
+    condition: and(succeeded(), eq(dependencies.cambios.outputs['cambios.detectar.api'], 'true'))
+    jobs:
+      - template: plantillas/api.yml
+
+  - stage: web
+    displayName: web (si cambió)
+    dependsOn: cambios
+    condition: and(succeeded(), eq(dependencies.cambios.outputs['cambios.detectar.web'], 'true'))
+    jobs:
+      - template: plantillas/web.yml
+
+  - stage: movil
+    displayName: movil (si cambió)
+    dependsOn: cambios
+    condition: and(succeeded(), eq(dependencies.cambios.outputs['cambios.detectar.movil'], 'true'))
+    jobs:
+      - template: plantillas/movil.yml
+
+  - stage: infra
+    displayName: infra (si cambió)
+    dependsOn: cambios
+    condition: and(succeeded(), eq(dependencies.cambios.outputs['cambios.detectar.infra'], 'true'))
+    jobs:
+      - template: plantillas/infra.yml
+
+  # Falla si alguna etapa terminó en algo distinto de correcta o saltada (Failed, Canceled o sin resultado). Si
+  # `cambios` falla, las etapas por carpeta se saltan y esta etapa falla por `cambios`.
+  - stage: control
+    displayName: Control único (falla si alguna etapa falló o se canceló)
+    dependsOn:
+      - cambios
+      - comun
+      - reglas
+      - api
+      - web
+      - movil
+      - infra
+    condition: always()
+    variables:
+      RESULTADO_CAMBIOS: $[ dependencies.cambios.result ]
+      RESULTADO_COMUN: $[ dependencies.comun.result ]
+      RESULTADO_REGLAS: $[ dependencies.reglas.result ]
+      RESULTADO_API: $[ dependencies.api.result ]
+      RESULTADO_WEB: $[ dependencies.web.result ]
+      RESULTADO_MOVIL: $[ dependencies.movil.result ]
+      RESULTADO_INFRA: $[ dependencies.infra.result ]
+    jobs:
+      - job: control
+        pool:
+          vmImage: ubuntu-24.04
+        steps:
+          - checkout: none
+
+          - script: |
+              set -eu
+              fallas=0
+              revisar() {
+                case "$2" in
+                  Succeeded|SucceededWithIssues) echo "ok    $1: corrió y pasó" ;;
+                  Skipped) echo "ok    $1: no cambió, se saltó" ;;
+                  *) echo "FALLA $1: ${2:-sin resultado}"; fallas=1 ;;
+                esac
+              }
+              revisar cambios "${RESULTADO_CAMBIOS:-}"
+              revisar comun "${RESULTADO_COMUN:-}"
+              revisar reglas "${RESULTADO_REGLAS:-}"
+              revisar api "${RESULTADO_API:-}"
+              revisar web "${RESULTADO_WEB:-}"
+              revisar movil "${RESULTADO_MOVIL:-}"
+              revisar infra "${RESULTADO_INFRA:-}"
+              exit "$fallas"
+            displayName: Todas las etapas pasaron o se saltaron
