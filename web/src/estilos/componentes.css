@@ -314,8 +314,12 @@
   flex: none;
   width: var(--tamano-tactil-minimo);
   height: var(--tamano-tactil-minimo);
+  padding: 0;
+  border: 0;
   border-radius: var(--radio-pequeno);
+  background: transparent;
   color: var(--color-texto-principal);
+  cursor: pointer;
 }
 
 .barra__atras:active {

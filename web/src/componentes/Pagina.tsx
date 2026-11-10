@@ -12,7 +12,8 @@ import { formatear, textos } from "../textos/es.generated";
 // - `conLogo`: el Logo horizontal en color de 40 px arriba (PN-58 y PN-60).
 // - `ancha`: sin el ancho máximo de 560 px, para las dos columnas de PN-01 (E14-PRR 4.1, variante web).
 // - `registro`: el contenedor de 960 px del formulario de registro en la web, con sus dos columnas (E14-PPN 3.1).
-// - `atras`: la Barra superior de E14-SDD 5.10, con el ícono Atrás de 48 px y su nombre accesible junto al título.
+// - `atras`: la Barra superior de E14-SDD 5.10, con el ícono Atrás de 48 px y su nombre accesible junto al título. Con
+//   una dirección es un enlace; con una acción es un botón que la hace sin cambiar de página («Revisa y confirma»).
 // - `lateral`: la Navegación lateral web de E14-SDD 5.13, solo en las pantallas con sesión; va antes del contenido.
 // Al llegar por una navegación el foco pasa al título, para que el lector de pantalla anuncie la pantalla nueva.
 export function Pagina({
@@ -27,7 +28,7 @@ export function Pagina({
 }: {
   titulo: string;
   conLogo?: boolean;
-  atras?: string;
+  atras?: string | (() => void);
   estado?: DatosDeAviso | null;
   /** Dos columnas, sin el ancho máximo de la columna de lectura (PN-01 en la web). */
   ancha?: boolean;
@@ -53,14 +54,25 @@ export function Pagina({
       {conLogo && <img src={logo} alt={textos.pagina.logo} className="logo" />}
       {atras ? (
         <header className="barra">
-          <a
-            href={atras}
-            className="barra__atras"
-            aria-label={textos.pagina.atras}
-            onClick={alTocarEnlace(atras)}
-          >
-            <IconoAtras />
-          </a>
+          {typeof atras === "string" ? (
+            <a
+              href={atras}
+              className="barra__atras"
+              aria-label={textos.pagina.atras}
+              onClick={alTocarEnlace(atras)}
+            >
+              <IconoAtras />
+            </a>
+          ) : (
+            <button
+              type="button"
+              className="barra__atras"
+              aria-label={textos.pagina.atras}
+              onClick={atras}
+            >
+              <IconoAtras />
+            </button>
+          )}
           {h1}
         </header>
       ) : (

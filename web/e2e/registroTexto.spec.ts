@@ -395,7 +395,7 @@ test.describe("«Revisa y confirma» a 360 px reemplaza el formulario (bug 266)"
       await expect(cuadro(page)).not.toBeFocused();
       await titulo(page).focus();
       await page.keyboard.press("Shift+Tab");
-      await expect(page.getByRole("link", { name: "Atrás" })).toBeFocused();
+      await expect(page.getByRole("button", { name: "Atrás" })).toBeFocused();
       // El título va dentro de la pantalla, arriba de todo lo del paso.
       const delTitulo = await titulo(page).boundingBox();
       const tarjeta = await page
@@ -468,6 +468,64 @@ test.describe("«Revisa y confirma» a 360 px reemplaza el formulario (bug 266)"
         page.getByRole("button", { name: "Llenar el formulario" }),
       ).toBeFocused();
       await sinViolaciones(page);
+    });
+  }
+});
+
+// Durante «Revisa y confirma», «Atrás» de la barra vuelve al formulario sin perder lo que la persona llenó, como
+// «Volver al formulario» y como en Android; fuera del paso sigue llevando a PN-01.
+test.describe("«Atrás» de la barra durante «Revisa y confirma»", () => {
+  for (const ancho of [360, 1280]) {
+    test(`a ${ancho} px vuelve al formulario con todo como estaba, sin guardar ni salir de /registrar; después lleva a PN-01`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: ancho, height: 900 });
+      await hoyEs2DeNoviembre(page);
+      const pedidos = await api(page);
+      await page.goto("/registrar");
+      await cuadro(page).fill("mercado 45 mil ayer");
+      await page.getByRole("button", { name: "Llenar el formulario" }).click();
+      await page.getByRole("radio", { name: "Efectivo" }).check();
+      await page.getByRole("button", { name: "Revisar y guardar" }).click();
+      await expect(
+        page.getByRole("heading", { level: 2, name: "Revisa y confirma" }),
+      ).toBeFocused();
+      await sinViolaciones(page);
+
+      await page.getByRole("button", { name: "Atrás" }).click();
+      await expect(page).toHaveURL(/\/registrar$/);
+      await expect(
+        page.getByRole("heading", { level: 2, name: "Revisa y confirma" }),
+      ).toHaveCount(0);
+      await expect(
+        page.getByRole("heading", { level: 1, name: "Registrar" }),
+      ).toBeVisible();
+      await expect(cuadro(page)).toBeVisible();
+      await expect(cuadro(page)).toHaveValue("mercado 45 mil ayer");
+      await expect(
+        page.getByText(
+          "Llenamos el formulario con tu texto. Cambia lo que quieras.",
+        ),
+      ).toBeVisible();
+      await expect(page.getByLabel("Monto")).toHaveValue("$45.000");
+      await expect(page.getByLabel("Fecha")).toHaveValue("2026-11-01");
+      await expect(
+        page.getByRole("radio", { name: "Alimentación" }),
+      ).toBeChecked();
+      await expect(page.getByRole("radio", { name: "Efectivo" })).toBeChecked();
+      await expect(
+        page.getByRole("button", { name: "Revisar y guardar" }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("radio", { name: "Gasto", exact: true }),
+      ).toBeFocused();
+      await sinViolaciones(page);
+      expect(guardados(pedidos)).toEqual([]);
+
+      // Fuera del paso, «Atrás» vuelve a ser el enlace a PN-01.
+      await page.getByRole("link", { name: "Atrás" }).click();
+      await expect(page).toHaveURL(/\/movimientos$/);
+      expect(guardados(pedidos)).toEqual([]);
     });
   }
 });
