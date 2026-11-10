@@ -1,7 +1,9 @@
 import {
   corregirPresupuesto,
   dejarEnCero,
+  fechasPorConfirmar,
   leerPresupuesto,
+  listarIngresos,
   ponerPresupuesto,
   quitarPresupuesto,
 } from '../../src/api/presupuesto';
@@ -14,7 +16,7 @@ const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crear
 const BASE = 'http://api.prueba:18090';
 
 // `respuestaJson` entrega el cuerpo como texto: aquí se mira el texto que viaja, con los centavos como dígitos (D-082).
-describe('API del presupuesto del periodo (US-77, PN-06 y PN-07)', () => {
+describe('API del presupuesto del periodo (US-77, PN-06 a PN-08)', () => {
   beforeEach(() => {
     process.env.EXPO_PUBLIC_URL_API = BASE;
     almacen.guardado.clear();
@@ -91,5 +93,63 @@ describe('API del presupuesto del periodo (US-77, PN-06 y PN-07)', () => {
       codigo: 'datos_invalidos',
       campos: { monto_centavos: 'monto_no_positivo' },
     });
+  });
+
+  it('PN-08: sin periodo pide el mes en curso; con periodo lo manda en la consulta', async () => {
+    const { pedidos } = instalarFetchFalso(respuestaJson(200, {}), respuestaJson(200, {}));
+    await listarIngresos(null);
+    await listarIngresos('2026-10');
+    expect(pedidos.map((p) => [p.init.method, p.url])).toEqual([
+      ['GET', `${BASE}/api/v1/ingresos`],
+      ['GET', `${BASE}/api/v1/ingresos?periodo=2026-10`],
+    ]);
+  });
+
+  it('PN-08: los totales y los montos de cada fecha llegan exactos (RNF-002)', async () => {
+    instalarFetchFalso(
+      respuestaJson(
+        200,
+        '{"total":{"entran_centavos":18446744073709551616,"por_confirmar":2},"fuentes":[{"total_centavos":1,"ingresos":[{"monto_centavos":9223372036854775807}]}]}',
+      ),
+    );
+    expect(await listarIngresos(null)).toMatchObject({
+      cuerpo: {
+        total: { entran_centavos: '18446744073709551616', por_confirmar: 2 },
+        fuentes: [{ total_centavos: '1', ingresos: [{ monto_centavos: '9223372036854775807' }] }],
+      },
+    });
+  });
+
+  it('las fechas por confirmar de PN-08 salen con lo que piden «Confirmar» y «Confirmar todos» de la US-60', () => {
+    const fecha = { fecha: '2026-11-16', monto_centavos: '120000000', medio: 'transferencia' as const, descripcion: null };
+    expect(
+      fechasPorConfirmar({
+        periodo_actual: '2026-11',
+        periodo: '2026-11',
+        meses: [],
+        total: { entran_centavos: '0', registrado_centavos: '0', esperado_centavos: '0', por_confirmar: 1 },
+        fuentes: [
+          {
+            categoria_id: 17,
+            oculta: false,
+            total_centavos: '0',
+            ingresos: [
+              { ...fecha, marca: 'registrado', movimiento_id: 'm1', recurrente_id: null },
+              { ...fecha, marca: 'esperado', movimiento_id: null, recurrente_id: 'r1' },
+              { ...fecha, marca: 'por_confirmar', movimiento_id: null, recurrente_id: 'r2' },
+            ],
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        recurrente_id: 'r2',
+        fecha: '2026-11-16',
+        tipo: 'ingreso',
+        categoria_id: 17,
+        medio: 'transferencia',
+        monto_habitual_centavos: '120000000',
+      },
+    ]);
   });
 });

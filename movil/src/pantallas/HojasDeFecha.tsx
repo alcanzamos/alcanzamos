@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, type TextInputInstance } from 'react-native';
-import type { Pendiente } from '../api/repeticiones';
+import type { FechaPorConfirmar } from '../api/repeticiones';
 import { useAvisarErrores } from '../anuncios';
 import { Boton } from '../componentes/Boton';
 import { CampoDeMonto } from '../componentes/CampoDeMonto';
@@ -29,7 +29,7 @@ export function HojaDeMas({
   alElegir,
   alCerrar,
 }: {
-  fila: Pendiente;
+  fila: FechaPorConfirmar;
   conIncluir?: boolean;
   alElegir: (opcion: Opcion) => void;
   alCerrar: () => void;
@@ -83,7 +83,7 @@ export function HojaDeMonto({
   alConfirmar,
   alCerrar,
 }: {
-  fila: Pendiente;
+  fila: FechaPorConfirmar;
   textoDelBoton: string;
   enviando?: boolean;
   alConfirmar: (centavos: bigint) => void;

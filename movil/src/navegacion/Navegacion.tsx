@@ -11,6 +11,7 @@ import { DetalleDeMovimiento } from '../pantallas/DetalleDeMovimiento';
 import { Edad } from '../pantallas/Edad';
 import { Entrar } from '../pantallas/Entrar';
 import { InformacionDePrivacidad } from '../pantallas/InformacionDePrivacidad';
+import { Ingresos } from '../pantallas/Ingresos';
 import { Movimientos } from '../pantallas/Movimientos';
 import { Presupuesto } from '../pantallas/Presupuesto';
 import { RecuperarAcceso } from '../pantallas/RecuperarAcceso';
@@ -55,7 +56,9 @@ async function pantallaInicial(): Promise<keyof Rutas> {
 // guardar nada). Tras guardar, corregir o borrar se vuelve a PN-01 con `popTo` y el aviso como mensaje de estado: el
 // formulario, PN-02 y «Confirmar todos» salen de la pila y el Atrás no vuelve a ellos. PN-06 («Presupuesto», que es
 // también PN-07) se apila sobre PN-71 (su Atrás vuelve a PN-71) y «Registrar» sobre PN-06; al guardar, el formulario
-// deja PN-01 en su lugar (D-164) y el Atrás de PN-01 vuelve a PN-06.
+// deja PN-01 en su lugar (D-164) y el Atrás de PN-01 vuelve a PN-06. PN-08 («Ingresos») se apila sobre PN-06 (su Atrás
+// vuelve a PN-06); su «Confirmar todos» es el de PN-01 y vuelve a PN-08 con `popTo`, y una fecha registrada abre PN-01
+// del periodo con su PN-02 encima.
 export function Navegacion() {
   const [inicial, setInicial] = useState<keyof Rutas | null>(null);
   useEffect(() => {
@@ -123,6 +126,7 @@ export function Navegacion() {
           // El mes de hoy en Colombia hasta que el API manda el suyo (la pantalla lo pone en la barra).
           options={() => conBarra(formatear(textos.presupuesto.titulo, { mes: mesEnMinuscula(hoyEnColombia().slice(0, 7)) }))}
         />
+        <Pila.Screen name="IngresosDelPeriodo" component={Ingresos} options={conBarra(textos.ingresos.titulo)} />
         <Pila.Screen name="FormularioDeRegistro" component={Registrar} options={conBarra(textos.registro.titulo)} />
         <Pila.Screen name="SeRepite" component={SeRepite} options={conBarra(textos.periodicidad.titulo)} />
       </Pila.Navigator>

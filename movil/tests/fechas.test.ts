@@ -9,6 +9,7 @@ import {
   mesAnterior,
   mesEnPalabras,
   MESES,
+  mesSiguiente,
   relativoDelDia,
 } from '../src/fechas';
 import { fijarHoy } from './ayudas/reloj';
@@ -136,5 +137,11 @@ describe('relativoDelDia, mesEnPalabras y mesAnterior (PN-01)', () => {
     expect(mesAnterior('2026-11')).toBe('2026-10');
     expect(mesAnterior('2026-10')).toBe('2026-09');
     expect(mesAnterior('2027-01')).toBe('2026-12');
+  });
+
+  it('mesSiguiente (PN-08): el mes de después, con el cero y cruzando el año', () => {
+    expect(mesSiguiente('2026-11')).toBe('2026-12');
+    expect(mesSiguiente('2026-08')).toBe('2026-09');
+    expect(mesSiguiente('2026-12')).toBe('2027-01');
   });
 });

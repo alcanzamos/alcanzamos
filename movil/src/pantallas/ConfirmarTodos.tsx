@@ -2,7 +2,8 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { decidir, listarPendientes, type Decision, type Pendiente } from '../api/repeticiones';
+import { fechasPorConfirmar, listarIngresos } from '../api/presupuesto';
+import { decidir, listarPendientes, type Decision, type FechaPorConfirmar } from '../api/repeticiones';
 import { useAnuncio } from '../anuncios';
 import { Aviso } from '../componentes/Aviso';
 import { Boton, BotonDeTexto } from '../componentes/Boton';
@@ -29,18 +30,20 @@ type Eleccion = { marcada: boolean; monto: bigint | null; omitida: boolean };
 const INICIAL: Eleccion = { marcada: true, monto: null, omitida: false };
 
 // «Confirmar todos» (E14-PRR 4.8, D-093), variante Android: una pantalla de la pila con «Guardar» fijo al pie. Todo viene
-// marcado y no se guarda nada hasta «Guardar»; el Atrás del sistema vuelve a PN-01 y descarta lo cambiado. Solo viajan
-// las filas marcadas y las «No pasó»: lo desmarcado sigue pendiente. El API lo guarda todo o nada (una sola transacción).
+// marcado y no se guarda nada hasta «Guardar»; el Atrás del sistema vuelve a la pantalla que la abrió (PN-01 o PN-08) y
+// descarta lo cambiado. Solo viajan las filas marcadas y las «No pasó»: lo desmarcado sigue pendiente. El API lo guarda
+// todo o nada (una sola transacción).
 export function ConfirmarTodos({ navigation, route }: NativeStackScreenProps<Rutas, 'ConfirmarTodos'>) {
   const { pendientes } = route.params.pendientes;
+  const periodoDeIngresos = route.params.periodoDeIngresos;
   const [elecciones, setElecciones] = useState<Record<string, Eleccion>>({});
-  const [hoja, setHoja] = useState<{ tipo: 'mas' | 'monto'; fila: Pendiente } | null>(null);
+  const [hoja, setHoja] = useState<{ tipo: 'mas' | 'monto'; fila: FechaPorConfirmar } | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<DatosDeAviso | null>(null);
   const margenes = useSafeAreaInsets();
 
-  const de = (fila: Pendiente) => elecciones[claveDe(fila)] ?? INICIAL;
-  const cambiar = (fila: Pendiente, cambios: Partial<Eleccion>) =>
+  const de = (fila: FechaPorConfirmar) => elecciones[claveDe(fila)] ?? INICIAL;
+  const cambiar = (fila: FechaPorConfirmar, cambios: Partial<Eleccion>) =>
     setElecciones({ ...elecciones, [claveDe(fila)]: { ...de(fila), ...cambios } });
 
   const marcados = pendientes.filter((f) => de(f).marcada && !de(f).omitida);
@@ -67,14 +70,20 @@ export function ConfirmarTodos({ navigation, route }: NativeStackScreenProps<Rut
     setGuardando(false);
     if (respuesta.ok) {
       const { guardados, omitidas: noPaso } = respuesta.cuerpo.resumen;
-      // Vuelve a PN-01 con el aviso: «Confirmar todos» sale de la pila y PN-01 pide la lista otra vez al recibir el foco.
-      navigation.popTo('ListaDeMovimientos', { aviso: avisoDeGuardado(guardados, noPaso) }, { merge: true });
+      // Vuelve con el aviso a PN-01 o a PN-08: «Confirmar todos» sale de la pila y la pantalla pide lo suyo otra vez al
+      // recibir el foco.
+      const aviso = avisoDeGuardado(guardados, noPaso);
+      if (periodoDeIngresos) navigation.popTo('IngresosDelPeriodo', { aviso }, { merge: true });
+      else navigation.popTo('ListaDeMovimientos', { aviso }, { merge: true });
       return;
     }
     if (seguirPorAccesoNegado(navigation, respuesta)) return;
     // La lista y lo marcado se conservan; con un 409 se piden las fechas de nuevo y lo que siga pendiente sigue como estaba.
     setError(avisoDeFallo(respuesta, avisosDePorConfirmar.errorAlGuardar));
-    if (respuesta.estado === 409) {
+    if (respuesta.estado === 409 && periodoDeIngresos) {
+      const actuales = await listarIngresos(periodoDeIngresos);
+      if (actuales.ok) navigation.setParams({ pendientes: { pendientes: fechasPorConfirmar(actuales.cuerpo) } });
+    } else if (respuesta.estado === 409) {
       const actuales = await listarPendientes();
       if (actuales.ok) navigation.setParams({ pendientes: actuales.cuerpo });
     }

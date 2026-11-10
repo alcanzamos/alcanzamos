@@ -1762,6 +1762,10 @@
           "texto": "{nombre} del {fecha} se suma cuando llegue.",
           "e14": "Propuesto en la US-77 (T3, web), pendiente de aprobación del dueño: E14 no tiene el texto. Sale de E14-PPA 4.1 (PN-06), fila 3 («El salario del 16 de noviembre de 2026 se suma cuando llegue.»), con el nombre de la categoría tal cual; solo con una fecha esperada"
         },
+        "verMisIngresos": {
+          "texto": "Ver mis ingresos",
+          "e14": "E14-PPA 4.1 (PN-06), fila 3 (abre PN-08); E14-PPA 3 (PN-07 → PN-08)"
+        },
         "nulo": {
           "texto": "Puedes repartir lo que llegue o dejar el presupuesto en cero.",
           "e14": "E14-PPA 4.2 (PN-07), fila 3, con ingreso nulo"
@@ -1907,6 +1911,66 @@
           }
         }
       }
+    },
+    "ingresos": {
+      "titulo": {
+        "texto": "Ingresos",
+        "e14": "E14-PPA 4.3 (PN-08), fila 1 (barra)"
+      },
+      "total": {
+        "entran": {
+          "texto": "Entran este mes",
+          "e14": "E14-PPA 4.3 (PN-08), fila 3"
+        },
+        "entraron": {
+          "texto": "Entraron este mes",
+          "e14": "E14-PPA 4.3 (PN-08), «Con varias fuentes»: el periodo ya terminó"
+        },
+        "yaRegistrado": {
+          "texto": "Ya registrado",
+          "e14": "E14-PPA 4.3 (PN-08), fila 3: «Ya registrado $1.200.000»"
+        },
+        "esperado": {
+          "texto": "Esperado",
+          "e14": "E14-PPA 4.3 (PN-08), fila 3: «Esperado $1.200.000»"
+        }
+      },
+      "marca": {
+        "registrado": {
+          "texto": "Registrado",
+          "e14": "E14-PPA 4.3 (PN-08), «Cómo se arma cada fila», Marca"
+        },
+        "esperado": {
+          "texto": "Esperado",
+          "e14": "E14-PPA 4.3 (PN-08), «Cómo se arma cada fila», Marca (D-091)"
+        }
+      },
+      "apoyoConDescripcion": {
+        "texto": "{medio} · {descripcion}",
+        "e14": "E14-PPA 4.3 (PN-08), «Cómo se arma cada fila», Texto de apoyo: el medio de pago y, si hay, la descripción"
+      },
+      "vacio": {
+        "titulo": {
+          "texto": "Todavía no registras ingresos este mes.",
+          "e14": "E14-PPA 4.3 (PN-08), estado «Sin ingresos en el periodo»"
+        },
+        "mensaje": {
+          "texto": "Cuando registres uno, aquí lo verás.",
+          "e14": "E14-PPA 4.3 (PN-08), estado «Sin ingresos en el periodo»"
+        }
+      },
+      "avisos": {
+        "errorAlCargar": {
+          "titulo": {
+            "texto": "No pudimos cargar tus ingresos.",
+            "e14": "E14-PPA 4.3 (PN-08), estado «Error de carga»"
+          },
+          "mensaje": {
+            "texto": "Tus datos están a salvo. Intenta de nuevo.",
+            "e14": "E14-PPA 4.3 (PN-08), estado «Error de carga»"
+          }
+        }
+      }
     }
   },
   "solo_web": {
@@ -2016,74 +2080,6 @@
       "pedirOtro": {
         "texto": "Pedir otro enlace",
         "e14": "E14-PCP 4.2 ter (PN-74), estado «Enlace vencido o ya usado» (D-192); mismo botón que PN-62 (4.5), con otro destino"
-      }
-    },
-    "ingresos": {
-      "titulo": {
-        "texto": "Ingresos",
-        "e14": "E14-PPA 4.3 (PN-08), fila 1 (barra)"
-      },
-      "total": {
-        "entran": {
-          "texto": "Entran este mes",
-          "e14": "E14-PPA 4.3 (PN-08), fila 3"
-        },
-        "entraron": {
-          "texto": "Entraron este mes",
-          "e14": "E14-PPA 4.3 (PN-08), «Con varias fuentes»: el periodo ya terminó"
-        },
-        "yaRegistrado": {
-          "texto": "Ya registrado",
-          "e14": "E14-PPA 4.3 (PN-08), fila 3: «Ya registrado $1.200.000»"
-        },
-        "esperado": {
-          "texto": "Esperado",
-          "e14": "E14-PPA 4.3 (PN-08), fila 3: «Esperado $1.200.000»"
-        }
-      },
-      "marca": {
-        "registrado": {
-          "texto": "Registrado",
-          "e14": "E14-PPA 4.3 (PN-08), «Cómo se arma cada fila», Marca"
-        },
-        "esperado": {
-          "texto": "Esperado",
-          "e14": "E14-PPA 4.3 (PN-08), «Cómo se arma cada fila», Marca (D-091)"
-        }
-      },
-      "apoyoConDescripcion": {
-        "texto": "{medio} · {descripcion}",
-        "e14": "E14-PPA 4.3 (PN-08), «Cómo se arma cada fila», Texto de apoyo: el medio de pago y, si hay, la descripción"
-      },
-      "vacio": {
-        "titulo": {
-          "texto": "Todavía no registras ingresos este mes.",
-          "e14": "E14-PPA 4.3 (PN-08), estado «Sin ingresos en el periodo»"
-        },
-        "mensaje": {
-          "texto": "Cuando registres uno, aquí lo verás.",
-          "e14": "E14-PPA 4.3 (PN-08), estado «Sin ingresos en el periodo»"
-        }
-      },
-      "avisos": {
-        "errorAlCargar": {
-          "titulo": {
-            "texto": "No pudimos cargar tus ingresos.",
-            "e14": "E14-PPA 4.3 (PN-08), estado «Error de carga»"
-          },
-          "mensaje": {
-            "texto": "Tus datos están a salvo. Intenta de nuevo.",
-            "e14": "E14-PPA 4.3 (PN-08), estado «Error de carga»"
-          }
-        }
-      }
-    },
-    "presupuesto": {
-      "resumen": {
-        "verMisIngresos": {
-          "texto": "Ver mis ingresos",
-          "e14": "E14-PPA 4.1 (PN-06), fila 3 (abre PN-08); E14-PPA 3 (PN-07 → PN-08)"
-        }
       }
     }
   },

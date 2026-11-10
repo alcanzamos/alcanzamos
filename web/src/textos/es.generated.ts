@@ -1013,14 +1013,14 @@ export const textos = {
       cuentaLoRegistrado: "Sin asignar cuenta lo que ya registraste.",
       // Propuesto en la US-77 (T3, web), pendiente de aprobación del dueño: E14 no tiene el texto. Sale de E14-PPA 4.1 (PN-06), fila 3 («El salario del 16 de noviembre de 2026 se suma cuando llegue.»), con el nombre de la categoría tal cual; solo con una fecha esperada
       seSumaCuandoLlegue: "{nombre} del {fecha} se suma cuando llegue.",
+      // E14-PPA 4.1 (PN-06), fila 3 (abre PN-08); E14-PPA 3 (PN-07 → PN-08)
+      verMisIngresos: "Ver mis ingresos",
       // E14-PPA 4.2 (PN-07), fila 3, con ingreso nulo
       nulo: "Puedes repartir lo que llegue o dejar el presupuesto en cero.",
       // E14-PPA 4.2 (PN-07), fila 3, con ingreso bajo: «Lo asignado supera por $10.000 lo que registraste…»
       bajo: "Lo asignado supera por {monto} lo que registraste. Se actualiza cuando registres más ingresos.",
       // E14-PPA 4.2 (PN-07), fila 3b
       dejarEnCero: "Dejar el presupuesto en cero",
-      // E14-PPA 4.1 (PN-06), fila 3 (abre PN-08); E14-PPA 3 (PN-07 → PN-08)
-      verMisIngresos: "Ver mis ingresos",
     },
     // E14-PPA 4.3 (PN-08), fila 5; E14-PPA 4.2 (PN-07), fila 3a (abren el formulario con Tipo «Ingreso»)
     registrarUnIngreso: "Registrar un ingreso",
@@ -1095,26 +1095,6 @@ export const textos = {
       },
     },
   },
-  recuperar: {
-    // E14-PCP 4.5 (PN-62)
-    titulo: "Elige tu contraseña nueva",
-    // E14-PCP 4.5 (PN-62)
-    pedirOtro: "Pedir otro enlace",
-  },
-  textosDeRepeticion: {
-    // E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62
-    vacia: "Falta repetir la contraseña.",
-    // E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62
-    distinta: "Falta que las dos contraseñas sean iguales.",
-  },
-  eligeTuContrasena: {
-    // E14-PCP 4.2 ter (PN-74), fila 1, aprobado (D-176)
-    titulo: "Elige tu contraseña",
-    // E14-PCP 4.2 ter (PN-74), fila 2, aprobado (D-176)
-    intro: "Un último paso para crear tu cuenta. Elige tu contraseña y dinos cómo quieres que te llamemos.",
-    // E14-PCP 4.2 ter (PN-74), estado «Enlace vencido o ya usado» (D-192); mismo botón que PN-62 (4.5), con otro destino
-    pedirOtro: "Pedir otro enlace",
-  },
   ingresos: {
     // E14-PPA 4.3 (PN-08), fila 1 (barra)
     titulo: "Ingresos",
@@ -1150,6 +1130,26 @@ export const textos = {
         mensaje: "Tus datos están a salvo. Intenta de nuevo.",
       },
     },
+  },
+  recuperar: {
+    // E14-PCP 4.5 (PN-62)
+    titulo: "Elige tu contraseña nueva",
+    // E14-PCP 4.5 (PN-62)
+    pedirOtro: "Pedir otro enlace",
+  },
+  textosDeRepeticion: {
+    // E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62
+    vacia: "Falta repetir la contraseña.",
+    // E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62
+    distinta: "Falta que las dos contraseñas sean iguales.",
+  },
+  eligeTuContrasena: {
+    // E14-PCP 4.2 ter (PN-74), fila 1, aprobado (D-176)
+    titulo: "Elige tu contraseña",
+    // E14-PCP 4.2 ter (PN-74), fila 2, aprobado (D-176)
+    intro: "Un último paso para crear tu cuenta. Elige tu contraseña y dinos cómo quieres que te llamemos.",
+    // E14-PCP 4.2 ter (PN-74), estado «Enlace vencido o ya usado» (D-192); mismo botón que PN-62 (4.5), con otro destino
+    pedirOtro: "Pedir otro enlace",
   },
 } as const;
 

@@ -1,4 +1,11 @@
-import type { CategoriaDelPresupuesto, PresupuestoDelPeriodo } from '../../src/api/presupuesto';
+import type { Listado } from '../../src/api/movimientos';
+import type {
+  CategoriaDelPresupuesto,
+  FuenteDeIngreso,
+  IngresoDelPeriodo,
+  IngresosDelPeriodo,
+  PresupuestoDelPeriodo,
+} from '../../src/api/presupuesto';
 import { listado } from './movimientosFalsos';
 
 // El presupuesto de mentira con la forma del API (api/README.md, «Presupuesto del periodo»): el escenario de E14-PPA 2.2
@@ -98,6 +105,58 @@ export const bajo = datos(
   ],
 );
 
+// PN-08 (E14-PPA 2.4): Laura en noviembre, el salario registrado del 1 y el esperado del 16; el caso P en octubre.
+export const ingreso = (parcial: Partial<IngresoDelPeriodo> = {}): IngresoDelPeriodo => ({
+  fecha: '2026-11-01',
+  marca: 'registrado',
+  monto_centavos: '120000000',
+  medio: 'transferencia',
+  descripcion: null,
+  movimiento_id: 'm-salario',
+  recurrente_id: null,
+  ...parcial,
+});
+export const esperado = (parcial: Partial<IngresoDelPeriodo> = {}) =>
+  ingreso({ fecha: '2026-11-16', marca: 'esperado', movimiento_id: null, recurrente_id: 'r-salario', ...parcial });
+export const fuente = (categoria_id: number, ingresos: IngresoDelPeriodo[], oculta = false): FuenteDeIngreso => ({
+  categoria_id,
+  oculta,
+  total_centavos: String(ingresos.reduce((suma, i) => suma + BigInt(i.monto_centavos), 0n)),
+  ingresos,
+});
+export const ingresosDe = (
+  fuentes: FuenteDeIngreso[],
+  parcial: Partial<IngresosDelPeriodo> = {},
+): IngresosDelPeriodo => {
+  const todos = fuentes.flatMap((f) => f.ingresos);
+  const suma = (filtro: (i: IngresoDelPeriodo) => boolean) =>
+    String(todos.filter(filtro).reduce((total, i) => total + BigInt(i.monto_centavos), 0n));
+  return {
+    periodo_actual: '2026-11',
+    periodo: '2026-11',
+    meses: ['2026-11', '2026-10', '2026-08'],
+    total: {
+      entran_centavos: suma(() => true),
+      registrado_centavos: suma((i) => i.marca === 'registrado'),
+      esperado_centavos: suma((i) => i.marca !== 'registrado'),
+      por_confirmar: todos.filter((i) => i.marca === 'por_confirmar').length,
+    },
+    fuentes,
+    ...parcial,
+  };
+};
+export const ingresosDeLaura = ingresosDe([fuente(17, [ingreso(), esperado()])]);
+export const casoPDeOctubre = ingresosDe(
+  [
+    fuente(18, [
+      ingreso({ fecha: '2026-10-03', monto_centavos: '30000000', descripcion: 'Venta de artesanías', movimiento_id: 'm-venta-1' }),
+      ingreso({ fecha: '2026-10-28', monto_centavos: '9000000', descripcion: 'Venta de artesanías', movimiento_id: 'm-venta-2' }),
+    ]),
+    fuente(20, [ingreso({ fecha: '2026-10-15', monto_centavos: '16000000', medio: 'efectivo', descripcion: 'Subsidio', movimiento_id: 'm-subsidio' })]),
+  ],
+  { periodo: '2026-10' },
+);
+
 const catalogo = {
   gasto: [1, 4, 5, 8, 11, 13, 16].map((id) => ({ id, nombre: 'x', general: id === 16 })),
   ingreso: [{ id: 17, nombre: 'x', general: false }, { id: 18, nombre: 'x', general: false }],
@@ -108,7 +167,7 @@ type Respuesta = (estado: number, cuerpo?: unknown) => Response;
 type Contesta = () => Response | Promise<Response>;
 
 /**
- * PN-71, las categorías, el presupuesto y lo que piden PN-01 y el formulario. `presupuesto` es lo que contesta el GET
+ * PN-71, las categorías, el presupuesto, los ingresos y lo que piden PN-01 y el formulario. `presupuesto` es lo que contesta el GET
  * (una función, si cambia con cada pedido); `poner`, `corregir`, `quitar` y `enCero` contestan el POST, el PUT, el
  * DELETE y el POST de la marca (por defecto `201`, `200`, `204` y `204`). Devuelve los pedidos, en orden.
  */
@@ -116,6 +175,11 @@ export function apiDelPresupuesto(
   respuestaJson: Respuesta,
   opciones: {
     presupuesto?: PresupuestoDelPeriodo | (() => PresupuestoDelPeriodo | Response);
+    /** Lo que contesta `GET /api/v1/ingresos`, según el periodo pedido (`null` sin periodo). */
+    ingresos?: (periodo: string | null) => IngresosDelPeriodo | Response;
+    /** Los `POST` de «Por confirmar» de la US-60 (por defecto `500`). */
+    publicar?: (ruta: string, cuerpo: string) => Response | Promise<Response>;
+    lista?: Listado;
     poner?: Contesta;
     corregir?: Contesta;
     quitar?: Contesta;
@@ -132,11 +196,17 @@ export function apiDelPresupuesto(
     if (ruta === '/api/v1/categorias') return respuestaJson(200, catalogo);
     if (ruta === '/api/v1/repeticiones/pendientes')
       return respuestaJson(200, { pendientes: [], resumen: { total: 0, ingresos: 0, gastos: 0 } });
-    if (ruta.startsWith('/api/v1/movimientos')) return respuestaJson(200, listado());
+    if (ruta.startsWith('/api/v1/movimientos')) return respuestaJson(200, opciones.lista ?? listado());
+    if (ruta.startsWith('/api/v1/ingresos')) {
+      const actual = opciones.ingresos?.(/periodo=([\d-]+)/.exec(ruta)?.[1] ?? null) ?? ingresosDeLaura;
+      return 'status' in actual ? actual : respuestaJson(200, actual);
+    }
+    if (ruta.startsWith('/api/v1/repeticiones/') && metodo === 'POST')
+      return opciones.publicar ? opciones.publicar(ruta, String(init.body)) : respuestaJson(500, { error: 'interno' });
     if (ruta === '/api/v1/presupuestos/en-cero') return opciones.enCero?.() ?? respuestaJson(204);
     if (ruta === '/api/v1/presupuestos' && metodo === 'GET') {
       const actual = typeof presupuesto === 'function' ? presupuesto() : presupuesto;
-      return actual instanceof Object && 'status' in actual ? actual : respuestaJson(200, actual);
+      return 'status' in actual ? actual : respuestaJson(200, actual);
     }
     if (metodo === 'POST') return opciones.poner?.() ?? respuestaJson(201, {});
     if (metodo === 'PUT') return opciones.corregir?.() ?? respuestaJson(200, {});

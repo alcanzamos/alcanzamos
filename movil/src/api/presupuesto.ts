@@ -1,6 +1,8 @@
 import { pedir } from './cliente';
+import type { Medio } from './registro';
+import type { FechaPorConfirmar } from './repeticiones';
 
-// Rutas de PN-06 y PN-07 (api/README.md, «Presupuesto del periodo»). Las reglas viven en el API (E17-ECO 4.7): el modo
+// Rutas de PN-06, PN-07 y PN-08 (api/README.md, «Presupuesto del periodo»). Las reglas viven en el API (E17-ECO 4.7): el modo
 // de la pantalla, las sumas, los estados y el orden. El API no manda textos: ids, claves y códigos. Los montos llegan
 // como texto (enteros de 64 bits, D-082) y se mandan armando el JSON a mano, sin pasar por `number`.
 
@@ -47,6 +49,43 @@ export type PresupuestoDelPeriodo = {
   categorias: CategoriaDelPresupuesto[];
 };
 
+export type MarcaDeIngreso = 'registrado' | 'esperado' | 'por_confirmar';
+
+export type IngresoDelPeriodo = {
+  fecha: string;
+  marca: MarcaDeIngreso;
+  monto_centavos: string;
+  medio: Medio;
+  descripcion: string | null;
+  /** Lo registrado: el movimiento de PN-02. */
+  movimiento_id: string | null;
+  /** Lo esperado y lo por confirmar: la repetición de la US-60. */
+  recurrente_id: string | null;
+};
+
+export type FuenteDeIngreso = {
+  categoria_id: number;
+  oculta: boolean;
+  total_centavos: string;
+  ingresos: IngresoDelPeriodo[];
+};
+
+export type IngresosDelPeriodo = {
+  periodo_actual: string;
+  periodo: string;
+  /** Los meses con ingresos registrados, del más reciente al más antiguo («Otro mes»). */
+  meses: string[];
+  total: {
+    entran_centavos: string;
+    registrado_centavos: string;
+    esperado_centavos: string;
+    /** Con dos o más, «Confirmar todos» (D-093). */
+    por_confirmar: number;
+  };
+  /** De mayor a menor total. */
+  fuentes: FuenteDeIngreso[];
+};
+
 const PRESUPUESTOS = '/api/v1/presupuestos';
 
 /** PN-06 y PN-07 muestran el mes en curso (D-094): el API lo elige. */
@@ -68,3 +107,24 @@ export const quitarPresupuesto = (id: string) => pedir('DELETE', `${PRESUPUESTOS
 
 /** «Dejar el presupuesto en cero» (CU-10 2a): guarda la marca del mes. */
 export const dejarEnCero = (periodo: string) => pedir('POST', `${PRESUPUESTOS}/en-cero`, { periodo });
+
+/** PN-08: sin periodo, el mes en curso. Sin `URLSearchParams`: en React Native no implementa `set`. */
+export const listarIngresos = (periodo: string | null) =>
+  pedir<IngresosDelPeriodo>('GET', periodo ? `/api/v1/ingresos?periodo=${encodeURIComponent(periodo)}` : '/api/v1/ingresos');
+
+/** Una fecha por confirmar de PN-08 con lo que piden «Confirmar», «Más» y «Confirmar todos» de la US-60. */
+export const porConfirmarDe = (fuente: FuenteDeIngreso, ingreso: IngresoDelPeriodo): FechaPorConfirmar | null =>
+  ingreso.marca === 'por_confirmar' && ingreso.recurrente_id
+    ? {
+        recurrente_id: ingreso.recurrente_id,
+        fecha: ingreso.fecha,
+        tipo: 'ingreso',
+        categoria_id: fuente.categoria_id,
+        medio: ingreso.medio,
+        monto_habitual_centavos: ingreso.monto_centavos,
+      }
+    : null;
+
+/** Las fechas por confirmar del periodo, en el orden de la pantalla. */
+export const fechasPorConfirmar = (datos: IngresosDelPeriodo): FechaPorConfirmar[] =>
+  datos.fuentes.flatMap((f) => f.ingresos.flatMap((i) => porConfirmarDe(f, i) ?? []));

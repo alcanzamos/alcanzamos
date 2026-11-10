@@ -62,8 +62,9 @@ function errorDelMonto(respuesta: Fallo): string | undefined {
 }
 
 // Una Fila de lista con valor (E14-SDD 5.15) o la cifra grande (Monto · Grande · Neutro, 5.5: nunca en Atención,
-// tampoco en PN-07, RNF-017). TalkBack la lee como un solo elemento, con el monto en pesos (ACC-004, D-187).
-function FilaConValor({ etiqueta, centavos, grande = false }: { etiqueta: string; centavos: string; grande?: boolean }) {
+// tampoco en PN-07, RNF-017). TalkBack la lee como un solo elemento, con el monto en pesos (ACC-004, D-187). PN-08
+// también la usa.
+export function FilaConValor({ etiqueta, centavos, grande = false }: { etiqueta: string; centavos: string; grande?: boolean }) {
   const hablado = [etiqueta, pesosHablados(centavos)].join(', ');
   return (
     <View
@@ -80,7 +81,7 @@ function FilaConValor({ etiqueta, centavos, grande = false }: { etiqueta: string
 
 // La tarjeta «Tu presupuesto este mes»: la de PN-06 con `normal` y la de PN-07 con un ingreso bajo o nulo (D-094, P-3).
 // Describe sin calificar: sin Atención, sin rojo y sin signo menos (RNF-017).
-function Resumen({ datos }: { datos: PresupuestoDelPeriodo }) {
+function Resumen({ datos, alVerIngresos }: { datos: PresupuestoDelPeriodo; alVerIngresos: () => void }) {
   const r = datos.resumen;
   const llegaDespues = BigInt(r.llega_despues_centavos) > 0n;
   const frase = seSumaCuandoLlegue(datos.llega_despues);
@@ -113,6 +114,7 @@ function Resumen({ datos }: { datos: PresupuestoDelPeriodo }) {
         </Texto>
       )}
       {r.modo === 'ingreso_nulo' && <Texto>{t.resumen.nulo}</Texto>}
+      <BotonDeTexto alTocar={alVerIngresos}>{t.resumen.verMisIngresos}</BotonDeTexto>
     </Tarjeta>
   );
 }
@@ -248,7 +250,7 @@ export function Presupuesto({ navigation, route }: NativeStackScreenProps<Rutas,
         )}
         {datos && r && (
           <>
-            <Resumen datos={datos} />
+            <Resumen datos={datos} alVerIngresos={() => navigation.navigate('IngresosDelPeriodo')} />
             {r.modo !== 'normal' && (
               <Boton variante="secundario" alTocar={() => registrar(true)}>
                 {t.registrarUnIngreso}

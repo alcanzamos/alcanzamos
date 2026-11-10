@@ -991,6 +991,8 @@ export const textos = {
       cuentaLoRegistrado: "Sin asignar cuenta lo que ya registraste.",
       // Propuesto en la US-77 (T3, web), pendiente de aprobación del dueño: E14 no tiene el texto. Sale de E14-PPA 4.1 (PN-06), fila 3 («El salario del 16 de noviembre de 2026 se suma cuando llegue.»), con el nombre de la categoría tal cual; solo con una fecha esperada
       seSumaCuandoLlegue: "{nombre} del {fecha} se suma cuando llegue.",
+      // E14-PPA 4.1 (PN-06), fila 3 (abre PN-08); E14-PPA 3 (PN-07 → PN-08)
+      verMisIngresos: "Ver mis ingresos",
       // E14-PPA 4.2 (PN-07), fila 3, con ingreso nulo
       nulo: "Puedes repartir lo que llegue o dejar el presupuesto en cero.",
       // E14-PPA 4.2 (PN-07), fila 3, con ingreso bajo: «Lo asignado supera por $10.000 lo que registraste…»
@@ -1069,6 +1071,42 @@ export const textos = {
         // E14-PPA 4.1 (PN-06), estado «Error de carga»; E14-PPA 4.2 (PN-07)
         titulo: "No pudimos cargar tu presupuesto.",
         // E14-PPA 4.1 (PN-06), estado «Error de carga»; E14-PPA 4.2 (PN-07)
+        mensaje: "Tus datos están a salvo. Intenta de nuevo.",
+      },
+    },
+  },
+  ingresos: {
+    // E14-PPA 4.3 (PN-08), fila 1 (barra)
+    titulo: "Ingresos",
+    total: {
+      // E14-PPA 4.3 (PN-08), fila 3
+      entran: "Entran este mes",
+      // E14-PPA 4.3 (PN-08), «Con varias fuentes»: el periodo ya terminó
+      entraron: "Entraron este mes",
+      // E14-PPA 4.3 (PN-08), fila 3: «Ya registrado $1.200.000»
+      yaRegistrado: "Ya registrado",
+      // E14-PPA 4.3 (PN-08), fila 3: «Esperado $1.200.000»
+      esperado: "Esperado",
+    },
+    marca: {
+      // E14-PPA 4.3 (PN-08), «Cómo se arma cada fila», Marca
+      registrado: "Registrado",
+      // E14-PPA 4.3 (PN-08), «Cómo se arma cada fila», Marca (D-091)
+      esperado: "Esperado",
+    },
+    // E14-PPA 4.3 (PN-08), «Cómo se arma cada fila», Texto de apoyo: el medio de pago y, si hay, la descripción
+    apoyoConDescripcion: "{medio} · {descripcion}",
+    vacio: {
+      // E14-PPA 4.3 (PN-08), estado «Sin ingresos en el periodo»
+      titulo: "Todavía no registras ingresos este mes.",
+      // E14-PPA 4.3 (PN-08), estado «Sin ingresos en el periodo»
+      mensaje: "Cuando registres uno, aquí lo verás.",
+    },
+    avisos: {
+      errorAlCargar: {
+        // E14-PPA 4.3 (PN-08), estado «Error de carga»
+        titulo: "No pudimos cargar tus ingresos.",
+        // E14-PPA 4.3 (PN-08), estado «Error de carga»
         mensaje: "Tus datos están a salvo. Intenta de nuevo.",
       },
     },

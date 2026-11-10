@@ -57,6 +57,7 @@ function porDia(movimientos: Movimiento[]) {
 export function Movimientos({ navigation, route }: NativeStackScreenProps<Rutas, 'ListaDeMovimientos'>) {
   const periodo = route.params?.periodo ?? null;
   const categoria = route.params?.categoria ?? null;
+  const abrir = route.params?.movimiento ?? null;
   const [estado, setEstado] = useState<Estado>({ fase: 'cargando' });
   const [verMeses, setVerMeses] = useState(false);
   const [verTodas, setVerTodas] = useState(false);
@@ -69,14 +70,19 @@ export function Movimientos({ navigation, route }: NativeStackScreenProps<Rutas,
     // «Por confirmar» no depende de los filtros (E14-PRR 4.1): se pide junto con la lista.
     void Promise.all([listarMovimientos(periodo, categoria), listarPendientes()]).then(([lista, porConfirmar]) => {
       if (numero !== ultimo.current) return;
-      if (lista.ok && porConfirmar.ok) setEstado({ fase: 'listo', datos: lista.cuerpo, pendientes: porConfirmar.cuerpo });
-      else {
+      if (lista.ok && porConfirmar.ok) {
+        setEstado({ fase: 'listo', datos: lista.cuerpo, pendientes: porConfirmar.cuerpo });
+        // Una fecha registrada de PN-08 abre su PN-02 sobre esta lista, como en la web; si no está, queda la lista.
+        const elegido = abrir ? lista.cuerpo.movimientos.find((fila) => fila.id === abrir) : undefined;
+        if (abrir) navigation.setParams({ movimiento: undefined });
+        if (elegido) navigation.navigate('DetalleDeMovimiento', { movimiento: elegido });
+      } else {
         const fallo = lista.ok ? porConfirmar : lista;
         if (!fallo.ok && !seguirPorAccesoNegado(navigation, fallo))
           setEstado({ fase: 'error', aviso: avisoDeFallo(fallo, avisos.errorAlCargarMovimientos) });
       }
     });
-  }, [navigation, periodo, categoria]);
+  }, [navigation, periodo, categoria, abrir]);
   // Al volver de PN-02 o del formulario se pide la lista otra vez: lo corregido o borrado ya cambió.
   useFocusEffect(cargar);
 

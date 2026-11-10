@@ -1,5 +1,5 @@
 import type { Movimiento } from './api/movimientos';
-import type { Pendiente } from './api/repeticiones';
+import type { FechaPorConfirmar } from './api/repeticiones';
 import { formatearPesos } from './dinero';
 import { diaEnPalabras } from './fechas';
 import { montoHablado } from './montoHablado';
@@ -17,7 +17,7 @@ const tipoEnPalabras = {
 };
 
 /** Las líneas de una fila «Por confirmar»; la repetición no tiene nombre: la fila se titula con su categoría. */
-export function textosDeFilaPorConfirmar(fila: Pendiente) {
+export function textosDeFilaPorConfirmar(fila: FechaPorConfirmar) {
   const principal = nombresDeCategoria[`c${fila.categoria_id}`] ?? '';
   const fecha = diaEnPalabras(fila.fecha) ?? fila.fecha;
   const tipo = tipoEnPalabras[fila.tipo];
