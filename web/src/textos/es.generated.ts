@@ -1013,6 +1013,108 @@ export const textos = {
     // E14-PCP 4.2 ter (PN-74), estado «Enlace vencido o ya usado» (D-192); mismo botón que PN-62 (4.5), con otro destino
     pedirOtro: "Pedir otro enlace",
   },
+  presupuesto: {
+    // E14-SDD 5.9 (destino «Presupuesto» de la navegación); E14-PPA 4.1 (PN-06), fila 8; entrada provisional en PN-71 (L3 de la US-77, punto 3)
+    destino: "Presupuesto",
+    // E14-PPA 4.1 (PN-06), fila 2: «Presupuesto de noviembre» (plantilla sacada del ejemplo); E14-PPA 4.2 (PN-07), fila 2
+    titulo: "Presupuesto de {mes}",
+    resumen: {
+      // E14-PPA 4.1 (PN-06), fila 3; E14-PPA 4.2 (PN-07), fila 3
+      titulo: "Tu presupuesto este mes",
+      // E14-PPA 4.1 (PN-06), fila 3: «Ingreso registrado $1.200.000»; E14-PPA 4.2 (PN-07), fila 3
+      ingresoRegistrado: "Ingreso registrado",
+      // E14-PPA 4.1 (PN-06), fila 3: «Asignado $40.000»; E14-PPA 4.2 (PN-07), fila 3
+      asignado: "Asignado",
+      // E14-PPA 4.1 (PN-06), fila 3: cifra grande «Sin asignar $1.160.000»
+      sinAsignar: "Sin asignar",
+      // E14-PPA 4.1 (PN-06), fila 3: «Llega después: $1.200.000 (esperado)» (D-094); E14-PPA 4.2 (PN-07), reglas
+      llegaDespues: "Llega después: {monto} (esperado)",
+      // E14-PPA 4.1 (PN-06), fila 3, texto `tipografia.pequeno` (primera frase)
+      cuentaLoRegistrado: "Sin asignar cuenta lo que ya registraste.",
+      // Propuesto en la US-77 (T3, web), pendiente de aprobación del dueño: E14 no tiene el texto. Sale de E14-PPA 4.1 (PN-06), fila 3 («El salario del 16 de noviembre de 2026 se suma cuando llegue.»), con el nombre de la categoría tal cual; solo con una fecha esperada
+      seSumaCuandoLlegue: "{nombre} del {fecha} se suma cuando llegue.",
+      // E14-PPA 4.1 (PN-06), fila 3 (abre PN-08); E14-PPA 3 (PN-07 → PN-08)
+      verMisIngresos: "Ver mis ingresos",
+      // E14-PPA 4.2 (PN-07), fila 3, con ingreso nulo
+      nulo: "Puedes repartir lo que llegue o dejar el presupuesto en cero.",
+      // E14-PPA 4.2 (PN-07), fila 3, con ingreso bajo: «Lo asignado supera por $10.000 lo que registraste…»
+      bajo: "Lo asignado supera por {monto} lo que registraste. Se actualiza cuando registres más ingresos.",
+      // E14-PPA 4.2 (PN-07), fila 3b
+      dejarEnCero: "Dejar el presupuesto en cero",
+    },
+    // E14-PPA 4.3 (PN-08), fila 5; E14-PPA 4.2 (PN-07), fila 3a (abren el formulario con Tipo «Ingreso»)
+    registrarUnIngreso: "Registrar un ingreso",
+    categorias: {
+      // E14-PPA 4.1 (PN-06), fila 4
+      titulo: "Por categoría",
+      // E14-PPA 4.1 (PN-06), estado «Sin presupuestos»
+      sinPresupuestos: "Todavía no tienes presupuesto este mes.",
+      // E14-PPA 4.1 (PN-06), estado «Sin presupuestos»
+      elige: "Elige una categoría y pon cuánto quieres gastar en ella.",
+      // E14-PPA 4.2 (PN-07), fila 4, con ingreso nulo
+      sinGastos: "Todavía no hay gastos este mes.",
+      // E14-PPA 4.1 (PN-06), «Cómo se arma cada fila»: «Presupuesto $40.000 · Gastado $40.000»
+      conPresupuesto: "Presupuesto {presupuesto} · Gastado {gastado}",
+      // E14-PPA 4.1 (PN-06), «Cómo se arma cada fila»: «Gastado $650.000 · Sin presupuesto»
+      sinPresupuesto: "Gastado {gastado} · Sin presupuesto",
+      // E14-PPA 4.1 (PN-06), «Estado de una categoría con presupuesto»: «Quedan $180.000 por gastar.»
+      quedan: "Quedan {monto} por gastar.",
+      // E14-PPA 4.1 (PN-06), «Estado de una categoría con presupuesto»
+      usadoTodo: "Ya usaste todo lo presupuestado.",
+      // E14-PPA 4.1 (PN-06), «Estado de una categoría con presupuesto»: «Gastado $120.000 de $100.000 presupuestados.»
+      superado: "Gastado {gastado} de {presupuesto} presupuestados.",
+      // E14-PPA 4.1 (PN-06), «Cómo se arma cada fila», Acción sin presupuesto
+      poner: "Poner presupuesto",
+      // E14-PPA 4.1 (PN-06), «Cómo se arma cada fila», Acción con presupuesto (D-094)
+      corregir: "Corregir",
+      // E14-PPA 4.1 (PN-06), «Cómo se arma cada fila», Acción con presupuesto (D-094)
+      quitar: "Quitar",
+      // Propuesto en la US-77 (T3, web), pendiente de aprobación del dueño: E14 no tiene el texto. E14-PPA 4.1 (PN-06) pide el nombre de la categoría en el nombre accesible de «Poner presupuesto» (RNF-019, criterio 6)
+      nombreDePoner: "Poner presupuesto a {categoria}",
+      // Propuesto en la US-77 (T3, web), pendiente de aprobación del dueño: E14 no tiene el texto. E14-PPA 4.1 (PN-06) pide el nombre de la categoría en el nombre accesible de «Quitar» (SC-E21-13); sale del título de la hoja «¿Quitar el presupuesto de Transporte?»
+      nombreDeQuitar: "Quitar el presupuesto de {categoria}",
+      // E14-PPA 4.1 (PN-06), fila 5 (abre «Ver todas» de E14-PPN 3.1)
+      agregarOtra: "Agregar otra categoría",
+    },
+    hoja: {
+      // E14-PPA 4.1 (PN-06), hoja «Poner presupuesto», fila 1: «Presupuesto de Servicios públicos»
+      titulo: "Presupuesto de {categoria}",
+      // E14-PPA 4.1 (PN-06), «Corregir y quitar»: «Corregir el presupuesto de Transporte»; también es el nombre accesible de «Corregir»
+      tituloCorregir: "Corregir el presupuesto de {categoria}",
+      // E14-PPA 4.1 (PN-06), hoja «Poner presupuesto», fila 2: «Monto para noviembre»
+      monto: "Monto para {mes}",
+      // E14-PPA 4.1 (PN-06), hoja «Poner presupuesto», fila 5
+      guardar: "Guardar",
+    },
+    quitar: {
+      // E14-PPA 4.1 (PN-06), «Corregir y quitar»: «¿Quitar el presupuesto de Transporte?»
+      titulo: "¿Quitar el presupuesto de {categoria}?",
+      // E14-PPA 4.1 (PN-06), «Corregir y quitar»
+      explicacion: "Lo que gastaste no cambia. Puedes poner otro cuando quieras.",
+      // E14-PPA 4.1 (PN-06), «Corregir y quitar», Botón · Primario
+      confirmar: "Quitar presupuesto",
+    },
+    avisos: {
+      // E14-PPA 4.1 (PN-06), «Corregir y quitar» y reglas: «Listo, guardamos tu presupuesto de Servicios públicos.»
+      guardamos: "Listo, guardamos tu presupuesto de {categoria}.",
+      // E14-PPA 4.1 (PN-06), «Corregir y quitar»: «Listo, quitamos tu presupuesto de Transporte.»
+      quitamos: "Listo, quitamos tu presupuesto de {categoria}.",
+      // E14-PPA 4.2 (PN-07), reglas y estado «En cero»
+      enCero: "Listo, tu presupuesto de {mes} queda en cero. Cuando llegue un ingreso, puedes repartirlo.",
+      errorAlGuardar: {
+        // E14-PPA 4.1 (PN-06), estado «Error de guardado»
+        titulo: "No pudimos guardar el presupuesto.",
+        // E14-PPA 4.1 (PN-06), estado «Error de guardado»
+        mensaje: "Tus datos están a salvo. Intenta de nuevo.",
+      },
+      errorAlCargar: {
+        // E14-PPA 4.1 (PN-06), estado «Error de carga»; E14-PPA 4.2 (PN-07)
+        titulo: "No pudimos cargar tu presupuesto.",
+        // E14-PPA 4.1 (PN-06), estado «Error de carga»; E14-PPA 4.2 (PN-07)
+        mensaje: "Tus datos están a salvo. Intenta de nuevo.",
+      },
+    },
+  },
 } as const;
 
 // Ayudas de los textos con datos y de los plurales (US-59, D-160). Esta es la única copia: el generador

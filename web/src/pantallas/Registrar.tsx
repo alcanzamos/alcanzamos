@@ -30,7 +30,7 @@ import {
 } from "../borradorDeRegistro";
 import { formatearPesos, leerMonto } from "../dinero";
 import { useFocoPendiente } from "../enfoque";
-import { alTocarEnlace } from "../enrutador";
+import { alTocarEnlace, navegar, useUbicacion } from "../enrutador";
 import { diaEnPalabras, hoyEnColombia } from "../fechas";
 import { irConMensaje } from "../llegada";
 import {
@@ -670,9 +670,20 @@ export function FormularioDeMovimiento({
   );
 }
 
-// El formulario de registro: se llega desde «Registrar» de PN-01 y vuelve a PN-01 al guardar (D-164).
-export const Registrar = () => (
-  <Pagina titulo={r.titulo} atras="/movimientos" registro>
-    <FormularioDeMovimiento />
-  </Pagina>
-);
+// El formulario de registro: se llega desde «Registrar» de PN-01 y vuelve a PN-01 al guardar (D-164). «Registrar un
+// ingreso» de PN-07 y PN-08 (E14-PPA 4.2 y 4.3) llega con `?tipo=ingreso`: el Tipo queda en «Ingreso» y el parámetro
+// sale de la dirección, para que volver de PN-03 no deshaga lo que la persona cambió.
+export function Registrar() {
+  const { parametros } = useUbicacion();
+  const conIngreso = parametros.get("tipo") === "ingreso";
+  useEffect(() => {
+    if (!conIngreso) return;
+    cambiarBorrador({ tipo: "ingreso" });
+    navegar("/registrar", true);
+  }, [conIngreso]);
+  return (
+    <Pagina titulo={r.titulo} atras="/movimientos" registro>
+      <FormularioDeMovimiento />
+    </Pagina>
+  );
+}

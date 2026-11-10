@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { responder, simularApi, sinPendientes } from "./ayudas";
+import { apiDePresupuesto, casos } from "./datosDePresupuesto";
 
 // S13 (USA-008 de I05): el punto 5 de E14-MCO 4.2 pide sin desplazamiento horizontal de 360 a 1920 px.
 const anchos = [360, 768, 1280, 1920];
@@ -356,6 +357,48 @@ const pantallas: Pantalla[] = [
       await expect(encabezado(page, "Se repite")).toBeVisible();
       await page.getByRole("radio", { name: "Cada mes" }).check();
       await expect(page.getByRole("radio", { name: "Cada mes" })).toBeChecked();
+    },
+  },
+  {
+    nombre: "PN-06 /presupuesto",
+    preparar: (page) => apiDePresupuesto(page, casos.laura()),
+    abrir: async (page) => {
+      await abrirConTitulo("/presupuesto", "Presupuesto de noviembre")(page);
+      await expect(
+        page.getByRole("button", { name: "Agregar otra categoría" }),
+      ).toBeVisible();
+    },
+  },
+  {
+    nombre: "PN-06 /presupuesto con la hoja «Poner presupuesto» abierta",
+    preparar: (page) => apiDePresupuesto(page, casos.laura()),
+    abrir: async (page) => {
+      await abrirConTitulo("/presupuesto", "Presupuesto de noviembre")(page);
+      await page
+        .getByRole("button", {
+          name: "Poner presupuesto a Arriendo o cuota de vivienda",
+        })
+        .click();
+      await page.getByRole("button", { name: "Guardar" }).click();
+      await expect(page.getByText("Falta el monto.")).toBeVisible();
+    },
+  },
+  {
+    nombre: "PN-07 /presupuesto con ingreso nulo",
+    preparar: (page) => apiDePresupuesto(page, casos.nulo()),
+    abrir: async (page) => {
+      await abrirConTitulo("/presupuesto", "Presupuesto de noviembre")(page);
+      await expect(
+        page.getByRole("button", { name: "Dejar el presupuesto en cero" }),
+      ).toBeVisible();
+    },
+  },
+  {
+    nombre: "PN-07 /presupuesto con ingreso bajo",
+    preparar: (page) => apiDePresupuesto(page, casos.bajo()),
+    abrir: async (page) => {
+      await abrirConTitulo("/presupuesto", "Presupuesto de noviembre")(page);
+      await expect(page.getByText(/Lo asignado supera por/)).toBeVisible();
     },
   },
   {
