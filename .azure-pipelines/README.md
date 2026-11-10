@@ -59,3 +59,4 @@ El paso de commitlint pide el título del PR a la API de GitHub. Sin token, GitH
 - **Cómo se usa:** entra al paso como variable de entorno y va a `curl` por su entrada estándar, nunca en la línea de comandos. Azure lo oculta en los registros.
 - **Sin la variable:** el paso pide el título sin token, como antes.
 - **Con el token vencido o revocado:** GitHub responde 401 y `comun` falla. Es a propósito: avisa que hay que renovarlo.
+- **Después de cambiar una variable secreta** (por ejemplo, al renovar el token): hay que pedir una corrida nueva comentando `/azp run control` en el PR (o `/azp run comun` mientras `comun` siga siendo el control obligatorio). **No usar «Rerun failed jobs»:** repite los trabajos con las variables que la corrida tenía al crearse y vuelve a fallar con 401 (visto por el dueño el 2026-11-10 en el #104).
