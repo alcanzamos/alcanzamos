@@ -91,6 +91,23 @@ func (r *repoFalso) Ingresos(_ context.Context, p string, mes time.Time) (presup
 	return r.ingresos, r.error
 }
 
+// Las lecturas no escriben: estas pruebas no las llaman (las de escritura usan repoDeEscritura).
+func (r *repoFalso) Poner(context.Context, string, int, time.Time, int64) (presupuesto.Guardado, bool, error) {
+	return presupuesto.Guardado{}, false, errors.New("no se escribe")
+}
+
+func (r *repoFalso) Obtener(context.Context, string, string) (presupuesto.Guardado, error) {
+	return presupuesto.Guardado{}, errors.New("no se escribe")
+}
+
+func (r *repoFalso) Corregir(context.Context, string, string, time.Time, int64) error {
+	return errors.New("no se escribe")
+}
+
+func (r *repoFalso) Quitar(context.Context, string, string, time.Time) error {
+	return errors.New("no se escribe")
+}
+
 type sesionFalsa struct{}
 
 func (sesionFalsa) SujetoDe(*http.Request) (seguridad.Sujeto, error) {
@@ -480,5 +497,40 @@ func TestPN08DatosIncoherentes(t *testing.T) {
 		if codigo, cuerpo, _ := llamar(api(t, repo, dosDeNoviembre), "GET", "/api/v1/ingresos", ""); codigo != 500 || cuerpo != `{"error":"error_interno"}` {
 			t.Errorf("categoría %d: %d %s", categoria, codigo, cuerpo)
 		}
+	}
+}
+
+// Una repetición que E15 5.2 no puede calcular (periodicidad desconocida) o un presupuesto en una categoría de ingreso son
+// datos incoherentes: 500, nunca una pantalla a medias.
+func TestDatosIncoherentesDeRepeticionesYPresupuestos(t *testing.T) {
+	mala := salarioQuincenal()
+	mala.Periodicidad = "diaria"
+	repo := &repoFalso{presupuesto: presupuesto.DatosDelPresupuesto{Adulta: true, Categorias: catalogo(), Recurrentes: []registro.Recurrente{mala}},
+		ingresos: presupuesto.DatosDeIngresos{Categorias: catalogo(), Recurrentes: []registro.Recurrente{mala}}}
+	for _, ruta := range []string{"/api/v1/presupuestos", "/api/v1/ingresos"} {
+		if codigo, cuerpo, _ := llamar(api(t, repo, dosDeNoviembre), "GET", ruta, ""); codigo != 500 || cuerpo != `{"error":"error_interno"}` {
+			t.Errorf("%s: %d %s", ruta, codigo, cuerpo)
+		}
+	}
+	repo = &repoFalso{presupuesto: presupuesto.DatosDelPresupuesto{Adulta: true, Categorias: catalogo(),
+		Presupuestos: []presupuesto.Guardado{{ID: "p-1", CategoriaID: salario, Monto: 1}}}}
+	if codigo, cuerpo, _ := llamar(api(t, repo, dosDeNoviembre), "GET", "/api/v1/presupuestos", ""); codigo != 500 {
+		t.Errorf("presupuesto de ingreso: %d %s", codigo, cuerpo)
+	}
+}
+
+// Dos fechas pendientes del mismo día, de dos fuentes: por repetición, en «Llega después» y en el total de PN-08.
+func TestDosIngresosPendientesDelMismoDia(t *testing.T) {
+	ventasMensual := registro.Recurrente{ID: recVentas, Tipo: registro.Ingreso, CategoriaID: ventas, Medio: "efectivo", Periodicidad: fechas.Mensual,
+		Monto: 3, Inicio: dia("2026-11-16"), CreadoEl: dia("2026-11-01")}
+	salarioMensual := registro.Recurrente{ID: recSalario, Tipo: registro.Ingreso, CategoriaID: salario, Medio: "transferencia", Periodicidad: fechas.Mensual,
+		Monto: 4, Inicio: dia("2026-11-16"), CreadoEl: dia("2026-11-01")}
+	repo := &repoFalso{presupuesto: presupuesto.DatosDelPresupuesto{Adulta: true, Categorias: catalogo(), Recurrentes: []registro.Recurrente{ventasMensual, salarioMensual}}}
+	got := verPresupuesto(t, repo, dosDeNoviembre, "")
+	const quiere = `"llega_despues":[` +
+		`{"recurrente_id":"` + recSalario + `","fecha":"2026-11-16","categoria_id":17,"monto_centavos":4,"marca":"esperado"},` +
+		`{"recurrente_id":"` + recVentas + `","fecha":"2026-11-16","categoria_id":18,"monto_centavos":3,"marca":"esperado"}]`
+	if !strings.Contains(got, quiere) || !strings.Contains(got, `"llega_despues_centavos":7}`) {
+		t.Errorf("%s", got)
 	}
 }

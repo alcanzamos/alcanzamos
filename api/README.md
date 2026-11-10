@@ -675,6 +675,9 @@ PN-06 (presupuesto por categorías), PN-07 (la misma pantalla con un ingreso baj
 |---|---|
 | `GET /api/v1/presupuestos?periodo=AAAA-MM` | PN-06 y PN-07: el resumen del periodo y «Por categoría» |
 | `GET /api/v1/ingresos?periodo=AAAA-MM` | PN-08: los ingresos del periodo por fuente, registrados, esperados y por confirmar |
+| `POST /api/v1/presupuestos` | «Poner presupuesto» a una categoría en el mes en curso (CU-09 3); si ya tiene, lo corrige |
+| `PUT /api/v1/presupuestos/{id}` | «Corregir» el monto de un presupuesto del mes en curso (CU-09 3a) |
+| `DELETE /api/v1/presupuestos/{id}` | «Quitar presupuesto» del mes en curso (CU-09 3b); ningún gasto cambia |
 
 `periodo` es opcional en las dos: por defecto el mes de hoy **en Colombia** (`registro.LeerPeriodo`, la misma lectura de `GET /api/v1/movimientos`); `422 {"error":"datos_invalidos","campos":{"periodo":"periodo_invalido"}}` si no es `AAAA-MM` o es anterior a 1900. Las dos responden `200` con `Cache-Control: no-store`. **Montos en centavos enteros y sumas exactas** (RNF-002, D-082): toda suma se hace con enteros grandes (`math/big`) y sale como número JSON entero, también si no cabe en `int64`; lo gastado por categoría es `sum(monto)` de la base (`numeric`, exacto).
 
@@ -726,8 +729,8 @@ Es Laura el 2 de noviembre de 2026 (E14-PPA 2.2, caso F): «Ingreso registrado $
 
 - **Lo pendiente es E15 5.2** (`fechas.Pendientes`, la misma regla de «Por confirmar» de la US-60): sin las fechas confirmadas, las omitidas («No pasó», D-092), las anteriores a la creación de la repetición ni las de `detenido_en` en adelante. Es por confirmar si `fecha ≤ hoy` (Colombia). Solo las repeticiones de la persona (`persona_id`).
 - **Lo registrado y lo pendiente salen de la misma lectura** (`REPEATABLE READ`, solo lectura): una fecha que se confirma a la vez no cuenta dos veces.
-- **Solo una persona adulta presupuesta** (E12 §6, RF-007): una persona menor recibe `403 {"error":"solo_personas_adultas"}`. Hoy un menor no llega a ninguna ruta con sesión (I11); la base lo asegura también (`presupuesto.persona_id` apunta a `perfil_adulto`).
-- **«Dejar el presupuesto en cero»** (PN-07, CU-10 2a) no escribe nada: con ingreso nulo y nada asignado el periodo ya está en cero, y la app solo muestra el aviso. E13 no tiene dónde guardar «definido en cero» y la historia no lo pide.
+- **Solo una persona adulta presupuesta** (E12 §6, RF-007): una persona menor recibe `403 {"error":"solo_personas_adultas"}`, también al poner. Hoy un menor no llega a ninguna ruta con sesión (I11); la base lo asegura también (`presupuesto.persona_id` apunta a `perfil_adulto`).
+- **«Dejar el presupuesto en cero»** (PN-07, CU-10 2a) no escribe nada: con ingreso nulo y nada asignado el periodo ya está en cero, y la app solo muestra el aviso. E13 no tiene dónde guardar «definido en cero» y el monto de «Poner presupuesto» debe ser mayor que $0.
 
 ### PN-08: `GET /api/v1/ingresos`
 
@@ -757,7 +760,42 @@ Es Laura el 2 de noviembre de 2026 (E14-PPA 2.2, caso F): «Ingreso registrado $
 
 PN-08 no comprueba la etapa: muestra ingresos propios, que una persona menor también registra.
 
-Pruebas: `test/presupuesto/presupuesto_test.go` (contrato con un repositorio falso: Laura en noviembre, el caso P de octubre, los modos de D-094 P-3, los estados, las ocultas, lo omitido y lo detenido, un mes pasado, el periodo de Colombia, sumas al centavo por encima de `int64` y los errores) y `test/presupuesto/integracion_test.go` (de punta a punta contra PostgreSQL, en web y Android: E14-PPA 2.2 con lo de otra persona, sumas exactas de la base, aportes y retiros fuera, categorías ocultas, PN-08 con la confirmación de la US-60, una persona menor y una cuenta borrada contra el repositorio, 401 y 403). `test/app/rutas_test.go` lleva el inventario de rutas.
+### Poner, corregir y quitar
+
+**Solo el mes en curso** (D-094, SC-E21-13; E12 `ErrPeriodoNoEditable`): el de hoy **en Colombia** (el `Reloj` en Bogotá). A las 23:59 del 30 de noviembre en Colombia (04:59 UTC del 1 de diciembre) noviembre sigue en curso. Presupuestar otros meses es de E21. Todo presupuesto es **propio**: `persona_id` de la sesión y `hogar_id` nulo (L3 de la US-77: el campo de E13 ya está y el hogar llega en I08 sin migración); un campo fuera del contrato (`persona_id`, `hogar_id`…) da `400 solicitud_invalida`.
+
+`POST /api/v1/presupuestos`:
+
+```json
+{ "periodo": "2026-11", "categoria_id": 5, "monto_centavos": 40000000 }
+```
+
+`periodo` va explícito para que un formulario abierto el último día del mes no guarde en el siguiente sin saberlo. `201` con el presupuesto creado, o `200` si la categoría ya tenía presupuesto en ese mes y se corrigió (E13: único por persona, periodo y categoría; dos «Guardar» a la vez dejan una sola fila). La categoría tiene que ser **de gasto** y que la persona **la vea** (la misma regla del catálogo); una que ocultó vale solo si ya tiene presupuesto en el mes (RN-011: sigue en la lista con «Corregir»). La general («Otros gastos») vale.
+
+```json
+{ "id": "0192f3c4-…", "categoria_id": 5, "periodo": "2026-11", "monto_centavos": 40000000 }
+```
+
+`PUT /api/v1/presupuestos/{id}` con `{"monto_centavos": 4000000}`: `200` con el presupuesto (la misma forma). `DELETE /api/v1/presupuestos/{id}`: `204` sin cuerpo; lo gastado no cambia y la fila vuelve a «Sin presupuesto». Las tres con `Cache-Control: no-store`. El repositorio corrige y quita con el periodo en la condición: si el mes cambió o la fila desapareció entre leer y escribir, no toca nada (`404`).
+
+**«Dejar el presupuesto en cero»** (PN-07) no es una ruta: ver arriba.
+
+**Errores.** El orden es forma (`422`), dueña (`404`) y estado (`409`), como en la US-60.
+
+| Código | Cuándo | Rutas |
+|---|---|---|
+| `422 datos_invalidos` con `campos` (todos a la vez) | `periodo`: `periodo_requerido`, `periodo_invalido`. `categoria_id`: `categoria_requerida`, `categoria_invalida` (fuera de 1 a 32767, no existe, no es de gasto u oculta sin presupuesto en el mes). `monto_centavos`: `monto_requerido` («Falta el monto.»), `monto_invalido` (no es un entero de centavos que quepa en `int64`; la app muestra «El monto puede tener hasta dos decimales.» antes de mandarlo), `monto_no_positivo` («El monto debe ser mayor que $0.») | POST; PUT solo `monto_centavos` |
+| `404 no_encontrado` | El presupuesto no existe, es de otra persona o el id está mal formado (el mismo código: no revela que existe) | PUT, DELETE |
+| `409 periodo_no_editable` | El periodo no es el mes en curso | POST, PUT, DELETE |
+| `403 solo_personas_adultas` | Una persona menor (hoy no llega a ninguna ruta con sesión; la base lo asegura con la llave a `perfil_adulto`) | todas menos `GET /api/v1/ingresos` |
+| `400 solicitud_invalida` | Cuerpo que no es un JSON de un objeto o con un campo fuera del contrato | POST, PUT |
+| `403 solicitud_no_permitida` · `415 tipo_de_contenido_no_permitido` | La defensa contra CSRF del `Enrutador` (E17 3.15, D-194) | POST, PUT, DELETE |
+| `401 sin_sesion` · `403 autorizacion_pendiente` · `403 verificacion_pendiente` | El guard de `requiere_autorizacion`; `401` también si la cuenta se borró mientras tanto | todas |
+| `500 error_interno` | Fallo de la base o datos incoherentes | todas |
+
+**Registro (SEG-006).** «presupuesto guardado» (con `creado`), «presupuesto corregido» y «presupuesto quitado», con el id de la petición: nunca el monto, la categoría, el id del presupuesto ni la persona.
+
+Pruebas: `test/presupuesto/presupuesto_test.go` (contrato con un repositorio falso: Laura en noviembre, el caso P de octubre, los modos de D-094 P-3, los estados, las ocultas, lo omitido y lo detenido, un mes pasado, el periodo de Colombia, sumas al centavo por encima de `int64` y los errores), `test/presupuesto/escritura_test.go` (poner, corregir y quitar con un repositorio falso: cada código, el orden de los errores, el mes en curso de Colombia y el registro sin montos), `test/presupuesto/integracion_test.go` y `test/presupuesto/escritura_integracion_test.go` (de punta a punta contra PostgreSQL, en web y Android: E14-PPA 2.2 con lo de otra persona, sumas exactas de la base, aportes y retiros fuera, categorías ocultas, PN-08 con la confirmación de la US-60, poner, corregir y quitar con la fila propia y sin hogar, qué categorías se presupuestan, otro mes y lo ajeno sin cambiar nada, ocho «Guardar» a la vez, la defensa contra CSRF, una persona menor y una cuenta borrada contra el repositorio, 401 y 403). `test/app/seg006_integracion_test.go` suma poner, corregir y quitar a SEG-006, `test/app/csrf_put_delete_integracion_test.go` suma el `PUT` y el `DELETE` a SEG-016 y `test/app/rutas_test.go` lleva el inventario de rutas.
 
 ## Interpretación (US-62, `src/interpretacion`)
 

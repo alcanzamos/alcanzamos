@@ -87,13 +87,14 @@ type DatosDeIngresos struct {
 	Meses       []string // AAAA-MM con ingresos registrados, del más reciente al más antiguo
 }
 
-// Repositorio es la persistencia que el servicio necesita (la implementa src/pg). Toda lectura es de lo propio
-// (`persona_id`) y devuelve registro.ErrSinCuenta si la persona ya no existe.
+// Repositorio es la persistencia que el servicio necesita (E12 `PresupuestoRepo`; la implementa src/pg). Toda lectura es
+// de lo propio (`persona_id`) y devuelve registro.ErrSinCuenta si la persona ya no existe.
 type Repositorio interface {
 	// Presupuesto lee lo del periodo que empieza en `mes`.
 	Presupuesto(ctx context.Context, persona string, mes time.Time) (DatosDelPresupuesto, error)
 	// Ingresos lee los ingresos del periodo que empieza en `mes`.
 	Ingresos(ctx context.Context, persona string, mes time.Time) (DatosDeIngresos, error)
+	Escritura
 }
 
 // Servicio son los casos de uso del presupuesto.

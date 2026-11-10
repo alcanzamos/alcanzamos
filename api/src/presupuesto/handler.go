@@ -28,10 +28,13 @@ func NuevoHandler(s *Servicio, log *slog.Logger) *Handler { return &Handler{serv
 func (h *Handler) Registrar(e *servidor.Enrutador) {
 	e.Registrar(seguridad.RequiereAutorizacion, "GET /api/v1/presupuestos", http.HandlerFunc(h.ver))
 	e.Registrar(seguridad.RequiereAutorizacion, "GET /api/v1/ingresos", http.HandlerFunc(h.ingresos))
+	e.Registrar(seguridad.RequiereAutorizacion, "POST /api/v1/presupuestos", http.HandlerFunc(h.poner))
+	e.Registrar(seguridad.RequiereAutorizacion, "PUT /api/v1/presupuestos/{id}", http.HandlerFunc(h.corregir))
+	e.Registrar(seguridad.RequiereAutorizacion, "DELETE /api/v1/presupuestos/{id}", http.HandlerFunc(h.quitar))
 }
 
-// responder escribe los errores comunes: `422 datos_invalidos`, `403 solo_personas_adultas`, `401 sin_sesion` (la cuenta
-// se borró mientras tanto) o un fallo. Devuelve true si ya respondió.
+// responder escribe los errores comunes: `422 datos_invalidos`, `404 no_encontrado`, `409 periodo_no_editable`, `403
+// solo_personas_adultas`, `401 sin_sesion` (la cuenta se borró mientras tanto) o un fallo. Devuelve true si ya respondió.
 func (h *Handler) responder(w http.ResponseWriter, r *http.Request, que string, err error) bool {
 	var invalido *registro.ErrValidacion
 	switch {
@@ -39,6 +42,10 @@ func (h *Handler) responder(w http.ResponseWriter, r *http.Request, que string, 
 		return false
 	case errors.As(err, &invalido):
 		servidor.EscribirJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": "datos_invalidos", "campos": invalido.Campos})
+	case errors.Is(err, ErrNoEncontrado):
+		servidor.EscribirError(w, http.StatusNotFound, "no_encontrado")
+	case errors.Is(err, ErrPeriodoNoEditable):
+		servidor.EscribirError(w, http.StatusConflict, "periodo_no_editable")
 	case errors.Is(err, ErrSoloAdultos):
 		servidor.EscribirError(w, http.StatusForbidden, CodigoSoloAdultos)
 	case errors.Is(err, registro.ErrSinCuenta):
@@ -72,4 +79,57 @@ func (h *Handler) ingresos(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	servidor.EscribirJSON(w, http.StatusOK, l)
+}
+
+// poner atiende POST /api/v1/presupuestos con `{"periodo":"AAAA-MM","categoria_id":<id>,"monto_centavos":<centavos>}`
+// («Poner presupuesto»): `201` con el `Presupuesto`, o `200` si la categoría ya tenía presupuesto en el mes y se corrigió.
+// `422 datos_invalidos` con todos los campos inválidos a la vez; `409 periodo_no_editable` si no es el mes en curso; `400
+// solicitud_invalida` con un campo fuera del contrato (`persona_id`, `hogar_id`…).
+func (h *Handler) poner(w http.ResponseWriter, r *http.Request) {
+	var sol SolicitudDePresupuesto
+	if !servidor.LeerJSON(w, r, &sol) {
+		return
+	}
+	sujeto, _ := servidor.SujetoDe(r.Context())
+	p, creado, err := h.servicio.Presupuestar(r.Context(), sujeto.Persona, sol)
+	if h.responder(w, r, "no se pudo guardar el presupuesto", err) {
+		return
+	}
+	h.log.InfoContext(r.Context(), "presupuesto guardado", "peticion", seguridad.PeticionDe(r.Context()), "creado", creado)
+	codigo := http.StatusOK
+	if creado {
+		codigo = http.StatusCreated
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	servidor.EscribirJSON(w, codigo, p)
+}
+
+// corregir atiende PUT /api/v1/presupuestos/{id} con `{"monto_centavos":<centavos>}` («Corregir»): `200` con el
+// `Presupuesto`. `422 datos_invalidos`, `404 no_encontrado` (ajeno, inexistente o mal formado) y `409
+// periodo_no_editable`, en ese orden.
+func (h *Handler) corregir(w http.ResponseWriter, r *http.Request) {
+	var sol SolicitudDeCorreccion
+	if !servidor.LeerJSON(w, r, &sol) {
+		return
+	}
+	sujeto, _ := servidor.SujetoDe(r.Context())
+	p, err := h.servicio.Corregir(r.Context(), sujeto.Persona, r.PathValue("id"), sol)
+	if h.responder(w, r, "no se pudo corregir el presupuesto", err) {
+		return
+	}
+	h.log.InfoContext(r.Context(), "presupuesto corregido", "peticion", seguridad.PeticionDe(r.Context()))
+	w.Header().Set("Cache-Control", "no-store")
+	servidor.EscribirJSON(w, http.StatusOK, p)
+}
+
+// quitar atiende DELETE /api/v1/presupuestos/{id} («Quitar presupuesto»): `204`; `404 no_encontrado`; `409
+// periodo_no_editable`. Ningún gasto cambia.
+func (h *Handler) quitar(w http.ResponseWriter, r *http.Request) {
+	sujeto, _ := servidor.SujetoDe(r.Context())
+	if h.responder(w, r, "no se pudo quitar el presupuesto", h.servicio.Quitar(r.Context(), sujeto.Persona, r.PathValue("id"))) {
+		return
+	}
+	h.log.InfoContext(r.Context(), "presupuesto quitado", "peticion", seguridad.PeticionDe(r.Context()))
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusNoContent)
 }

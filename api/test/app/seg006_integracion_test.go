@@ -120,9 +120,10 @@ var camposDeUnEvento = []string{"time", "level", "msg", "evento_seguridad", "cue
 // con el registro capturado y un buzón SMTP de mentira, y recorre de verdad todo lo que deja eventos de seguridad o pasa
 // por ellos: crear la cuenta y confirmarla con el enlace del correo (también con un enlace falso y una contraseña que no
 // cumple), una ruta sin autorizar, autorizar, registrar y corregir un movimiento con descripción, interpretar un texto,
-// rechazos de CSRF con montos y textos en el cuerpo, «No autorizo» ya autorizada, inicios fallidos hasta el 429, entrar en
-// la web y en Android, Bearer falso, cambiar la contraseña (mal y bien), recuperar el acceso (enlace falso y bueno), cerrar
-// la sesión y usarla después, y borrar la cuenta con la contraseña mal y bien.
+// poner, corregir y quitar un presupuesto, rechazos de CSRF con montos y textos en el cuerpo, «No autorizo» ya
+// autorizada, inicios fallidos hasta el 429, entrar en la web y en Android, Bearer falso, cambiar la contraseña (mal y
+// bien), recuperar el acceso (enlace falso y bueno), cerrar la sesión y usarla después, y borrar la cuenta con la
+// contraseña mal y bien.
 //
 // Comprueba: (1) salió cada evento esperado (tipo, ruta y código); (2) cada evento lleva solo los campos de E17-VTE 2.1,
 // con la ruta como patrón registrado (sin ids) y la cuenta desconocida o el id de la persona; (3) ninguna línea del
@@ -168,11 +169,14 @@ func TestSEG_006LosEventosDeSeguridadNoLlevanContrasenasTokensMontosNiTextos(t *
 		texto          = "pagué 4.821.397 en zapatos para Mateo"
 		monto          = "48213977" // centavos: $482.139,77
 		montoCorregido = "73915533"
+		presupuesto    = "61473829" // centavos: $614.738,29
+		presupuestoMas = "52918347"
 	)
 	secretos := []string{
 		correo, "rosalba", "quintero", clave, claveNueva, claveRecobrada, claveMala, claveCorta, tokenFalso, otroTokenFalso,
 		descripcion, "arepas", correccion, "fabiola", "guayaba", texto, "zapatos", "mateo",
 		monto, "482139", "482.139", montoCorregido, "739155", "739.155", "4.821.397", "4821397",
+		presupuesto, "614738", "614.738", presupuestoMas, "529183", "529.183",
 		"203.0.113.",
 	}
 
@@ -261,6 +265,19 @@ func TestSEG_006LosEventosDeSeguridadNoLlevanContrasenasTokensMontosNiTextos(t *
 	debe("corregir", pedir("PUT", "/api/v1/movimientos/"+creado.MovimientoID, corregido, "2", conCookie(sesion)), 200)
 	debe("monto inválido", pedir("POST", "/api/v1/movimientos", strings.Replace(movimiento, monto, "-"+monto, 1), "2", conCookie(sesion)), 422)
 	debe("interpretar", pedir("POST", "/api/v1/movimientos/interpretacion", `{"texto":"`+texto+`"}`, "2", conCookie(sesion)), 200)
+
+	// Poner, corregir y quitar un presupuesto del mes en curso (US-77): montos en el cuerpo.
+	rr = pedir("POST", "/api/v1/presupuestos", `{"periodo":"`+vHoy().Format("2006-01")+`","categoria_id":`+categoria+`,"monto_centavos":`+presupuesto+`}`, "2", conCookie(sesion))
+	debe("poner presupuesto", rr, 201)
+	var puesto struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &puesto); err != nil || puesto.ID == "" {
+		t.Fatalf("poner presupuesto: %v %s", err, rr.Body)
+	}
+	secretos = append(secretos, puesto.ID)
+	debe("corregir presupuesto", pedir("PUT", "/api/v1/presupuestos/"+puesto.ID, `{"monto_centavos":`+presupuestoMas+`}`, "2", conCookie(sesion)), 200)
+	debe("quitar presupuesto", pedir("DELETE", "/api/v1/presupuestos/"+puesto.ID, "", "2", conCookie(sesion)), 204)
 
 	// Rechazos de CSRF (E17 3.15) con el monto y el texto en el cuerpo: ni pasan ni quedan en el registro.
 	debe("CSRF de otro sitio", pedir("POST", "/api/v1/movimientos", movimiento, "3", conCookie(sesion),
@@ -378,7 +395,8 @@ func TestSEG_006LosEventosDeSeguridadNoLlevanContrasenasTokensMontosNiTextos(t *
 
 	// (3) y (4): ninguna línea, evento o no, lleva un dato de la persona; el id de la persona, solo en eventos. El registro
 	// capturado es el de todo el API, no solo el de los eventos: trae también las líneas de registrar e interpretar.
-	for _, msg := range []string{`"msg":"movimiento registrado"`, `"msg":"movimiento corregido"`, `"msg":"texto interpretado"`} {
+	for _, msg := range []string{`"msg":"movimiento registrado"`, `"msg":"movimiento corregido"`, `"msg":"texto interpretado"`,
+		`"msg":"presupuesto guardado"`, `"msg":"presupuesto corregido"`, `"msg":"presupuesto quitado"`} {
 		if !strings.Contains(registro.String(), msg) {
 			t.Errorf("el registro capturado no tiene %s:\n%s", msg, registro)
 		}
