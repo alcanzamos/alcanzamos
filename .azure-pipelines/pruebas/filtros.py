@@ -23,6 +23,8 @@ ESPERADO = {
     "reglas/conjuntos/conjunto-de-prueba.jsonl": {"comun", "reglas"},
     "reglas/README.md": {"comun", "reglas"},
     ".azure-pipelines/reglas.yml": {"comun", "reglas"},
+    ".azure-pipelines/plantillas/reglas.yml": {"comun", "reglas"},
+    "api/src/interpretacion/reglas.json": {"comun", "reglas", "api"},
     "api/README.md": {"comun", "api"},
     "api/src/cmd/api/main.go": {"comun", "api"},
     "api/src/seguridad/limitador.go": {"comun", "api"},
@@ -32,6 +34,7 @@ ESPERADO = {
     "api/.golangci.yml": {"comun", "api"},
     "api/go.mod": {"comun", "api"},
     ".azure-pipelines/api.yml": {"comun", "api"},
+    ".azure-pipelines/plantillas/api.yml": {"comun", "api"},
     ".azure-pipelines/pruebas/cobertura.py": {"comun", "api"},
     "api/test/cobertura-base.json": {"comun", "api"},
     "web/README.md": {"comun", "web", "api"},
@@ -39,6 +42,7 @@ ESPERADO = {
     "web/package.json": {"comun", "web", "api"},
     "web/tests/dinero.test.ts": {"comun", "web", "api"},
     ".azure-pipelines/web.yml": {"comun", "web"},
+    ".azure-pipelines/plantillas/web.yml": {"comun", "web"},
     # Estos casos protegen S11 (D-161): `comun` usa web/scripts/antiguedad*.mjs para commitlint y no filtra por ruta (corre con
     # cualquier cambio), así que un cambio solo en esos scripts, hecho desde un PR de web, también lo corre. Si alguien le agrega
     # `paths` a `comun` sin esas rutas, estos casos fallan.
@@ -46,6 +50,7 @@ ESPERADO = {
     "web/scripts/antiguedad-logica.mjs": {"comun", "web", "api"},
     "web/tests/antiguedad.test.ts": {"comun", "web", "api"},
     ".azure-pipelines/comun.yml": {"comun"},
+    ".azure-pipelines/plantillas/comun.yml": {"comun"},
     ".azure-pipelines/commitlint/package.json": {"comun"},
     ".azure-pipelines/commitlint/commitlint.config.mjs": {"comun"},
     "movil/README.md": {"comun", "movil"},
@@ -54,6 +59,7 @@ ESPERADO = {
     "movil/scripts/auditoria.mjs": {"comun", "movil"},
     "movil/tests/fuentes.test.ts": {"comun", "movil"},
     ".azure-pipelines/movil.yml": {"comun", "movil"},
+    ".azure-pipelines/plantillas/movil.yml": {"comun", "movil"},
     "diseno/README.md": {"comun", "web", "api", "movil"},
     "diseno/tokens/alcanzamos.tokens.json": {"comun", "web", "api", "movil"},
     "diseno/fuentes/figtree/Figtree-Bold.ttf": {"comun", "web", "api", "movil"},
@@ -74,6 +80,7 @@ ESPERADO = {
     "infra/produccion/principal.tf": {"comun", "infra"},
     "infra/local/compose.yaml": {"comun", "infra"},
     ".azure-pipelines/infra.yml": {"comun", "infra"},
+    ".azure-pipelines/plantillas/infra.yml": {"comun", "infra"},
     "docs/adr/ADR-001-estructura-de-repositorios.md": {"comun"},
     "README.md": {"comun"},
 }
@@ -129,6 +136,20 @@ def coincide(patron, ruta):
     return ruta == patron
 
 
+def revisar_plantillas():
+    """Cada pipeline corre plantillas/<nombre>.yml, y toda plantilla nombrada existe. Devuelve la lista de fallas."""
+    fallas = []
+    for p in sorted(CARPETA.glob("*.yml")):
+        lineas = p.read_text(encoding="utf-8").splitlines()
+        if f"  - template: plantillas/{p.stem}.yml" not in lineas:
+            fallas.append(f"{p.name}: debe correr plantillas/{p.stem}.yml")
+        for linea in lineas:
+            plantilla = linea.strip()[len("- template: "):]
+            if linea.strip().startswith("- template: ") and not (CARPETA / plantilla).is_file():
+                fallas.append(f"{p.name}: falta la plantilla {plantilla}")
+    return fallas
+
+
 def main():
     pipelines = {p.stem: filtros_pr(p.read_text(encoding="utf-8")) for p in sorted(CARPETA.glob("*.yml"))}
     fallas = []
@@ -143,6 +164,11 @@ def main():
         print(f"{'ok' if not faltan else 'FALLA':5} {p.name}: disparadores (D-183){'' if not faltan else '; falta ' + ', '.join(faltan)}")
         if faltan:
             fallas.append(f"{p.name}: {faltan}")
+    plantillas = revisar_plantillas()
+    for falla in plantillas:
+        print(f"FALLA {falla}")
+    print(f"{'ok' if not plantillas else 'FALLA':5} cada pipeline corre su plantilla y las plantillas existen")
+    fallas += plantillas
     sin_caso = set(pipelines) - set().union(*ESPERADO.values())
     if sin_caso:
         fallas.append(f"pipelines sin caso en ESPERADO: {sorted(sin_caso)}")

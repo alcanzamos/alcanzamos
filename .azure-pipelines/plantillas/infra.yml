@@ -1,0 +1,52 @@
+# Trabajo de infra/.
+# Lo usa infra.yml; los pasos viven aquí para poder compartirlos. Qué hace cada paso y cuándo corre el
+# pipeline: en infra.yml y en el README de esta carpeta.
+jobs:
+  - job: infra
+    pool:
+      vmImage: ubuntu-24.04
+    variables:
+      OPENTOFU_VERSION: 1.13.2
+      # SHA-256 fijado a mano desde tofu_1.13.2_SHA256SUMS (consultado el 2026-10-22).
+      # Cambiar la versión obliga a cambiar también esta suma.
+      OPENTOFU_SHA256: 723bebb0df8411daff1e5fc3862e28ff5581fe5634087f4c29a9aa41d78208b5
+
+    steps:
+      - checkout: self
+        fetchDepth: 1
+
+      # Se descarga el binario oficial y se verifica contra el archivo de sumas de la misma versión.
+      - script: |
+          set -eu
+          base="https://github.com/opentofu/opentofu/releases/download/v$(OPENTOFU_VERSION)"
+          zip="tofu_$(OPENTOFU_VERSION)_linux_amd64.zip"
+          destino="$(Agent.TempDirectory)/opentofu"
+          mkdir -p "$destino"
+          curl -fsSL "$base/$zip" -o "$destino/$zip"
+          (cd "$destino" && echo "$(OPENTOFU_SHA256)  $zip" | sha256sum --check --strict -)
+          unzip -q -o "$destino/$zip" tofu -d "$destino"
+          echo "##vso[task.prependpath]$destino"
+        displayName: Instalar OpenTofu $(OPENTOFU_VERSION) (SHA-256 verificado)
+
+      - script: tofu version
+        displayName: Versión de OpenTofu
+
+      - script: tofu fmt -check -recursive infra
+        displayName: El formato de OpenTofu es correcto
+
+      - script: |
+          set -eu
+          tofu init -backend=false -input=false
+          tofu validate
+        workingDirectory: infra/bootstrap
+        displayName: infra/bootstrap es válido
+
+      - script: |
+          set -eu
+          tofu init -backend=false -input=false
+          tofu validate
+        workingDirectory: infra/produccion
+        displayName: infra/produccion es válido
+
+      - script: docker compose -f infra/local/compose.yaml --env-file infra/local/.env.example config --quiet
+        displayName: El compose local es válido
