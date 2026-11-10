@@ -195,12 +195,12 @@ describe('PN-71 · Seguridad de la cuenta (E14-PCP 4.14)', () => {
       expect(navegacion.navigate).toHaveBeenCalledWith('InformacionDePrivacidad', { desdeElMenu: true });
     });
 
-    it('orden: «Movimientos», «Cómo cuidamos tus datos», «Cerrar sesión» y, última, «Borrar mi cuenta»', async () => {
+    it('orden: «Movimientos», «Presupuesto» (L3 de la US-77), «Cómo cuidamos tus datos», «Cerrar sesión» y, última, «Borrar mi cuenta»', async () => {
       instalarFetchFalso(respuestaJson(200, { ingreso_anterior: null }));
       await mostrar();
       await screen.findByText('Este es tu primer ingreso.');
       const botones = screen.getAllByRole('button');
-      const orden = ['Movimientos', 'Cómo cuidamos tus datos', 'Cerrar sesión', 'Borrar mi cuenta'];
+      const orden = ['Movimientos', 'Presupuesto', 'Cómo cuidamos tus datos', 'Cerrar sesión', 'Borrar mi cuenta'];
       expect(botones).toHaveLength(orden.length);
       orden.forEach((nombre, i) => expect(botones[i]).toBe(screen.getByRole('button', { name: nombre })));
     });

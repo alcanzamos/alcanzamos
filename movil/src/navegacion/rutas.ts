@@ -49,7 +49,15 @@ export type Rutas = {
    * pidió PN-01. Su Atrás vuelve a PN-01 sin guardar; al guardar vuelve con el aviso (`popTo`).
    */
   ConfirmarTodos: { pendientes: Pendientes };
-  /** Formulario de registro (E14-PPN 3.1); se abre desde «Registrar» de PN-01 y vuelve a PN-01 al guardar (D-164). */
+  /**
+   * PN-06 y PN-07 · Presupuesto (E14-PPA 4.1 y 4.2), destino de la entrada provisional «Presupuesto» de PN-71 (L3 de la
+   * US-77, punto 3). `aviso` es el mensaje de estado de después de guardar: solo vive en la memoria, nunca se guarda.
+   */
+  PresupuestoDelMes: { aviso?: DatosDeAviso } | undefined;
+  /**
+   * Formulario de registro (E14-PPN 3.1); se abre desde «Registrar» de PN-01, PN-06 y PN-07 y desde «Registrar un
+   * ingreso» de PN-07, y vuelve a PN-01 al guardar (D-164).
+   */
   FormularioDeRegistro: undefined;
   /** PN-03: se apila sobre Registrar; su Atrás vuelve al formulario sin cambiar nada. */
   SeRepite: undefined;

@@ -1723,116 +1723,6 @@
         "texto": "Preparando tu archivo…",
         "e14": "E14-PCP 4.12 (PN-69), estado «Descargando»"
       }
-    }
-  },
-  "solo_web": {
-    "erroresDeCampo": {
-      "crearCuenta": {
-        "mayor_de_edad_requerido": {
-          "texto": "Falta marcar que eres mayor de edad.",
-          "e14": "E14-PCP 4.1 (PN-58)"
-        },
-        "contrasena_vacia": {
-          "texto": "Falta la contraseña.",
-          "e14": "E14-PCP 4.2 ter (PN-74), errores de campo (antes de PN-58)"
-        },
-        "nombre_vacio": {
-          "texto": "Falta el nombre para mostrar.",
-          "e14": "E14-PCP 4.2 ter (PN-74), errores de campo (antes de PN-58)"
-        },
-        "nombre_largo": {
-          "texto": "Escribe un nombre de hasta 60 caracteres.",
-          "e14": "E14-PCP 4.16 T5 (D-153)"
-        }
-      }
-    },
-    "pagina": {
-      "atras": {
-        "texto": "Atrás",
-        "e14": "E14-PCP 4.4 (PN-61); E14-PCP 4.6 (PN-63); E14-PCP 4.7 (PN-64); E14-PCP 4.9 (PN-66); E14-PCP 4.10 (PN-67); E14-PCP 4.11 (PN-68); E14-PCP 4.12 (PN-69); E14-PCP 4.13 (PN-70); E14-PCP 4.14 (PN-71); E14-PCP 4.15 (PN-73); E14-PCP 4.16"
-      },
-      "titulo_del_documento": {
-        "texto": "{titulo} · Alcanzamos",
-        "e14": "E14-PCP 1.19 (título de la pestaña del navegador, aprobado en D-163)"
-      }
-    },
-    "campos": {
-      "contrasenaNueva": {
-        "etiqueta": {
-          "texto": "Contraseña nueva",
-          "e14": "E14-PCP 4.5 (PN-62); E14-PCP 4.15 (PN-73)"
-        },
-        "repeticion": {
-          "texto": "Repite la contraseña nueva",
-          "e14": "E14-PCP 4.5 (PN-62)"
-        }
-      },
-      "mayorDeEdad": {
-        "etiqueta": {
-          "texto": "Soy mayor de edad",
-          "e14": "E14-PCP 4.1 (PN-58); E14-PCP 4.8 (PN-65); E14-PCP 4.16"
-        }
-      },
-      "nombre": {
-        "etiqueta": {
-          "texto": "Nombre para mostrar",
-          "e14": "E14-PCP 4.1 (PN-58)"
-        },
-        "ayuda": {
-          "texto": "Es el nombre que verás en la app. Puede ser un apodo.",
-          "e14": "E14-PCP 4.1 (PN-58)"
-        }
-      }
-    },
-    "recuperar": {
-      "titulo": {
-        "texto": "Elige tu contraseña nueva",
-        "e14": "E14-PCP 4.5 (PN-62)"
-      },
-      "pedirOtro": {
-        "texto": "Pedir otro enlace",
-        "e14": "E14-PCP 4.5 (PN-62)"
-      }
-    },
-    "textosDeRepeticion": {
-      "vacia": {
-        "texto": "Falta repetir la contraseña.",
-        "e14": "E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62"
-      },
-      "distinta": {
-        "texto": "Falta que las dos contraseñas sean iguales.",
-        "e14": "E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62"
-      }
-    },
-    "periodicidad": {
-      "errores": {
-        "sinFecha": {
-          "texto": "Falta la fecha en que empieza.",
-          "e14": "E14-PRR 4.3 (PN-03), errores de campo"
-        }
-      }
-    },
-    "movimientos": {
-      "vacio": {
-        "elegir": {
-          "texto": "Elige un movimiento para verlo.",
-          "e14": "E14-PRR 4.1 (PN-01), variante web"
-        }
-      }
-    },
-    "eligeTuContrasena": {
-      "titulo": {
-        "texto": "Elige tu contraseña",
-        "e14": "E14-PCP 4.2 ter (PN-74), fila 1, aprobado (D-176)"
-      },
-      "intro": {
-        "texto": "Un último paso para crear tu cuenta. Elige tu contraseña y dinos cómo quieres que te llamemos.",
-        "e14": "E14-PCP 4.2 ter (PN-74), fila 2, aprobado (D-176)"
-      },
-      "pedirOtro": {
-        "texto": "Pedir otro enlace",
-        "e14": "E14-PCP 4.2 ter (PN-74), estado «Enlace vencido o ya usado» (D-192); mismo botón que PN-62 (4.5), con otro destino"
-      }
     },
     "presupuesto": {
       "destino": {
@@ -1871,10 +1761,6 @@
         "seSumaCuandoLlegue": {
           "texto": "{nombre} del {fecha} se suma cuando llegue.",
           "e14": "Propuesto en la US-77 (T3, web), pendiente de aprobación del dueño: E14 no tiene el texto. Sale de E14-PPA 4.1 (PN-06), fila 3 («El salario del 16 de noviembre de 2026 se suma cuando llegue.»), con el nombre de la categoría tal cual; solo con una fecha esperada"
-        },
-        "verMisIngresos": {
-          "texto": "Ver mis ingresos",
-          "e14": "E14-PPA 4.1 (PN-06), fila 3 (abre PN-08); E14-PPA 3 (PN-07 → PN-08)"
         },
         "nulo": {
           "texto": "Puedes repartir lo que llegue o dejar el presupuesto en cero.",
@@ -2021,6 +1907,116 @@
           }
         }
       }
+    }
+  },
+  "solo_web": {
+    "erroresDeCampo": {
+      "crearCuenta": {
+        "mayor_de_edad_requerido": {
+          "texto": "Falta marcar que eres mayor de edad.",
+          "e14": "E14-PCP 4.1 (PN-58)"
+        },
+        "contrasena_vacia": {
+          "texto": "Falta la contraseña.",
+          "e14": "E14-PCP 4.2 ter (PN-74), errores de campo (antes de PN-58)"
+        },
+        "nombre_vacio": {
+          "texto": "Falta el nombre para mostrar.",
+          "e14": "E14-PCP 4.2 ter (PN-74), errores de campo (antes de PN-58)"
+        },
+        "nombre_largo": {
+          "texto": "Escribe un nombre de hasta 60 caracteres.",
+          "e14": "E14-PCP 4.16 T5 (D-153)"
+        }
+      }
+    },
+    "pagina": {
+      "atras": {
+        "texto": "Atrás",
+        "e14": "E14-PCP 4.4 (PN-61); E14-PCP 4.6 (PN-63); E14-PCP 4.7 (PN-64); E14-PCP 4.9 (PN-66); E14-PCP 4.10 (PN-67); E14-PCP 4.11 (PN-68); E14-PCP 4.12 (PN-69); E14-PCP 4.13 (PN-70); E14-PCP 4.14 (PN-71); E14-PCP 4.15 (PN-73); E14-PCP 4.16"
+      },
+      "titulo_del_documento": {
+        "texto": "{titulo} · Alcanzamos",
+        "e14": "E14-PCP 1.19 (título de la pestaña del navegador, aprobado en D-163)"
+      }
+    },
+    "campos": {
+      "contrasenaNueva": {
+        "etiqueta": {
+          "texto": "Contraseña nueva",
+          "e14": "E14-PCP 4.5 (PN-62); E14-PCP 4.15 (PN-73)"
+        },
+        "repeticion": {
+          "texto": "Repite la contraseña nueva",
+          "e14": "E14-PCP 4.5 (PN-62)"
+        }
+      },
+      "mayorDeEdad": {
+        "etiqueta": {
+          "texto": "Soy mayor de edad",
+          "e14": "E14-PCP 4.1 (PN-58); E14-PCP 4.8 (PN-65); E14-PCP 4.16"
+        }
+      },
+      "nombre": {
+        "etiqueta": {
+          "texto": "Nombre para mostrar",
+          "e14": "E14-PCP 4.1 (PN-58)"
+        },
+        "ayuda": {
+          "texto": "Es el nombre que verás en la app. Puede ser un apodo.",
+          "e14": "E14-PCP 4.1 (PN-58)"
+        }
+      }
+    },
+    "recuperar": {
+      "titulo": {
+        "texto": "Elige tu contraseña nueva",
+        "e14": "E14-PCP 4.5 (PN-62)"
+      },
+      "pedirOtro": {
+        "texto": "Pedir otro enlace",
+        "e14": "E14-PCP 4.5 (PN-62)"
+      }
+    },
+    "textosDeRepeticion": {
+      "vacia": {
+        "texto": "Falta repetir la contraseña.",
+        "e14": "E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62"
+      },
+      "distinta": {
+        "texto": "Falta que las dos contraseñas sean iguales.",
+        "e14": "E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62"
+      }
+    },
+    "periodicidad": {
+      "errores": {
+        "sinFecha": {
+          "texto": "Falta la fecha en que empieza.",
+          "e14": "E14-PRR 4.3 (PN-03), errores de campo"
+        }
+      }
+    },
+    "movimientos": {
+      "vacio": {
+        "elegir": {
+          "texto": "Elige un movimiento para verlo.",
+          "e14": "E14-PRR 4.1 (PN-01), variante web"
+        }
+      }
+    },
+    "eligeTuContrasena": {
+      "titulo": {
+        "texto": "Elige tu contraseña",
+        "e14": "E14-PCP 4.2 ter (PN-74), fila 1, aprobado (D-176)"
+      },
+      "intro": {
+        "texto": "Un último paso para crear tu cuenta. Elige tu contraseña y dinos cómo quieres que te llamemos.",
+        "e14": "E14-PCP 4.2 ter (PN-74), fila 2, aprobado (D-176)"
+      },
+      "pedirOtro": {
+        "texto": "Pedir otro enlace",
+        "e14": "E14-PCP 4.2 ter (PN-74), estado «Enlace vencido o ya usado» (D-192); mismo botón que PN-62 (4.5), con otro destino"
+      }
     },
     "ingresos": {
       "titulo": {
@@ -2079,6 +2075,14 @@
             "texto": "Tus datos están a salvo. Intenta de nuevo.",
             "e14": "E14-PPA 4.3 (PN-08), estado «Error de carga»"
           }
+        }
+      }
+    },
+    "presupuesto": {
+      "resumen": {
+        "verMisIngresos": {
+          "texto": "Ver mis ingresos",
+          "e14": "E14-PPA 4.1 (PN-06), fila 3 (abre PN-08); E14-PPA 3 (PN-07 → PN-08)"
         }
       }
     }
@@ -2171,6 +2175,14 @@
         "nombreAccesible": {
           "texto": "Monto en pesos",
           "e14": "Aprobado por el dueño el 2026-11-08 (US-63, sesión 4 del celular): nombre accesible del campo Monto, para que TalkBack diga la moneda; el rótulo visible sigue siendo «Monto» (E14-PPN 3.1, fila 7)"
+        }
+      }
+    },
+    "presupuesto": {
+      "hoja": {
+        "montoNombreAccesible": {
+          "texto": "Monto para {mes} en pesos",
+          "e14": "Propuesto en la US-77 (T4, Android), pendiente de aprobación del dueño: E14 no tiene el texto. Nombre accesible del campo de la hoja «Poner presupuesto» (E14-PPA 4.1, hoja, fila 2: «Monto para noviembre»), con la moneda, como «Monto en pesos» del registro (aprobado por el dueño el 2026-11-08, US-63, ACC-004); el rótulo visible sigue siendo «Monto para noviembre»"
         }
       }
     }

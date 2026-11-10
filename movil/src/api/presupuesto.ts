@@ -1,0 +1,70 @@
+import { pedir } from './cliente';
+
+// Rutas de PN-06 y PN-07 (api/README.md, «Presupuesto del periodo»). Las reglas viven en el API (E17-ECO 4.7): el modo
+// de la pantalla, las sumas, los estados y el orden. El API no manda textos: ids, claves y códigos. Los montos llegan
+// como texto (enteros de 64 bits, D-082) y se mandan armando el JSON a mano, sin pasar por `number`.
+
+/** Qué tarjeta de resumen se muestra (D-094, P-3): PN-06 con `normal`; PN-07 con los otros dos. */
+export type ModoDelPresupuesto = 'normal' | 'ingreso_bajo' | 'ingreso_nulo';
+
+export type CategoriaDelPresupuesto = {
+  categoria_id: number;
+  /** Una oculta con presupuesto sigue en la lista (RN-011). */
+  oculta: boolean;
+  presupuesto: { id: string; monto_centavos: string } | null;
+  gastado_centavos: string;
+  /** Solo con presupuesto. */
+  estado: 'quedan' | 'usado_todo' | 'superado' | null;
+  quedan_centavos: string | null;
+};
+
+/** Una fecha pendiente de una repetición de ingreso: no cuenta en «Sin asignar» (D-094, P-1). */
+export type FechaQueLlegaDespues = {
+  recurrente_id: string;
+  fecha: string;
+  categoria_id: number;
+  monto_centavos: string;
+  marca: 'esperado' | 'por_confirmar';
+};
+
+export type PresupuestoDelPeriodo = {
+  periodo_actual: string;
+  periodo: string;
+  /** Solo el mes en curso se pone, corrige y quita (D-094, SC-E21-13). */
+  editable: boolean;
+  resumen: {
+    modo: ModoDelPresupuesto;
+    /** Se dejó en cero y sigue en cero: el botón no vuelve a salir. */
+    en_cero: boolean;
+    ingreso_registrado_centavos: string;
+    asignado_centavos: string;
+    sin_asignar_centavos: string | null;
+    asignado_supera_por_centavos: string | null;
+    llega_despues_centavos: string;
+  };
+  llega_despues: FechaQueLlegaDespues[];
+  /** Primero las que tienen presupuesto y después las demás, en el orden que manda el API. */
+  categorias: CategoriaDelPresupuesto[];
+};
+
+const PRESUPUESTOS = '/api/v1/presupuestos';
+
+/** PN-06 y PN-07 muestran el mes en curso (D-094): el API lo elige. */
+export const leerPresupuesto = () => pedir<PresupuestoDelPeriodo>('GET', PRESUPUESTOS);
+
+/** «Poner presupuesto» del mes en curso; si la categoría ya tenía, el API lo corrige. */
+export const ponerPresupuesto = (periodo: string, categoriaId: number, montoCentavos: bigint) =>
+  pedir(
+    'POST',
+    PRESUPUESTOS,
+    `{"periodo":${JSON.stringify(periodo)},"categoria_id":${categoriaId},"monto_centavos":${montoCentavos}}`,
+  );
+
+export const corregirPresupuesto = (id: string, montoCentavos: bigint) =>
+  pedir('PUT', `${PRESUPUESTOS}/${encodeURIComponent(id)}`, `{"monto_centavos":${montoCentavos}}`);
+
+/** «Quitar presupuesto»: ningún gasto cambia. */
+export const quitarPresupuesto = (id: string) => pedir('DELETE', `${PRESUPUESTOS}/${encodeURIComponent(id)}`);
+
+/** «Dejar el presupuesto en cero» (CU-10 2a): guarda la marca del mes. */
+export const dejarEnCero = (periodo: string) => pedir('POST', `${PRESUPUESTOS}/en-cero`, { periodo });

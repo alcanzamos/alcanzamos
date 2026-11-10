@@ -1,0 +1,448 @@
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
+import { reiniciarBorrador } from '../../src/borradorDeRegistro';
+import { Navegacion } from '../../src/navegacion/Navegacion';
+import { tokens } from '../../src/tokens/tokens.generated';
+import { esperarAnuncio, focoDeTalkBack, limpiarAnuncios, nombreDe } from '../ayudas/anuncios';
+import { atras, instalarAtras } from '../ayudas/atras';
+import { buscarCampo, campo, quizasCampo } from '../ayudas/campos';
+import { respuestaJson } from '../ayudas/fetchFalso';
+import {
+  apiDelPresupuesto,
+  bajo,
+  BASE,
+  datos,
+  fila,
+  laura,
+  nulo,
+  sinPresupuesto,
+  transporte,
+} from '../ayudas/presupuestoFalso';
+import { fijarHoy } from '../ayudas/reloj';
+import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
+
+jest.mock('expo-secure-store', () => jest.requireActual('../ayudas/secureStoreFalso').crearSecureStoreFalso());
+const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crearSecureStoreFalso>;
+
+const PN71 = 'Este es tu primer ingreso.';
+const MONTO = 'Monto para noviembre en pesos';
+const NULO = 'Puedes repartir lo que llegue o dejar el presupuesto en cero.';
+const BAJO = 'Lo asignado supera por $10.000 lo que registraste. Se actualiza cuando registres más ingresos.';
+const EN_CERO = 'Listo, tu presupuesto de noviembre queda en cero. Cuando llegue un ingreso, puedes repartirlo.';
+
+async function abrirPresupuesto() {
+  await render(<Navegacion />);
+  await screen.findByText(PN71);
+  await fireEvent.press(screen.getByRole('button', { name: 'Presupuesto' }));
+  await screen.findByRole('header', { name: 'Tu presupuesto este mes' });
+}
+
+/** Lo que TalkBack lee de un elemento agrupado: su nombre accesible. */
+const leido = (texto: string | RegExp) => screen.getByLabelText(texto);
+
+describe('PN-06 y PN-07 · Presupuesto, Android (E14-PPA 4.1 y 4.2, US-77)', () => {
+  beforeEach(() => {
+    instalarAtras();
+    fijarHoy(new Date('2026-11-02T15:00:00Z'));
+    process.env.EXPO_PUBLIC_URL_API = BASE;
+    almacen.guardado.clear();
+    almacen.guardado.set('sesion', 'tk-activa');
+    reiniciarBorrador();
+    limpiarAnuncios();
+  });
+  afterEach(() => jest.useRealTimers());
+
+  describe('la entrada desde PN-71 (L3 de la US-77, punto 3)', () => {
+    it('«Presupuesto» va justo después de «Movimientos» y abre PN-06 con la barra «Presupuesto de noviembre»', async () => {
+      const pedidos = apiDelPresupuesto(respuestaJson);
+      await render(<Navegacion />);
+      await screen.findByText(PN71);
+      const botones = screen.getAllByRole('button');
+      const posicion = (nombre: string) => botones.indexOf(screen.getByRole('button', { name: nombre }));
+      expect(posicion('Presupuesto')).toBe(posicion('Movimientos') + 1);
+      await fireEvent.press(screen.getByRole('button', { name: 'Presupuesto' }));
+      await screen.findByRole('header', { name: 'Tu presupuesto este mes' });
+      expect(JSON.stringify(screen.toJSON())).toContain('"title":"Presupuesto de noviembre"');
+      expect(pedidos.filter((p) => p.ruta === '/api/v1/presupuestos')).toEqual([{ metodo: 'GET', ruta: '/api/v1/presupuestos', cuerpo: undefined }]);
+    });
+
+    it('Atrás vuelve a PN-71 y después sale de la app', async () => {
+      apiDelPresupuesto(respuestaJson);
+      await abrirPresupuesto();
+      expect(await atras()).toBe(true);
+      await screen.findByText(PN71);
+      expect(await atras()).toBe(false);
+    });
+
+    it('«Registrar» fijo abre el formulario vacío, con Tipo «Gasto» (D-164)', async () => {
+      apiDelPresupuesto(respuestaJson);
+      await abrirPresupuesto();
+      await fireEvent.press(screen.getByRole('button', { name: 'Registrar' }));
+      expect(await screen.findByRole('radio', { name: 'Gasto', checked: true })).toBeOnTheScreen();
+    });
+  });
+
+  describe('PN-06 con Laura en noviembre (caso F)', () => {
+    it('la tarjeta de resumen: registrado, asignado, «Sin asignar», «Llega después» y la nota del salario', async () => {
+      apiDelPresupuesto(respuestaJson);
+      await abrirPresupuesto();
+      expect(screen.getByText('Ingreso registrado')).toBeOnTheScreen();
+      expect(screen.getByText('$1.200.000')).toBeOnTheScreen();
+      expect(screen.getByText('Asignado')).toBeOnTheScreen();
+      expect(screen.getAllByText('$40.000').length).toBeGreaterThan(0);
+      expect(screen.getByText('Sin asignar')).toBeOnTheScreen();
+      expect(screen.getByText('$1.160.000')).toBeOnTheScreen();
+      expect(screen.getByText('Llega después: $1.200.000 (esperado)')).toBeOnTheScreen();
+      expect(
+        screen.getByText('Sin asignar cuenta lo que ya registraste. Salario del 16 de noviembre de 2026 se suma cuando llegue.'),
+      ).toBeOnTheScreen();
+      expect(screen.queryByText('Registrar un ingreso')).not.toBeOnTheScreen();
+      expect(screen.queryByText('Dejar el presupuesto en cero')).not.toBeOnTheScreen();
+      // Sin «Para mirar con calma» ni la aclaración de la simulación (L3 de la US-77, puntos 1 y 2).
+      expect(screen.queryByText('Para mirar con calma')).not.toBeOnTheScreen();
+    });
+
+    it('ACC-004 (D-187): cada cifra del resumen se lee con su etiqueta y el monto en pesos, nunca con «$»', async () => {
+      apiDelPresupuesto(respuestaJson);
+      await abrirPresupuesto();
+      expect(leido('Ingreso registrado, 1200000 pesos')).toBeOnTheScreen();
+      expect(leido('Asignado, 40000 pesos')).toBeOnTheScreen();
+      expect(leido('Sin asignar, 1160000 pesos')).toBeOnTheScreen();
+      expect(leido('Llega después: 1200000 pesos (esperado)')).toBeOnTheScreen();
+      expect(screen.queryByLabelText(/\$/)).not.toBeOnTheScreen();
+    });
+
+    it('con dos fechas esperadas no dice cuál se suma: la fila «Llega después» basta', async () => {
+      apiDelPresupuesto(respuestaJson, {
+        presupuesto: { ...laura, llega_despues: [laura.llega_despues[0]!, { ...laura.llega_despues[0]!, fecha: '2026-11-30' }] },
+      });
+      await abrirPresupuesto();
+      expect(screen.getByText('Sin asignar cuenta lo que ya registraste.')).toBeOnTheScreen();
+    });
+
+    it('«Por categoría» en el orden del API, cada fila agrupada para TalkBack y sus botones con el nombre de la categoría', async () => {
+      apiDelPresupuesto(respuestaJson);
+      await abrirPresupuesto();
+      expect(screen.getByRole('header', { name: 'Por categoría' })).toBeOnTheScreen();
+      const filas = screen.getAllByLabelText(/, (Presupuesto|Gastado) /).map((f) => f.props.accessibilityLabel as string);
+      expect(filas).toEqual([
+        'Transporte, Presupuesto 40000 pesos · Gastado 40000 pesos, Ya usaste todo lo presupuestado.',
+        'Arriendo o cuota de vivienda, Gastado 650000 pesos · Sin presupuesto',
+        'Alimentación, Gastado 120000 pesos · Sin presupuesto',
+        'Restaurantes y hoteles, Gastado 25000 pesos · Sin presupuesto',
+        'Recreación y cultura, Gastado 15000 pesos · Sin presupuesto',
+      ]);
+      expect(screen.getByText('Presupuesto $40.000 · Gastado $40.000')).toBeOnTheScreen();
+      expect(screen.getByText('Ya usaste todo lo presupuestado.')).toBeOnTheScreen();
+      expect(screen.getByText('Gastado $650.000 · Sin presupuesto')).toBeOnTheScreen();
+      expect(screen.getByRole('button', { name: 'Corregir el presupuesto de Transporte' })).toBeOnTheScreen();
+      expect(screen.getByRole('button', { name: 'Quitar el presupuesto de Transporte' })).toBeOnTheScreen();
+      expect(screen.getByRole('button', { name: 'Poner presupuesto a Arriendo o cuota de vivienda' })).toBeOnTheScreen();
+      expect(screen.getAllByRole('button', { name: /^Poner presupuesto a / })).toHaveLength(4);
+    });
+
+    it('los estados de una categoría con presupuesto describen sin calificar', async () => {
+      apiDelPresupuesto(respuestaJson, {
+        presupuesto: datos({ modo: 'normal', ingreso_registrado_centavos: '120000000' }, [
+          fila({ categoria_id: 1, presupuesto: { id: 'p1', monto_centavos: '30000000' }, gastado_centavos: '12000000', estado: 'quedan', quedan_centavos: '18000000' }),
+          fila({ categoria_id: 13, presupuesto: { id: 'p13', monto_centavos: '10000000' }, gastado_centavos: '12000000', estado: 'superado' }),
+        ]),
+      });
+      await abrirPresupuesto();
+      expect(screen.getByText('Quedan $180.000 por gastar.')).toBeOnTheScreen();
+      expect(screen.getByText('Gastado $120.000 de $100.000 presupuestados.')).toBeOnTheScreen();
+      expect(leido('Alimentación, Presupuesto 300000 pesos · Gastado 120000 pesos, Quedan 180000 pesos por gastar.')).toBeOnTheScreen();
+      expect(
+        leido('Restaurantes y hoteles, Presupuesto 100000 pesos · Gastado 120000 pesos, Gastado 120000 pesos de 100000 pesos presupuestados.'),
+      ).toBeOnTheScreen();
+    });
+
+    it('una categoría oculta con presupuesto sigue en la lista con el ícono y la palabra «Oculta» (RN-011)', async () => {
+      apiDelPresupuesto(respuestaJson, {
+        presupuesto: datos({ modo: 'normal', ingreso_registrado_centavos: '1' }, [{ ...transporte, oculta: true }]),
+      });
+      await abrirPresupuesto();
+      expect(screen.getByText('Oculta')).toBeOnTheScreen();
+      expect(leido('Transporte, Oculta, Presupuesto 40000 pesos · Gastado 40000 pesos, Ya usaste todo lo presupuestado.')).toBeOnTheScreen();
+    });
+
+    it('sin presupuestos: «Todavía no tienes presupuesto este mes.» y las categorías con gasto con «Poner presupuesto»', async () => {
+      apiDelPresupuesto(respuestaJson, {
+        presupuesto: datos({ modo: 'normal', ingreso_registrado_centavos: '120000000' }, [sinPresupuesto(4, '65000000')]),
+      });
+      await abrirPresupuesto();
+      expect(screen.getByText('Todavía no tienes presupuesto este mes.')).toBeOnTheScreen();
+      expect(screen.getByText('Elige una categoría y pon cuánto quieres gastar en ella.')).toBeOnTheScreen();
+      expect(screen.getByRole('button', { name: 'Poner presupuesto a Arriendo o cuota de vivienda' })).toBeOnTheScreen();
+    });
+
+    it('un mes que no es el en curso no ofrece poner, corregir, quitar ni agregar (D-094)', async () => {
+      apiDelPresupuesto(respuestaJson, { presupuesto: { ...laura, editable: false } });
+      await abrirPresupuesto();
+      expect(screen.queryByRole('button', { name: /^(Poner presupuesto a|Corregir el|Quitar el)/ })).not.toBeOnTheScreen();
+      expect(screen.queryByRole('button', { name: 'Agregar otra categoría' })).not.toBeOnTheScreen();
+    });
+
+    it('un error de carga dice el aviso de E14 y «Intentar de nuevo» vuelve a pedir', async () => {
+      let veces = 0;
+      apiDelPresupuesto(respuestaJson, {
+        presupuesto: () => (++veces === 1 ? respuestaJson(500, { error: 'error_interno' }) : laura),
+      });
+      await render(<Navegacion />);
+      await screen.findByText(PN71);
+      await fireEvent.press(screen.getByRole('button', { name: 'Presupuesto' }));
+      expect(await screen.findByText('No pudimos cargar tu presupuesto.')).toBeOnTheScreen();
+      expect(screen.getByText('Tus datos están a salvo. Intenta de nuevo.')).toBeOnTheScreen();
+      await fireEvent.press(screen.getByRole('button', { name: 'Intentar de nuevo' }));
+      expect(await screen.findByRole('header', { name: 'Tu presupuesto este mes' })).toBeOnTheScreen();
+      expect(screen.queryByText('No pudimos cargar tu presupuesto.')).not.toBeOnTheScreen();
+    });
+
+    it('un 401 lleva a PN-60', async () => {
+      apiDelPresupuesto(respuestaJson, { presupuesto: () => respuestaJson(401, { error: 'sin_sesion' }) });
+      await render(<Navegacion />);
+      await screen.findByText(PN71);
+      await fireEvent.press(screen.getByRole('button', { name: 'Presupuesto' }));
+      expect(await screen.findByText('Tu sesión se cerró', { exact: false })).toBeOnTheScreen();
+    });
+  });
+
+  describe('la hoja «Poner presupuesto» (E14-SDD 5.12)', () => {
+    async function abrirPoner(nombre = 'Poner presupuesto a Arriendo o cuota de vivienda') {
+      await fireEvent.press(screen.getByRole('button', { name: nombre }));
+      return buscarCampo(MONTO);
+    }
+
+    it('trae el título, «Monto para noviembre», «Guardar», «Ahora no» y «Cerrar»; sin la aclaración ni «De quién es» (L3)', async () => {
+      apiDelPresupuesto(respuestaJson);
+      await abrirPresupuesto();
+      await abrirPoner();
+      expect(screen.getByRole('header', { name: 'Presupuesto de Arriendo o cuota de vivienda' })).toBeOnTheScreen();
+      expect(screen.getByText('Monto para noviembre')).toBeOnTheScreen();
+      expect(screen.getByRole('button', { name: 'Guardar' })).toBeOnTheScreen();
+      expect(screen.getByRole('button', { name: 'Ahora no' })).toBeOnTheScreen();
+      expect(screen.getByRole('button', { name: 'Cerrar' })).toBeOnTheScreen();
+      expect(screen.queryByText(/cuenta en tu simulación/)).not.toBeOnTheScreen();
+      expect(screen.queryByText('Solo mío')).not.toBeOnTheScreen();
+      await fireEvent.press(screen.getByRole('button', { name: 'Cerrar' }));
+      await waitFor(() => expect(quizasCampo(MONTO)).not.toBeOnTheScreen());
+    });
+
+    it('«Guardar» manda el presupuesto del mes, dice el aviso por la región viva y vuelve a pedir el presupuesto', async () => {
+      const pedidos = apiDelPresupuesto(respuestaJson);
+      await abrirPresupuesto();
+      await fireEvent.changeText(await abrirPoner(), '400.000');
+      await fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+      await esperarAnuncio('Listo, guardamos tu presupuesto de Arriendo o cuota de vivienda.');
+      // El aviso queda arriba como mensaje de estado; la región viva (que no se ve) lo dijo.
+      expect(within(screen.getByRole('alert')).getByText('Listo, guardamos tu presupuesto de Arriendo o cuota de vivienda.')).toBeOnTheScreen();
+      expect(pedidos.find((p) => p.metodo === 'POST')).toEqual({
+        metodo: 'POST',
+        ruta: '/api/v1/presupuestos',
+        cuerpo: '{"periodo":"2026-11","categoria_id":4,"monto_centavos":40000000}',
+      });
+      expect(quizasCampo(MONTO)).not.toBeOnTheScreen();
+      expect(pedidos.filter((p) => p.ruta === '/api/v1/presupuestos' && p.metodo === 'GET')).toHaveLength(2);
+    });
+
+    it('un monto vacío dice «Falta el monto.» en el campo, le lleva el foco de TalkBack y no manda nada (US-63)', async () => {
+      const pedidos = apiDelPresupuesto(respuestaJson);
+      await abrirPresupuesto();
+      await abrirPoner();
+      await fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+      expect(await screen.findByText('Falta el monto.')).toBeOnTheScreen();
+      await waitFor(() => expect(nombreDe(focoDeTalkBack())).toBe(`${MONTO}, Falta el monto.`));
+      expect(campo(MONTO).props.placeholder).toBe(`${MONTO}, Falta el monto.`);
+      expect(pedidos.some((p) => p.metodo === 'POST')).toBe(false);
+    });
+
+    it('un 422 del monto va al campo con el texto de E14-PPN 3.1; otro fallo es un aviso en la hoja, que sigue abierta', async () => {
+      let veces = 0;
+      apiDelPresupuesto(respuestaJson, {
+        poner: () =>
+          ++veces === 1
+            ? respuestaJson(422, { error: 'datos_invalidos', campos: { monto_centavos: 'monto_no_positivo' } })
+            : respuestaJson(500, { error: 'error_interno' }),
+      });
+      await abrirPresupuesto();
+      await fireEvent.changeText(await abrirPoner(), '1');
+      await fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+      expect(await screen.findByText('El monto debe ser mayor que $0.')).toBeOnTheScreen();
+      await fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+      await esperarAnuncio('No pudimos guardar el presupuesto. Tus datos están a salvo. Intenta de nuevo.');
+      expect(screen.getByText('No pudimos guardar el presupuesto.')).toBeOnTheScreen();
+      expect(campo(MONTO)).toBeOnTheScreen();
+    });
+
+    it('mientras guarda, «Guardar» queda deshabilitado y no se manda dos veces', async () => {
+      let soltar: (r: Response) => void = () => undefined;
+      const pedidos = apiDelPresupuesto(respuestaJson, { poner: () => new Promise<Response>((r) => (soltar = r)) });
+      await abrirPresupuesto();
+      await fireEvent.changeText(await abrirPoner(), '400000');
+      await fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+      expect(screen.getByRole('button', { name: 'Guardar', disabled: true })).toBeOnTheScreen();
+      soltar(respuestaJson(201, {}));
+      await screen.findByText('Listo, guardamos tu presupuesto de Arriendo o cuota de vivienda.');
+      expect(pedidos.filter((p) => p.metodo === 'POST')).toHaveLength(1);
+    });
+
+    it('«Corregir» abre «Corregir el presupuesto de Transporte» con el monto escrito y guarda con PUT', async () => {
+      const pedidos = apiDelPresupuesto(respuestaJson);
+      await abrirPresupuesto();
+      const monto = await abrirPoner('Corregir el presupuesto de Transporte');
+      expect(screen.getByRole('header', { name: 'Corregir el presupuesto de Transporte' })).toBeOnTheScreen();
+      expect(monto.props.value).toBe('40.000');
+      await fireEvent.changeText(monto, '45.000');
+      await fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+      expect(await screen.findByText('Listo, guardamos tu presupuesto de Transporte.')).toBeOnTheScreen();
+      expect(pedidos.find((p) => p.metodo === 'PUT')).toEqual({
+        metodo: 'PUT',
+        ruta: '/api/v1/presupuestos/p8',
+        cuerpo: '{"monto_centavos":4500000}',
+      });
+    });
+
+    it('«Agregar otra categoría» lista las de gasto que no están y abre la hoja de la elegida', async () => {
+      const pedidos = apiDelPresupuesto(respuestaJson);
+      await abrirPresupuesto();
+      await fireEvent.press(screen.getByRole('button', { name: 'Agregar otra categoría' }));
+      const opciones = (await screen.findAllByRole('radio')).map((r) => within(r).getByText(/./).props.children);
+      expect(opciones).toEqual(['Servicios públicos', 'Otros gastos']);
+      await fireEvent.press(screen.getByRole('radio', { name: 'Servicios públicos' }));
+      await fireEvent.changeText(await buscarCampo(MONTO), '400.000');
+      expect(screen.getByRole('header', { name: 'Presupuesto de Servicios públicos' })).toBeOnTheScreen();
+      await fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+      expect(await screen.findByText('Listo, guardamos tu presupuesto de Servicios públicos.')).toBeOnTheScreen();
+      expect(pedidos.find((p) => p.metodo === 'POST')?.cuerpo).toBe(
+        '{"periodo":"2026-11","categoria_id":5,"monto_centavos":40000000}',
+      );
+    });
+  });
+
+  describe('la hoja «¿Quitar el presupuesto…?»', () => {
+    it('pide confirmar; «Quitar presupuesto» lo quita con DELETE y dice el aviso', async () => {
+      const pedidos = apiDelPresupuesto(respuestaJson);
+      await abrirPresupuesto();
+      await fireEvent.press(screen.getByRole('button', { name: 'Quitar el presupuesto de Transporte' }));
+      expect(await screen.findByRole('header', { name: '¿Quitar el presupuesto de Transporte?' })).toBeOnTheScreen();
+      expect(screen.getByText('Lo que gastaste no cambia. Puedes poner otro cuando quieras.')).toBeOnTheScreen();
+      await fireEvent.press(screen.getByRole('button', { name: 'Quitar presupuesto' }));
+      await esperarAnuncio('Listo, quitamos tu presupuesto de Transporte.');
+      expect(pedidos.find((p) => p.metodo === 'DELETE')).toEqual({
+        metodo: 'DELETE',
+        ruta: '/api/v1/presupuestos/p8',
+        cuerpo: undefined,
+      });
+    });
+
+    it('«Ahora no» la cierra sin mandar nada; un fallo deja la hoja con el aviso', async () => {
+      const pedidos = apiDelPresupuesto(respuestaJson, { quitar: () => respuestaJson(500, { error: 'error_interno' }) });
+      await abrirPresupuesto();
+      await fireEvent.press(screen.getByRole('button', { name: 'Quitar el presupuesto de Transporte' }));
+      await fireEvent.press(await screen.findByRole('button', { name: 'Ahora no' }));
+      await waitFor(() =>
+        expect(screen.queryByRole('header', { name: '¿Quitar el presupuesto de Transporte?' })).not.toBeOnTheScreen(),
+      );
+      expect(pedidos.some((p) => p.metodo === 'DELETE')).toBe(false);
+      await fireEvent.press(screen.getByRole('button', { name: 'Quitar el presupuesto de Transporte' }));
+      await fireEvent.press(await screen.findByRole('button', { name: 'Quitar presupuesto' }));
+      expect(await screen.findByText('No pudimos guardar el presupuesto.')).toBeOnTheScreen();
+      expect(screen.getByRole('header', { name: '¿Quitar el presupuesto de Transporte?' })).toBeOnTheScreen();
+    });
+  });
+
+  describe('PN-07 con un ingreso nulo o bajo (caso P)', () => {
+    it('ingreso nulo: «Ingreso registrado $0», sin «Sin asignar», con «Registrar un ingreso» y «Dejar el presupuesto en cero»', async () => {
+      apiDelPresupuesto(respuestaJson, { presupuesto: nulo() });
+      await abrirPresupuesto();
+      expect(leido('Ingreso registrado, 0 pesos')).toBeOnTheScreen();
+      expect(screen.getByText(NULO)).toBeOnTheScreen();
+      expect(screen.queryByText('Sin asignar')).not.toBeOnTheScreen();
+      expect(screen.queryByText('Asignado')).not.toBeOnTheScreen();
+      expect(screen.getByText('Todavía no hay gastos este mes.')).toBeOnTheScreen();
+      expect(screen.getByRole('button', { name: 'Registrar un ingreso' })).toBeOnTheScreen();
+      expect(screen.getByRole('button', { name: 'Dejar el presupuesto en cero' })).toBeOnTheScreen();
+    });
+
+    it('«Dejar el presupuesto en cero» guarda la marca sin confirmar, dice el aviso y el botón ya no vuelve', async () => {
+      let enCero = false;
+      const pedidos = apiDelPresupuesto(respuestaJson, {
+        presupuesto: () => nulo(enCero),
+        enCero: () => {
+          enCero = true;
+          return respuestaJson(204);
+        },
+      });
+      await abrirPresupuesto();
+      await fireEvent.press(screen.getByRole('button', { name: 'Dejar el presupuesto en cero' }));
+      await esperarAnuncio(EN_CERO);
+      expect(within(screen.getByRole('alert')).getByText(EN_CERO)).toBeOnTheScreen();
+      expect(pedidos.find((p) => p.metodo === 'POST')).toEqual({
+        metodo: 'POST',
+        ruta: '/api/v1/presupuestos/en-cero',
+        cuerpo: '{"periodo":"2026-11"}',
+      });
+      await waitFor(() => expect(screen.queryByRole('button', { name: 'Dejar el presupuesto en cero' })).not.toBeOnTheScreen());
+      expect(screen.getByText(NULO)).toBeOnTheScreen();
+    });
+
+    it('con el mes ya en cero no ofrece el botón; un 409 dice el aviso y vuelve a pedir', async () => {
+      let veces = 0;
+      const pedidos = apiDelPresupuesto(respuestaJson, {
+        presupuesto: () => nulo(++veces > 2),
+        enCero: () => respuestaJson(409, { error: 'periodo_con_ingreso_o_presupuesto' }),
+      });
+      await abrirPresupuesto();
+      await fireEvent.press(screen.getByRole('button', { name: 'Dejar el presupuesto en cero' }));
+      expect(await screen.findByText('No pudimos guardar el presupuesto.')).toBeOnTheScreen();
+      await waitFor(() => expect(pedidos.filter((p) => p.metodo === 'GET' && p.ruta === '/api/v1/presupuestos')).toHaveLength(2));
+    });
+
+    it('ingreso nulo con categorías con gasto: cada una con «Poner presupuesto»', async () => {
+      apiDelPresupuesto(respuestaJson, { presupuesto: nulo(true, [sinPresupuesto(1, '1500000')]) });
+      await abrirPresupuesto();
+      expect(screen.queryByText('Todavía no hay gastos este mes.')).not.toBeOnTheScreen();
+      expect(screen.getByRole('button', { name: 'Poner presupuesto a Alimentación' })).toBeOnTheScreen();
+      expect(screen.queryByRole('button', { name: 'Dejar el presupuesto en cero' })).not.toBeOnTheScreen();
+    });
+
+    it('ingreso bajo: registrado, asignado y la frase del dato, leída en pesos; sin «Dejar el presupuesto en cero»', async () => {
+      apiDelPresupuesto(respuestaJson, { presupuesto: bajo });
+      await abrirPresupuesto();
+      expect(leido('Ingreso registrado, 150000 pesos')).toBeOnTheScreen();
+      expect(leido('Asignado, 160000 pesos')).toBeOnTheScreen();
+      expect(screen.getByText(BAJO)).toBeOnTheScreen();
+      expect(
+        leido('Lo asignado supera por 10000 pesos lo que registraste. Se actualiza cuando registres más ingresos.'),
+      ).toBeOnTheScreen();
+      expect(screen.queryByText('Sin asignar')).not.toBeOnTheScreen();
+      expect(screen.getByRole('button', { name: 'Registrar un ingreso' })).toBeOnTheScreen();
+      expect(screen.queryByRole('button', { name: 'Dejar el presupuesto en cero' })).not.toBeOnTheScreen();
+    });
+
+    it.each([
+      ['nulo', nulo()],
+      ['bajo', bajo],
+    ])('sin reproche con ingreso %s (RNF-017): sin Atención, sin rojo, sin signo menos y sin las frases prohibidas', async (_, caso) => {
+      apiDelPresupuesto(respuestaJson, { presupuesto: caso });
+      await abrirPresupuesto();
+      const arbol = JSON.stringify(screen.toJSON());
+      const { atencion } = tokens.color.estado;
+      for (const color of [atencion.texto, atencion.fondo, atencion.icono, tokens.color.accion.destructiva.fondo])
+        expect(arbol).not.toContain(color);
+      expect(screen.queryByText(/-\s?\$|−/)).not.toBeOnTheScreen();
+      expect(
+        screen.queryByText(/sin ingresos|no tienes plata|no hay plata|te pasaste|de más|déficit|no alcanza|debes registrar|gasta menos|ahorra/i),
+      ).not.toBeOnTheScreen();
+    });
+
+    it('«Registrar un ingreso» abre el formulario con Tipo «Ingreso»', async () => {
+      apiDelPresupuesto(respuestaJson, { presupuesto: nulo() });
+      await abrirPresupuesto();
+      await fireEvent.press(screen.getByRole('button', { name: 'Registrar un ingreso' }));
+      expect(await screen.findByRole('radio', { name: 'Ingreso', checked: true })).toBeOnTheScreen();
+      expect(await atras()).toBe(true);
+      expect(await screen.findByRole('button', { name: 'Registrar un ingreso' })).toBeOnTheScreen();
+    });
+  });
+});
