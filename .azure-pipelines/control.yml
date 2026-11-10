@@ -5,8 +5,9 @@
 #   mismo mapa que los filtros de cada pipeline por carpeta; pruebas/filtros.py lo comprueba);
 # - `comun` corre siempre; cada etapa por carpeta corre solo si cambió su carpeta, con la misma plantilla que su pipeline
 #   por carpeta (plantillas/<carpeta>.yml): los pasos viven una sola vez;
-# - `control` corre siempre al final y falla si alguna etapa falló o se canceló. Una etapa que se saltó porque su
-#   carpeta no cambió cuenta como correcta.
+# - al final, `control` corre solo si todas las etapas quedaron bien y `control_rechazo` falla en cualquier otro caso
+#   (una etapa que falló, se canceló o no dejó resultado). Una etapa que se saltó porque su carpeta no cambió cuenta
+#   como correcta.
 # D-183: no corre al fusionar en main ni en un PR borrador; corre una vez cuando el PR se marca «listo para revisar».
 trigger: none
 pr:
@@ -84,10 +85,14 @@ stages:
     jobs:
       - template: plantillas/infra.yml
 
-  # Falla si alguna etapa terminó en algo distinto de correcta o saltada (Failed, Canceled o sin resultado). Si
-  # `cambios` falla, las etapas por carpeta se saltan y esta etapa falla por `cambios`.
+  # Si `cambios` falla, las etapas por carpeta se saltan y corre `control_rechazo` por `cambios`.
+  # Lee el resultado de cada etapa en su condición, como documenta Microsoft («Stage B runs if the result of Stage A is
+  # Succeeded, SucceededWithIssues, or Skipped»: https://learn.microsoft.com/en-us/azure/devops/pipelines/process/expressions#dependencies).
+  # Una variable de etapa con $[ dependencies.<etapa>.result ] queda vacía (corrida 671), por eso no se usa.
+  # `control` corre solo si todas quedaron bien; `control_rechazo` corre y falla en cualquier otro caso: una etapa que
+  # falló, se canceló o no dejó resultado (también un nombre mal escrito) deja la corrida en rojo.
   - stage: control
-    displayName: Control único (falla si alguna etapa falló o se canceló)
+    displayName: Control único (todas las etapas pasaron o se saltaron)
     dependsOn:
       - cambios
       - comun
@@ -96,38 +101,34 @@ stages:
       - web
       - movil
       - infra
-    condition: always()
-    variables:
-      RESULTADO_CAMBIOS: $[ dependencies.cambios.result ]
-      RESULTADO_COMUN: $[ dependencies.comun.result ]
-      RESULTADO_REGLAS: $[ dependencies.reglas.result ]
-      RESULTADO_API: $[ dependencies.api.result ]
-      RESULTADO_WEB: $[ dependencies.web.result ]
-      RESULTADO_MOVIL: $[ dependencies.movil.result ]
-      RESULTADO_INFRA: $[ dependencies.infra.result ]
+    condition: and(in(dependencies.cambios.result, 'Succeeded', 'SucceededWithIssues'), in(dependencies.comun.result, 'Succeeded', 'SucceededWithIssues'), in(dependencies.reglas.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'), in(dependencies.api.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'), in(dependencies.web.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'), in(dependencies.movil.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'), in(dependencies.infra.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'))
     jobs:
       - job: control
         pool:
           vmImage: ubuntu-24.04
         steps:
           - checkout: none
-
-          - script: |
-              set -eu
-              fallas=0
-              revisar() {
-                case "$2" in
-                  Succeeded|SucceededWithIssues) echo "ok    $1: corrió y pasó" ;;
-                  Skipped) echo "ok    $1: no cambió, se saltó" ;;
-                  *) echo "FALLA $1: ${2:-sin resultado}"; fallas=1 ;;
-                esac
-              }
-              revisar cambios "${RESULTADO_CAMBIOS:-}"
-              revisar comun "${RESULTADO_COMUN:-}"
-              revisar reglas "${RESULTADO_REGLAS:-}"
-              revisar api "${RESULTADO_API:-}"
-              revisar web "${RESULTADO_WEB:-}"
-              revisar movil "${RESULTADO_MOVIL:-}"
-              revisar infra "${RESULTADO_INFRA:-}"
-              exit "$fallas"
+          - script: echo "Todas las etapas pasaron o se saltaron porque su carpeta no cambió."
             displayName: Todas las etapas pasaron o se saltaron
+
+  - stage: control_rechazo
+    displayName: Control único (falla si alguna etapa falló, se canceló o no dejó resultado)
+    dependsOn:
+      - cambios
+      - comun
+      - reglas
+      - api
+      - web
+      - movil
+      - infra
+    condition: not(and(in(dependencies.cambios.result, 'Succeeded', 'SucceededWithIssues'), in(dependencies.comun.result, 'Succeeded', 'SucceededWithIssues'), in(dependencies.reglas.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'), in(dependencies.api.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'), in(dependencies.web.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'), in(dependencies.movil.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'), in(dependencies.infra.result, 'Succeeded', 'SucceededWithIssues', 'Skipped')))
+    jobs:
+      - job: control_rechazo
+        pool:
+          vmImage: ubuntu-24.04
+        steps:
+          - checkout: none
+          - script: |
+              echo "FALLA: alguna etapa falló, se canceló o no dejó resultado. Mira las etapas de esta corrida."
+              exit 1
+            displayName: Alguna etapa no pasó

@@ -14,7 +14,7 @@ El control único (`control.yml`, D-177 y D-178 (4)) corre en todo PR, sin `path
 corre solo si cambió su carpeta. La prueba comprueba que su mapa de carpetas (`pruebas/cambios.py`) sea igual a los
 filtros de cada pipeline por carpeta, que cada caso de ESPERADO dé las mismas etapas que los pipelines por carpeta, y
 la forma de `control.yml`: sin `paths`, cada etapa con su condición de cambio (salvo `comun`, que corre siempre, y
-la etapa final `control`, que corre siempre y falla si alguna falló o se canceló).
+las etapas finales: `control`, que corre solo si todas quedaron bien, y `control_rechazo`, que falla en cualquier otro caso).
 """
 import importlib.util
 import pathlib
@@ -24,6 +24,7 @@ RAIZ = pathlib.Path(__file__).resolve().parents[2]
 CARPETA = RAIZ / ".azure-pipelines"
 # El pipeline del control único (D-177): no filtra por ruta y no entra en la simulación de los pipelines por carpeta.
 CONTROL = "control"
+RECHAZO = "control_rechazo"
 
 # Archivo de ejemplo -> pipelines por carpeta que deben correr; las etapas del control único (`comun` más las de
 # pruebas/cambios.py) deben ser las mismas. Cuando llegue un pipeline nuevo, se agregan aquí sus casos.
@@ -226,6 +227,15 @@ def lista(valor):
     return [valor] if valor else []
 
 
+def condicion_de_control(etapas):
+    """Todas las etapas quedaron bien: `cambios` y `comun` corrieron y pasaron; las de carpeta pasaron o se saltaron."""
+    partes = []
+    for e in etapas:
+        valores = "'Succeeded', 'SucceededWithIssues'" + ("" if e in ("cambios", "comun") else ", 'Skipped'")
+        partes.append(f"in(dependencies.{e}.result, {valores})")
+    return "and(" + ", ".join(partes) + ")"
+
+
 def condicion_de_cambio(etapa):
     return f"and(succeeded(), eq(dependencies.cambios.outputs['cambios.detectar.{etapa}'], 'true'))"
 
@@ -244,7 +254,7 @@ def revisar_control(texto, carpetas):
     if "      - main" not in texto.splitlines():
         fallas.append("pr.branches.include debe tener main")
     etapas = etapas_de_control(texto)
-    esperadas = ["cambios", "comun", *carpetas, CONTROL]
+    esperadas = ["cambios", "comun", *carpetas, CONTROL, RECHAZO]
     if sorted(etapas) != sorted(esperadas):
         fallas.append(f"etapas {sorted(etapas)}; se esperaba {sorted(esperadas)}")
     for nombre, etapa in etapas.items():
@@ -260,18 +270,18 @@ def revisar_control(texto, carpetas):
                 fallas.append("comun: corre siempre (sin condition y con dependsOn: [])")
             if etapa["plantillas"] != ["plantillas/comun.yml"]:
                 fallas.append(f"comun: debe usar plantillas/comun.yml, usa {etapa['plantillas']}")
-        elif nombre == CONTROL:
-            if props.get("condition") != "always()":
-                fallas.append("control: debe tener condition: always()")
-            otras = [e for e in etapas if e != CONTROL]
+        elif nombre in (CONTROL, RECHAZO):
+            otras = [e for e in etapas if e not in (CONTROL, RECHAZO)]
             if sorted(depende or []) != sorted(otras):
-                fallas.append(f"control: dependsOn {depende}; se esperaba {otras}")
-            for otra in otras:
-                variable = f"RESULTADO_{otra.upper()}"
-                if etapa["variables"].get(variable) != f"$[ dependencies.{otra}.result ]":
-                    fallas.append(f"control: falta {variable}: $[ dependencies.{otra}.result ]")
-                if f'revisar {otra} "${{{variable}:-}}"' not in etapa["texto"]:
-                    fallas.append(f"control: el script no revisa la etapa {otra}")
+                fallas.append(f"{nombre}: dependsOn {depende}; se esperaba {otras}")
+            bien = condicion_de_control(otras)
+            quiere = bien if nombre == CONTROL else f"not({bien})"
+            if props.get("condition") != quiere:
+                fallas.append(f"{nombre}: condition debe ser {quiere}")
+            if nombre == RECHAZO and "exit 1" not in etapa["texto"]:
+                fallas.append("control_rechazo: el trabajo debe fallar (exit 1)")
+            if etapa["variables"]:
+                fallas.append(f"{nombre}: sin variables de etapa con dependencies.<etapa>.result (quedan vacías en Azure)")
         else:
             if props.get("condition") != condicion_de_cambio(nombre):
                 fallas.append(f"{nombre}: condition debe ser {condicion_de_cambio(nombre)}")
@@ -341,13 +351,26 @@ MUTACIONES = (
     ("eq(dependencies.cambios.outputs['cambios.detectar.api'], 'true'))",
      "eq(dependencies.cambios.outputs['cambios.detectar.web'], 'true'))"),
     ("eq(dependencies.cambios.outputs['cambios.detectar.infra'], 'true'))", "succeeded()"),
-    ("    condition: always()\n", "    condition: succeeded()\n"),
-    ("      - movil\n      - infra\n", "      - movil\n"),
-    ("      RESULTADO_WEB: $[ dependencies.web.result ]\n", ""),
-    ('revisar reglas "${RESULTADO_REGLAS:-}"', "true"),
+    ("    condition: and(in(dependencies.cambios.result", "    condition: always()\n    # and(in(dependencies.cambios.result"),
+    ("    condition: not(and(", "    condition: and(and("),
+    ("    condition: and(in(dependencies.cambios.result, 'Succeeded', 'SucceededWithIssues'), in(dependencies.comun.result, 'Succeeded', 'SucceededWithIssues'),",
+     "    condition: and(in(dependencies.cambios.result, 'Succeeded', 'SucceededWithIssues'), in(dependencies.comun.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'),"),
+    ("in(dependencies.infra.result, 'Succeeded', 'SucceededWithIssues', 'Skipped')))\n", "in(dependencies.infra.result, 'Succeeded', 'SucceededWithIssues', 'Skipped', 'Failed')))\n"),
+    ("              exit 1\n", "              exit 0\n"),
     ("      - template: plantillas/movil.yml", "      - template: plantillas/web.yml"),
     ("    dependsOn: []\n", "    dependsOn: cambios\n"),
     ("  - stage: infra\n", "  - stage: infra2\n"),
+    # Variables de etapa con dependencies.<etapa>.result vuelven (corrida 671: quedan vacías en Azure).
+    ("  - stage: control\n    displayName: Control único (todas las etapas pasaron o se saltaron)\n    dependsOn:",
+     "  - stage: control\n    displayName: Control único (todas las etapas pasaron o se saltaron)\n    variables:\n      RESULTADO_CAMBIOS: $[ dependencies.cambios.result ]\n    dependsOn:"),
+    # `cambios` no puede contar como correcta si se saltó.
+    ("not(and(in(dependencies.cambios.result, 'Succeeded', 'SucceededWithIssues'),",
+     "not(and(in(dependencies.cambios.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'),"),
+    # Un nombre de etapa mal escrito en la condición.
+    ("in(dependencies.movil.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'), in(dependencies.infra.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'))\n",
+     "in(dependencies.movil.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'), in(dependencies.infr.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'))\n"),
+    # control_rechazo sin depender de web.
+    ("      - web\n      - movil\n      - infra\n    condition: not(", "      - movil\n      - infra\n    condition: not("),
 )
 
 
