@@ -260,6 +260,10 @@ export const textos = {
     apoyoConMedio: "{tipo} · {medio} · {fecha}",
     // E14-PRR 4.8 (PN-72, «Confirmar todos»), fila 4: «Gasto · 5 de noviembre de 2026»
     apoyoSinMedio: "{tipo} · {fecha}",
+    // Aprobado por el dueño el 2026-11-10 (US-71, bug 231 de Azure Boards, ACC-004), un solo texto para la web y Android; va a E14-PRR 4.1 en la T4 de la US-71: el nombre accesible de E14-PRR 4.1 (PN-01), fila «Confirmar» («Confirmar Salario del 16 de noviembre de 2026»), con el monto, para que dos fechas de la misma categoría y día no se anuncien igual. Android dice el monto con `montoHablado` (D-187): «Confirmar Salario de 1200000 pesos del 16 de noviembre de 2026»; la web, con `formatearPesos`: «Confirmar Salario de $1.200.000 del 16 de noviembre de 2026»
+    nombreDeConfirmar: "Confirmar {nombre} de {monto} del {fecha}",
+    // Aprobado por el dueño el 2026-11-10 (US-71, bug 231 de Azure Boards, ACC-004), un solo texto para la web y Android; va a E14-PRR 4.1 y 4.8 en la T4 de la US-71: el nombre accesible de E14-PRR 4.1 (PN-01), fila «Más» («Más opciones de Salario del 16 de noviembre de 2026»), y de «Más» en E14-PRR 4.8 (PN-72, «Confirmar todos»), fila 4, con el monto que muestra la fila (el cambiado, si lo hay). Android dice el monto con `montoHablado` (D-187): «Más opciones de Salario de 1200000 pesos del 16 de noviembre de 2026»; la web, con `formatearPesos`: «Más opciones de Salario de $1.200.000 del 16 de noviembre de 2026»
+    nombreDeMas: "Más opciones de {nombre} de {monto} del {fecha}",
     hoja: {
       // E14-PRR 4.1 (PN-01), «Hoja «Más»»: «Salario · 16 de noviembre de 2026»
       titulo: "{nombre} · {fecha}",
@@ -346,10 +350,6 @@ export const textos = {
     soloIngresos: { one: "{n} ingreso por confirmar", other: "{n} ingresos por confirmar" },
     // E14-PRR 1.6 (PN-72, D-163): con un solo tipo, sin el cero y sin repetir el número: «13 gastos por confirmar», «1 gasto por confirmar»
     soloGastos: { one: "{n} gasto por confirmar", other: "{n} gastos por confirmar" },
-    // E14-PRR 4.1 (PN-01), fila «Confirmar»: «Confirmar Salario del 16 de noviembre de 2026»
-    nombreDeConfirmar: "Confirmar {nombre} del {fecha}",
-    // E14-PRR 4.1 (PN-01), fila «Más»: «Más opciones de Salario del 16 de noviembre de 2026»
-    nombreDeMas: "Más opciones de {nombre} del {fecha}",
   },
   pagina: {
     // E14-PCP 4.2 bis; E14-PCP 4.3 (PN-60); E14-PCP 4.4 bis; E14-PCP 4.6 (PN-63); E14-PCP 4.10 (PN-67); E14-PCP 4.11 (PN-68); E14-PCP 4.13 (PN-70); E14-PCP 4.16

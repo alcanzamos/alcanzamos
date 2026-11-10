@@ -1042,7 +1042,7 @@ describe("PN-01 · «Por confirmar» y «Confirmar todos» (US-60)", () => {
     });
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Confirmar Salario del 1 de noviembre de 2026",
+        name: "Confirmar Salario de $1.200.000 del 1 de noviembre de 2026",
       }),
     );
     expect(
@@ -1053,7 +1053,7 @@ describe("PN-01 · «Por confirmar» y «Confirmar todos» (US-60)", () => {
     await waitFor(() =>
       expect(
         screen.queryByRole("button", {
-          name: "Confirmar Salario del 1 de noviembre de 2026",
+          name: "Confirmar Salario de $1.200.000 del 1 de noviembre de 2026",
         }),
       ).not.toBeInTheDocument(),
     );
@@ -1118,7 +1118,7 @@ describe("PN-01 · «Por confirmar» y «Confirmar todos» (US-60)", () => {
     });
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Confirmar Salario del 1 de noviembre de 2026",
+        name: "Confirmar Salario de $1.200.000 del 1 de noviembre de 2026",
       }),
     );
     expect(
@@ -1130,7 +1130,7 @@ describe("PN-01 · «Por confirmar» y «Confirmar todos» (US-60)", () => {
     await waitFor(() =>
       expect(
         screen.queryByRole("button", {
-          name: "Confirmar Salario del 1 de noviembre de 2026",
+          name: "Confirmar Salario de $1.200.000 del 1 de noviembre de 2026",
         }),
       ).not.toBeInTheDocument(),
     );
