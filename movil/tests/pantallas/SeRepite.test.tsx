@@ -93,6 +93,15 @@ describe('PN-03 · Se repite (E14-PRR 4.3)', () => {
     expect(await screen.findByText('noviembre de', { exact: false })).toBeOnTheScreen();
   });
 
+  it('ACC-004 (bug 227): TalkBack lee «Empieza el» junto con su fecha, no solo la fecha', async () => {
+    cambiarBorrador({ fecha: '2026-10-01' });
+    responderCon(['2026-11-16']);
+    await mostrar();
+    await fireEvent.press(opcion('Cada quincena'));
+    expect(screen.getByLabelText('Empieza el, 1 de octubre de 2026')).toBeOnTheScreen();
+    await screen.findByText('16 de noviembre de 2026', { exact: false });
+  });
+
   it('«Empieza el» es la fecha del formulario, en palabras, y esa fecha va al API con la periodicidad', async () => {
     cambiarBorrador({ fecha: '2026-10-01' });
     const rutas = responderCon(['2026-11-16', '2026-12-01', '2026-12-16']);

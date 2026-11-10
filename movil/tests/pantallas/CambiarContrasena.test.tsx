@@ -3,8 +3,10 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import { TextInput } from 'react-native';
 import { CambiarContrasena } from '../../src/pantallas/CambiarContrasena';
 import { instalarFetchFalso, respuestaJson } from '../ayudas/fetchFalso';
+import { esperarSinAnuncios, focoDeTalkBack, nombreDe } from '../ayudas/anuncios';
 import { navegacionFalsa, propiedades } from '../ayudas/pantalla';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
+import { campo } from '../ayudas/campos';
 
 jest.mock('expo-secure-store', () => jest.requireActual('../ayudas/secureStoreFalso').crearSecureStoreFalso());
 const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crearSecureStoreFalso>;
@@ -19,8 +21,8 @@ async function mostrar() {
 }
 
 async function llenar(actual = 'la de ahora', nueva = 'lluvia café tren azul') {
-  await fireEvent.changeText(screen.getByLabelText('Tu contraseña de ahora'), actual);
-  await fireEvent.changeText(screen.getByLabelText('Tu contraseña nueva'), nueva);
+  await fireEvent.changeText(campo('Tu contraseña de ahora'), actual);
+  await fireEvent.changeText(campo('Tu contraseña nueva'), nueva);
 }
 
 const guardar = () => fireEvent.press(screen.getByRole('button', { name: 'Guardar la contraseña' }));
@@ -42,8 +44,8 @@ describe('PN-73 · Cambiar la contraseña (E14-PCP 4.15)', () => {
     expect(screen.getAllByRole('button', { name: 'Mostrar la contraseña' })).toHaveLength(2);
     expect(screen.getByRole('button', { name: 'Guardar la contraseña' })).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Ahora no' })).toBeOnTheScreen();
-    expect(screen.getByLabelText('Tu contraseña de ahora').props.autoComplete).toBe('current-password');
-    expect(screen.getByLabelText('Tu contraseña nueva').props.autoComplete).toBe('new-password');
+    expect(campo('Tu contraseña de ahora').props.autoComplete).toBe('current-password');
+    expect(campo('Tu contraseña nueva').props.autoComplete).toBe('new-password');
   });
 
   it('solo son dos campos: no hay «Repite la contraseña» ni la nota del menor', async () => {
@@ -112,8 +114,38 @@ describe('PN-73 · Cambiar la contraseña (E14-PCP 4.15)', () => {
       expect(
         await screen.findByText('No pudimos confirmar tu contraseña de ahora. Escríbela de nuevo.'),
       ).toBeOnTheScreen();
-      expect(foco.mock.contexts[0].props.accessibilityLabel).toBe('Tu contraseña de ahora');
-      expect(screen.getByLabelText('Tu contraseña nueva').props.value).toBe('lluvia café tren azul');
+      expect(nombreDe(foco.mock.contexts[0])).toBe(
+        'Tu contraseña de ahora, No pudimos confirmar tu contraseña de ahora. Escríbela de nuevo.',
+      );
+      expect(campo('Tu contraseña nueva').props.value).toBe('lluvia café tren azul');
+    });
+
+    it('ACC-004 (bug 226, el `400` de la sesión): el foco de TalkBack va a la contraseña de ahora, que lee su error; no hay anuncio aparte', async () => {
+      instalarFetchFalso(respuestaJson(400, { error: 'contrasena_actual_incorrecta' }));
+      await mostrar();
+      await llenar();
+      await guardar();
+      await screen.findByText('No pudimos confirmar tu contraseña de ahora. Escríbela de nuevo.');
+      expect(nombreDe(focoDeTalkBack())).toBe(
+        'Tu contraseña de ahora, No pudimos confirmar tu contraseña de ahora. Escríbela de nuevo.',
+      );
+      await esperarSinAnuncios();
+    });
+
+    it('ACC-004 (bug 226): vacía o corta, el foco va a la primera y cada campo lleva su error en el nombre', async () => {
+      instalarFetchFalso(
+        respuestaJson(422, {
+          error: 'validacion',
+          campos: { contrasena_actual: 'contrasena_vacia', contrasena_nueva: 'contrasena_corta' },
+        }),
+      );
+      await mostrar();
+      await guardar();
+      await screen.findByText('Falta tu contraseña de ahora.');
+      expect(nombreDe(focoDeTalkBack())).toBe('Tu contraseña de ahora, Falta tu contraseña de ahora.');
+      expect(campo('Tu contraseña nueva').props.placeholder).toBe(
+        'Tu contraseña nueva, Falta que la contraseña tenga al menos 15 caracteres.',
+      );
     });
 
     it('con los dos errores los muestra a la vez y el foco va al primero', async () => {
@@ -130,7 +162,7 @@ describe('PN-73 · Cambiar la contraseña (E14-PCP 4.15)', () => {
       expect(await screen.findByText('Falta tu contraseña de ahora.')).toBeOnTheScreen();
       expect(screen.getByText('Falta que la contraseña tenga al menos 15 caracteres.')).toBeOnTheScreen();
       expect(foco).toHaveBeenCalledTimes(1);
-      expect(foco.mock.contexts[0].props.accessibilityLabel).toBe('Tu contraseña de ahora');
+      expect(nombreDe(foco.mock.contexts[0])).toBe('Tu contraseña de ahora, Falta tu contraseña de ahora.');
     });
 
     it('un error solo de la nueva lleva el foco a la nueva', async () => {
@@ -140,7 +172,9 @@ describe('PN-73 · Cambiar la contraseña (E14-PCP 4.15)', () => {
       foco.mockClear();
       await guardar();
       await screen.findByText('Falta que la contraseña tenga al menos 15 caracteres.');
-      expect(foco.mock.contexts[0].props.accessibilityLabel).toBe('Tu contraseña nueva');
+      expect(nombreDe(foco.mock.contexts[0])).toBe(
+        'Tu contraseña nueva, Falta que la contraseña tenga al menos 15 caracteres.',
+      );
     });
   });
 
@@ -172,7 +206,7 @@ describe('PN-73 · Cambiar la contraseña (E14-PCP 4.15)', () => {
       expect(
         await screen.findByText('Sin conexión. Intenta de nuevo cuando vuelvas a tener internet.'),
       ).toBeOnTheScreen();
-      expect(screen.getByLabelText('Tu contraseña de ahora').props.value).toBe('la de ahora');
+      expect(campo('Tu contraseña de ahora').props.value).toBe('la de ahora');
     });
 
     it.each([

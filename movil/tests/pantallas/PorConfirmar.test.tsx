@@ -16,6 +16,7 @@ import {
 } from '../ayudas/movimientosFalsos';
 import { fijarHoy } from '../ayudas/reloj';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
+import { buscarCampo, campo, quizasCampo } from '../ayudas/campos';
 
 jest.mock('expo-secure-store', () => jest.requireActual('../ayudas/secureStoreFalso').crearSecureStoreFalso());
 const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crearSecureStoreFalso>;
@@ -253,10 +254,12 @@ describe('PN-01 · «Por confirmar», Android (E14-PRR 4.1, US-60)', () => {
       await abrirMas();
       await fireEvent.press(screen.getByRole('button', { name: 'Cambiar el monto' }));
       expect(await screen.findByRole('header', { name: '¿Cuánto llegó?' })).toBeOnTheScreen();
-      const campo = screen.getByLabelText('Monto');
-      expect(campo.props.value).toBe('$1.200.000');
+      const monto = campo('Monto en pesos');
+      // ACC-004, opción A: el «$» es un prefijo fuera del campo.
+      expect(monto.props.value).toBe('1.200.000');
+      expect(screen.getByText('$')).toBeOnTheScreen();
       expect(screen.getByText('Este cambio es solo para esta fecha. Las demás siguen igual.')).toBeOnTheScreen();
-      await fireEvent.changeText(campo, '1.100.000');
+      await fireEvent.changeText(monto, '1.100.000');
       await fireEvent.press(screen.getByRole('button', { name: 'Confirmar' }));
       expect(await screen.findByText('Listo, confirmamos tu ingreso de $1.100.000.')).toBeOnTheScreen();
       expect(pedidos.find((p) => p.metodo === 'POST')).toEqual({
@@ -264,7 +267,7 @@ describe('PN-01 · «Por confirmar», Android (E14-PRR 4.1, US-60)', () => {
         ruta: '/api/v1/repeticiones/r-salario/confirmacion',
         cuerpo: '{"fecha":"2026-11-16","monto_centavos":110000000}',
       });
-      await waitFor(() => expect(screen.queryByLabelText('Monto')).not.toBeOnTheScreen());
+      await waitFor(() => expect(quizasCampo('Monto en pesos')).not.toBeOnTheScreen());
     });
 
     it('un gasto pregunta «¿Cuánto pagaste?»', async () => {
@@ -280,17 +283,20 @@ describe('PN-01 · «Por confirmar», Android (E14-PRR 4.1, US-60)', () => {
       await abrirLista();
       await abrirMas();
       await fireEvent.press(screen.getByRole('button', { name: 'Cambiar el monto' }));
-      const campo = await screen.findByLabelText('Monto');
-      await fireEvent.changeText(campo, '');
+      const monto = await buscarCampo('Monto en pesos');
+      await fireEvent.changeText(monto, '');
       await fireEvent.press(screen.getByRole('button', { name: 'Confirmar' }));
       expect(await screen.findByText('Falta el monto.')).toBeOnTheScreen();
       expect(pedidos.some((p) => p.metodo === 'POST')).toBe(false);
-      await fireEvent.changeText(campo, '45000');
-      await fireEvent(campo, 'blur');
-      expect(screen.getByLabelText('Monto').props.value).toBe('$45.000');
-      await fireEvent.changeText(campo, 'abc');
-      await fireEvent(campo, 'blur');
-      expect(screen.getByLabelText('Monto').props.value).toBe('abc');
+      await fireEvent(campo('Monto en pesos'), 'focus');
+      await fireEvent.changeText(campo('Monto en pesos'), '45000');
+      await fireEvent(campo('Monto en pesos'), 'blur');
+      expect(campo('Monto en pesos').props.value).toBe('45.000');
+      await fireEvent(campo('Monto en pesos'), 'focus');
+      expect(campo('Monto en pesos').props.value).toBe('45000');
+      await fireEvent.changeText(campo('Monto en pesos'), 'abc');
+      await fireEvent(campo('Monto en pesos'), 'blur');
+      expect(campo('Monto en pesos').props.value).toBe('abc');
     });
 
     it('«Ahora no» cierra la hoja del monto sin mandar nada', async () => {
@@ -299,7 +305,7 @@ describe('PN-01 · «Por confirmar», Android (E14-PRR 4.1, US-60)', () => {
       await abrirMas();
       await fireEvent.press(screen.getByRole('button', { name: 'Cambiar el monto' }));
       await fireEvent.press(await screen.findByRole('button', { name: 'Ahora no' }));
-      await waitFor(() => expect(screen.queryByLabelText('Monto')).not.toBeOnTheScreen());
+      await waitFor(() => expect(quizasCampo('Monto en pesos')).not.toBeOnTheScreen());
       expect(pedidos.some((p) => p.metodo === 'POST')).toBe(false);
     });
 

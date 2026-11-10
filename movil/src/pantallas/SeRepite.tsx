@@ -1,18 +1,16 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { PERIODICIDADES, obtenerProximas } from '../api/registro';
 import { cambiarBorrador, useBorrador } from '../borradorDeRegistro';
 import { Aviso } from '../componentes/Aviso';
 import { Boton } from '../componentes/Boton';
-import { MarcoDeCampo } from '../componentes/CampoDeTexto';
+import { CampoDeLectura } from '../componentes/CampoDeTexto';
 import { ChipsDeEleccion } from '../componentes/ChipsDeEleccion';
-import { cifras } from '../componentes/Cifras';
 import { Pantalla } from '../componentes/Pantalla';
 import { Nota, Texto } from '../componentes/Texto';
 import { Tarjeta } from '../componentes/Tarjeta';
 import { diaEnPalabras, esFechaDeMovimiento, hoyEnColombia } from '../fechas';
-import { estiloDeTipografia } from '../fuentes';
 import { seguirPorAccesoNegado } from '../navegacion/accesoNegado';
 import type { Rutas } from '../navegacion/rutas';
 import {
@@ -89,9 +87,7 @@ export function SeRepite({ navigation }: NativeStackScreenProps<Rutas, 'SeRepite
       <Nota>{explicacionesDePeriodicidad[elegida]}</Nota>
       {periodicidad && (
         <>
-          <MarcoDeCampo etiqueta={p.empiezaEl}>
-            <Text style={estilos.fecha}>{cifras(diaEnPalabras(inicio) ?? '')}</Text>
-          </MarcoDeCampo>
+          <CampoDeLectura etiqueta={p.empiezaEl} valor={diaEnPalabras(inicio) ?? ''} />
           <Tarjeta titulo={p.proximas}>
             <View accessibilityState={{ busy: clave !== null && actual === null }}>
               {clave !== null && actual === null && <ActivityIndicator color={tokens.color.fondo.marca} />}
@@ -126,13 +122,3 @@ export function SeRepite({ navigation }: NativeStackScreenProps<Rutas, 'SeRepite
     </Pantalla>
   );
 }
-
-const estilos = StyleSheet.create({
-  fecha: {
-    ...estiloDeTipografia('cuerpo'),
-    flex: 1,
-    paddingHorizontal: tokens.espacio['3'],
-    paddingVertical: tokens.espacio['3'],
-    color: tokens.color.texto.principal,
-  },
-});

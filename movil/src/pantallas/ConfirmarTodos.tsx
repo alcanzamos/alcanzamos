@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { decidir, listarPendientes, type Decision, type Pendiente } from '../api/repeticiones';
+import { useAnuncio } from '../anuncios';
 import { Aviso } from '../componentes/Aviso';
 import { Boton, BotonDeTexto } from '../componentes/Boton';
 import { Casilla } from '../componentes/Casilla';
@@ -45,6 +46,9 @@ export function ConfirmarTodos({ navigation, route }: NativeStackScreenProps<Rut
   const marcados = pendientes.filter((f) => de(f).marcada && !de(f).omitida);
   const omitidas = pendientes.filter((f) => de(f).omitida);
   const nadaQueGuardar = marcados.length === 0 && omitidas.length === 0;
+  const recuento = formatear(t.todos.marcados, { marcados: String(marcados.length), total: String(pendientes.length) });
+  // ACC-004 (bug 225): al marcar, desmarcar o «No pasó», TalkBack anuncia el recuento nuevo; al abrir no hace falta.
+  useAnuncio(recuento, { alAparecer: false });
   const textoDeGuardar =
     marcados.length === 0 && omitidas.length > 0 ? t.todos.guardarSoloNoPaso : plural(t.todos.guardar, marcados.length);
 
@@ -81,7 +85,7 @@ export function ConfirmarTodos({ navigation, route }: NativeStackScreenProps<Rut
       <Pantalla conBarra>
         <Texto>{t.todos.explicacion}</Texto>
         <Text style={estilos.ayuda}>
-          {cifras(formatear(t.todos.marcados, { marcados: String(marcados.length), total: String(pendientes.length) }))}
+          {cifras(recuento)}
         </Text>
         {error && <Aviso {...error} />}
         <View style={estilos.tarjeta}>

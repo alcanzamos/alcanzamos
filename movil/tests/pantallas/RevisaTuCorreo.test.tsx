@@ -3,8 +3,10 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import { TextInput } from 'react-native';
 import { ESPERA_MS, RevisaTuCorreo } from '../../src/pantallas/RevisaTuCorreo';
 import { instalarFetchFalso, respuestaJson } from '../ayudas/fetchFalso';
+import { nombreDe } from '../ayudas/anuncios';
 import { navegacionFalsa, propiedades } from '../ayudas/pantalla';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
+import { campo, quizasCampo } from '../ayudas/campos';
 
 jest.mock('expo-secure-store', () => jest.requireActual('../ayudas/secureStoreFalso').crearSecureStoreFalso());
 const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crearSecureStoreFalso>;
@@ -229,9 +231,9 @@ describe('PN-59 · Revisa tu correo, Android (E14-PCP 4.2, D-172, D-184)', () =>
     it('«Reenviar el correo» pide el correo en la misma pantalla, sin hacer pedidos', async () => {
       const { fetchFalso } = instalarFetchFalso();
       await abrirFormulario();
-      expect(screen.getByLabelText('Correo electrónico')).toBeOnTheScreen();
+      expect(campo('Correo electrónico')).toBeOnTheScreen();
       expect(screen.getByText('Te enviaremos un enlace para confirmarlo y elegir tu contraseña.')).toBeOnTheScreen();
-      expect(screen.getByLabelText('Correo electrónico').props.autoComplete).toBe('email');
+      expect(campo('Correo electrónico').props.autoComplete).toBe('email');
       expect(boton('Reenviar el correo')).toHaveStyle({ backgroundColor: '#1F5C55' });
       expect(fetchFalso).not.toHaveBeenCalled();
     });
@@ -239,7 +241,7 @@ describe('PN-59 · Revisa tu correo, Android (E14-PCP 4.2, D-172, D-184)', () =>
     it('manda el correo escrito, lo muestra, vuelve a poner la espera y dice «Te enviamos otro correo.»', async () => {
       const { pedidos } = instalarFetchFalso(respuestaJson(202, ACEPTADO));
       await abrirFormulario();
-      await fireEvent.changeText(screen.getByLabelText('Correo electrónico'), 'otro@ejemplo.com');
+      await fireEvent.changeText(campo('Correo electrónico'), 'otro@ejemplo.com');
       await fireEvent.press(boton('Reenviar el correo'));
       expect(await screen.findByText('Te enviamos otro correo.')).toBeOnTheScreen();
       expect(pedidos[0]?.url).toBe('http://api.prueba:18090/api/v1/cuentas/verificacion/reenvio');
@@ -249,14 +251,14 @@ describe('PN-59 · Revisa tu correo, Android (E14-PCP 4.2, D-172, D-184)', () =>
           'Te enviamos un correo a otro@ejemplo.com. Ábrelo y sigue el enlace para elegir tu contraseña y confirmar tu cuenta.',
         ),
       ).toBeOnTheScreen();
-      expect(screen.queryByLabelText('Correo electrónico')).not.toBeOnTheScreen();
+      expect(quizasCampo('Correo electrónico')).not.toBeOnTheScreen();
       expect(boton('Reenviar el correo', { disabled: true })).toBeOnTheScreen();
     });
 
     it('con la dirección escrita, «Ya elegí mi contraseña» y «Usar otro correo» la llevan', async () => {
       instalarFetchFalso(respuestaJson(202, ACEPTADO));
       const navegacion = await abrirFormulario();
-      await fireEvent.changeText(screen.getByLabelText('Correo electrónico'), 'otro@ejemplo.com');
+      await fireEvent.changeText(campo('Correo electrónico'), 'otro@ejemplo.com');
       await fireEvent.press(boton('Reenviar el correo'));
       await screen.findByText('Te enviamos otro correo.');
       await fireEvent.press(boton('Ya elegí mi contraseña'));
@@ -273,19 +275,19 @@ describe('PN-59 · Revisa tu correo, Android (E14-PCP 4.2, D-172, D-184)', () =>
       foco.mockClear();
       await fireEvent.press(boton('Reenviar el correo'));
       expect(await screen.findByText(texto)).toBeOnTheScreen();
-      expect(screen.getByLabelText('Correo electrónico')).toBeOnTheScreen();
-      expect(foco.mock.contexts.at(-1).props.accessibilityLabel).toBe('Correo electrónico');
+      expect(campo('Correo electrónico')).toBeOnTheScreen();
+      expect(nombreDe(foco.mock.contexts.at(-1))).toBe(`Correo electrónico, ${texto}`);
     });
 
     it('un 429 dice «Hiciste muchos intentos…» y deja el campo', async () => {
       instalarFetchFalso(respuestaJson(429, { error: 'demasiados_intentos' }));
       await abrirFormulario();
-      await fireEvent.changeText(screen.getByLabelText('Correo electrónico'), 'otro@ejemplo.com');
+      await fireEvent.changeText(campo('Correo electrónico'), 'otro@ejemplo.com');
       await fireEvent.press(boton('Reenviar el correo'));
       expect(
         await screen.findByText('Hiciste muchos intentos. Espera unos minutos e intenta de nuevo.'),
       ).toBeOnTheScreen();
-      expect(screen.getByLabelText('Correo electrónico').props.value).toBe('otro@ejemplo.com');
+      expect(campo('Correo electrónico').props.value).toBe('otro@ejemplo.com');
     });
 
     it('un 500 dice «No pudimos enviar el correo.»', async () => {
@@ -293,7 +295,7 @@ describe('PN-59 · Revisa tu correo, Android (E14-PCP 4.2, D-172, D-184)', () =>
       await abrirFormulario();
       await fireEvent.press(boton('Reenviar el correo'));
       expect(await screen.findByText('No pudimos enviar el correo.')).toBeOnTheScreen();
-      await waitFor(() => expect(screen.getByLabelText('Correo electrónico')).toBeOnTheScreen());
+      await waitFor(() => expect(campo('Correo electrónico')).toBeOnTheScreen());
     });
   });
 });

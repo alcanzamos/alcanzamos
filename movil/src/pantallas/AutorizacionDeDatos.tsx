@@ -1,8 +1,9 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { StyleSheet, Text, View, type HostInstance } from 'react-native';
 import { autorizar, obtenerCatalogo, rechazar } from '../api/autorizaciones';
 import { SIN_CONEXION } from '../api/cliente';
+import { useAvisarErrores } from '../anuncios';
 import { Aviso } from '../componentes/Aviso';
 import { Boton } from '../componentes/Boton';
 import { Casilla } from '../componentes/Casilla';
@@ -65,6 +66,8 @@ export function AutorizacionDeDatos({ navigation }: NativeStackScreenProps<Rutas
   const [elegidas, setElegidas] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | undefined>();
   const [aviso, setAviso] = useState<DatosDeAviso | null>(null);
+  const casillaNecesarias = useRef<HostInstance>(null);
+  const avisarErrores = useAvisarErrores();
   const [enviando, setEnviando] = useState(false);
 
   useEffect(() => {
@@ -90,6 +93,7 @@ export function AutorizacionDeDatos({ navigation }: NativeStackScreenProps<Rutas
     if (!necesarias) {
       setError(textos.autorizacion.necesarias.error);
       setAviso(null);
+      avisarErrores([{ error: textos.autorizacion.necesarias.error, campo: casillaNecesarias }]);
       return;
     }
     const { catalogo } = estado;
@@ -162,6 +166,7 @@ export function AutorizacionDeDatos({ navigation }: NativeStackScreenProps<Rutas
             ))}
           </Tarjeta>
           <Casilla
+            ref={casillaNecesarias}
             texto={textos.autorizacion.necesarias.casilla}
             marcada={necesarias}
             alCambiar={(marcada) => {

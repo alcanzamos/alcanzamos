@@ -1,8 +1,9 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useRef, useState } from 'react';
-import type { TextInputInstance } from 'react-native';
+import type { HostInstance, TextInputInstance } from 'react-native';
 import { borrarLaCuenta, resumenDeBorrado, type ResumenDeBorrado } from '../api/cuentas';
 import { descargarMisDatos } from '../api/descarga';
+import { useAvisarErrores } from '../anuncios';
 import { Aviso } from '../componentes/Aviso';
 import { Boton, BotonDeTexto } from '../componentes/Boton';
 import { CampoDeContrasena } from '../componentes/CampoDeContrasena';
@@ -55,6 +56,8 @@ export function BorrarCuenta({ navigation }: NativeStackScreenProps<Rutas, 'Borr
     fase: 'libre',
   });
   const campoContrasena = useRef<TextInputInstance>(null);
+  const casillaDeMenores = useRef<HostInstance>(null);
+  const avisarErrores = useAvisarErrores();
 
   useEffect(() => {
     let vigente = true;
@@ -125,7 +128,10 @@ export function BorrarCuenta({ navigation }: NativeStackScreenProps<Rutas, 'Borr
     }
     setErrores(delCampo);
     setAviso(delCampo.contrasena || delCampo.menores ? null : avisoDeFallo(respuesta, avisos.errorAlBorrarLaCuenta));
-    if (delCampo.contrasena) campoContrasena.current?.focus();
+    avisarErrores([
+      { error: delCampo.menores, campo: casillaDeMenores },
+      { error: delCampo.contrasena, campo: campoContrasena },
+    ]);
   }
 
   return (
@@ -151,7 +157,7 @@ export function BorrarCuenta({ navigation }: NativeStackScreenProps<Rutas, 'Borr
         <>
           {descarga.fase === 'aviso' && <Aviso {...descarga.aviso} />}
           {aviso && <Aviso {...aviso} />}
-          <Aviso {...avisos.vasABorrarTuCuenta} />
+          <Aviso {...avisos.vasABorrarTuCuenta} viva={false} />
           <Tarjeta titulo={t.loQueSeBorra.titulo}>
             <Texto>{t.loQueSeBorra.detalle}</Texto>
             <Texto variante="ayuda">{t.loQueSeBorra.prueba}</Texto>
@@ -167,6 +173,7 @@ export function BorrarCuenta({ navigation }: NativeStackScreenProps<Rutas, 'Borr
                 <Texto>{plural(t.menores.dependen, menores.length, { nombres })}</Texto>
               </Tarjeta>
               <Casilla
+                ref={casillaDeMenores}
                 texto={plural(t.menores.casilla, menores.length, { nombres })}
                 marcada={confirmaMenores}
                 alCambiar={setConfirmaMenores}

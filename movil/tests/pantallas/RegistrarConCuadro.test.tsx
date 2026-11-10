@@ -13,10 +13,12 @@ import {
 } from "../../src/borradorDeRegistro";
 import { Registrar } from "../../src/pantallas/Registrar";
 import { tokens } from "../../src/tokens/tokens.generated";
+import { esperarAnuncio } from "../ayudas/anuncios";
 import { respuestaJson } from "../ayudas/fetchFalso";
 import { navegacionFalsa, propiedades } from "../ayudas/pantalla";
 import { fijarHoy } from "../ayudas/reloj";
 import type { crearSecureStoreFalso } from "../ayudas/secureStoreFalso";
+import { buscarCampo, campo, quizasCampo } from "../ayudas/campos";
 
 jest.mock("expo-secure-store", () =>
   jest.requireActual("../ayudas/secureStoreFalso").crearSecureStoreFalso(),
@@ -90,12 +92,12 @@ async function abrir() {
   await render(
     <Registrar {...propiedades("FormularioDeRegistro", navegacion)} />,
   );
-  await screen.findByLabelText("Monto");
+  await buscarCampo("Monto en pesos");
   return navegacion;
 }
 const CUADRO = "Escribe el gasto o el ingreso";
 const escribir = (texto: string) =>
-  fireEvent.changeText(screen.getByLabelText(CUADRO), texto);
+  fireEvent.changeText(campo(CUADRO), texto);
 const tocar = (nombre: string) =>
   fireEvent.press(screen.getByRole("button", { name: nombre }));
 const elegir = (nombre: string) =>
@@ -116,8 +118,8 @@ const enfocados = () =>
   jest
     .mocked(TextInput.prototype.focus)
     .mock.contexts.map(
-      (c: { props: { accessibilityLabel: string } }) =>
-        c.props.accessibilityLabel,
+      (c: { props: { accessibilityLabel?: string; placeholder?: string } }) =>
+        c.props.accessibilityLabel ?? c.props.placeholder,
     );
 
 /** Escribe, interpreta y espera el aviso de «Llenamos el formulario…». */
@@ -153,7 +155,7 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
     it("trae la etiqueta, la ayuda, la advertencia de NM-12 y «Llenar el formulario», de varias líneas y arriba del formulario", async () => {
       api();
       await abrir();
-      const cuadro = screen.getByLabelText(CUADRO);
+      const cuadro = campo(CUADRO);
       expect(cuadro.props.multiline).toBe(true);
       expect(cuadro.props.maxLength).toBe(280);
       expect(cuadro.props.accessibilityHint).toBe(
@@ -195,7 +197,7 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
     it("llenar a mano y guardar sigue guardando directo, sin interpretar y sin «Revisa y confirma» (RF-002)", async () => {
       const pedidos = api();
       const navegacion = await abrir();
-      await fireEvent.changeText(screen.getByLabelText("Monto"), "45.000");
+      await fireEvent.changeText(campo("Monto en pesos"), "45.000");
       await elegir("Alimentación");
       await elegir("Efectivo");
       await tocar("Guardar");
@@ -224,22 +226,24 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
         interpretaciones(pedidos).map((p) => [p.metodo, JSON.parse(p.cuerpo!)]),
       ).toEqual([["POST", { texto: "mercado 45 mil ayer" }]]);
       expect(screen.getByRole("radio", { name: "Gasto" })).toBeChecked();
-      expect(screen.getByLabelText("Monto").props.value).toBe("$45.000");
+      expect(campo("Monto en pesos").props.value).toBe("45.000");
       expect(
         screen.getByRole("button", { name: "Fecha, 25 de octubre de 2026" }),
       ).toBeOnTheScreen();
       expect(screen.getByRole("radio", { name: "Alimentación" })).toBeChecked();
-      expect(screen.getByLabelText(CUADRO).props.value).toBe(
+      expect(campo(CUADRO).props.value).toBe(
         "mercado 45 mil ayer",
       );
       expect(guardados(pedidos)).toHaveLength(0);
     });
 
-    it("el aviso es una región viva de información, encima del formulario (antes de «Tipo»)", async () => {
+    it("el aviso de información va encima del formulario (antes de «Tipo») y TalkBack lo anuncia", async () => {
       api();
       await interpretarYLlenar();
       const aviso = screen.getByRole("alert");
-      expect(aviso.props.accessibilityLiveRegion).toBe("polite");
+      await esperarAnuncio(
+        "Llenamos el formulario con tu texto. Cambia lo que quieras.",
+      );
       expect(
         within(aviso).getByText(
           "Llenamos el formulario con tu texto. Cambia lo que quieras.",
@@ -322,7 +326,7 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
       expect(
         screen.getByRole("radio", { name: "Transferencia" }),
       ).not.toBeChecked();
-      expect(screen.getByLabelText("Descripción (opcional)").props.value).toBe(
+      expect(campo("Descripción (opcional)").props.value).toBe(
         "",
       );
     });
@@ -360,8 +364,8 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
       expect(fondoDe("Confirmar y guardar")).toHaveStyle(PRIMARIO);
       expect(fondoDe("Volver al formulario")).toHaveStyle(SECUNDARIO);
       // El formulario y el cuadro salen: el paso ocupa la pantalla.
-      expect(screen.queryByLabelText("Monto")).not.toBeOnTheScreen();
-      expect(screen.queryByLabelText(CUADRO)).not.toBeOnTheScreen();
+      expect(quizasCampo("Monto en pesos")).not.toBeOnTheScreen();
+      expect(quizasCampo(CUADRO)).not.toBeOnTheScreen();
       expect(guardados(pedidos)).toHaveLength(0);
     });
 
@@ -389,11 +393,11 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
       const pedidos = api();
       await irAlPaso();
       await tocar("Volver al formulario");
-      expect(screen.getByLabelText("Monto").props.value).toBe("$45.000");
+      expect(campo("Monto en pesos").props.value).toBe("45.000");
       expect(screen.getByRole("radio", { name: "Efectivo" })).toBeChecked();
       expect(screen.queryByText("Revisa y confirma")).not.toBeOnTheScreen();
       expect(guardados(pedidos)).toHaveLength(0);
-      await fireEvent.changeText(screen.getByLabelText("Monto"), "46.000");
+      await fireEvent.changeText(campo("Monto en pesos"), "46.000");
       await tocar("Revisar y guardar");
       expect(screen.getByText("$46.000")).toBeOnTheScreen();
     });
@@ -405,8 +409,8 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
       await fireEvent.press(
         screen.getAllByRole("button", { name: "Cambiar" })[1]!,
       );
-      expect(screen.getByLabelText("Monto")).toBeOnTheScreen();
-      expect(enfocados()).toEqual(["Monto"]);
+      expect(campo("Monto en pesos")).toBeOnTheScreen();
+      expect(enfocados()).toEqual(["Monto en pesos"]);
       await tocar("Revisar y guardar");
       await fireEvent.press(
         screen.getAllByRole("button", { name: "Cambiar" })[4]!,
@@ -447,8 +451,8 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
         ),
       ).toBeOnTheScreen();
       expect(aviso).toBeOnTheScreen();
-      expect(screen.getByRole("alert").props.accessibilityLiveRegion).toBe(
-        "polite",
+      await esperarAnuncio(
+        "Encontramos más de un movimiento Tomamos solo el primer movimiento. Registra los otros por separado.",
       );
       expect(antes("Encontramos más de un movimiento", "Tipo")).toBe(true);
     });
@@ -472,7 +476,7 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
       await irAlPaso();
       await tocar("Confirmar y guardar");
       await act(async () => {});
-      expect(screen.getByLabelText("Monto")).toBeOnTheScreen();
+      expect(campo("Monto en pesos")).toBeOnTheScreen();
       expect(
         screen.getByText("El monto debe ser mayor que $0."),
       ).toBeOnTheScreen();
@@ -524,7 +528,7 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
       await tocar("Confirmar y guardar");
       await act(async () => {});
       await abrir();
-      expect(screen.getByLabelText(CUADRO).props.value).toBe("");
+      expect(campo(CUADRO).props.value).toBe("");
       expect(screen.getByRole("button", { name: "Guardar" })).toBeOnTheScreen();
     });
   });
@@ -545,11 +549,12 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
       });
       jest.mocked(TextInput.prototype.focus).mockClear();
       await interpretarYLlenar("mercado 12.5");
-      expect(screen.getByLabelText("Monto").props.value).toBe("");
+      expect(campo("Monto en pesos").props.value).toBe("");
       expect(
         screen.getByText("¿Quisiste decir $12.500 o $12,50?"),
       ).toBeOnTheScreen();
-      expect(enfocados()).toEqual(["Monto"]);
+      // ACC-004 (bug 226): el campo lee la pregunta con su nombre.
+      expect(enfocados()).toEqual(["Monto en pesos, ¿Quisiste decir $12.500 o $12,50?"]);
       // Lo demás sí se propone.
       expect(screen.getByRole("radio", { name: "Alimentación" })).toBeChecked();
       // Sin monto no hay paso ni guardado.
@@ -588,15 +593,15 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
         await tocar("Llenar el formulario");
         await screen.findByText(titulo);
         const aviso = screen.getByRole("alert");
-        expect(aviso.props.accessibilityLiveRegion).toBe("polite");
+        await esperarAnuncio(mensaje ? `${titulo} ${mensaje}` : titulo);
         if (mensaje) expect(within(aviso).getByText(mensaje)).toBeOnTheScreen();
-        expect(screen.getByLabelText("Monto").props.value).toBe("");
+        expect(campo("Monto en pesos").props.value).toBe("");
         expect(
           screen.queryByText(
             "Llenamos el formulario con tu texto. Cambia lo que quieras.",
           ),
         ).not.toBeOnTheScreen();
-        expect(screen.getByLabelText(CUADRO).props.value).toBe("hola");
+        expect(campo(CUADRO).props.value).toBe("hola");
         // El formulario sin cambios: sigue guardando directo.
         expect(
           screen.getByRole("button", { name: "Guardar" }),
@@ -632,7 +637,10 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
       expect(
         screen.getByText("Falta escribir el gasto o el ingreso."),
       ).toBeOnTheScreen();
-      expect(enfocados()).toEqual([CUADRO]);
+      // ACC-004 (bug 226): el cuadro lee su error con su nombre al recibir el foco.
+      expect(enfocados()).toEqual([
+        `${CUADRO}, Falta escribir el gasto o el ingreso.`,
+      ]);
       expect(interpretaciones(pedidos)).toHaveLength(0);
     });
 
@@ -654,8 +662,8 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
         jest.mocked(TextInput.prototype.focus).mockClear();
         await tocar("Llenar el formulario");
         await screen.findByText(texto);
-        expect(enfocados()).toEqual([CUADRO]);
-        expect(screen.getByLabelText(CUADRO).props.value).toBe("mercado");
+        expect(enfocados()).toEqual([`${CUADRO}, ${texto}`]);
+        expect(campo(CUADRO).props.value).toBe("mercado");
         // Es un error de campo, no el aviso de la falla del servidor.
         expect(
           screen.queryByText("No pudimos llenar el formulario."),
@@ -675,7 +683,7 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
       await screen.findByText(
         "Sin conexión, puedes registrar con el formulario.",
       );
-      expect(screen.getByLabelText("Monto")).toBeOnTheScreen();
+      expect(campo("Monto en pesos")).toBeOnTheScreen();
     });
 
     it("un fallo del servidor es un aviso, no un error del cuadro: «No pudimos llenar el formulario.» con «Llena el formulario: lo que escribiste sigue ahí.» y el texto intacto (E14-PPN 1.13, D-193)", async () => {
@@ -691,7 +699,7 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
         screen.getByText("Llena el formulario: lo que escribiste sigue ahí."),
       ).toBeOnTheScreen();
       expect(screen.queryByText(/Llénalo tú/)).not.toBeOnTheScreen();
-      expect(screen.getByLabelText(CUADRO).props.value).toBe("mercado");
+      expect(campo(CUADRO).props.value).toBe("mercado");
       expect(enfocados()).toEqual([]);
     });
 

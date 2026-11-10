@@ -6,6 +6,7 @@ import { respuestaJson } from '../ayudas/fetchFalso';
 import { apiFalsa, BASE, gastoDeAyer, listado } from '../ayudas/movimientosFalsos';
 import { fijarHoy } from '../ayudas/reloj';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
+import { buscarCampo, quizasCampo } from '../ayudas/campos';
 
 jest.mock('expo-secure-store', () => jest.requireActual('../ayudas/secureStoreFalso').crearSecureStoreFalso());
 const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crearSecureStoreFalso>;
@@ -66,12 +67,12 @@ describe('flujo de movimientos en Android: el Atrás de PN-01, PN-02 y «Corregi
     apiFalsa(respuestaJson, { lista: listado({ movimientos: [gastoDeAyer] }) });
     await abrirPN02();
     await fireEvent.press(screen.getByRole('button', { name: 'Corregir' }));
-    await fireEvent.changeText(await screen.findByLabelText('Monto'), '40.000');
+    await fireEvent.changeText(await buscarCampo('Monto en pesos'), '40.000');
     await fireEvent.press(screen.getByRole('button', { name: 'Guardar los cambios' }));
     expect(await screen.findByText('Listo, guardamos los cambios.')).toBeOnTheScreen();
     expect(await atras()).toBe(true);
     await screen.findByText(PN71);
-    expect(screen.queryByLabelText('Monto')).not.toBeOnTheScreen();
+    expect(quizasCampo('Monto en pesos')).not.toBeOnTheScreen();
     expect(screen.queryByRole('button', { name: 'Corregir' })).not.toBeOnTheScreen();
     expect(await atras()).toBe(false);
   });

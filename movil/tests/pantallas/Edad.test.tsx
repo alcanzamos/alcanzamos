@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { Edad } from '../../src/pantallas/Edad';
 import { DURACION_DEL_RECUERDO_MS } from '../../src/edad/recuerdo';
+import { anunciados, esperarAnuncio, esperarSinAnuncios, focoDeTalkBack, limpiarAnuncios, nombreDe } from '../ayudas/anuncios';
 import { instalarFetchFalso } from '../ayudas/fetchFalso';
 import { navegacionFalsa, propiedades } from '../ayudas/pantalla';
 import { fijarHoy } from '../ayudas/reloj';
@@ -60,6 +61,25 @@ describe('PN-65 · Edad (E14-PCP 4.8)', () => {
     await continuar();
     expect(screen.getByText('Falta la fecha de nacimiento.')).toBeOnTheScreen();
     expect(navegacion.replace).not.toHaveBeenCalled();
+  });
+
+  it('ACC-004 (bug 226): sin fecha, el foco de TalkBack va al campo, que lee su error; no hay anuncio aparte', async () => {
+    await mostrar();
+    limpiarAnuncios();
+    await continuar();
+    expect(nombreDe(focoDeTalkBack())).toBe('Fecha de nacimiento, Falta la fecha de nacimiento.');
+    await esperarSinAnuncios();
+  });
+
+  it('ACC-004 (225): el aviso del menor de edad se anuncia al aparecer', async () => {
+    await mostrar();
+    limpiarAnuncios();
+    await elegir(new Date(2015, 0, 1));
+    await continuar();
+    await esperarAnuncio(
+      'Esta cuenta la crea una persona adulta. Tu mamá, papá o tutor crea tu cuenta desde la suya y te da tu usuario.',
+    );
+    expect(anunciados()).toHaveLength(1);
   });
 
   it('con una fecha que no ha pasado dice «Falta una fecha que ya haya pasado.» y no sigue', async () => {

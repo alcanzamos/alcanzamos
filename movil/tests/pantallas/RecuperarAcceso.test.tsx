@@ -2,7 +2,9 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { TextInput } from 'react-native';
 import { RecuperarAcceso } from '../../src/pantallas/RecuperarAcceso';
 import { instalarFetchFalso, respuestaJson } from '../ayudas/fetchFalso';
+import { anunciados, esperarAnuncio, esperarSinAnuncios, focoDeTalkBack, nombreDe } from '../ayudas/anuncios';
 import { navegacionFalsa, propiedades } from '../ayudas/pantalla';
+import { campo, quizasCampo } from '../ayudas/campos';
 
 async function mostrar() {
   const navegacion = navegacionFalsa();
@@ -11,7 +13,7 @@ async function mostrar() {
 }
 
 const enviar = () => fireEvent.press(screen.getByRole('button', { name: 'Enviar el enlace' }));
-const escribir = (correo: string) => fireEvent.changeText(screen.getByLabelText('Correo electrónico'), correo);
+const escribir = (correo: string) => fireEvent.changeText(campo('Correo electrónico'), correo);
 
 describe('PN-61 · Recuperar el acceso: pedir el enlace (E14-PCP 4.4)', () => {
   beforeEach(() => {
@@ -25,7 +27,7 @@ describe('PN-61 · Recuperar el acceso: pedir el enlace (E14-PCP 4.4)', () => {
       screen.getByText('Escribe el correo de tu cuenta. Te enviamos un enlace para elegir una contraseña nueva.'),
     ).toBeOnTheScreen();
     expect(screen.getByText('Correo electrónico')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Correo electrónico').props.autoComplete).toBe('email');
+    expect(campo('Correo electrónico').props.autoComplete).toBe('email');
     expect(screen.getByRole('button', { name: 'Enviar el enlace' })).toBeOnTheScreen();
   });
 
@@ -61,10 +63,28 @@ describe('PN-61 · Recuperar el acceso: pedir el enlace (E14-PCP 4.4)', () => {
     await enviar();
     expect(await screen.findByText('Si ese correo tiene una cuenta, te enviamos un enlace.')).toBeOnTheScreen();
     expect(screen.getByText('Revisa también el correo no deseado.')).toBeOnTheScreen();
-    expect(screen.queryByLabelText('Correo electrónico')).not.toBeOnTheScreen();
+    expect(quizasCampo('Correo electrónico')).not.toBeOnTheScreen();
     expect(screen.queryByRole('button', { name: 'Enviar el enlace' })).not.toBeOnTheScreen();
     await fireEvent.press(screen.getByRole('button', { name: 'Volver a iniciar sesión' }));
     expect(navegacion.goBack).toHaveBeenCalled();
+  });
+
+  it('ACC-004 (bug 225): TalkBack anuncia «Si ese correo tiene una cuenta, te enviamos un enlace.» aunque el foco vaya a la barra', async () => {
+    instalarFetchFalso(respuestaJson(202, { estado: 'enlace_enviado' }));
+    await mostrar();
+    await escribir('no.existe@ejemplo.test');
+    await enviar();
+    await esperarAnuncio('Si ese correo tiene una cuenta, te enviamos un enlace. Revisa también el correo no deseado.');
+    expect(anunciados()).toHaveLength(1);
+  });
+
+  it('ACC-004 (bug 226): «Enviar el enlace» vacío lleva el foco al campo, que lee «Correo electrónico, Falta el correo electrónico.»; no hay anuncio aparte', async () => {
+    instalarFetchFalso(respuestaJson(422, { error: 'validacion', campos: { correo: 'correo_vacio' } }));
+    await mostrar();
+    await enviar();
+    await screen.findByText('Falta el correo electrónico.');
+    expect(nombreDe(focoDeTalkBack())).toBe('Correo electrónico, Falta el correo electrónico.');
+    await esperarSinAnuncios();
   });
 
   it('no dice nada del enlace de la web ni ofrece abrir el correo (D-155)', async () => {
@@ -88,8 +108,8 @@ describe('PN-61 · Recuperar el acceso: pedir el enlace (E14-PCP 4.4)', () => {
     await escribir('mal');
     await enviar();
     expect(await screen.findByText(texto)).toBeOnTheScreen();
-    expect(foco.mock.contexts[0].props.accessibilityLabel).toBe('Correo electrónico');
-    expect(screen.getByLabelText('Correo electrónico').props.value).toBe('mal');
+    expect(nombreDe(foco.mock.contexts[0])).toBe(`Correo electrónico, ${texto}`);
+    expect(campo('Correo electrónico').props.value).toBe('mal');
     expect(screen.queryByText('No pudimos enviar el enlace.')).not.toBeOnTheScreen();
   });
 
@@ -101,7 +121,7 @@ describe('PN-61 · Recuperar el acceso: pedir el enlace (E14-PCP 4.4)', () => {
     expect(
       await screen.findByText('Hiciste muchos intentos. Espera unos minutos e intenta de nuevo.'),
     ).toBeOnTheScreen();
-    expect(screen.getByLabelText('Correo electrónico').props.value).toBe('laura@ejemplo.com');
+    expect(campo('Correo electrónico').props.value).toBe('laura@ejemplo.com');
   });
 
   it('un 500 dice «No pudimos enviar el enlace.» «Intenta de nuevo.» y se puede reintentar', async () => {

@@ -2,6 +2,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useRef, useState } from 'react';
 import type { TextInputInstance } from 'react-native';
 import { iniciarSesion } from '../api/acceso';
+import { useAvisarErrores } from '../anuncios';
 import { Aviso } from '../componentes/Aviso';
 import { Boton, BotonDeTexto } from '../componentes/Boton';
 import { CampoDeContrasena } from '../componentes/CampoDeContrasena';
@@ -27,6 +28,7 @@ export function Entrar({ navigation, route }: NativeStackScreenProps<Rutas, 'Ent
   const [enviando, setEnviando] = useState(false);
   const campoDeCorreo = useRef<TextInputInstance>(null);
   const campoDeContrasena = useRef<TextInputInstance>(null);
+  const avisarErrores = useAvisarErrores();
   // «Tu sesión se cerró…» y las demás llegadas (E14-PCP 4.3) son un mensaje de estado, arriba de todo.
   const llegada = avisoDeLlegada(route.params?.llegada);
 
@@ -59,8 +61,10 @@ export function Entrar({ navigation, route }: NativeStackScreenProps<Rutas, 'Ent
             respuesta.estado >= 500 ? avisos.errorAlIniciarSesion : avisos.datosNoCoinciden,
           ),
     );
-    if (delCampo.identificador) campoDeCorreo.current?.focus();
-    else if (delCampo.contrasena) campoDeContrasena.current?.focus();
+    avisarErrores([
+      { error: delCampo.identificador, campo: campoDeCorreo },
+      { error: delCampo.contrasena, campo: campoDeContrasena },
+    ]);
   }
 
   return (

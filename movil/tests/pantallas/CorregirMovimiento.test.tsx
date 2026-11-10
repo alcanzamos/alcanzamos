@@ -3,10 +3,12 @@ import { cambiarBorrador, reiniciarBorrador, useBorrador } from '../../src/borra
 import type { Movimiento } from '../../src/api/movimientos';
 import { Navegacion } from '../../src/navegacion/Navegacion';
 import { atras, instalarAtras } from '../ayudas/atras';
+import { esperarAnuncio } from '../ayudas/anuncios';
 import { respuestaJson } from '../ayudas/fetchFalso';
 import { apiFalsa, BASE, gastoDeAyer, listado, movimiento, type Pedido } from '../ayudas/movimientosFalsos';
 import { fijarHoy } from '../ayudas/reloj';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
+import { buscarCampo, campo, quizasCampo } from '../ayudas/campos';
 
 jest.mock('expo-secure-store', () => jest.requireActual('../ayudas/secureStoreFalso').crearSecureStoreFalso());
 const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crearSecureStoreFalso>;
@@ -26,7 +28,7 @@ async function abrirCorregir(textoDeLaFila = 'Alimentación · Mercado') {
   await fireEvent.press(screen.getByRole('button', { name: 'Movimientos' }));
   await fireEvent.press(await screen.findByText(textoDeLaFila, { exact: false }));
   await fireEvent.press(await screen.findByRole('button', { name: 'Corregir' }));
-  await screen.findByLabelText('Monto');
+  await buscarCampo('Monto en pesos');
 }
 const api = (movimientos: Movimiento[], opciones: Parameters<typeof apiFalsa>[1] = {}) =>
   apiFalsa(respuestaJson, { lista: listado({ movimientos }), ...opciones });
@@ -47,11 +49,11 @@ describe('Corregir un movimiento, Android (E14-PRR 4.2)', () => {
     it('vienen llenos con lo que ya tiene el movimiento, con «Guardar los cambios» y «Ahora no», y sin «Se repite»', async () => {
       api([gastoDeAyer]);
       await abrirCorregir();
-      expect(screen.getByLabelText('Monto').props.value).toBe('$45.000');
+      expect(campo('Monto en pesos').props.value).toBe('45.000');
       expect(marcado('Gasto')).toBe(true);
       expect(marcado('Alimentación')).toBe(true);
       expect(marcado('Efectivo')).toBe(true);
-      expect(screen.getByLabelText('Descripción (opcional)').props.value).toBe('Mercado');
+      expect(campo('Descripción (opcional)').props.value).toBe('Mercado');
       expect(screen.getByRole('button', { name: 'Fecha, 1 de noviembre de 2026' })).toBeOnTheScreen();
       expect(screen.getByText('Solo mío')).toBeOnTheScreen();
       expect(screen.getByRole('button', { name: 'Guardar los cambios' })).toBeOnTheScreen();
@@ -75,10 +77,10 @@ describe('Corregir un movimiento, Android (E14-PRR 4.2)', () => {
       expect(screen.queryByText('Fecha')).not.toBeOnTheScreen();
       expect(screen.queryByRole('radio', { name: 'Ingreso' })).not.toBeOnTheScreen();
       // Monto, categoría, medio y descripción siguen ahí.
-      expect(screen.getByLabelText('Monto')).toBeOnTheScreen();
+      expect(campo('Monto en pesos')).toBeOnTheScreen();
       expect(screen.getByRole('radio', { name: 'Alimentación' })).toBeOnTheScreen();
       expect(screen.getByRole('radio', { name: 'Transferencia' })).toBeOnTheScreen();
-      expect(screen.getByLabelText('Descripción (opcional)')).toBeOnTheScreen();
+      expect(campo('Descripción (opcional)')).toBeOnTheScreen();
     });
 
     it('un ingreso corrige con las categorías de ingreso', async () => {
@@ -151,8 +153,8 @@ describe('Corregir un movimiento, Android (E14-PRR 4.2)', () => {
       await fireEvent.press(screen.getByRole('button', { name: 'Movimientos' }));
       await fireEvent.press(await screen.findByText('Alimentación · Mercado', { exact: false }));
       await fireEvent.press(await screen.findByRole('button', { name: 'Corregir' }));
-      expect((await screen.findByLabelText('Monto')).props.value).toBe('$45.000');
-      await fireEvent.changeText(screen.getByLabelText('Monto'), '40.000');
+      expect((await buscarCampo('Monto en pesos')).props.value).toBe('45.000');
+      await fireEvent.changeText(campo('Monto en pesos'), '40.000');
       expect(delBorrador).toMatchObject({ monto: '12.000', descripcion: 'otra cosa' });
     });
   });
@@ -161,25 +163,25 @@ describe('Corregir un movimiento, Android (E14-PRR 4.2)', () => {
     it('corregir el monto a $40.000 manda el PUT con todos los campos y vuelve a PN-01 con «Listo, guardamos los cambios.»', async () => {
       const pedidos = api([gastoDeAyer]);
       await abrirCorregir();
-      await fireEvent.changeText(screen.getByLabelText('Monto'), '40.000');
+      await fireEvent.changeText(campo('Monto en pesos'), '40.000');
       await fireEvent.press(screen.getByRole('button', { name: 'Guardar los cambios' }));
       expect(await screen.findByText('Listo, guardamos los cambios.')).toBeOnTheScreen();
       expect(puts(pedidos).map((p) => p.ruta)).toEqual(['/api/v1/movimientos/m-ayer']);
       expect(cuerpoDelPut(pedidos)).toBe(
         '{"monto_centavos":4000000,"tipo":"gasto","fecha":"2026-11-01","categoria_id":1,"medio":"efectivo","descripcion":"Mercado"}',
       );
-      expect(JSON.stringify(screen.toJSON())).toContain('"accessibilityLiveRegion":"polite"');
-      expect(screen.queryByLabelText('Monto')).not.toBeOnTheScreen();
+      await esperarAnuncio('Listo, guardamos los cambios.');
+      expect(quizasCampo('Monto en pesos')).not.toBeOnTheScreen();
       expect(screen.getByRole('button', { name: 'Registrar' })).toBeOnTheScreen();
     });
 
     it('cambiar la categoría, el medio y la descripción (y borrarla) se manda; el monto con centavos exactos', async () => {
       const pedidos = api([gastoDeAyer]);
       await abrirCorregir();
-      await fireEvent.changeText(screen.getByLabelText('Monto'), '$9.007.199.254.740.993,01');
+      await fireEvent.changeText(campo('Monto en pesos'), '$9.007.199.254.740.993,01');
       await fireEvent.press(screen.getByRole('radio', { name: 'Otros gastos' }));
       await fireEvent.press(screen.getByRole('radio', { name: 'Transferencia' }));
-      await fireEvent.changeText(screen.getByLabelText('Descripción (opcional)'), '   ');
+      await fireEvent.changeText(campo('Descripción (opcional)'), '   ');
       await fireEvent.press(screen.getByRole('button', { name: 'Guardar los cambios' }));
       await screen.findByText('Listo, guardamos los cambios.');
       expect(cuerpoDelPut(pedidos)).toBe(
@@ -190,7 +192,7 @@ describe('Corregir un movimiento, Android (E14-PRR 4.2)', () => {
     it('D-168: en una fecha de un recurrente el PUT no lleva la fecha', async () => {
       const pedidos = api([{ ...gastoDeAyer, recurrente }]);
       await abrirCorregir();
-      await fireEvent.changeText(screen.getByLabelText('Monto'), '40.000');
+      await fireEvent.changeText(campo('Monto en pesos'), '40.000');
       await fireEvent.press(screen.getByRole('button', { name: 'Guardar los cambios' }));
       await screen.findByText('Listo, guardamos los cambios.');
       expect(JSON.parse(cuerpoDelPut(pedidos))).toEqual({
@@ -208,7 +210,7 @@ describe('Corregir un movimiento, Android (E14-PRR 4.2)', () => {
     it('con el formulario incompleto salen los errores de E14-PPN 3.1 y no se manda nada', async () => {
       const pedidos = api([gastoDeAyer]);
       await abrirCorregir();
-      await fireEvent.changeText(screen.getByLabelText('Monto'), '');
+      await fireEvent.changeText(campo('Monto en pesos'), '');
       await fireEvent.press(screen.getByRole('button', { name: 'Guardar los cambios' }));
       expect(await screen.findByText('Falta el monto.')).toBeOnTheScreen();
       expect(puts(pedidos)).toEqual([]);
@@ -239,11 +241,11 @@ describe('Corregir un movimiento, Android (E14-PRR 4.2)', () => {
         corregir: () => (falla ? respuestaJson(500, { error: 'interno' }) : respuestaJson(200, {})),
       });
       await abrirCorregir();
-      await fireEvent.changeText(screen.getByLabelText('Monto'), '40.000');
+      await fireEvent.changeText(campo('Monto en pesos'), '40.000');
       await fireEvent.press(screen.getByRole('button', { name: 'Guardar los cambios' }));
       expect(await screen.findByText('No pudimos guardar los cambios.')).toBeOnTheScreen();
       expect(screen.getByText('Tu movimiento sigue igual. Intenta de nuevo.')).toBeOnTheScreen();
-      expect(screen.getByLabelText('Monto').props.value).toBe('40.000');
+      expect(campo('Monto en pesos').props.value).toBe('40.000');
       falla = false;
       await fireEvent.press(screen.getByRole('button', { name: 'Intentar de nuevo' }));
       await screen.findByText('Listo, guardamos los cambios.');
@@ -253,10 +255,10 @@ describe('Corregir un movimiento, Android (E14-PRR 4.2)', () => {
     it('sin conexión dice el aviso de siempre y lo escrito se conserva', async () => {
       api([gastoDeAyer], { corregir: () => Promise.reject(new Error('sin red')) });
       await abrirCorregir();
-      await fireEvent.changeText(screen.getByLabelText('Monto'), '40.000');
+      await fireEvent.changeText(campo('Monto en pesos'), '40.000');
       await fireEvent.press(screen.getByRole('button', { name: 'Guardar los cambios' }));
       expect(await screen.findByText('Sin conexión. Intenta de nuevo cuando vuelvas a tener internet.')).toBeOnTheScreen();
-      expect(screen.getByLabelText('Monto').props.value).toBe('40.000');
+      expect(campo('Monto en pesos').props.value).toBe('40.000');
     });
 
     it('un 401 lleva a PN-60', async () => {
@@ -271,7 +273,7 @@ describe('Corregir un movimiento, Android (E14-PRR 4.2)', () => {
       await abrirCorregir();
       await fireEvent.press(screen.getByRole('button', { name: 'Guardar los cambios' }));
       expect(await screen.findByText('Ese movimiento ya no está.')).toBeOnTheScreen();
-      expect(screen.queryByLabelText('Monto')).not.toBeOnTheScreen();
+      expect(quizasCampo('Monto en pesos')).not.toBeOnTheScreen();
       expect(screen.getByRole('button', { name: 'Ir a Movimientos' })).toBeOnTheScreen();
       expect(screen.queryByRole('button', { name: 'Corregir' })).not.toBeOnTheScreen();
     });
@@ -281,7 +283,7 @@ describe('Corregir un movimiento, Android (E14-PRR 4.2)', () => {
     it('«Ahora no» vuelve a PN-02 sin guardar nada', async () => {
       const pedidos = api([gastoDeAyer]);
       await abrirCorregir();
-      await fireEvent.changeText(screen.getByLabelText('Monto'), '40.000');
+      await fireEvent.changeText(campo('Monto en pesos'), '40.000');
       await fireEvent.press(screen.getByRole('button', { name: 'Ahora no' }));
       await screen.findByRole('button', { name: 'Borrar este movimiento' });
       expect(screen.getByText('$45.000', { exact: false })).toBeOnTheScreen();
@@ -306,7 +308,7 @@ describe('Corregir un movimiento, Android (E14-PRR 4.2)', () => {
       // Atrás desde PN-01 es PN-71: ni el formulario ni el detalle quedan en la pila.
       expect(await atras()).toBe(true);
       await screen.findByText(PN71);
-      expect(screen.queryByLabelText('Monto')).not.toBeOnTheScreen();
+      expect(quizasCampo('Monto en pesos')).not.toBeOnTheScreen();
       expect(screen.queryByRole('button', { name: 'Corregir' })).not.toBeOnTheScreen();
       expect(await atras()).toBe(false);
     });

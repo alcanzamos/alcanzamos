@@ -95,7 +95,7 @@ export function SeguridadDeLaCuenta({ navigation, route }: NativeStackScreenProp
           </View>
           {fecha && (
             <>
-              <Aviso {...avisos.noReconoceElIngreso} />
+              <Aviso {...avisos.noReconoceElIngreso} viva={false} />
               <Boton variante="secundario" alTocar={() => navigation.navigate('CambiarContrasena')}>
                 {textos.seguridadDeLaCuenta.cambiarContrasena}
               </Boton>

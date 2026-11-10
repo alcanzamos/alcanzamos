@@ -5,11 +5,13 @@ import { estiloDeTipografia } from '../fuentes';
 import { textos } from '../textos/es.generated';
 import { tokens } from '../tokens/tokens.generated';
 import { IconoCerrar } from './Iconos';
+import { RegionDeAnuncios } from './RegionDeAnuncios';
 
 // Hoja inferior de E14-SDD 5.12: sube desde abajo sobre un velo. El Atrás de Android la cierra (`onRequestClose`) y
 // tocar el velo también; el contenido se anuncia como una ventana modal para que TalkBack no salga de la hoja. Con
 // `titulo` lleva el encabezado y el ícono Cerrar de 48 dp con su nombre accesible; sube con el teclado (el campo de
-// «Cambiar el monto» no queda tapado).
+// «Cambiar el monto» no queda tapado). Lleva su propia región viva (ACC-004): la hoja es otra ventana en Android, y
+// sus avisos se dicen en ella y no en la pantalla de atrás.
 export function HojaInferior({
   visible,
   alCerrar,
@@ -45,6 +47,7 @@ export function HojaInferior({
             </View>
           )}
           {children}
+          <RegionDeAnuncios />
         </View>
       </KeyboardAvoidingView>
     </Modal>

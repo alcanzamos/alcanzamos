@@ -2,10 +2,12 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { reiniciarBorrador } from '../../src/borradorDeRegistro';
 import { Navegacion } from '../../src/navegacion/Navegacion';
 import { atras, instalarAtras } from '../ayudas/atras';
+import { anunciados, esperarAnuncio, esperarSinAnuncios, focosDeTalkBack, limpiarAnuncios, nombreDe } from '../ayudas/anuncios';
 import { respuestaJson } from '../ayudas/fetchFalso';
 import { apiFalsa, BASE, celular, energia, listado, pendiente, pendientes } from '../ayudas/movimientosFalsos';
 import { fijarHoy } from '../ayudas/reloj';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
+import { buscarCampo, campo, quizasCampo } from '../ayudas/campos';
 
 jest.mock('expo-secure-store', () => jest.requireActual('../ayudas/secureStoreFalso').crearSecureStoreFalso());
 const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crearSecureStoreFalso>;
@@ -39,9 +41,9 @@ const elegir = async (fila: string, opcion: string) => {
 };
 const cambiarMonto = async (fila: string, valor: string) => {
   await elegir(fila, 'Cambiar el monto');
-  await fireEvent.changeText(await screen.findByLabelText('Monto'), valor);
+  await fireEvent.changeText(await buscarCampo('Monto en pesos'), valor);
   await fireEvent.press(screen.getByRole('button', { name: 'Listo' }));
-  await waitFor(() => expect(screen.queryByLabelText('Monto')).not.toBeOnTheScreen());
+  await waitFor(() => expect(quizasCampo('Monto en pesos')).not.toBeOnTheScreen());
 };
 const guardar = (nombre: string | RegExp, opciones: { disabled?: boolean } = {}) =>
   screen.getByRole('button', { name: nombre, ...opciones });
@@ -113,15 +115,25 @@ describe('«Confirmar todos», Android (E14-PRR 4.8, US-60)', () => {
       expect(screen.queryByText('Sigue por confirmar')).not.toBeOnTheScreen();
     });
 
+    it('ACC-004 (bug 225): al desmarcar, TalkBack anuncia la cuenta «2 de 3 marcados»; al abrir no la anuncia', async () => {
+      apiFalsa(respuestaJson, { pendientes: pendientes(energia, celular, salario) });
+      limpiarAnuncios();
+      await abrirTodos();
+      await new Promise((listo) => setTimeout(listo, 1100));
+      expect(anunciados()).not.toContain('3 de 3 marcados');
+      await fireEvent.press(casilla('Servicios públicos'));
+      await esperarAnuncio('2 de 3 marcados');
+    });
+
     it('«Cambiar el monto» → «Listo» muestra el monto nuevo y «Monto cambiado», sigue marcada y no guarda', async () => {
       const pedidos = apiFalsa(respuestaJson, { pendientes: pendientes(energia, celular, salario) });
       await abrirTodos();
       await elegir('Salario', 'Cambiar el monto');
       expect(await screen.findByRole('header', { name: '¿Cuánto llegó?' })).toBeOnTheScreen();
-      expect(screen.getByLabelText('Monto').props.value).toBe('$1.200.000');
-      await fireEvent.changeText(screen.getByLabelText('Monto'), '1.100.000');
+      expect(campo('Monto en pesos').props.value).toBe('1.200.000');
+      await fireEvent.changeText(campo('Monto en pesos'), '1.100.000');
       await fireEvent.press(screen.getByRole('button', { name: 'Listo' }));
-      await waitFor(() => expect(screen.queryByLabelText('Monto')).not.toBeOnTheScreen());
+      await waitFor(() => expect(quizasCampo('Monto en pesos')).not.toBeOnTheScreen());
       expect(screen.getByText('$1.100.000')).toBeOnTheScreen();
       expect(screen.getByText('Monto cambiado')).toBeOnTheScreen();
       expect(casilla('Salario', { checked: true })).toBeOnTheScreen();
@@ -141,11 +153,11 @@ describe('«Confirmar todos», Android (E14-PRR 4.8, US-60)', () => {
       apiFalsa(respuestaJson, { pendientes: pendientes(energia, celular) });
       await abrirTodos();
       await elegir('Servicios públicos', 'Cambiar el monto');
-      await fireEvent.changeText(await screen.findByLabelText('Monto'), '0');
+      await fireEvent.changeText(await buscarCampo('Monto en pesos'), '0');
       await fireEvent.press(screen.getByRole('button', { name: 'Listo' }));
       expect(await screen.findByText('El monto debe ser mayor que $0.')).toBeOnTheScreen();
       await fireEvent.press(screen.getByRole('button', { name: 'Ahora no' }));
-      await waitFor(() => expect(screen.queryByLabelText('Monto')).not.toBeOnTheScreen());
+      await waitFor(() => expect(quizasCampo('Monto en pesos')).not.toBeOnTheScreen());
       expect(screen.queryByText('Monto cambiado')).not.toBeOnTheScreen();
     });
 
@@ -234,6 +246,8 @@ describe('«Confirmar todos», Android (E14-PRR 4.8, US-60)', () => {
       await elegir('Comunicaciones', 'No pasó');
       await fireEvent.press(guardar('Guardar 2 movimientos'));
       expect(await screen.findByText('Listo, guardamos 2 movimientos y dejamos de contar 1 fecha.')).toBeOnTheScreen();
+      // ACC-004 (bug 225): de vuelta en PN-01, TalkBack lo anuncia.
+      await esperarAnuncio('Listo, guardamos 2 movimientos y dejamos de contar 1 fecha.');
     });
 
     it('sin «No pasó» y solo con «No pasó» dicen cada aviso de E14', async () => {
@@ -384,5 +398,20 @@ describe('«Confirmar todos», Android (E14-PRR 4.8, US-60)', () => {
     expect(
       within(screen.getByRole('button', { name: 'Guardar 2 movimientos' })).getByText('Guardar 2 movimientos'),
     ).toBeOnTheScreen();
+  });
+
+  describe('ACC-004 (bug 226)', () => {
+    beforeEach(() => limpiarAnuncios());
+
+    it('el error de la hoja del monto lo lee el campo al recibir el foco; ni la hoja ni la pantalla lo anuncian', async () => {
+      apiFalsa(respuestaJson, { pendientes: pendientes(energia, celular) });
+      await abrirTodos();
+      await elegir('Servicios públicos', 'Cambiar el monto');
+      await fireEvent.changeText(await buscarCampo('Monto en pesos'), '0');
+      await fireEvent.press(screen.getByRole('button', { name: 'Listo' }));
+      await screen.findByText('El monto debe ser mayor que $0.');
+      expect(focosDeTalkBack().map(nombreDe)).toEqual(['Monto en pesos, El monto debe ser mayor que $0.']);
+      await esperarSinAnuncios();
+    });
   });
 });

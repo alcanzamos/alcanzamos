@@ -2,6 +2,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useRef, useState } from 'react';
 import type { TextInputInstance } from 'react-native';
 import { pedirRecuperacion } from '../api/acceso';
+import { useAvisarErrores } from '../anuncios';
 import { Aviso } from '../componentes/Aviso';
 import { Boton } from '../componentes/Boton';
 import { CampoDeTexto } from '../componentes/CampoDeTexto';
@@ -21,6 +22,7 @@ export function RecuperarAcceso({ navigation }: NativeStackScreenProps<Rutas, 'R
   const [enviado, setEnviado] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const campoDeCorreo = useRef<TextInputInstance>(null);
+  const avisarErrores = useAvisarErrores();
 
   async function enviar() {
     if (enviando) return;
@@ -36,7 +38,7 @@ export function RecuperarAcceso({ navigation }: NativeStackScreenProps<Rutas, 'R
       respuesta.codigo === 'validacion' ? textoDeErrorDeCampo(respuesta.campos.correo ?? '', 'correo') : undefined;
     setError(texto);
     setAviso(texto ? null : avisoDeFallo(respuesta, avisos.errorAlEnviarEnlace));
-    if (texto) campoDeCorreo.current?.focus();
+    avisarErrores([{ error: texto, campo: campoDeCorreo }]);
   }
 
   return (

@@ -1,4 +1,6 @@
+import { createRef } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import type { HostInstance } from 'react-native';
 import { ChipsDeEleccion } from '../../src/componentes/ChipsDeEleccion';
 import { tokens } from '../../src/tokens/tokens.generated';
 
@@ -57,13 +59,37 @@ describe('ChipsDeEleccion (Chip de categoría, E14-SDD)', () => {
     expect(chip).not.toHaveStyle({ borderColor: tokens.color.borde.foco });
   });
 
-  it('el error sale con su ícono en una región viva cortés', async () => {
+  it('el error sale con su ícono, sin una región viva que Android aplana (ACC-004)', async () => {
     await render(
       <ChipsDeEleccion etiqueta="Categoría" opciones={opciones} valor={null} alElegir={jest.fn()} error="Falta elegir la categoría." />,
     );
     const error = screen.getByText('Falta elegir la categoría.');
     expect(error).toBeOnTheScreen();
-    expect(error.parent?.parent?.props.accessibilityLiveRegion).toBe('polite');
+    expect(JSON.stringify(screen.toJSON())).not.toContain('"accessibilityLiveRegion":"polite"');
+  });
+
+  it('ACC-004 (bug 226): con error, la etiqueta del grupo lo dice en su nombre («Categoría, Falta elegir la categoría.»), una sola vez', async () => {
+    await render(
+      <ChipsDeEleccion etiqueta="Categoría" opciones={opciones} valor={null} alElegir={jest.fn()} error="Falta elegir la categoría." />,
+    );
+    expect(screen.getByText('Categoría').props.accessibilityLabel).toBe('Categoría, Falta elegir la categoría.');
+    expect(screen.getByText('Falta elegir la categoría.').props.importantForAccessibility).toBe('no');
+    // Los chips no repiten el error.
+    screen.getAllByRole('radio').forEach((chip) => expect(chip.props.accessibilityLabel).toBeUndefined());
+  });
+
+  it('ACC-004 (bug 226): sin error, la etiqueta del grupo se nombra solo con su texto', async () => {
+    await render(<ChipsDeEleccion etiqueta="Categoría" opciones={opciones} valor={null} alElegir={jest.fn()} />);
+    expect(screen.getByText('Categoría').props.accessibilityLabel).toBe('Categoría');
+  });
+
+  it('ACC-004 (bug 226): deja la referencia a la etiqueta del grupo para llevarle el foco de TalkBack con un error', async () => {
+    const ref = createRef<HostInstance>();
+    await render(
+      <ChipsDeEleccion ref={ref} etiqueta="Categoría" opciones={opciones} valor={null} alElegir={jest.fn()} error="Falta." />,
+    );
+    const etiqueta = ref.current as unknown as { props: { accessibilityLabel?: string } };
+    expect(etiqueta.props.accessibilityLabel).toBe('Categoría, Falta.');
   });
 
   it('en fila se desplaza a lo ancho, sin barra', async () => {

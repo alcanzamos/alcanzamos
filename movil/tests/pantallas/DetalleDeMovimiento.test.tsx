@@ -3,6 +3,7 @@ import { reiniciarBorrador } from '../../src/borradorDeRegistro';
 import type { Movimiento } from '../../src/api/movimientos';
 import { Navegacion } from '../../src/navegacion/Navegacion';
 import { atras, instalarAtras } from '../ayudas/atras';
+import { esperarAnuncio } from '../ayudas/anuncios';
 import { respuestaJson } from '../ayudas/fetchFalso';
 import {
   apiFalsa,
@@ -168,8 +169,8 @@ describe('PN-02 · Detalle de un movimiento, Android (E14-PRR 4.2)', () => {
       await fireEvent.press(await screen.findByRole('button', { name: 'Borrar el movimiento' }));
       expect(await screen.findByText('Listo, borramos el gasto de $45.000.')).toBeOnTheScreen();
       expect(de(pedidos, 'DELETE').map((p) => p.ruta)).toEqual(['/api/v1/movimientos/m-ayer']);
-      // El aviso es una región viva cortés (TalkBack lo anuncia) y PN-01 pide la lista otra vez: ya no está.
-      expect(JSON.stringify(screen.toJSON())).toContain('"accessibilityLiveRegion":"polite"');
+      // TalkBack anuncia el aviso con el monto en pesos (ACC-004, bugs 224 y 225) y PN-01 pide la lista otra vez: ya no está.
+      await esperarAnuncio('Listo, borramos el gasto de 45000 pesos.');
       await screen.findByText('Todavía no hay movimientos');
       expect(screen.queryByText('Alimentación · Mercado', { exact: false })).not.toBeOnTheScreen();
       expect(screen.queryByRole('button', { name: 'Corregir' })).not.toBeOnTheScreen();

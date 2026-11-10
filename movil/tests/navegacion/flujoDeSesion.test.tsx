@@ -3,6 +3,7 @@ import { BackHandler } from 'react-native';
 import { Navegacion } from '../../src/navegacion/Navegacion';
 import { instalarFetchFalso, respuestaJson } from '../ayudas/fetchFalso';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
+import { buscarCampo, campo, quizasCampo } from '../ayudas/campos';
 
 jest.mock('expo-secure-store', () => jest.requireActual('../ayudas/secureStoreFalso').crearSecureStoreFalso());
 const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crearSecureStoreFalso>;
@@ -14,8 +15,8 @@ const atras = (): boolean => [...suscripciones].reverse().some((alTocar) => alTo
 const FECHA = 'el 1 de noviembre de 2026, a las 9:40 p. m.';
 
 async function entrarConLaura() {
-  await fireEvent.changeText(await screen.findByLabelText('Correo electrónico'), 'laura@ejemplo.com');
-  await fireEvent.changeText(screen.getByLabelText('Contraseña'), 'lluvia café tren azul');
+  await fireEvent.changeText(await buscarCampo('Correo electrónico'), 'laura@ejemplo.com');
+  await fireEvent.changeText(campo('Contraseña'), 'lluvia café tren azul');
   await fireEvent.press(screen.getByRole('button', { name: 'Iniciar sesión' }));
 }
 
@@ -54,8 +55,8 @@ describe('flujo de entrar, ver la seguridad, cambiar la contraseña y salir', ()
 
     // PN-73 y de vuelta.
     await fireEvent.press(screen.getByRole('button', { name: 'Cambiar mi contraseña' }));
-    await fireEvent.changeText(await screen.findByLabelText('Tu contraseña de ahora'), 'lluvia café tren azul');
-    await fireEvent.changeText(screen.getByLabelText('Tu contraseña nueva'), 'otra frase de cuatro palabras');
+    await fireEvent.changeText(await buscarCampo('Tu contraseña de ahora'), 'lluvia café tren azul');
+    await fireEvent.changeText(campo('Tu contraseña nueva'), 'otra frase de cuatro palabras');
     await fireEvent.press(screen.getByRole('button', { name: 'Guardar la contraseña' }));
     expect(await screen.findByText('Listo, cambiamos tu contraseña.')).toBeOnTheScreen();
     expect(screen.getByText('Cerramos tus otras sesiones. Esta sigue abierta.')).toBeOnTheScreen();
@@ -79,11 +80,11 @@ describe('flujo de entrar, ver la seguridad, cambiar la contraseña y salir', ()
     await render(<Navegacion />);
     await entrarConLaura();
     await fireEvent.press(await screen.findByRole('button', { name: 'Cambiar mi contraseña' }));
-    await screen.findByLabelText('Tu contraseña de ahora');
+    await buscarCampo('Tu contraseña de ahora');
     await act(async () => {
       expect(atras()).toBe(true);
     });
-    await waitFor(() => expect(screen.queryByLabelText('Tu contraseña de ahora')).not.toBeOnTheScreen());
+    await waitFor(() => expect(quizasCampo('Tu contraseña de ahora')).not.toBeOnTheScreen());
     expect(screen.getByText('Tu último ingreso')).toBeOnTheScreen();
   });
 
@@ -105,8 +106,8 @@ describe('flujo de entrar, ver la seguridad, cambiar la contraseña y salir', ()
     await render(<Navegacion />);
     await entrarConLaura();
     await fireEvent.press(await screen.findByRole('button', { name: 'Cambiar mi contraseña' }));
-    await fireEvent.changeText(await screen.findByLabelText('Tu contraseña de ahora'), 'x');
-    await fireEvent.changeText(screen.getByLabelText('Tu contraseña nueva'), 'y');
+    await fireEvent.changeText(await buscarCampo('Tu contraseña de ahora'), 'x');
+    await fireEvent.changeText(campo('Tu contraseña nueva'), 'y');
     await fireEvent.press(screen.getByRole('button', { name: 'Guardar la contraseña' }));
     expect(await screen.findByText('Tu sesión se cerró. Entra de nuevo.')).toBeOnTheScreen();
     expect(screen.getByRole('header', { name: 'Inicia sesión' })).toBeOnTheScreen();
@@ -117,7 +118,7 @@ describe('flujo de entrar, ver la seguridad, cambiar la contraseña y salir', ()
     const { pedidos } = instalarFetchFalso(respuestaJson(202, { estado: 'enlace_enviado' }));
     await render(<Navegacion />);
     await fireEvent.press(await screen.findByRole('button', { name: '¿Olvidaste tu contraseña?' }));
-    await fireEvent.changeText(await screen.findByLabelText('Correo electrónico'), 'laura@ejemplo.com');
+    await fireEvent.changeText(await buscarCampo('Correo electrónico'), 'laura@ejemplo.com');
     await fireEvent.press(screen.getByRole('button', { name: 'Enviar el enlace' }));
     expect(await screen.findByText('Si ese correo tiene una cuenta, te enviamos un enlace.')).toBeOnTheScreen();
     expect(pedidos[0]?.url).toBe('http://api.prueba:18090/api/v1/recuperacion');
