@@ -163,6 +163,18 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
     expect(screen.getAllByRole('radio', { name: 'Otros gastos' })[1]).not.toBeChecked();
   });
 
+  it('ACC-004 (bug 228): «Cerrar» cierra la hoja «Ver todas», deja la categoría como estaba y no guarda nada', async () => {
+    const pedidos = api();
+    await abrir();
+    await fireEvent.press(screen.getByRole('button', { name: 'Ver todas' }));
+    expect(screen.getAllByRole('radio', { name: 'Otros gastos' })).toHaveLength(2);
+    await fireEvent.press(screen.getByRole('button', { name: 'Cerrar' }));
+    expect(screen.getAllByRole('radio', { name: 'Otros gastos' })).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: 'Cerrar' })).not.toBeOnTheScreen();
+    expect(screen.getByRole('radio', { name: 'Otros gastos' })).not.toBeChecked();
+    expect(guardados(pedidos)).toEqual([]);
+  });
+
   it('el Atrás de Android cierra la hoja y deja la categoría como estaba', async () => {
     api();
     await abrir();

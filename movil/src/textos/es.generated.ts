@@ -250,16 +250,12 @@ export const textos = {
     mas: "Más",
     // E14-PRR 4.1 (PN-01), fila 2a; E14-PRR 4.8, fila 1
     confirmarTodos: "Confirmar todos",
-    // E14-PRR 4.1 (PN-01), hojas «Más», «No pasó» y «Cambiar el monto»; E14-SDD 5.12
+    // E14-SDD 5.12 (el ícono Cerrar de toda Hoja inferior, también «Ver todas» y «Otro mes»); E14-PRR 4.1 (PN-01), hojas «Más», «No pasó» y «Cambiar el monto»; E14-PRR 4.2 (PN-02), hoja de borrar, fila 6
     cerrar: "Cerrar",
     // E14-PRR 4.1 (PN-01), fila «Texto de apoyo»: «Ingreso · Transferencia · 16 de noviembre de 2026»
     apoyoConMedio: "{tipo} · {medio} · {fecha}",
     // E14-PRR 4.8 (PN-72, «Confirmar todos»), fila 4: «Gasto · 5 de noviembre de 2026»
     apoyoSinMedio: "{tipo} · {fecha}",
-    // E14-PRR 4.1 (PN-01), fila «Confirmar»: «Confirmar Salario del 16 de noviembre de 2026»
-    nombreDeConfirmar: "Confirmar {nombre} del {fecha}",
-    // E14-PRR 4.1 (PN-01), fila «Más»: «Más opciones de Salario del 16 de noviembre de 2026»
-    nombreDeMas: "Más opciones de {nombre} del {fecha}",
     hoja: {
       // E14-PRR 4.1 (PN-01), «Hoja «Más»»: «Salario · 16 de noviembre de 2026»
       titulo: "{nombre} · {fecha}",
@@ -346,6 +342,10 @@ export const textos = {
     soloIngresos: { one: "{n} ingreso por confirmar", other: "{n} ingresos por confirmar" },
     // E14-PRR 1.6 (PN-72, D-163): con un solo tipo, sin el cero y sin repetir el número: «13 gastos por confirmar», «1 gasto por confirmar»
     soloGastos: { one: "{n} gasto por confirmar", other: "{n} gastos por confirmar" },
+    // Propuesto, pendiente de aprobación del dueño (US-71, bug 231 de Azure Boards, ACC-004): el nombre accesible de E14-PRR 4.1 (PN-01), fila «Confirmar» («Confirmar Salario del 16 de noviembre de 2026»), con el monto dicho con `montoHablado` (D-187) para que dos fechas de la misma categoría y día no se anuncien igual: «Confirmar Salario de 1200000 pesos del 16 de noviembre de 2026»
+    nombreDeConfirmar: "Confirmar {nombre} de {monto} del {fecha}",
+    // Propuesto, pendiente de aprobación del dueño (US-71, bug 231 de Azure Boards, ACC-004): el nombre accesible de E14-PRR 4.1 (PN-01), fila «Más» («Más opciones de Salario del 16 de noviembre de 2026»), y de «Más» en E14-PRR 4.8 (PN-72, «Confirmar todos»), fila 4, con el monto dicho con `montoHablado` (D-187): «Más opciones de Salario de 1200000 pesos del 16 de noviembre de 2026»
+    nombreDeMas: "Más opciones de {nombre} de {monto} del {fecha}",
   },
   pagina: {
     // E14-PCP 4.2 bis; E14-PCP 4.3 (PN-60); E14-PCP 4.4 bis; E14-PCP 4.6 (PN-63); E14-PCP 4.10 (PN-67); E14-PCP 4.11 (PN-68); E14-PCP 4.13 (PN-70); E14-PCP 4.16
