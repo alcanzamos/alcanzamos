@@ -342,3 +342,132 @@ test.describe("F-1 · cuadro de lenguaje natural y «Revisa y confirma» (US-62)
     );
   });
 });
+
+// Bug 266 (USA-008): a 360 px «Revisa y confirma» reemplaza el formulario, como en Android (E14-PPN 3.1, fila 1 y
+// variante web): el cuadro tampoco queda, ni a la vista ni para el teclado o el lector de pantalla. La barra sigue
+// diciendo «Registrar». Desde 768 px reemplaza solo la columna derecha y el cuadro sigue a la izquierda.
+test.describe("«Revisa y confirma» a 360 px reemplaza el formulario (bug 266)", () => {
+  const titulo = (page: Page) =>
+    page.getByRole("heading", { level: 2, name: "Revisa y confirma" });
+  const cuadroEnElArbol = (page: Page) =>
+    page.getByRole("textbox", { name: "Escribe el gasto o el ingreso" });
+
+  for (const [caso, texto, varios] of [
+    ["un movimiento", "mercado 45 mil ayer", false],
+    ["varios movimientos", "mercado 45 mil ayer y 12 mil de pasajes", true],
+  ] as const) {
+    test(`${caso}: el paso queda solo, con la barra «Registrar», y «Volver al formulario» trae todo como estaba`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: 360, height: 800 });
+      await hoyEs2DeNoviembre(page);
+      const pedidos = await api(page, {
+        ...propuesta,
+        varios_movimientos: varios,
+      });
+      await page.goto("/registrar");
+      await cuadro(page).fill(texto);
+      await page.getByRole("button", { name: "Llenar el formulario" }).click();
+      await page.getByRole("radio", { name: "Efectivo" }).check();
+      await page.getByRole("button", { name: "Revisar y guardar" }).click();
+
+      await expect(titulo(page)).toBeFocused();
+      await expect(
+        page.getByRole("heading", { level: 1, name: "Registrar" }),
+      ).toBeVisible();
+      // Ni el cuadro ni el formulario: fuera de la vista y del árbol de accesibilidad.
+      await expect(cuadro(page)).toBeHidden();
+      await expect(cuadroEnElArbol(page)).toHaveCount(0);
+      await expect(
+        page.getByRole("button", { name: "Llenar el formulario" }),
+      ).toHaveCount(0);
+      await expect(
+        page.getByText(
+          "No escribas datos de salud, religión ni de otras personas.",
+        ),
+      ).toBeHidden();
+      await expect(page.getByLabel("Monto")).toHaveCount(0);
+      await expect(
+        page.getByRole("button", { name: "Revisar y guardar" }),
+      ).toHaveCount(0);
+      // Ni por teclado: desde el título, hacia atrás, el foco llega a «Atrás» de la barra, no al cuadro.
+      await cuadro(page).evaluate((campo: HTMLElement) => campo.focus());
+      await expect(cuadro(page)).not.toBeFocused();
+      await titulo(page).focus();
+      await page.keyboard.press("Shift+Tab");
+      await expect(page.getByRole("link", { name: "Atrás" })).toBeFocused();
+      // El título va dentro de la pantalla, arriba de todo lo del paso.
+      const delTitulo = await titulo(page).boundingBox();
+      const tarjeta = await page
+        .getByRole("listitem")
+        .filter({ hasText: "TipoGasto" })
+        .boundingBox();
+      expect(tarjeta!.y).toBeGreaterThan(delTitulo!.y);
+      if (varios) {
+        const aviso = await page
+          .getByRole("status")
+          .filter({ hasText: "Encontramos más de un movimiento" })
+          .boundingBox();
+        expect(aviso!.y).toBeGreaterThan(delTitulo!.y);
+        expect(tarjeta!.y).toBeGreaterThan(aviso!.y + aviso!.height);
+      }
+      await expect(page).toHaveURL(/\/registrar$/);
+      await sinViolaciones(page);
+
+      await page.getByRole("button", { name: "Volver al formulario" }).click();
+      await expect(titulo(page)).toHaveCount(0);
+      await expect(cuadro(page)).toBeVisible();
+      await expect(cuadro(page)).toHaveValue(texto);
+      await expect(
+        page.getByText(
+          "Llenamos el formulario con tu texto. Cambia lo que quieras.",
+        ),
+      ).toBeVisible();
+      await expect(page.getByLabel("Monto")).toHaveValue("$45.000");
+      await expect(page.getByLabel("Fecha")).toHaveValue("2026-11-01");
+      await expect(
+        page.getByRole("radio", { name: "Alimentación" }),
+      ).toBeChecked();
+      await expect(page.getByRole("radio", { name: "Efectivo" })).toBeChecked();
+      await expect(
+        page.getByRole("radio", { name: "Gasto", exact: true }),
+      ).toBeFocused();
+      await sinViolaciones(page);
+      expect(guardados(pedidos)).toEqual([]);
+    });
+  }
+
+  for (const ancho of [768, 1280]) {
+    test(`a ${ancho} px nada cambia: el paso reemplaza la columna derecha y el cuadro sigue a la izquierda`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: ancho, height: 900 });
+      await hoyEs2DeNoviembre(page);
+      await api(page, { ...propuesta, varios_movimientos: true });
+      await page.goto("/registrar");
+      await cuadro(page).fill("mercado 45 mil ayer y 12 mil de pasajes");
+      await page.getByRole("button", { name: "Llenar el formulario" }).click();
+      await page.getByRole("radio", { name: "Efectivo" }).check();
+      await page.getByRole("button", { name: "Revisar y guardar" }).click();
+
+      await expect(titulo(page)).toBeFocused();
+      await expect(page.getByLabel("Monto")).toHaveCount(0);
+      await expect(cuadroEnElArbol(page)).toBeVisible();
+      await expect(cuadro(page)).toHaveValue(
+        "mercado 45 mil ayer y 12 mil de pasajes",
+      );
+      await expect(
+        page.getByRole("button", { name: "Llenar el formulario" }),
+      ).toBeVisible();
+      const izquierda = await cuadro(page).boundingBox();
+      const derecha = await titulo(page).boundingBox();
+      expect(derecha!.x).toBeGreaterThan(izquierda!.x + izquierda!.width);
+      await titulo(page).focus();
+      await page.keyboard.press("Shift+Tab");
+      await expect(
+        page.getByRole("button", { name: "Llenar el formulario" }),
+      ).toBeFocused();
+      await sinViolaciones(page);
+    });
+  }
+});

@@ -638,8 +638,9 @@ export function FormularioDeMovimiento({
     </section>
   );
 
+  // Por debajo de 768 px el paso reemplaza también el cuadro, como en Android (bug 266): lo esconde `componentes.css`.
   return (
-    <div className="registro">
+    <div className={`registro${paso ? " registro--en-paso" : ""}`}>
       <div className="registro__cuadro">
         <CampoDeTexto
           id="cuadro"

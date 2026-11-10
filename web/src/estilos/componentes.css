@@ -870,6 +870,15 @@
   min-width: 0;
 }
 
+/* Bug 266: en la columna de Android, «Revisa y confirma» reemplaza todo el formulario, también el cuadro (E14-PPN 3.1,
+   fila 1). `display: none` lo saca de la vista, del orden del teclado y del árbol de accesibilidad, y el cuadro sigue
+   montado con su texto y sus avisos para cuando se vuelve al formulario. */
+@media (max-width: 95.9ch) {
+  .registro--en-paso .registro__cuadro {
+    display: none;
+  }
+}
+
 @media (min-width: 96ch) {
   .columna--registro {
     max-width: calc(var(--tamano-columna-contenido) * 12 / 7);

@@ -403,6 +403,21 @@ describe("El paso «Revisa y confirma» (RF-004, RN-001, D-084)", () => {
     expect(screen.getByText(porTexto("$46.000"))).toBeInTheDocument();
   });
 
+  it("marca el paso para que por debajo de 768 px el cuadro tampoco quede, sin perder su texto (bug 266)", async () => {
+    api();
+    await irAlPaso();
+    const cuadro = screen.getByLabelText("Escribe el gasto o el ingreso", {
+      selector: "textarea",
+    });
+    expect(cuadro.closest(".registro")).toHaveClass("registro--en-paso");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Volver al formulario" }),
+    );
+    await screen.findByLabelText("Monto");
+    expect(cuadro.closest(".registro")).not.toHaveClass("registro--en-paso");
+    expect(cuadro).toHaveValue("mercado 45 mil ayer");
+  });
+
   it.each([
     ["Tipo", "tipo-gasto"],
     ["Monto", "monto"],
