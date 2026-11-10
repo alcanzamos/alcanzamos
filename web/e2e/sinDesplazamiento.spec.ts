@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { responder, simularApi, sinPendientes } from "./ayudas";
-import { apiDePresupuesto, casos } from "./datosDePresupuesto";
+import { apiDeIngresos, apiDePresupuesto, casos } from "./datosDePresupuesto";
 
 // S13 (USA-008 de I05): el punto 5 de E14-MCO 4.2 pide sin desplazamiento horizontal de 360 a 1920 px.
 const anchos = [360, 768, 1280, 1920];
@@ -399,6 +399,41 @@ const pantallas: Pantalla[] = [
     abrir: async (page) => {
       await abrirConTitulo("/presupuesto", "Presupuesto de noviembre")(page);
       await expect(page.getByText(/Lo asignado supera por/)).toBeVisible();
+    },
+  },
+  {
+    nombre: "PN-08 /ingresos con una fecha por confirmar",
+    preparar: (page) => apiDeIngresos(page, 1),
+    abrir: async (page) => {
+      await abrirConTitulo("/ingresos", "Ingresos")(page);
+      await expect(
+        page.getByRole("button", {
+          name: "Confirmar Salario del 16 de noviembre de 2026",
+        }),
+      ).toBeVisible();
+    },
+  },
+  {
+    nombre: "PN-08 /ingresos?periodo=2026-10 (caso P, varias fuentes)",
+    preparar: (page) => apiDeIngresos(page),
+    abrir: async (page) => {
+      await abrirConTitulo("/ingresos?periodo=2026-10", "Ingresos")(page);
+      await expect(
+        page.getByRole("heading", {
+          level: 2,
+          name: "Trabajo independiente o ventas",
+        }),
+      ).toBeVisible();
+    },
+  },
+  {
+    nombre: "PN-08 «Confirmar todos» /ingresos?confirmar=todos",
+    preparar: (page) => apiDeIngresos(page, 2),
+    abrir: async (page) => {
+      await page.goto("/ingresos?confirmar=todos");
+      await expect(
+        page.getByRole("region", { name: "Confirmar todos" }),
+      ).toBeVisible();
     },
   },
   {

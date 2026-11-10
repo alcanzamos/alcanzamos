@@ -1115,6 +1115,42 @@ export const textos = {
       },
     },
   },
+  ingresos: {
+    // E14-PPA 4.3 (PN-08), fila 1 (barra)
+    titulo: "Ingresos",
+    total: {
+      // E14-PPA 4.3 (PN-08), fila 3
+      entran: "Entran este mes",
+      // E14-PPA 4.3 (PN-08), «Con varias fuentes»: el periodo ya terminó
+      entraron: "Entraron este mes",
+      // E14-PPA 4.3 (PN-08), fila 3: «Ya registrado $1.200.000»
+      yaRegistrado: "Ya registrado",
+      // E14-PPA 4.3 (PN-08), fila 3: «Esperado $1.200.000»
+      esperado: "Esperado",
+    },
+    marca: {
+      // E14-PPA 4.3 (PN-08), «Cómo se arma cada fila», Marca
+      registrado: "Registrado",
+      // E14-PPA 4.3 (PN-08), «Cómo se arma cada fila», Marca (D-091)
+      esperado: "Esperado",
+    },
+    // E14-PPA 4.3 (PN-08), «Cómo se arma cada fila», Texto de apoyo: el medio de pago y, si hay, la descripción
+    apoyoConDescripcion: "{medio} · {descripcion}",
+    vacio: {
+      // E14-PPA 4.3 (PN-08), estado «Sin ingresos en el periodo»
+      titulo: "Todavía no registras ingresos este mes.",
+      // E14-PPA 4.3 (PN-08), estado «Sin ingresos en el periodo»
+      mensaje: "Cuando registres uno, aquí lo verás.",
+    },
+    avisos: {
+      errorAlCargar: {
+        // E14-PPA 4.3 (PN-08), estado «Error de carga»
+        titulo: "No pudimos cargar tus ingresos.",
+        // E14-PPA 4.3 (PN-08), estado «Error de carga»
+        mensaje: "Tus datos están a salvo. Intenta de nuevo.",
+      },
+    },
+  },
 } as const;
 
 // Ayudas de los textos con datos y de los plurales (US-59, D-160). Esta es la única copia: el generador

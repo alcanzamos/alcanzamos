@@ -5,6 +5,7 @@ import {
   fechaEnPalabras,
   hoyEnColombia,
   mesAnterior,
+  mesSiguiente,
   mesEnPalabras,
   relativoDelDia,
 } from "../src/fechas";
@@ -129,5 +130,11 @@ describe("mesEnPalabras y mesAnterior (los chips de periodo de PN-01)", () => {
     expect(mesAnterior("2026-11")).toBe("2026-10");
     expect(mesAnterior("2026-10")).toBe("2026-09");
     expect(mesAnterior("2026-01")).toBe("2025-12");
+  });
+
+  it("el mes siguiente de «AAAA-MM» (el chip «Diciembre» de PN-08 cuando el mes de hoy es noviembre)", () => {
+    expect(mesSiguiente("2026-11")).toBe("2026-12");
+    expect(mesSiguiente("2026-09")).toBe("2026-10");
+    expect(mesSiguiente("2026-12")).toBe("2027-01");
   });
 });

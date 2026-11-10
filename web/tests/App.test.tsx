@@ -70,11 +70,16 @@ describe("App · rutas", () => {
     ).toBeInTheDocument();
   });
 
-  it("/presupuesto muestra PN-06", () => {
+  it("/presupuesto muestra PN-06 y /ingresos, PN-08", () => {
     simularApi(() => json(500, { error: "error_interno" }));
     irA("/presupuesto");
     expect(
       screen.getByRole("heading", { level: 1, name: /^Presupuesto de / }),
+    ).toBeInTheDocument();
+    cleanup();
+    irA("/ingresos");
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Ingresos" }),
     ).toBeInTheDocument();
   });
 
