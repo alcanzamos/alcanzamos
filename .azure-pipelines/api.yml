@@ -1,5 +1,5 @@
-# Pipeline de api/: go vet, golangci-lint, pruebas con detector de carreras, barrera de cobertura con PostgreSQL, compilación y
-# construcción de la imagen.
+# Pipeline de api/: go vet, golangci-lint, govulncheck con la regla de los 7 días, pruebas con detector de carreras, barrera de
+# cobertura con PostgreSQL, compilación y construcción de la imagen.
 # No usa conexión de servicio ni secretos. La barrera de cobertura (E17-ECO 5.5) levanta un PostgreSQL desechable en
 # Docker (datos sintéticos, solo en 127.0.0.1) para correr también las pruebas de integración.
 # La imagen embebe la web, así que también corre cuando cambian web/, diseno/ o el logo que la web importa
@@ -22,6 +22,8 @@ pr:
       - .azure-pipelines/api.yml
       - .azure-pipelines/plantillas/api.yml
       - .azure-pipelines/pruebas/cobertura.py
+      - .azure-pipelines/pruebas/vulnerabilidades.py
+      - .azure-pipelines/pruebas/vulnerabilidades_regresion.py
 
 # Los pasos viven en plantillas/api.yml.
 jobs:
