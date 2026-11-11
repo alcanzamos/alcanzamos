@@ -14,7 +14,7 @@ El control único (`control.yml`, D-177 y D-178 (4)) corre en todo PR, sin `path
 corre solo si cambió su carpeta. La prueba comprueba que su mapa de carpetas (`pruebas/cambios.py`) sea igual a los
 filtros de cada pipeline por carpeta, que cada caso de ESPERADO dé las mismas etapas que los pipelines por carpeta, y
 la forma de `control.yml`: sin `paths`, cada etapa con su condición de cambio (salvo `comun`, que corre siempre, y
-las etapas finales: `control`, que corre solo si todas quedaron bien, y `control_rechazo`, que falla en cualquier otro caso).
+la etapa final `control`, que corre solo si todas quedaron bien; si alguna falla o se cancela, la corrida queda en rojo).
 """
 import importlib.util
 import pathlib
@@ -24,7 +24,6 @@ RAIZ = pathlib.Path(__file__).resolve().parents[2]
 CARPETA = RAIZ / ".azure-pipelines"
 # El pipeline del control único (D-177): no filtra por ruta y no entra en la simulación de los pipelines por carpeta.
 CONTROL = "control"
-RECHAZO = "control_rechazo"
 
 # Archivo de ejemplo -> pipelines por carpeta que deben correr; las etapas del control único (`comun` más las de
 # pruebas/cambios.py) deben ser las mismas. Cuando llegue un pipeline nuevo, se agregan aquí sus casos.
@@ -254,7 +253,7 @@ def revisar_control(texto, carpetas):
     if "      - main" not in texto.splitlines():
         fallas.append("pr.branches.include debe tener main")
     etapas = etapas_de_control(texto)
-    esperadas = ["cambios", "comun", *carpetas, CONTROL, RECHAZO]
+    esperadas = ["cambios", "comun", *carpetas, CONTROL]
     if sorted(etapas) != sorted(esperadas):
         fallas.append(f"etapas {sorted(etapas)}; se esperaba {sorted(esperadas)}")
     for nombre, etapa in etapas.items():
@@ -270,16 +269,13 @@ def revisar_control(texto, carpetas):
                 fallas.append("comun: corre siempre (sin condition y con dependsOn: [])")
             if etapa["plantillas"] != ["plantillas/comun.yml"]:
                 fallas.append(f"comun: debe usar plantillas/comun.yml, usa {etapa['plantillas']}")
-        elif nombre in (CONTROL, RECHAZO):
-            otras = [e for e in etapas if e not in (CONTROL, RECHAZO)]
+        elif nombre == CONTROL:
+            otras = [e for e in etapas if e != CONTROL]
             if sorted(depende or []) != sorted(otras):
                 fallas.append(f"{nombre}: dependsOn {depende}; se esperaba {otras}")
-            bien = condicion_de_control(otras)
-            quiere = bien if nombre == CONTROL else f"not({bien})"
+            quiere = condicion_de_control(otras)
             if props.get("condition") != quiere:
                 fallas.append(f"{nombre}: condition debe ser {quiere}")
-            if nombre == RECHAZO and "exit 1" not in etapa["texto"]:
-                fallas.append("control_rechazo: el trabajo debe fallar (exit 1)")
             if etapa["variables"]:
                 fallas.append(f"{nombre}: sin variables de etapa con dependencies.<etapa>.result (quedan vacías en Azure)")
         else:
@@ -352,11 +348,9 @@ MUTACIONES = (
      "eq(dependencies.cambios.outputs['cambios.detectar.web'], 'true'))"),
     ("eq(dependencies.cambios.outputs['cambios.detectar.infra'], 'true'))", "succeeded()"),
     ("    condition: and(in(dependencies.cambios.result", "    condition: always()\n    # and(in(dependencies.cambios.result"),
-    ("    condition: not(and(", "    condition: and(and("),
     ("    condition: and(in(dependencies.cambios.result, 'Succeeded', 'SucceededWithIssues'), in(dependencies.comun.result, 'Succeeded', 'SucceededWithIssues'),",
      "    condition: and(in(dependencies.cambios.result, 'Succeeded', 'SucceededWithIssues'), in(dependencies.comun.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'),"),
-    ("in(dependencies.infra.result, 'Succeeded', 'SucceededWithIssues', 'Skipped')))\n", "in(dependencies.infra.result, 'Succeeded', 'SucceededWithIssues', 'Skipped', 'Failed')))\n"),
-    ("              exit 1\n", "              exit 0\n"),
+    ("in(dependencies.infra.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'))\n", "in(dependencies.infra.result, 'Succeeded', 'SucceededWithIssues', 'Skipped', 'Failed'))\n"),
     ("      - template: plantillas/movil.yml", "      - template: plantillas/web.yml"),
     ("    dependsOn: []\n", "    dependsOn: cambios\n"),
     ("  - stage: infra\n", "  - stage: infra2\n"),
@@ -364,13 +358,15 @@ MUTACIONES = (
     ("  - stage: control\n    displayName: Control único (todas las etapas pasaron o se saltaron)\n    dependsOn:",
      "  - stage: control\n    displayName: Control único (todas las etapas pasaron o se saltaron)\n    variables:\n      RESULTADO_CAMBIOS: $[ dependencies.cambios.result ]\n    dependsOn:"),
     # `cambios` no puede contar como correcta si se saltó.
-    ("not(and(in(dependencies.cambios.result, 'Succeeded', 'SucceededWithIssues'),",
-     "not(and(in(dependencies.cambios.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'),"),
+    ("    condition: and(in(dependencies.cambios.result, 'Succeeded', 'SucceededWithIssues'),",
+     "    condition: and(in(dependencies.cambios.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'),"),
     # Un nombre de etapa mal escrito en la condición.
     ("in(dependencies.movil.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'), in(dependencies.infra.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'))\n",
      "in(dependencies.movil.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'), in(dependencies.infr.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'))\n"),
-    # control_rechazo sin depender de web.
-    ("      - web\n      - movil\n      - infra\n    condition: not(", "      - movil\n      - infra\n    condition: not("),
+    # control sin depender de web.
+    ("      - web\n      - movil\n      - infra\n    condition: and(in(dependencies.cambios", "      - movil\n      - infra\n    condition: and(in(dependencies.cambios"),
+    # Vuelve una etapa de rechazo: su check puede quedar «in progress» en GitHub cuando se salta (#100, corrida 680).
+    ("      - job: control\n", "      - job: control\n  - stage: control_rechazo\n    dependsOn: []\n    jobs:\n      - job: control_rechazo\n        steps:\n          - script: exit 1\n      - job: control_dummy\n"),
 )
 
 
