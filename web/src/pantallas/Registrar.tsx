@@ -90,10 +90,13 @@ export type Correccion = {
 // Con `corregir` es «Corregir» de PN-02 (E14-PRR 4.2): lleva su propio estado, no el borrador, y no ofrece lo que el
 // API no deja cambiar. Una fecha de un recurrente no lleva Fecha (D-168). Si el movimiento tiene una categoría que la
 // persona ocultó después, el formulario la incluye ya elegida, con el ícono y la palabra «Oculta» (D-170).
+// `alCambiarElPaso` recibe «Volver al formulario» al abrirse el paso y `null` al cerrarse: es el Atrás de la barra.
 export function FormularioDeMovimiento({
   corregir,
+  alCambiarElPaso,
 }: {
   corregir?: Correccion;
+  alCambiarElPaso?: (volver: (() => void) | null) => void;
 }) {
   const delBorrador = useBorrador();
   const [propio, setPropio] = useState<Borrador>(() =>
@@ -172,19 +175,30 @@ export function FormularioDeMovimiento({
   const conPaso = !corregir && borrador.delCuadro;
   const conTexto = !corregir && borrador.texto.trim() !== "";
 
+  function cambiarPaso(abierto: boolean) {
+    setEnPaso(abierto);
+    alCambiarElPaso?.(abierto ? volverAlFormulario : null);
+  }
+
+  function volverAlFormulario() {
+    cambiarPaso(false);
+    setAviso(null);
+    pedirFoco(`tipo-${borrador.tipo}`);
+  }
+
   async function enviar(evento?: SyntheticEvent, confirmado = false) {
     evento?.preventDefault();
     if (enviando) return;
     const revisado = validarRegistro(borrador, categoriaId, undefined);
     setAviso(null);
     if ("errores" in revisado) {
-      setEnPaso(false);
+      cambiarPaso(false);
       mostrar(revisado.errores);
       return;
     }
     setErrores({});
     if (conPaso && !confirmado) {
-      setEnPaso(true);
+      cambiarPaso(true);
       pedirFoco("paso-revisa");
       return;
     }
@@ -227,7 +241,7 @@ export function FormularioDeMovimiento({
       }
     }
     if (Object.keys(delCampo).length > 0 && !sinTexto) {
-      setEnPaso(false);
+      cambiarPaso(false);
       mostrar(delCampo);
       return;
     }
@@ -301,7 +315,7 @@ export function FormularioDeMovimiento({
       delCuadro: true,
       variosMovimientos: resultado.varios_movimientos,
     });
-    setEnPaso(false);
+    cambiarPaso(false);
     if (ambiguo) {
       const pesos = (texto: string) => {
         const lectura = leerMonto(texto);
@@ -579,7 +593,8 @@ export function FormularioDeMovimiento({
       : null;
 
   // «Revisa y confirma» (E14-PPN 3.1, RF-004, D-084): reemplaza al formulario, sin cambiar de página. Es lo único que
-  // guarda lo que el cuadro llenó (RN-001). «Cambiar» y «Volver» regresan al formulario, sin guardar.
+  // guarda lo que el cuadro llenó (RN-001). «Cambiar», «Volver» y el Atrás de la barra regresan al formulario, sin
+  // guardar.
   const paso = filas && (
     <section className="paso" aria-labelledby="paso-revisa">
       <h2 id="paso-revisa" tabIndex={-1} className="titulo">
@@ -601,7 +616,7 @@ export function FormularioDeMovimiento({
                 variante="texto"
                 descritoPor={`paso-${f.clave}`}
                 alTocar={() => {
-                  setEnPaso(false);
+                  cambiarPaso(false);
                   pedirFoco(f.foco);
                 }}
               >
@@ -617,14 +632,7 @@ export function FormularioDeMovimiento({
       >
         {r.revisa.confirmar}
       </Boton>
-      <Boton
-        variante="secundario"
-        alTocar={() => {
-          setEnPaso(false);
-          setAviso(null);
-          pedirFoco(`tipo-${borrador.tipo}`);
-        }}
-      >
+      <Boton variante="secundario" alTocar={volverAlFormulario}>
         {r.revisa.volver}
       </Boton>
       {aviso && (
@@ -638,8 +646,9 @@ export function FormularioDeMovimiento({
     </section>
   );
 
+  // Por debajo de 768 px el paso reemplaza también el cuadro, como en Android (bug 266): lo esconde `componentes.css`.
   return (
-    <div className="registro">
+    <div className={`registro${paso ? " registro--en-paso" : ""}`}>
       <div className="registro__cuadro">
         <CampoDeTexto
           id="cuadro"
@@ -670,14 +679,20 @@ export function FormularioDeMovimiento({
   );
 }
 
-// El formulario de registro: se llega desde «Registrar» de PN-01 y vuelve a PN-01 al guardar (D-164).
-export const Registrar = () => (
-  <Pagina
-    titulo={r.titulo}
-    atras="/movimientos"
-    registro
-    lateral={{ activo: "registrar", registrarSecundario: true }}
-  >
-    <FormularioDeMovimiento />
-  </Pagina>
-);
+// El formulario de registro: se llega desde «Registrar» de PN-01 y vuelve a PN-01 al guardar (D-164). Atrás también
+// vuelve a PN-01, salvo con «Revisa y confirma» abierto: ahí es «Volver al formulario», como en Android.
+export function Registrar() {
+  const [volver, setVolver] = useState<(() => void) | null>(null);
+  return (
+    <Pagina
+      titulo={r.titulo}
+      atras={volver ?? "/movimientos"}
+      registro
+      lateral={{ activo: "registrar", registrarSecundario: true }}
+    >
+      <FormularioDeMovimiento
+        alCambiarElPaso={(accion) => setVolver(() => accion)}
+      />
+    </Pagina>
+  );
+}
