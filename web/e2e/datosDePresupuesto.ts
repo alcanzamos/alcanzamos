@@ -33,7 +33,7 @@ type Caso = {
   /** Lo gastado en el mes, por categoría. */
   gastos: Record<number, number>;
   presupuestos: Record<number, number>;
-  /** Las fechas pendientes de las repeticiones de ingreso (no cuentan en «Sin asignar»). */
+  /** Las fechas esperadas de las repeticiones de ingreso (lo por confirmar no llega después); no cuentan en «Sin asignar». */
   esperados: { fecha: string; categoria_id: number; monto: number }[];
 };
 

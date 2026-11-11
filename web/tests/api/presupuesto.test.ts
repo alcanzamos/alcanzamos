@@ -7,6 +7,7 @@ import {
   ponerPresupuesto,
   quitarPresupuesto,
 } from "../../src/api/presupuesto";
+import type { FechaQueLlegaDespues } from "../../src/api/presupuesto";
 import { json, simularApi } from "../ayudas";
 
 // `simularApi` lee el cuerpo con JSON.parse (pasa por number): aquí se mira el texto que viaja.
@@ -151,5 +152,17 @@ describe("API de los ingresos del periodo (PN-08)", () => {
         ],
       },
     });
+  });
+
+  it("«Llega después» solo admite lo esperado (L12 (1) de la US-77)", () => {
+    const fecha: FechaQueLlegaDespues = {
+      recurrente_id: "r1",
+      fecha: "2026-11-16",
+      categoria_id: 1,
+      monto_centavos: "100000000",
+      // @ts-expect-error lo por confirmar sigue en Movimientos y en PN-08
+      marca: "por_confirmar",
+    };
+    expect(fecha.recurrente_id).toBe("r1");
   });
 });
