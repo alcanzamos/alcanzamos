@@ -1,4 +1,4 @@
-"""Barrera de vulnerabilidades del API con la regla de los 7 días (S2 de siete-dias-vulnerabilidades, D-158).
+"""Barrera de vulnerabilidades del API con la regla de los 7 días (D-201, D-158).
 
 Lee la salida de `go tool govulncheck -format json ./...` (v1.9.0, protocolo v1.0.0). Con `-format json`,
 govulncheck sale con 0 aunque encuentre vulnerabilidades: este script es la única barrera.
@@ -20,8 +20,14 @@ para desplegar.
 Fecha de publicación (nunca la del commit):
 
 - Go (módulos `stdlib` y `toolchain`; v1.27.4 es go1.27.4): el día de «goX.Y.Z (released AAAA-MM-DD)» en
-  https://go.dev/doc/devel/release, que debe aparecer una sola vez. La página da solo el día: se toma su comienzo,
-  00:00 UTC, el momento más temprano posible. go.dev/dl/?mode=json no trae fechas y proxy.golang.org da la del commit.
+  https://go.dev/doc/devel/release, que debe aparecer una sola vez. La página da solo el día, y los 7 días se cuentan
+  desde su final, las 00:00 UTC del día siguiente (D-201): go1.27.4, publicado el 2026-11-10, cumple 7 días el
+  2026-11-18 a las 00:00:00 UTC. El principio: la regla que obliga a adoptar una versión nunca se adelanta a la que
+  permite adoptarla. Las dos revisiones no tienen que dar la misma fecha: la de antigüedad (la que permite adoptar Go;
+  todavía por construir) usa el `Last-Modified` del tarball y de la imagen, y esta, el final del día. Si una imagen
+  sale al día siguiente y esta barrera empieza a fallar antes de que se pueda adoptar, los PR de api/ esperan; no se
+  abre una excepción por eso. Una fecha de la página posterior a ahora se rechaza desde el comienzo del día, así que
+  el mismo día de la publicación avisa. go.dev/dl/?mode=json no trae fechas y proxy.golang.org da la del commit.
 - Los demás módulos: el `Timestamp` con que index.golang.org registra la primera vez que proxy.golang.org guardó
   esa versión. Primero se mira una página del índice desde poco antes del `Last-Modified` del `.mod` en el proxy
   (coincide con esa primera vez; es solo una pista). Si ahí no está, se recorre el índice desde la hora del commit
@@ -257,7 +263,8 @@ def nombre_de_go(version):
 # --- Fechas de publicación ---
 
 def fecha_en_la_pagina_de_go(pagina, nombre):
-    """Día de «<nombre> (released AAAA-MM-DD)» en el HTML de go.dev/doc/devel/release, a las 00:00 UTC."""
+    """Día (datetime.date, sin hora: la página no la da) de «<nombre> (released AAAA-MM-DD)» en el HTML de
+    go.dev/doc/devel/release. La regla lo cuenta desde su final (`final_del_dia`, en `publicacion`)."""
     texto = re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]*>", " ", pagina)))
     dias = re.findall(r"(?<![\w.])" + re.escape(nombre) + r" \(released (\d{4}-\d{2}-\d{2})\)", texto)
     if not dias:
@@ -268,9 +275,14 @@ def fecha_en_la_pagina_de_go(pagina, nombre):
         raise SinFecha(f"{nombre} aparece {len(dias)} veces con «(released {dias[0]})» en {PAGINA_DE_GO}; "
                        "se esperaba una sola")
     try:
-        return datetime.datetime.strptime(dias[0], "%Y-%m-%d").replace(tzinfo=UTC)
+        return datetime.datetime.strptime(dias[0], "%Y-%m-%d").date()
     except ValueError as error:
         raise SinFecha(f"fecha inválida de {nombre} en {PAGINA_DE_GO}: {error}") from None
+
+
+def final_del_dia(dia):
+    """El final de un día UTC: las 00:00 UTC del día siguiente."""
+    return datetime.datetime.combine(dia + datetime.timedelta(days=1), datetime.time(), tzinfo=UTC)
 
 
 def escapar(ruta):
@@ -338,13 +350,23 @@ def _buscar_en_el_indice(modulo, version, traer, desde, max_paginas):
 
 
 def publicacion(modulo, version, traer, ahora):
-    """(instante de publicación, nombre del arreglo, fuente). SinFecha si no se puede obtener."""
+    """(desde cuándo se cuentan los 7 días, primer instante en que pudo publicarse, nombre del arreglo, «publicado el …»
+    con su fuente). SinFecha si no se puede obtener.
+
+    Go: la página da solo el día y se cuenta desde su final, 00:00 UTC del día siguiente (D-201); el primer instante
+    posible es el comienzo de ese día. Módulos: el instante del índice, para las dos cosas."""
     if modulo in MODULOS_DE_GO:
         nombre = nombre_de_go(version)
         if nombre is None:
             raise SinFecha(f"{version} no es una versión publicada de Go")
-        return fecha_en_la_pagina_de_go(traer(PAGINA_DE_GO), nombre), nombre, "go.dev/doc/devel/release (00:00 UTC del día)"
-    return fecha_en_el_indice(modulo, version, traer, ahora), f"{modulo}@{version}", "index.golang.org (primera vez en proxy.golang.org)"
+        dia = fecha_en_la_pagina_de_go(traer(PAGINA_DE_GO), nombre)
+        cuenta = final_del_dia(dia)
+        return (cuenta, cuenta - datetime.timedelta(days=1), nombre,
+                f"publicado el {dia.isoformat()} según go.dev/doc/devel/release; se cuenta desde el final de ese día, "
+                f"el {momento(cuenta)}")
+    instante = fecha_en_el_indice(modulo, version, traer, ahora)
+    return (instante, instante, f"{modulo}@{version}",
+            f"publicado el {momento(instante)} según index.golang.org (primera vez en proxy.golang.org)")
 
 
 # --- La regla ---
@@ -372,17 +394,17 @@ def evaluar(texto, ahora, traer):
             fallas.append(f"{sujeto}: el arreglo es solo la pseudo-versión {visible(arreglo)}, sin versión publicada")
             continue
         try:
-            publicado, nombre, fuente = publicacion(modulo, arreglo, traer, ahora)
+            cuenta, primero, nombre, publicado = publicacion(modulo, arreglo, traer, ahora)
         except SinFecha as error:
             fallas.append(f"{sujeto}: no se pudo obtener la fecha de publicación de {visible(arreglo)}: "
                           f"{visible(error)}. No se da por buena (D-158)")
             continue
-        if publicado > ahora:
-            fallas.append(f"{sujeto}: la fecha de publicación de {visible(nombre)} ({momento(publicado)}) es posterior "
-                          "a ahora; no se da por buena")
+        if primero > ahora:
+            fallas.append(f"{sujeto}: la fecha de publicación de {visible(nombre)} es posterior a ahora "
+                          f"({publicado}); no se da por buena")
             continue
-        cumple = publicado + datetime.timedelta(days=DIAS)
-        detalle = f"lo corrige {visible(nombre)}, publicado el {momento(publicado)} según {fuente}"
+        cumple = cuenta + datetime.timedelta(days=DIAS)
+        detalle = f"lo corrige {visible(nombre)}, {publicado}"
         if ahora >= cumple:
             fallas.append(f"{sujeto}: {detalle}; cumplió {DIAS} días el {momento(cumple)}. Actualiza a {visible(nombre)} "
                           "o una versión posterior")
@@ -451,7 +473,7 @@ def informar(encabezado, avisos, fallas):
         return 1
     if avisos:
         print(f"Pasa con {len(avisos)} aviso(s): el arreglo tiene menos de {DIAS} días. Este aviso solo vale para "
-              "fusionar; el despliegue falla con cualquier vulnerabilidad alcanzada que tenga arreglo (S2).")
+              "fusionar; el despliegue falla con cualquier vulnerabilidad alcanzada que tenga arreglo (D-201).")
         return 0
     print("El código no alcanza ninguna vulnerabilidad conocida.")
     return 0
@@ -466,15 +488,14 @@ def comando_revisar(ruta, ahora=None, traer=traer_http, entrada=None):
     return informar(*evaluar(texto, ahora or datetime.datetime.now(UTC), traer))
 
 
-def comando_fecha(modulo, version):
+def comando_fecha(modulo, version, traer=traer_http):
     """Consulta en vivo la fecha de publicación que usaría la barrera."""
     try:
-        publicado, nombre, fuente = publicacion(modulo, version, traer_http, datetime.datetime.now(UTC))
+        cuenta, _, nombre, publicado = publicacion(modulo, version, traer, datetime.datetime.now(UTC))
     except SinFecha as error:
         print(f"FALLA no se pudo obtener la fecha: {visible(error)}")
         return 1
-    print(f"{nombre}: publicado el {momento(publicado)} según {fuente}; "
-          f"cumple {DIAS} días el {momento(publicado + datetime.timedelta(days=DIAS))}")
+    print(f"{visible(nombre)}: {publicado}; cumple {DIAS} días el {momento(cuenta + datetime.timedelta(days=DIAS))}")
     return 0
 
 
@@ -615,8 +636,10 @@ def casos():
     """(nombre, salida de govulncheck, ahora, consultas simuladas, resultado: "pasa", "aviso" o "falla",
     fragmentos que deben aparecer en lo impreso)."""
     t = _traer_de_prueba
-    seg = datetime.timedelta(seconds=1)
-    limite_6859 = datetime.datetime(2026, 11, 17, tzinfo=UTC)
+    micro = datetime.timedelta(microseconds=1)
+    # go1.27.4 salió el 2026-11-10: se cuenta desde el final de ese día (2026-11-11 00:00 UTC) y cumple 7 días el
+    # 2026-11-18 a las 00:00 UTC (D-201).
+    limite_6859 = datetime.datetime(2026, 11, 18, tzinfo=UTC)
     return [
         # Pasan.
         ("sin vulnerabilidades alcanzadas ni hallazgos", _flujo(), AHORA, t(), "pasa", ["no alcanza ninguna"]),
@@ -629,12 +652,21 @@ def casos():
         # Avisan y pasan.
         ("Go: GO-2026-6859 con go1.27.4 (2026-11-10), menos de 7 días: avisa y pasa", _flujo(GO_6859), AHORA, t(), "aviso",
          ["##vso[task.logissue type=warning]GO-2026-6859 en stdlib (1 traza): lo corrige go1.27.4, publicado el "
-          "2026-11-10 a las 00:00:00 UTC", "cumple 7 días el 2026-11-17 a las 00:00:00 UTC", "solo vale para fusionar"]),
+          "2026-11-10 según go.dev/doc/devel/release; se cuenta desde el final de ese día, el 2026-11-11 a las 00:00:00 UTC",
+          "cumple 7 días el 2026-11-18 a las 00:00:00 UTC", "solo vale para fusionar"]),
+        ("Go: el mismo día de la publicación (2026-11-10 16:48 UTC, la hora del tarball): avisa, no es una fecha futura",
+         _flujo(GO_6859), datetime.datetime(2026, 11, 10, 16, 48, tzinfo=UTC), t(), "aviso",
+         ["cumple 7 días el 2026-11-18 a las 00:00:00 UTC"]),
+        ("Go: al comienzo del día de la publicación (2026-11-10 00:00 UTC): avisa", _flujo(GO_6859),
+         datetime.datetime(2026, 11, 10, tzinfo=UTC), t(), "aviso", ["cumple 7 días el 2026-11-18 a las 00:00:00 UTC"]),
         ("las 24 trazas de una misma vulnerabilidad cuentan como una, con un solo aviso",
          _flujo(*[GO_6859] * 24, _de_modulo("GO-2026-6859", "stdlib", "v1.27.3", "v1.27.4"),
                 _de_paquete("GO-2026-6859", "stdlib", "v1.27.3", "v1.27.4")),
          AHORA, t(), "aviso", ["(24 trazas)", "Pasa con 1 aviso"]),
-        ("un segundo antes de cumplir 7 días: avisa", _flujo(GO_6859), limite_6859 - seg, t(), "aviso", ["cumple 7 días"]),
+        ("Go: 2026-11-17 23:59:59.999999 UTC, un microsegundo antes del final del día + 7: avisa", _flujo(GO_6859),
+         limite_6859 - micro, t(), "aviso", ["cumple 7 días el 2026-11-18 a las 00:00:00 UTC"]),
+        ("Go: 2026-11-17 00:00 UTC (7 días desde el comienzo del día, no desde el final): todavía avisa", _flujo(GO_6859),
+         datetime.datetime(2026, 11, 17, tzinfo=UTC), t(), "aviso", ["cumple 7 días el 2026-11-18 a las 00:00:00 UTC"]),
         ("módulo: el commit tiene más de 7 días y el arreglo apareció en el índice hace menos: avisa con la hora del índice",
          _flujo(_llamado("GO-2026-0010", MODULO, "v1.2.0", "v1.2.6", paquete=MODULO)), AHORA, t(), "aviso",
          [f"lo corrige {MODULO}@v1.2.6, publicado el 2026-11-06 a las 09:00:00 UTC según index.golang.org",
@@ -645,9 +677,10 @@ def casos():
         # Fallan.
         ("Go: el arreglo tiene 7 días o más (go1.27.3, 2026-10-19)",
          _flujo(_llamado("GO-2026-0001", "stdlib", "v1.27.2", "v1.27.3")), AHORA, t(), "falla",
-         ["##vso[task.logissue type=error]GO-2026-0001 en stdlib", "cumplió 7 días el 2026-10-26 a las 00:00:00 UTC",
+         ["##vso[task.logissue type=error]GO-2026-0001 en stdlib", "cumplió 7 días el 2026-10-27 a las 00:00:00 UTC",
           "Actualiza a go1.27.3"]),
-        ("Go: justo al cumplir 7 días falla", _flujo(GO_6859), limite_6859, t(), "falla", ["cumplió 7 días el 2026-11-17"]),
+        ("Go: 2026-11-18 00:00 UTC, justo al cumplir 7 días desde el final del día: falla", _flujo(GO_6859), limite_6859,
+         t(), "falla", ["cumplió 7 días el 2026-11-18 a las 00:00:00 UTC"]),
         ("Go: una versión .0 de la página (go1.27.0)", _flujo(_llamado("GO-2026-0003", "toolchain", "v1.26.9", "v1.27.0")),
          AHORA, t(), "falla", ["go1.27.0, publicado el 2026-08-19"]),
         ("Go antes de 1.21: v1.20.0 es go1.20", _flujo(_llamado("GO-2023-0001", "stdlib", "v1.19.9", "v1.20.0")),
@@ -676,7 +709,7 @@ def casos():
          t(pagina=PAGINA_CON_ENTRADA_REPETIDA), "falla", ["go1.27.4 aparece 2 veces"]),
         ("Go: go1.27.41 y xgo1.27.5 no se confunden con go1.27.4 ni go1.27.5",
          _flujo(GO_6859, _llamado("GO-2026-0007", "stdlib", "v1.27.4", "v1.27.5")), AHORA, t(pagina=PAGINA_CON_TRAMPAS),
-         "falla", ["cumple 7 días el 2026-11-17 a las 00:00:00 UTC", "go1.27.5 no aparece"]),
+         "falla", ["cumple 7 días el 2026-11-18 a las 00:00:00 UTC", "go1.27.5 no aparece"]),
         ("módulo: proxy.golang.org no tiene la versión (404)",
          _flujo(_llamado("GO-2026-0012", MODULO, "v1.2.0", "v1.2.9", paquete=MODULO)), AHORA, t(), "falla",
          ["respondió 404", "No se da por buena"]),
@@ -684,8 +717,8 @@ def casos():
          AHORA, t(), "falla", ["no aparece en index.golang.org"]),
         ("módulo: index.golang.org no responde", _flujo(_llamado("GO-2026-0014", MODULO, "v1.2.0", "v1.2.4", paquete=MODULO)),
          AHORA, t(falla_con=INDICE), "falla", ["sin conexión"]),
-        ("una fecha de publicación posterior a ahora no se da por buena", _flujo(GO_6859), datetime.datetime(2026, 11, 9, tzinfo=UTC),
-         t(), "falla", ["posterior a ahora"]),
+        ("Go: una fecha de publicación posterior a ahora (el día anterior, 23:59:59.999999 UTC) no se da por buena",
+         _flujo(GO_6859), datetime.datetime(2026, 11, 10, tzinfo=UTC) - micro, t(), "falla", ["posterior a ahora"]),
         ("un aviso y una falla a la vez: falla y muestra los dos",
          _flujo(GO_6859, _llamado("GO-2026-0004", "example.com/m", "v1.0.0", "", paquete="example.com/m")), AHORA, t(),
          "falla", ["type=warning]GO-2026-6859", "type=error]GO-2026-0004"]),
@@ -741,6 +774,14 @@ def casos():
         ("un campo de config con ### antes de vso[ no da órdenes",
          _flujo(config={"scan_mode": "###vso[task.complete result=Succeeded;]"}), AHORA, t(), "falla", ["scan_mode"]),
     ]
+
+
+def _impreso(llamada):
+    """Lo que imprime `llamada`."""
+    salida = io.StringIO()
+    with contextlib.redirect_stdout(salida):
+        llamada()
+    return salida.getvalue()
 
 
 def _correr(texto, ahora, traer):
@@ -812,10 +853,18 @@ def comando_probar():
         ("go v1.20.0", nombre_de_go("v1.20.0"), "go1.20"),
         ("go v1.28.0-rc.1", nombre_de_go("v1.28.0-rc.1"), None),
         ("escape del proxy", escapar("github.com/BurntSushi/toml"), "github.com/!burnt!sushi/toml"),
-        ("go1.27.4 en la página", fecha_en_la_pagina_de_go(PAGINA_DE_GO_DE_PRUEBA, "go1.27.4"),
-         datetime.datetime(2026, 11, 10, tzinfo=UTC)),
+        ("go1.27.4 en la página: el día, sin hora", fecha_en_la_pagina_de_go(PAGINA_DE_GO_DE_PRUEBA, "go1.27.4"),
+         datetime.date(2026, 11, 10)),
         ("go1.27.4 con trampas en la página", fecha_en_la_pagina_de_go(PAGINA_CON_TRAMPAS, "go1.27.4"),
-         datetime.datetime(2026, 11, 10, tzinfo=UTC)),
+         datetime.date(2026, 11, 10)),
+        ("go1.27.4 se cuenta desde el final del día (D-201)",
+         publicacion("stdlib", "v1.27.4", _traer_de_prueba(), AHORA)[0], datetime.datetime(2026, 11, 11, tzinfo=UTC)),
+        ("final del 2026-12-31: 2027-01-01 00:00 UTC", final_del_dia(datetime.date(2026, 12, 31)),
+         datetime.datetime(2027, 1, 1, tzinfo=UTC)),
+        ("la consulta en vivo de go1.27.4 dice el final del día y los 7 días",
+         _impreso(lambda: comando_fecha("stdlib", "v1.27.4", traer=_traer_de_prueba())),
+         "go1.27.4: publicado el 2026-11-10 según go.dev/doc/devel/release; se cuenta desde el final de ese día, "
+         "el 2026-11-11 a las 00:00:00 UTC; cumple 7 días el 2026-11-18 a las 00:00:00 UTC\n"),
         ("instante con nanosegundos", leer_instante("2026-11-10T08:00:00.123456789Z"),
          datetime.datetime(2026, 11, 10, 8, 0, 0, 123456, tzinfo=UTC)),
         ("momento con microsegundos", momento(datetime.datetime(2026, 11, 17, 9, 0, 0, 123456, tzinfo=UTC)),

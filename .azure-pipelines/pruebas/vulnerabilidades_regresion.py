@@ -1,8 +1,9 @@
-"""Pruebas de regresión independientes de la barrera de vulnerabilidades (S2 de siete-dias-vulnerabilidades).
+"""Pruebas de regresión independientes de la barrera de vulnerabilidades (D-201).
 
 Las escribió un verificador independiente, aparte de la autoprueba (`vulnerabilidades.py probar`): alcance y límite de
-los 7 días, JSON no estricto (NaN, Infinity, claves repetidas), comandos del agente en texto de afuera, la pista del
-índice con el momento exacto y los bordes de la página de versiones de Go. Sin red ni dependencias.
+los 7 días (para Go, desde el final del día de publicación), JSON no estricto (NaN, Infinity, claves repetidas),
+comandos del agente en texto de afuera, la pista del índice con el momento exacto y los bordes de la página de
+versiones de Go. Sin red ni dependencias.
 
 Uso, desde la raíz del repositorio:
 
@@ -46,7 +47,7 @@ def flow(*findings):
     return '\n'.join(json.dumps(m) for m in messages)
 
 
-class S2Regression(unittest.TestCase):
+class D201Regression(unittest.TestCase):
     def check(self, text, now=NOW, fetch=lambda *a, **k: PAGE):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'scan.json'
@@ -60,10 +61,23 @@ class S2Regression(unittest.TestCase):
             return code, out.getvalue()
 
     def test_reachability_and_boundary(self):
-        deadline = dt.datetime(2026, 11, 17, tzinfo=dt.timezone.utc)
+        # go1.27.4 (released 2026-11-10) se cuenta desde el final de ese día: cumple 7 días el 2026-11-18 00:00 UTC.
+        utc = dt.timezone.utc
         self.assertEqual(self.check(flow(finding(called=False, fix='')))[0], 0)
-        self.assertEqual(self.check(flow(finding()), deadline-dt.timedelta(microseconds=1))[0], 0)
-        self.assertEqual(self.check(flow(finding()), deadline)[0], 1)
+        for now in (dt.datetime(2026, 11, 10, 16, 48, tzinfo=utc),  # el mismo día: no es una fecha futura
+                    dt.datetime(2026, 11, 17, tzinfo=utc),  # 7 días desde el comienzo del día: todavía no
+                    dt.datetime(2026, 11, 17, 23, 59, 59, 999999, tzinfo=utc)):
+            with self.subTest(now=now):
+                code, output = self.check(flow(finding()), now)
+                self.assertEqual(code, 0)
+                self.assertIn('##vso[task.logissue type=warning]', output)
+                self.assertIn('cumple 7 días el 2026-11-18 a las 00:00:00 UTC', output)
+        code, output = self.check(flow(finding()), dt.datetime(2026, 11, 18, tzinfo=utc))
+        self.assertEqual(code, 1)
+        self.assertIn('cumplió 7 días el 2026-11-18 a las 00:00:00 UTC', output)
+        code, output = self.check(flow(finding()), dt.datetime(2026, 11, 9, 23, 59, 59, 999999, tzinfo=utc))
+        self.assertEqual(code, 1)
+        self.assertIn('posterior a ahora', output)
         for fix in ('', 'v1.2.4-0.20261010123456-abcdef123456'):
             self.assertEqual(self.check(flow(finding(fix=fix)))[0], 1)
         self.assertEqual(self.check(flow(finding(), finding('example.com/m', '')))[0], 1)
@@ -107,8 +121,10 @@ class S2Regression(unittest.TestCase):
                 self.assertIn('2026-11-13 a las 09:00:00.123456 UTC', output)
 
     def test_go_date_and_version_boundaries(self):
-        self.assertEqual(v.fecha_en_la_pagina_de_go(PAGE, 'go1.27.4'),
-                         dt.datetime(2026, 11, 10, tzinfo=dt.timezone.utc))
+        # La página da solo el día; la regla cuenta desde su final, 00:00 UTC del día siguiente (D-201).
+        self.assertEqual(v.fecha_en_la_pagina_de_go(PAGE, 'go1.27.4'), dt.date(2026, 11, 10))
+        self.assertEqual(v.publicacion('stdlib', 'v1.27.4', lambda *a, **k: PAGE, NOW)[0],
+                         dt.datetime(2026, 11, 11, tzinfo=dt.timezone.utc))
         for page in ('xgo1.27.4 (released 2026-11-10)',
                      'go1.27.41 (released 2026-11-10)',
                      PAGE + '<p>go1.27.4 (released 2026-11-01)</p>',

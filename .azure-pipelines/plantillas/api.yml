@@ -54,9 +54,10 @@ jobs:
         displayName: Analizador agregado (golangci-lint)
 
       # govulncheck está fijado como `tool` en api/go.mod (v1.9.0, con sus sumas en go.sum): no se instala nada aparte y no
-      # entra en el binario. Regla de los 7 días (S2 de siete-dias-vulnerabilidades): por cada vulnerabilidad que el código
-      # alcanza (las que harían salir a govulncheck con código 3), pruebas/vulnerabilidades.py avisa si su arreglo tiene
-      # menos de 7 días y falla si tiene 7 o más, si no hay arreglo, si es solo una pseudo-versión o si no obtiene la fecha.
+      # entra en el binario. Regla de los 7 días (D-201): por cada vulnerabilidad que el código alcanza (las que harían salir
+      # a govulncheck con código 3), pruebas/vulnerabilidades.py avisa si su arreglo tiene menos de 7 días (para Go, desde
+      # el final del día de publicación, 00:00 UTC del día siguiente) y falla si tiene 7 o más, si no hay arreglo, si es solo
+      # una pseudo-versión o si no obtiene la fecha.
       # Con -format json govulncheck sale con 0 aunque encuentre vulnerabilidades: el script es la única barrera, y se
       # prueba a sí mismo antes. Si govulncheck no termina (sin red, un paquete que no compila) sale con otro código y el
       # paso falla. Una vulnerabilidad solo de módulo (GO-2026-5932, x/crypto/openpgp; api no importa openpgp) no cuenta.
