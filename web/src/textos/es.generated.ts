@@ -1029,10 +1029,14 @@ export const textos = {
       sinAsignar: "Sin asignar",
       // E14-PPA 4.1 (PN-06), fila 3: «Llega después: $1.200.000 (esperado)» (D-094); E14-PPA 4.2 (PN-07), reglas
       llegaDespues: "Llega después: {monto} (esperado)",
+      // Aprobado por el dueño (L14 de la US-77, punto 4, 2026-11-11): E14-PPA 4.1 (PN-06), fila 3, nota fechada del 2026-11-11, «Llega después» separa lo esperado de lo por confirmar; línea aparte, solo si lo por confirmar es mayor que cero; también en PN-07
+      porConfirmar: "Por confirmar: {monto}",
       // E14-PPA 4.1 (PN-06), fila 3, texto `tipografia.pequeno` (primera frase)
       cuentaLoRegistrado: "Sin asignar cuenta lo que ya registraste.",
       // Propuesto en la US-77 (T3, web), pendiente de aprobación del dueño: E14 no tiene el texto. Sale de E14-PPA 4.1 (PN-06), fila 3 («El salario del 16 de noviembre de 2026 se suma cuando llegue.»), con el nombre de la categoría tal cual; solo con una fecha esperada
       seSumaCuandoLlegue: "{nombre} del {fecha} se suma cuando llegue.",
+      // Aprobado por el dueño (L14 de la US-77, punto 4, 2026-11-11): E14-PPA 4.1 (PN-06), fila 3, nota fechada del 2026-11-11; solo con una fecha por confirmar
+      seSumaCuandoLoConfirmes: "{nombre} del {fecha} se suma cuando lo confirmes.",
       // E14-PPA 4.1 (PN-06), fila 3 (abre PN-08); E14-PPA 3 (PN-07 → PN-08)
       verMisIngresos: "Ver mis ingresos",
       // E14-PPA 4.2 (PN-07), fila 3, con ingreso nulo

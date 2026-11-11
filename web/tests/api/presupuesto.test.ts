@@ -28,7 +28,7 @@ describe("API del presupuesto (PN-06 y PN-07)", () => {
     simularApi(
       () =>
         new Response(
-          '{"resumen":{"ingreso_registrado_centavos":9223372036854775807,"sin_asignar_centavos":null,"llega_despues_centavos":0},"categorias":[{"presupuesto":{"id":"p1","monto_centavos":9223372036854775806},"gastado_centavos":18446744073709551614}]}',
+          '{"resumen":{"ingreso_registrado_centavos":9223372036854775807,"sin_asignar_centavos":null,"llega_despues_centavos":0,"por_confirmar_centavos":9223372036854775805},"categorias":[{"presupuesto":{"id":"p1","monto_centavos":9223372036854775806},"gastado_centavos":18446744073709551614}]}',
         ),
     );
     const respuesta = await leerPresupuesto();
@@ -39,6 +39,7 @@ describe("API del presupuesto (PN-06 y PN-07)", () => {
           ingreso_registrado_centavos: "9223372036854775807",
           sin_asignar_centavos: null,
           llega_despues_centavos: "0",
+          por_confirmar_centavos: "9223372036854775805",
         },
         categorias: [
           {

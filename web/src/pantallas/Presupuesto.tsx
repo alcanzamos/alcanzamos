@@ -29,7 +29,7 @@ import {
   avisosDePresupuesto,
   mesEnMinuscula,
   nombreDeCategoria,
-  seSumaCuandoLlegue,
+  seSumaCuando,
   textosDeCategoria,
 } from "../textosDePresupuesto";
 import { formatear, textos } from "../textos/es.generated";
@@ -100,12 +100,14 @@ const CifraGrande = ({
 );
 
 // La tarjeta «Tu presupuesto este mes»: la de PN-06 con `normal` y la de PN-07 con un ingreso bajo o nulo (D-094, P-3).
-// Describe sin calificar: sin Atención, sin rojo y sin signo menos (RNF-017).
+// Describe sin calificar: sin Atención, sin rojo y sin signo menos (RNF-017). «Llega después» y «Por confirmar» son dos
+// líneas, cada una solo con su total mayor que cero (L14 de la US-77).
 function Resumen({ datos }: { datos: PresupuestoDelPeriodo }) {
   const r = datos.resumen;
   const asignado = BigInt(r.asignado_centavos);
   const llegaDespues = BigInt(r.llega_despues_centavos);
-  const frase = seSumaCuandoLlegue(datos.llega_despues);
+  const porConfirmar = BigInt(r.por_confirmar_centavos);
+  const frase = seSumaCuando(datos.llega_despues);
   return (
     <section className="tarjeta" aria-labelledby="titulo-resumen">
       <h2 id="titulo-resumen" className="titulo-3">
@@ -139,6 +141,15 @@ function Resumen({ datos }: { datos: PresupuestoDelPeriodo }) {
           {cifras(
             formatear(t.resumen.llegaDespues, {
               monto: formatearPesos(llegaDespues),
+            }),
+          )}
+        </p>
+      )}
+      {porConfirmar > 0n && (
+        <p>
+          {cifras(
+            formatear(t.resumen.porConfirmar, {
+              monto: formatearPesos(porConfirmar),
             }),
           )}
         </p>
