@@ -64,7 +64,8 @@ const porConfirmarDe = (fuente: FuenteDeIngreso, ingreso: IngresoDelPeriodo) =>
 // PN-08 · Ingresos del periodo de varias fuentes (E14-PPA 4.3): el periodo, el total, una tarjeta por fuente y
 // «Registrar un ingreso». Lo esperado y lo por confirmar son los de la US-60, con sus rutas («Confirmar», «Más» y
 // «Confirmar todos»). Variante web: el periodo y el total a la izquierda (5/12) y las fuentes a la derecha (7/12);
-// «Confirmar todos» ocupa la columna derecha, como en PN-01. Sin «Prima, cesantías o intereses» (L3 de la US-77, punto 4).
+// «Confirmar todos» ocupa la columna derecha, como en PN-01. Lleva la Navegación lateral (E14-SDD 5.13), sin destino
+// activo mientras falte «Presupuesto». Sin «Prima, cesantías o intereses» (L3 de la US-77, punto 4).
 export function Ingresos() {
   const { parametros } = useUbicacion();
   const periodo = parametros.get("periodo");
@@ -119,7 +120,13 @@ export function Ingresos() {
   const todos = confirmarTodos && pendientes.length > 1;
 
   return (
-    <Pagina titulo={i.titulo} atras="/presupuesto" estado={aviso} registro>
+    <Pagina
+      titulo={i.titulo}
+      atras="/presupuesto"
+      estado={aviso}
+      registro
+      lateral={{}}
+    >
       <div className={`presupuesto${todos ? " presupuesto--abierto" : ""}`}>
         <div className="presupuesto__columna">
           {estado.fase === "error" && (

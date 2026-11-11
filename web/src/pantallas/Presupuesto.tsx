@@ -179,8 +179,9 @@ function Resumen({ datos }: { datos: PresupuestoDelPeriodo }) {
 
 // PN-06 · Presupuesto del periodo por categorías y PN-07 con un ingreso bajo o nulo (E14-PPA 4.1 y 4.2): una sola ruta,
 // el destino «Presupuesto», que cambia la tarjeta de resumen según el modo del API. Siempre el mes en curso (D-094).
-// Variante web: «Registrar» arriba y dos columnas, el resumen (5/12) y «Por categoría» (7/12); por debajo de 768 px, la
-// columna de Android. Sin «Para mirar con calma» (L3 de la US-77, punto 1).
+// Variante web: dos columnas, el resumen (5/12) y «Por categoría» (7/12); por debajo de 768 px, la columna de Android.
+// Desde 768 px, «Registrar» es el de la Navegación lateral (E14-SDD 5.13), sin destino activo mientras falte
+// «Presupuesto»; por debajo, el botón de arriba del resumen. Sin «Para mirar con calma» (L3 de la US-77, punto 1).
 export function Presupuesto() {
   const [estado, setEstado] = useState<Estado>({ fase: "cargando" });
   const [intento, setIntento] = useState(0);
@@ -414,12 +415,19 @@ export function Presupuesto() {
     !r.en_cero;
 
   return (
-    <Pagina titulo={formatear(t.titulo, { mes })} estado={aviso} registro>
+    <Pagina
+      titulo={formatear(t.titulo, { mes })}
+      estado={aviso}
+      registro
+      lateral={{}}
+    >
       <div className="presupuesto">
         <div className="presupuesto__columna">
-          <BotonEnlace href="/registrar" variante="primario">
-            {textos.movimientos.registrar}
-          </BotonEnlace>
+          <div className="presupuesto__registrar">
+            <BotonEnlace href="/registrar" variante="primario">
+              {textos.movimientos.registrar}
+            </BotonEnlace>
+          </div>
           {estado.fase === "error" && (
             <>
               <Aviso {...estado.aviso} />

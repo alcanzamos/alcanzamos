@@ -1,0 +1,52 @@
+# Pasos de la barrera de vulnerabilidades de api/ con la regla de los 7 días (D-201).
+# Los usan plantillas/api.yml (el pipeline api y la etapa api del control único) y revision-diaria.yml (la revisión
+# diaria sobre main): la barrera vive una sola vez, así que el PR y la revisión diaria dicen lo mismo. Necesitan Go
+# instalado antes (plantillas/pasos/go.yml) y el repositorio en la carpeta de trabajo por defecto (la raíz).
+#
+# govulncheck está fijado como `tool` en api/go.mod (v1.9.0, con sus sumas en go.sum): no se instala nada aparte y no
+# entra en el binario. Por cada vulnerabilidad que el código alcanza (las que harían salir a govulncheck con código 3),
+# pruebas/vulnerabilidades.py avisa si su arreglo tiene menos de 7 días (para Go, desde el final del día de publicación,
+# 00:00 UTC del día siguiente) y falla si tiene 7 o más, si no hay arreglo, si es solo una pseudo-versión o si no
+# obtiene la fecha.
+# Con -format json govulncheck sale con 0 aunque encuentre vulnerabilidades: el script es la única barrera, y se prueba
+# a sí mismo antes. Si govulncheck no termina (sin red, un paquete que no compila) sale con otro código y el paso falla.
+# Una vulnerabilidad solo de módulo (GO-2026-5932, x/crypto/openpgp; api no importa openpgp) no cuenta.
+# El aviso solo vale para fusionar: el despliegue (US-79) falla con cualquier vulnerabilidad alcanzada con arreglo.
+parameters:
+  # true (la revisión diaria): si la revisión solo advierte (sale con 0 e imprime un `##vso[task.logissue
+  # type=warning]`), el paso termina en SucceededWithIssues y la corrida queda en Partially succeeded, que es lo que
+  # dispara el correo. Un aviso solo no cambia el resultado de un paso. false (el PR): el paso es el mismo de siempre y
+  # el aviso queda en el registro.
+  - name: avisoEnElResultado
+    type: boolean
+    default: false
+
+steps:
+  - script: python3 -I -B .azure-pipelines/pruebas/vulnerabilidades.py probar
+    displayName: La barrera de vulnerabilidades se prueba a sí misma
+
+  # Pruebas de regresión de un verificador independiente (JSON no estricto, comandos del agente, momento exacto).
+  - script: python3 -I -B .azure-pipelines/pruebas/vulnerabilidades_regresion.py
+    displayName: Pruebas de regresión de la barrera de vulnerabilidades
+
+  - script: |
+      set -eu
+      go tool govulncheck -format json ./... > "$(Agent.TempDirectory)/govulncheck.json"
+    workingDirectory: api
+    displayName: Análisis de vulnerabilidades en JSON (govulncheck)
+
+  - ${{ if eq(parameters.avisoEnElResultado, false) }}:
+      - script: python3 -I -B .azure-pipelines/pruebas/vulnerabilidades.py revisar "$(Agent.TempDirectory)/govulncheck.json"
+        displayName: Vulnerabilidades alcanzadas con la regla de los 7 días (aviso si el arreglo es más nuevo, falla si no)
+
+  # El mismo comando; tee deja pasar al agente los avisos y errores del script, y pipefail conserva su código de salida.
+  # Solo el script imprime líneas que empiezan con «##vso[»: el texto de afuera lo escapa (no deja «##» en lo impreso).
+  - ${{ if eq(parameters.avisoEnElResultado, true) }}:
+      - script: |
+          set -eu -o pipefail
+          salida="$(Agent.TempDirectory)/vulnerabilidades.txt"
+          python3 -I -B .azure-pipelines/pruebas/vulnerabilidades.py revisar "$(Agent.TempDirectory)/govulncheck.json" | tee "$salida"
+          if grep -q '^##vso\[task\.logissue type=warning' "$salida"; then
+            echo "##vso[task.complete result=SucceededWithIssues;]Hay avisos que solo advierten: ver el registro de este paso"
+          fi
+        displayName: Vulnerabilidades alcanzadas con la regla de los 7 días (aviso si el arreglo es más nuevo, falla si no)

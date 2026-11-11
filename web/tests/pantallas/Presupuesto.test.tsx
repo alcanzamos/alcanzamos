@@ -211,13 +211,28 @@ describe("PN-06 · Presupuesto del periodo por categorías (E14-PPA 4.1)", () =>
     expect(
       screen.getByRole("link", { name: "Ver mis ingresos" }),
     ).toHaveAttribute("href", "/ingresos");
-    expect(screen.getByRole("link", { name: "Registrar" })).toHaveAttribute(
-      "href",
-      "/registrar",
-    );
+    // El de arriba del resumen; desde 768 px lo reemplaza el de la Navegación lateral, como en PN-01.
+    expect(
+      within(screen.getByRole("main")).getByRole("link", { name: "Registrar" }),
+    ).toHaveAttribute("href", "/registrar");
     // PN-06 no es PN-07: sin «Registrar un ingreso» ni «Dejar el presupuesto en cero».
     expect(screen.queryByText("Registrar un ingreso")).toBeNull();
     expect(screen.queryByText("Dejar el presupuesto en cero")).toBeNull();
+  });
+
+  it("lleva la Navegación lateral (bug 233), con «Registrar» primario y sin destino activo mientras falte «Presupuesto»", async () => {
+    api([laura]);
+    await abrir();
+    const barra = within(screen.getByRole("navigation"));
+    expect(barra.getAllByRole("link").map((e) => e.textContent)).toEqual([
+      "Registrar",
+      "Movimientos",
+    ]);
+    expect(barra.getByRole("link", { name: "Registrar" })).toHaveClass(
+      "boton--primario",
+    );
+    for (const enlace of barra.getAllByRole("link"))
+      expect(enlace).not.toHaveAttribute("aria-current");
   });
 
   it("los números van en Figtree (D-123) y la cifra grande es «Sin asignar»", async () => {

@@ -21,7 +21,9 @@ jest.mock('expo-secure-store', () => jest.requireActual('../ayudas/secureStoreFa
 const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crearSecureStoreFalso>;
 
 const PN71 = 'Este es tu primer ingreso.';
-const CONFIRMAR_SALARIO = 'Confirmar Salario del 16 de noviembre de 2026';
+// Los nombres de «Confirmar» y «Más» llevan el monto hablado (ACC-004, bug 231; D-187).
+const CONFIRMAR_SALARIO = 'Confirmar Salario de 1200000 pesos del 16 de noviembre de 2026';
+const MAS_SALARIO = 'Más opciones de Salario de 1200000 pesos del 16 de noviembre de 2026';
 
 // El 17 de noviembre de 2026 el salario del 16 ya llegó: es «Por confirmar» (E14-PPA 4.3, estado «Con fechas por confirmar»).
 const salarioPorConfirmar = esperado({ marca: 'por_confirmar' });
@@ -188,7 +190,7 @@ describe('PN-08 · Ingresos del periodo, Android (E14-PPA 4.3, US-77)', () => {
       expect(screen.getByText('Por confirmar')).toBeOnTheScreen();
       expect(screen.getByLabelText('16 de noviembre de 2026, Transferencia, Por confirmar, 1200000 pesos')).toBeOnTheScreen();
       expect(screen.getByRole('button', { name: CONFIRMAR_SALARIO })).toBeOnTheScreen();
-      expect(screen.getByRole('button', { name: 'Más opciones de Salario del 16 de noviembre de 2026' })).toBeOnTheScreen();
+      expect(screen.getByRole('button', { name: MAS_SALARIO })).toBeOnTheScreen();
       // Con una sola fecha por confirmar no hay «Confirmar todos» (D-093).
       expect(screen.queryByText('Confirmar todos')).not.toBeOnTheScreen();
     });
@@ -232,7 +234,7 @@ describe('PN-08 · Ingresos del periodo, Android (E14-PPA 4.3, US-77)', () => {
         publicar: () => respuestaJson(204),
       });
       await abrirIngresos();
-      await fireEvent.press(screen.getByRole('button', { name: 'Más opciones de Salario del 16 de noviembre de 2026' }));
+      await fireEvent.press(screen.getByRole('button', { name: MAS_SALARIO }));
       expect(await screen.findByRole('header', { name: 'Salario · 16 de noviembre de 2026' })).toBeOnTheScreen();
       await fireEvent.press(screen.getByRole('button', { name: 'No pasó' }));
       await fireEvent.press(await screen.findByRole('button', { name: 'No pasó' }));

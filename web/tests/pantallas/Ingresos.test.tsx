@@ -156,6 +156,21 @@ describe("PN-08 · Ingresos del periodo de varias fuentes (E14-PPA 4.3)", () => 
     expect(screen.queryByText(/Prima, cesantías o intereses/)).toBeNull();
   });
 
+  it("lleva la Navegación lateral (bug 233), con «Registrar» primario y sin destino activo mientras falte «Presupuesto»", async () => {
+    api(() => lauraNoviembre);
+    await abrir();
+    const barra = within(screen.getByRole("navigation"));
+    expect(barra.getAllByRole("link").map((e) => e.textContent)).toEqual([
+      "Registrar",
+      "Movimientos",
+    ]);
+    expect(barra.getByRole("link", { name: "Registrar" })).toHaveClass(
+      "boton--primario",
+    );
+    for (const enlace of barra.getAllByRole("link"))
+      expect(enlace).not.toHaveAttribute("aria-current");
+  });
+
   it("caso P en octubre: «Entraron este mes», dos fuentes de mayor a menor y la descripción en el texto de apoyo", async () => {
     const pedidos = api(() => casoPOctubre);
     await abrir("/ingresos?periodo=2026-10");
@@ -279,12 +294,12 @@ describe("PN-08 · Por confirmar y «Confirmar todos» (US-60, D-091 a D-093)", 
     );
     expect(
       screen.getByRole("button", {
-        name: "Confirmar Salario del 1 de noviembre de 2026",
+        name: "Confirmar Salario de $1.200.000 del 1 de noviembre de 2026",
       }),
     ).toHaveClass("boton--secundario");
     expect(
       screen.getByRole("button", {
-        name: "Más opciones de Salario del 1 de noviembre de 2026",
+        name: "Más opciones de Salario de $1.200.000 del 1 de noviembre de 2026",
       }),
     ).toHaveClass("boton--texto");
     expect(screen.queryByText("Confirmar todos")).toBeNull();
@@ -304,7 +319,7 @@ describe("PN-08 · Por confirmar y «Confirmar todos» (US-60, D-091 a D-093)", 
     await abrir();
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Confirmar Salario del 1 de noviembre de 2026",
+        name: "Confirmar Salario de $1.200.000 del 1 de noviembre de 2026",
       }),
     );
     const estado = await screen.findByRole("status");
@@ -331,7 +346,7 @@ describe("PN-08 · Por confirmar y «Confirmar todos» (US-60, D-091 a D-093)", 
     await abrir();
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Confirmar Salario del 1 de noviembre de 2026",
+        name: "Confirmar Salario de $1.200.000 del 1 de noviembre de 2026",
       }),
     );
     expect(
@@ -347,7 +362,7 @@ describe("PN-08 · Por confirmar y «Confirmar todos» (US-60, D-091 a D-093)", 
     await abrir();
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Más opciones de Salario del 1 de noviembre de 2026",
+        name: "Más opciones de Salario de $1.200.000 del 1 de noviembre de 2026",
       }),
     );
     const hoja = screen.getByRole("dialog", {

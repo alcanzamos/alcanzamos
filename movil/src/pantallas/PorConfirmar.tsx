@@ -146,8 +146,16 @@ export function PorConfirmar({ datos, ...alTerminar }: AlTerminar & { datos: Pen
       {control.error && <Aviso {...control.error} />}
       {pendientes.map((fila) => {
         const t = textosDeFilaPorConfirmar(fila);
+        // ACC-004 (bug 231): TalkBack lee la fila como una unidad, con un solo nombre que trae el monto; «Confirmar» y
+        // «Más» siguen siendo dos paradas aparte dentro de ella.
         return (
-          <View key={claveDe(fila)} style={estilos.fila}>
+          <View
+            key={claveDe(fila)}
+            accessible
+            accessibilityLabel={t.etiqueta}
+            accessibilityHint={undefined}
+            style={estilos.fila}
+          >
             <View style={estilos.datos}>
               <View style={estilos.columna}>
                 <Text style={estilos.principal}>{cifras(t.principal, true)}</Text>

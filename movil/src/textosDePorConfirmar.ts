@@ -16,25 +16,27 @@ const tipoEnPalabras = {
   ingreso: textos.registro.tipo.ingreso,
 };
 
-/** Las líneas de una fila «Por confirmar»; la repetición no tiene nombre: la fila se titula con su categoría. */
-export function textosDeFilaPorConfirmar(fila: FechaPorConfirmar) {
+/**
+ * Las líneas de una fila «Por confirmar»; la repetición no tiene nombre: la fila se titula con su categoría. ACC-004
+ * (bug 231): dos fechas de la misma categoría y día solo se distinguen por el monto, así que el nombre de la fila
+ * (`etiqueta`) y los de «Confirmar» y «Más» lo dicen con `montoHablado`. `centavos` es el monto que muestra la fila: el
+ * habitual o el que la persona cambió en «Confirmar todos». PN-08 la usa también con una fecha de ingreso, que no trae
+ * la periodicidad.
+ */
+export function textosDeFilaPorConfirmar(fila: FechaPorConfirmar, centavos = BigInt(fila.monto_habitual_centavos)) {
   const principal = nombresDeCategoria[`c${fila.categoria_id}`] ?? '';
   const fecha = diaEnPalabras(fila.fecha) ?? fila.fecha;
   const tipo = tipoEnPalabras[fila.tipo];
+  const monto = montoHablado(centavos);
+  const apoyo = formatear(p.apoyoConMedio, { tipo, medio: mediosEnPalabras[fila.medio], fecha });
   return {
     principal,
     fecha,
-    apoyo: formatear(p.apoyoConMedio, {
-      tipo,
-      medio: mediosEnPalabras[fila.medio],
-      fecha,
-    }),
+    apoyo,
     apoyoSinMedio: formatear(p.apoyoSinMedio, { tipo, fecha }),
-    nombreDeConfirmar: formatear(p.nombreDeConfirmar, {
-      nombre: principal,
-      fecha,
-    }),
-    nombreDeMas: formatear(p.nombreDeMas, { nombre: principal, fecha }),
+    nombreDeConfirmar: formatear(p.nombreDeConfirmar, { nombre: principal, monto, fecha }),
+    nombreDeMas: formatear(p.nombreDeMas, { nombre: principal, monto, fecha }),
+    etiqueta: [principal, apoyo, p.marca, monto].filter(Boolean).join(', '),
     tituloDeLaHoja: formatear(p.hoja.titulo, { nombre: principal, fecha }),
     tituloDelMonto: fila.tipo === 'ingreso' ? p.hoja.tituloDeIngreso : p.hoja.tituloDeGasto,
   };

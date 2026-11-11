@@ -46,9 +46,9 @@ type CategoriaPropuesta struct {
 type Propuesta struct {
 	Tipo              string              `json:"tipo"`
 	MontoCentavos     *int64              `json:"monto_centavos"`     // null si el monto es ambiguo
-	Categoria         *CategoriaPropuesta `json:"categoria"`          // null si la sugerida no es una que la persona ve
+	Categoria         *CategoriaPropuesta `json:"categoria"`          // null si la persona no ve la sugerida o hay varios montos
 	Fecha             string              `json:"fecha"`              // AAAA-MM-DD
-	VariosMovimientos bool                `json:"varios_movimientos"` // solo se propone el primero (D-077)
+	VariosMovimientos bool                `json:"varios_movimientos"` // solo se propone el primero, sin categoría (D-077, D-196)
 }
 
 // LecturasDelMonto son las dos lecturas de un monto ambiguo, ya escritas como las pide la pregunta de E14.
@@ -73,7 +73,7 @@ func (s *Servicio) ConInterpretador(i interpretacion.Interpretador) *Servicio {
 
 // InterpretarTexto interpreta lo que la persona escribió en el cuadro «Escribe el gasto o el ingreso» (CU-03). No guarda
 // nada ni registra el texto (RN-001). La fecha de referencia es el hoy de Colombia. La categoría solo se propone si la
-// persona la ve; si no, va vacía y ella elige. ErrValidacion con `texto` si está vacío o pasa de 280 caracteres, sin llamar
+// persona la ve y el texto trae un solo monto; si no, va vacía y ella elige. ErrValidacion con `texto` si está vacío o pasa de 280 caracteres, sin llamar
 // al interpretador; ErrSinInterpretador si no hay uno; cualquier otro error del interpretador o del catálogo.
 func (s *Servicio) InterpretarTexto(ctx context.Context, persona, texto string) (Interpretada, error) {
 	if strings.TrimSpace(texto) == "" {
@@ -121,7 +121,9 @@ func (s *Servicio) InterpretarTexto(ctx context.Context, persona, texto string) 
 		Fecha:             fecha.Format(formatoDeFecha),
 		VariosMovimientos: interpretacion.DetectorDeVariosMovimientos{}.HayVarios(texto),
 	}
-	if hecho.Categoria != "" {
+	// D-196, paso 1 (provisional hasta la US-68): con más de un monto el motor puede dar la categoría de otro movimiento
+	// que el del monto y la fecha («mercado 45 mil ayer y 12 mil de pasajes» daba «Transporte»). La categoría va vacía.
+	if hecho.Categoria != "" && !propuesta.VariosMovimientos {
 		if propuesta.Categoria, err = s.categoriaVisible(ctx, persona, hecho.Categoria, propuesta.Tipo); err != nil {
 			return Interpretada{}, err
 		}

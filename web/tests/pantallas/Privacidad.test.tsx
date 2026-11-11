@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { irConAviso } from "../../src/llegada";
 import { Privacidad } from "../../src/pantallas/Privacidad";
@@ -140,7 +140,9 @@ describe("PN-63 · Información de privacidad desde el menú", () => {
     render(<Privacidad desdeElMenu />);
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.queryByText("Continuar")).not.toBeInTheDocument();
-    expect(screen.getAllByRole("link")).toHaveLength(1);
+    expect(within(screen.getByRole("main")).getAllByRole("link")).toHaveLength(
+      1,
+    );
     expect(screen.getByRole("link", { name: "Atrás" })).toHaveAttribute(
       "href",
       "/cuenta/seguridad",
@@ -154,5 +156,18 @@ describe("PN-63 · Información de privacidad desde el menú", () => {
     render(<Privacidad desdeElMenu />);
     fireEvent.click(screen.getByRole("link", { name: "Atrás" }));
     expect(window.location.pathname).toBe("/cuenta/seguridad");
+  });
+
+  it("lleva la Navegación lateral, sin destino activo (E14-PCP 4.6, variante web); el primer uso no la lleva", () => {
+    const { unmount } = render(<Privacidad desdeElMenu />);
+    const barra = within(screen.getByRole("navigation"));
+    expect(barra.getByRole("link", { name: "Registrar" })).toHaveClass(
+      "boton--primario",
+    );
+    for (const enlace of barra.getAllByRole("link"))
+      expect(enlace).not.toHaveAttribute("aria-current");
+    unmount();
+    render(<Privacidad />);
+    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
   });
 });

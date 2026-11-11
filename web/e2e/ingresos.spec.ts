@@ -123,7 +123,7 @@ test.describe("PN-08 · Ingresos del periodo de varias fuentes", () => {
     await sinViolaciones(page);
     await fila
       .getByRole("button", {
-        name: "Más opciones de Salario del 16 de noviembre de 2026",
+        name: "Más opciones de Salario de $1.200.000 del 16 de noviembre de 2026",
       })
       .click();
     const hoja = page.getByRole("dialog", {
@@ -134,7 +134,7 @@ test.describe("PN-08 · Ingresos del periodo de varias fuentes", () => {
     await page.keyboard.press("Escape");
     estado.fallar = 1;
     const confirmar = fila.getByRole("button", {
-      name: "Confirmar Salario del 16 de noviembre de 2026",
+      name: "Confirmar Salario de $1.200.000 del 16 de noviembre de 2026",
     });
     await confirmar.click();
     await expect(

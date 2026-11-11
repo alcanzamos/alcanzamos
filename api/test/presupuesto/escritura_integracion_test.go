@@ -203,6 +203,97 @@ func TestIntegracionLaEscrituraNoTocaLosPresupuestosCompartidos(t *testing.T) {
 	}
 }
 
+// D-201 (opción A de L16 de la US-77): la clave única de E13 (persona, periodo, categoría) no
+// lleva `hogar_id`, así que «Poner» en una categoría que en el mes ya tiene un presupuesto compartido con el hogar de la
+// misma persona chocaría con esa fila. No la toca: `409 presupuesto_compartido`, por HTTP y en el repositorio
+// (ErrPresupuestoCompartido), y nada cambia. Lo propio sigue igual: otra categoría del mes se crea (201) y se corrige
+// (200), y la misma categoría en otro mes se crea.
+func TestIntegracionPonerConUnPresupuestoCompartidoEs409(t *testing.T) {
+	s := nuevoServidor(t)
+	c := s.nuevaPersona("laura@ejemplo.test", true, true)
+	hogarID := s.nuevoHogar(c.persona)
+	s.ejecutar(`INSERT INTO presupuesto (persona_id, hogar_id, categoria_id, periodo, monto_asignado) VALUES ($1::uuid, $2::uuid, $3, '2026-11-01', 5000000)`,
+		c.persona, hogarID, transporte)
+	compartido := c.persona + "|" + hogarID + "|8|gasto|2026-11-01|5000000"
+	if got := s.fotoDePresupuestos(); got != compartido {
+		t.Fatalf("sembrado: %s", got)
+	}
+
+	for range 2 {
+		if r := c.llamar("POST", "/api/v1/presupuestos", `{"periodo":"2026-11","categoria_id":8,"monto_centavos":1}`); r.Codigo != 409 || r.Cuerpo != `{"error":"presupuesto_compartido"}` {
+			t.Errorf("poner sobre el compartido: %d %s", r.Codigo, r.Cuerpo)
+		}
+	}
+	repo := pg.NuevoPresupuestos(s.pool)
+	ctx := context.Background()
+	noviembre, octubre := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC), time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	if g, creado, err := repo.Poner(ctx, c.persona, transporte, noviembre, 2); !errors.Is(err, presupuesto.ErrPresupuestoCompartido) || creado || g != (presupuesto.Guardado{}) {
+		t.Errorf("repositorio: %+v %v %v", g, creado, err)
+	}
+	if got := s.fotoDePresupuestos(); got != compartido {
+		t.Fatalf("el compartido cambió: %s", got)
+	}
+
+	r := c.llamar("POST", "/api/v1/presupuestos", `{"periodo":"2026-11","categoria_id":1,"monto_centavos":300}`)
+	propio := presupuestoDe(t, r)
+	if r.Codigo != 201 {
+		t.Errorf("otra categoría: %d %s", r.Codigo, r.Cuerpo)
+	}
+	if r := c.llamar("POST", "/api/v1/presupuestos", `{"periodo":"2026-11","categoria_id":1,"monto_centavos":400}`); r.Codigo != 200 || presupuestoDe(t, r).ID != propio.ID {
+		t.Errorf("corregir la otra categoría: %d %s", r.Codigo, r.Cuerpo)
+	}
+	if _, creado, err := repo.Poner(ctx, c.persona, transporte, octubre, 500); err != nil || !creado {
+		t.Errorf("la misma categoría en otro mes: %v %v", creado, err)
+	}
+	if got := s.fotoDePresupuestos(); got != c.persona+"|sin hogar|8|gasto|2026-10-01|500 "+c.persona+"|sin hogar|1|gasto|2026-11-01|400 "+compartido {
+		t.Errorf("guardado: %s", got)
+	}
+}
+
+// S7: la comprobación va dentro de la misma escritura, sin carrera entre comprobar y escribir. Una transacción siembra el
+// presupuesto compartido y no confirma; «Poner» de la misma categoría y mes queda esperando en el índice único; la
+// transacción confirma y «Poner» responde ErrPresupuestoCompartido sin tocar la fila. Un «comprobar y después escribir»
+// no habría visto la fila sin confirmar y la habría pisado al chocar.
+func TestIntegracionPonerNoPisaUnCompartidoQueLlegaALaVez(t *testing.T) {
+	s := nuevoServidor(t)
+	c := s.nuevaPersona("laura@ejemplo.test", false, true)
+	hogarID := s.nuevoHogar(c.persona)
+	ctx := context.Background()
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, `INSERT INTO presupuesto (persona_id, hogar_id, categoria_id, periodo, monto_asignado) VALUES ($1::uuid, $2::uuid, $3, '2026-11-01', 5000000)`,
+		c.persona, hogarID, transporte); err != nil {
+		t.Fatal(err)
+	}
+
+	resultado := make(chan error, 1)
+	go func() {
+		_, _, err := pg.NuevoPresupuestos(s.pool).Poner(ctx, c.persona, transporte, time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC), 1)
+		resultado <- err
+	}()
+	esperando := false
+	for limite := time.Now().Add(10 * time.Second); !esperando && time.Now().Before(limite); time.Sleep(10 * time.Millisecond) {
+		if err := s.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock')`).Scan(&esperando); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if !esperando {
+		t.Fatal("«Poner» no llegó a esperar la fila sin confirmar")
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-resultado; !errors.Is(err, presupuesto.ErrPresupuestoCompartido) {
+		t.Errorf("poner: %v", err)
+	}
+	if got := s.fotoDePresupuestos(); got != c.persona+"|"+hogarID+"|8|gasto|2026-11-01|5000000" {
+		t.Errorf("el compartido cambió: %s", got)
+	}
+}
+
 // Solo una persona adulta presupuesta (E12, RF-007): el repositorio no guarda el de una menor (ErrSoloAdultos) ni el de
 // una cuenta borrada (ErrSinCuenta). Va contra el repositorio porque un menor todavía no inicia sesión (I11).
 func TestIntegracionUnaMenorYUnaCuentaBorradaNoPresupuestan(t *testing.T) {
@@ -292,7 +383,7 @@ func TestIntegracionConLaBaseRotaCadaOperacionFalla(t *testing.T) {
 	ctx := context.Background()
 	noviembre := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
 	deNegocio := []error{registro.ErrSinCuenta, registro.ErrCategoriaInvalida, presupuesto.ErrNoEncontrado, presupuesto.ErrSoloAdultos,
-		presupuesto.ErrPeriodoConIngresoOPresupuesto}
+		presupuesto.ErrPeriodoConIngresoOPresupuesto, presupuesto.ErrPresupuestoCompartido}
 	operaciones := func(repo *pg.Presupuestos, persona, id string) map[string]error {
 		_, errP := repo.Presupuesto(ctx, persona, noviembre)
 		_, errI := repo.Ingresos(ctx, persona, noviembre)
