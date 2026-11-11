@@ -176,7 +176,8 @@ Total: 64 a 98 s por día, **unos 32 a 49 minutos al mes** (× 30). Si Azure red
 
 El paso de commitlint pide el título del PR a la API de GitHub. Sin token, GitHub permite 60 pedidos por hora por IP, y los agentes de Azure comparten IP: a veces responde 403 y `comun` falla sin que el PR tenga la culpa. Por eso el pipeline `comun` (y `control`, que corre la misma plantilla) tiene una **variable secreta `GITHUB_TOKEN_PR`** (Azure DevOps → Pipelines → `comun` → Edit → Variables, «Keep this value secret»).
 
-- **Token:** fine-grained, solo para `alcanzamos/alcanzamos`, permiso «Pull requests: Read-only», vence a los 90 días. Lo crea y lo renueva el dueño. **Creado el 2026-10-27; vence el 2027-01-25: renovarlo antes** (D-167).
+- **Token:** fine-grained, solo para `alcanzamos/alcanzamos`, permiso «Pull requests: Read-only», vence a los 90 días. Lo crea y lo renueva el dueño. **Creado el 2026-10-27; vence el 2027-02-08: renovarlo antes** (D-167; el dueño lo regeneró el 2026-11-10 con la misma configuración y lo puso en los pipelines `control` y `comun`).
 - **Cómo se usa:** entra al paso como variable de entorno y va a `curl` por su entrada estándar, nunca en la línea de comandos. Azure lo oculta en los registros.
 - **Sin la variable:** el paso pide el título sin token, como antes.
 - **Con el token vencido o revocado:** GitHub responde 401 y `comun` falla. Es a propósito: avisa que hay que renovarlo.
+- **Después de cambiar una variable secreta** (por ejemplo, al renovar el token): hay que pedir una corrida nueva comentando `/azp run control` en el PR. **No usar «Rerun failed jobs»:** repite los trabajos con las variables que la corrida tenía al crearse y vuelve a fallar con 401 (visto por el dueño el 2026-11-10 en el #104).

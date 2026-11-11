@@ -80,6 +80,7 @@ type DatosDelPresupuesto struct {
 	Gastado      map[int]*big.Int       // por categoría, la suma exacta de los gastos del periodo
 	Ingresos     []IngresoRegistrado    // los del periodo
 	Recurrentes  []registro.Recurrente  // todas las de la persona, para lo que llega después
+	EnCero       bool                   // la persona dejó el periodo en cero (`presupuesto_en_cero`)
 }
 
 // DatosDeIngresos es lo que el repositorio lee para PN-08, en una sola lectura consistente.
@@ -90,13 +91,14 @@ type DatosDeIngresos struct {
 	Meses       []string // AAAA-MM con ingresos registrados, del más reciente al más antiguo
 }
 
-// Repositorio es la persistencia que el servicio necesita (la implementa src/pg). Toda lectura es de lo propio
-// (`persona_id`) y devuelve registro.ErrSinCuenta si la persona ya no existe.
+// Repositorio es la persistencia que el servicio necesita (E12 `PresupuestoRepo`; la implementa src/pg). Toda lectura es
+// de lo propio (`persona_id`) y devuelve registro.ErrSinCuenta si la persona ya no existe.
 type Repositorio interface {
 	// Presupuesto lee lo del periodo que empieza en `mes`.
 	Presupuesto(ctx context.Context, persona string, mes time.Time) (DatosDelPresupuesto, error)
 	// Ingresos lee los ingresos del periodo que empieza en `mes`.
 	Ingresos(ctx context.Context, persona string, mes time.Time) (DatosDeIngresos, error)
+	Escritura
 }
 
 // Servicio son los casos de uso del presupuesto.
@@ -114,24 +116,31 @@ type Vista struct {
 	Periodo       string             `json:"periodo"`
 	Editable      bool               `json:"editable"` // el periodo es el mes en curso: se pone, corrige y quita (D-094)
 	Resumen       Resumen            `json:"resumen"`
-	LlegaDespues  []IngresoPendiente `json:"llega_despues"` // las fechas de ingreso pendientes del periodo, por fecha
+	LlegaDespues  []IngresoPendiente `json:"llega_despues"` // las fechas de ingreso pendientes del periodo, esperadas y por confirmar, por fecha
 	Categorias    []FilaDeCategoria  `json:"categorias"`
 }
 
 // Resumen es la tarjeta «Tu presupuesto este mes». `SinAsignarCentavos` solo viene en el modo normal y
 // `AsignadoSuperaPorCentavos` solo con ingreso bajo: el API da los hechos y la app los dice sin signo menos (RNF-017).
 type Resumen struct {
-	Modo                      string   `json:"modo"`
+	Modo string `json:"modo"`
+	// EnCero dice que la persona dejó el periodo en cero («Dejar el presupuesto en cero», PN-07) y que sigue en cero: sin
+	// ingreso registrado ni nada asignado. Con true la app no vuelve a ofrecer el botón (E14-PPA 4.2).
+	EnCero                    bool     `json:"en_cero"`
 	IngresoRegistradoCentavos *big.Int `json:"ingreso_registrado_centavos"`
 	AsignadoCentavos          *big.Int `json:"asignado_centavos"`
 	SinAsignarCentavos        *big.Int `json:"sin_asignar_centavos"`
 	AsignadoSuperaPorCentavos *big.Int `json:"asignado_supera_por_centavos"`
-	// LlegaDespuesCentavos es lo esperado y lo por confirmar del periodo: no cuenta en «Sin asignar» (D-094, P-1).
+	// LlegaDespuesCentavos es lo esperado del periodo, la línea «Llega después: $X (esperado)», y PorConfirmarCentavos lo
+	// por confirmar, la línea «Por confirmar: $Y» (E14-PPA 4.1; L14 (1) de la US-77). Ninguno cuenta en «Sin asignar» ni
+	// decide el modo (D-094, P-1 y P-3) hasta que se confirma.
 	LlegaDespuesCentavos *big.Int `json:"llega_despues_centavos"`
+	PorConfirmarCentavos *big.Int `json:"por_confirmar_centavos"`
 }
 
 // IngresoPendiente es una fecha pendiente de una repetición de ingreso en el periodo (E15 5.2): esperada si todavía no
-// llega y por confirmar si ya llegó. Se confirma o se omite con las rutas de la US-60, con `recurrente_id` y `fecha`.
+// llega y por confirmar si ya llegó. Se confirma o se omite con las rutas de la US-60, con `recurrente_id` y `fecha`. En
+// «Llega después» van las dos, cada una con su `marca` (L14 (1) de la US-77).
 type IngresoPendiente struct {
 	RecurrenteID  string `json:"recurrente_id"`
 	Fecha         string `json:"fecha"`
@@ -185,10 +194,13 @@ func (s *Servicio) Ver(ctx context.Context, persona, periodo string) (Vista, err
 }
 
 // resumir hace las cuentas de la tarjeta de resumen. «Sin asignar» es el ingreso registrado menos lo asignado (RF-007);
-// lo esperado y lo por confirmar van aparte (D-094, P-1). PN-07 se muestra cuando el ingreso registrado es cero o menor
-// que lo asignado (D-094, P-3); con ingreso nulo no hay diferencia que mostrar (E14-PPA 4.2).
+// lo esperado y lo por confirmar van aparte, cada uno con su total (D-094, P-1; L14 (1) de la US-77). PN-07 se muestra
+// cuando el ingreso registrado es cero o menor que lo asignado (D-094, P-3): lo pendiente no cuenta, así que un salario
+// vencido sin confirmar deja el mes en «ingreso nulo» y se ve en `por_confirmar_centavos`. Con ingreso nulo no hay
+// diferencia que mostrar (E14-PPA 4.2). `en_cero` es la marca de «Dejar el presupuesto en cero» mientras el periodo siga
+// en cero (L6 (5) de la US-77).
 func resumir(d DatosDelPresupuesto, llegaDespues []IngresoPendiente) Resumen {
-	ingreso, asignado, despues := new(big.Int), new(big.Int), new(big.Int)
+	ingreso, asignado, esperado, porConfirmar := new(big.Int), new(big.Int), new(big.Int), new(big.Int)
 	for _, i := range d.Ingresos {
 		ingreso.Add(ingreso, big.NewInt(i.Monto))
 	}
@@ -196,9 +208,15 @@ func resumir(d DatosDelPresupuesto, llegaDespues []IngresoPendiente) Resumen {
 		asignado.Add(asignado, big.NewInt(p.Monto))
 	}
 	for _, p := range llegaDespues {
-		despues.Add(despues, big.NewInt(p.MontoCentavos))
+		total := esperado
+		if p.Marca == MarcaPorConfirmar {
+			total = porConfirmar
+		}
+		total.Add(total, big.NewInt(p.MontoCentavos))
 	}
-	r := Resumen{IngresoRegistradoCentavos: ingreso, AsignadoCentavos: asignado, LlegaDespuesCentavos: despues}
+	r := Resumen{IngresoRegistradoCentavos: ingreso, AsignadoCentavos: asignado, LlegaDespuesCentavos: esperado, PorConfirmarCentavos: porConfirmar}
+	// La marca «en cero» queda guardada aunque llegue un ingreso o se asigne algo; solo vale mientras el mes siga en cero.
+	r.EnCero = d.EnCero && ingreso.Sign() == 0 && asignado.Sign() == 0
 	switch {
 	case ingreso.Sign() == 0:
 		r.Modo = ModoIngresoNulo

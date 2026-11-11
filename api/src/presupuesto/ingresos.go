@@ -120,19 +120,9 @@ func agrupar(categorias []CategoriaDelCatalogo, porFuente map[int][]FilaDeIngres
 		for _, f := range filas {
 			total.Add(total, big.NewInt(f.MontoCentavos))
 		}
-		// SortStableFunc: lo registrado llega en el orden en que se registró y lo pendiente, por repetición.
-		slices.SortStableFunc(filas, func(a, b FilaDeIngreso) int {
-			if c := strings.Compare(a.Fecha, b.Fecha); c != 0 {
-				return c
-			}
-			if (a.MovimientoID == nil) != (b.MovimientoID == nil) {
-				if a.MovimientoID != nil {
-					return -1
-				}
-				return 1
-			}
-			return 0
-		})
+		// Estable: las filas llegan con lo registrado primero (en el orden en que se registró) y después lo pendiente (por
+		// fecha y repetición), así que con la misma fecha lo registrado queda primero.
+		slices.SortStableFunc(filas, func(a, b FilaDeIngreso) int { return strings.Compare(a.Fecha, b.Fecha) })
 		fuentes = append(fuentes, Fuente{CategoriaID: id, Nombre: c.Nombre, Oculta: c.Oculta, TotalCentavos: total, Ingresos: filas})
 	}
 	slices.SortFunc(fuentes, func(a, b Fuente) int {

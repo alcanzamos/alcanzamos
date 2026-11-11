@@ -179,6 +179,7 @@ func adultas(t *testing.T, pool *pgxpool.Pool, persona string) {
 	tarjeta := texto(t, pool, `INSERT INTO tarjeta_credito (persona_id, nombre) VALUES ($1::uuid, 'Visa') RETURNING id::text`, persona)
 	ejecutar(t, pool, `INSERT INTO extracto_tarjeta (tarjeta_id, periodo, pago_minimo, intereses_y_cargos) VALUES ($1::uuid, '2026-10-01', 10, 1)`, tarjeta)
 	ejecutar(t, pool, `INSERT INTO valoracion_mensual (persona_id, periodo, categoria_id, valoracion) VALUES ($1::uuid, '2026-10-01', 1, 'mas')`, persona)
+	ejecutar(t, pool, `INSERT INTO presupuesto_en_cero (persona_id, periodo) VALUES ($1::uuid, '2026-09-01')`, persona)
 }
 
 // compartidos suma una fila compartida con el hogar, a nombre de la persona, en cada tabla que lo permite.
@@ -310,6 +311,13 @@ func TestBorrarSinHogarNoDejaNadaDeLaPersonaYNoTocaAOtra(t *testing.T) {
 	quedaSoloLaPrueba(t, e.pool, laura)
 	if n := contar(t, e.pool, `SELECT count(*) FROM sesion WHERE persona_id = $1::uuid`, laura); n != 0 {
 		t.Errorf("sesiones que siguen valiendo: %d", n)
+	}
+	// La marca «en cero» (0004) se va con la cuenta, por el CASCADE del perfil de adulta; la de la otra persona queda.
+	if n := contar(t, e.pool, `SELECT count(*) FROM presupuesto_en_cero WHERE persona_id = $1::uuid`, laura); n != 0 {
+		t.Errorf("marcas «en cero» que quedan: %d", n)
+	}
+	if n := contar(t, e.pool, `SELECT count(*) FROM presupuesto_en_cero WHERE persona_id = $1::uuid`, otra); n != 1 {
+		t.Errorf("marcas «en cero» de la otra persona: %d", n)
 	}
 	if n := contar(t, e.pool, `SELECT count(*) FROM persona WHERE id = $1::uuid`, laura); n != 0 {
 		t.Error("la persona sigue")
@@ -1337,5 +1345,43 @@ func TestLaBaseRechazaUnEnlaceOUnaContrasenaMalFormados(t *testing.T) {
 	}
 	if err := repo.CambiarContrasena(ctx, laura, "no es argon2id", nil); err == nil || errors.Is(err, autenticacion.ErrNoExiste) {
 		t.Errorf("cambiar con una contraseña mal formada: %v", err)
+	}
+}
+
+// «Descargar mis datos», presupuestos.csv (D-180 con la US-77; L6 (5)): los presupuestos propios de la persona (sin
+// hogar) con el nombre de la categoría y los meses que dejó en cero (categoría vacía, monto 0), por periodo y, en cada mes,
+// la marca primero y las categorías en el orden del catálogo. Nada de otra persona ni lo compartido con el hogar; sin ids.
+// Una cuenta que ya no existe es ErrNoExiste.
+func TestPresupuestosDeLaDescarga(t *testing.T) {
+	e := nuevoEntorno(t)
+	laura := adulta(t, e.pool, "Laura", "laura@ejemplo.test")
+	ana := adulta(t, e.pool, "Ana", "ana@ejemplo.test")
+	hogar := hogarDe(t, e.pool, "Nuestro hogar", laura, laura, ana)
+	for _, q := range []string{
+		`INSERT INTO presupuesto (persona_id, categoria_id, periodo, monto_asignado) VALUES ($1::uuid, 8, '2026-11-01', 4000005), ($1::uuid, 1, '2026-11-01', 30000000), ($1::uuid, 12, '2026-10-01', 100)`,
+		`INSERT INTO presupuesto_en_cero (persona_id, periodo) VALUES ($1::uuid, '2026-09-01'), ($1::uuid, '2026-11-01')`,
+	} {
+		ejecutar(t, e.pool, q, laura)
+	}
+	ejecutar(t, e.pool, `INSERT INTO presupuesto (persona_id, hogar_id, categoria_id, periodo, monto_asignado) VALUES ($1::uuid, $2::uuid, 5, '2026-11-01', 777)`, laura, hogar)
+	ejecutar(t, e.pool, `INSERT INTO presupuesto (persona_id, categoria_id, periodo, monto_asignado) VALUES ($1::uuid, 3, '2026-11-01', 999)`, ana)
+	ejecutar(t, e.pool, `INSERT INTO presupuesto_en_cero (persona_id, periodo) VALUES ($1::uuid, '2026-08-01')`, ana)
+
+	got, err := pg.NuevoBorrado(e.pool).PresupuestosDe(context.Background(), laura)
+	if err != nil {
+		t.Fatal(err)
+	}
+	quiere := []cuenta.PresupuestoExportado{
+		{Periodo: "2026-09"},
+		{Periodo: "2026-10", Categoria: "Educación", MontoCentavos: 100},
+		{Periodo: "2026-11"},
+		{Periodo: "2026-11", Categoria: "Alimentación", MontoCentavos: 30000000},
+		{Periodo: "2026-11", Categoria: "Transporte", MontoCentavos: 4000005},
+	}
+	if !reflect.DeepEqual(got, quiere) {
+		t.Errorf("%+v\nse esperaba\n%+v", got, quiere)
+	}
+	if _, err := pg.NuevoBorrado(e.pool).PresupuestosDe(context.Background(), "0192f3c4-0000-7000-8000-0000000000ff"); !errors.Is(err, cuenta.ErrNoExiste) {
+		t.Errorf("cuenta que no existe: %v", err)
 	}
 }
