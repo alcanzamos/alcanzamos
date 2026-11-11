@@ -57,13 +57,19 @@ describe('HojaInferior (Hoja inferior, E14-SDD 5.12)', () => {
     expect(alCerrar).toHaveBeenCalledTimes(1);
   });
 
-  it('sin título no lleva encabezado ni «Cerrar»', async () => {
+  // ACC-004 (bug 228): sin «Cerrar», TalkBack no tenía cómo salir de la hoja deslizando; el Atrás no se alcanza así.
+  it('sin título no lleva encabezado, pero sí el ícono «Cerrar» de 48 dp, que la cierra (bug 228)', async () => {
+    const alCerrar = jest.fn();
     await render(
-      <HojaInferior visible alCerrar={jest.fn()}>
+      <HojaInferior visible alCerrar={alCerrar}>
         <Text>Contenido</Text>
       </HojaInferior>,
     );
     expect(screen.queryByRole('header')).not.toBeOnTheScreen();
-    expect(screen.queryByRole('button', { name: 'Cerrar' })).not.toBeOnTheScreen();
+    const cerrar = screen.getByRole('button', { name: 'Cerrar' });
+    expect(cerrar).toHaveStyle({ minWidth: tokens.tamano['tactil-minimo'], minHeight: tokens.tamano['tactil-minimo'] });
+    expect(tokens.tamano['tactil-minimo']).toBeGreaterThanOrEqual(48);
+    await fireEvent.press(cerrar);
+    expect(alCerrar).toHaveBeenCalledTimes(1);
   });
 });

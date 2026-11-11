@@ -1,0 +1,52 @@
+# Pasos que instalan Node desde el tarball oficial (SHA-256 verificado) y npm desde el tarball del registro (SHA-512
+# verificado). Los usan plantillas/web.yml y plantillas/movil.yml (sus pipelines y sus etapas del control único) y
+# revision-diaria.yml (la revisión diaria): las versiones y sus sumas viven una sola vez para los tres.
+# plantillas/comun.yml tiene su propia copia, que corre solo en un PR (condition por paso): cambiar una versión obliga a
+# cambiarla también allí.
+# Los parámetros no se pasan desde quien usa la plantilla: su valor por defecto es la versión fijada.
+parameters:
+  # Cambiar la versión obliga a cambiar también la suma, plantillas/comun.yml, api/Dockerfile y el campo engines de
+  # web/package.json, movil/package.json y commitlint/package.json.
+  - name: nodeVersion
+    type: string
+    default: 24.22.1
+  # SHA-256 fijado a mano desde https://nodejs.org/dist/v24.22.1/SHASUMS256.txt (consultado el 2026-10-22).
+  - name: nodeSha256
+    type: string
+    default: 6c172a9ab6718f7b801fb5a7bd486af2ee5e32758086a04b84fcce2aa77095e6
+  # Cambiar la versión obliga a cambiar también la suma, plantillas/comun.yml, api/Dockerfile y el campo engines de
+  # web/package.json, movil/package.json y commitlint/package.json.
+  - name: npmVersion
+    type: string
+    default: 12.2.1
+  # SHA-512 del tarball de npm 12.2.1, igual al dist.integrity de https://registry.npmjs.org/npm/12.2.1 (base64 pasado a
+  # hexadecimal; consultado el 2026-10-24).
+  - name: npmSha512
+    type: string
+    default: 6ca0a6151553fc107e60f1186d9c10d57508dcde6de31292a54d4cc4e8e8ef3de25b3281274657442d7115d10df930bb3794ddcb0681cdfd9d317189abf7b63d
+
+steps:
+  # Se descarga el tarball oficial y se verifica antes de descomprimirlo.
+  - script: |
+      set -eu
+      tar_node="node-v${{ parameters.nodeVersion }}-linux-x64.tar.xz"
+      destino="$(Agent.TempDirectory)/node"
+      mkdir -p "$destino"
+      curl -fsSL "https://nodejs.org/dist/v${{ parameters.nodeVersion }}/$tar_node" -o "$destino/$tar_node"
+      (cd "$destino" && echo "${{ parameters.nodeSha256 }}  $tar_node" | sha256sum --check --strict -)
+      tar -C "$destino" -xJf "$destino/$tar_node"
+      echo "##vso[task.prependpath]$destino/node-v${{ parameters.nodeVersion }}-linux-x64/bin"
+    displayName: Instalar Node ${{ parameters.nodeVersion }} (SHA-256 verificado)
+
+  # npm 12 no viene con Node 24: se descarga el tarball del registro, se verifica y se instala desde el archivo local.
+  # Corre en la raíz del repositorio, fuera de web/ y movil/, así que no lee su .npmrc.
+  - script: |
+      set -eu
+      tar_npm="$(Agent.TempDirectory)/npm-${{ parameters.npmVersion }}.tgz"
+      curl -fsSL "https://registry.npmjs.org/npm/-/npm-${{ parameters.npmVersion }}.tgz" -o "$tar_npm"
+      echo "${{ parameters.npmSha512 }}  $tar_npm" | sha512sum --check --strict -
+      npm install --global "$tar_npm"
+      node --version
+      npm --version
+      test "$(npm --version)" = "${{ parameters.npmVersion }}"
+    displayName: Instalar npm ${{ parameters.npmVersion }} (SHA-512 verificado)

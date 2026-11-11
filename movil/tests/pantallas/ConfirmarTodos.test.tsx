@@ -94,6 +94,45 @@ describe('«Confirmar todos», Android (E14-PRR 4.8, US-60)', () => {
       expect(screen.getByText('$120.000')).toBeOnTheScreen();
     });
 
+    it('ACC-004 (bug 231): tres filas iguales salvo el monto se distinguen en la casilla y en «Más»', async () => {
+      const otros = (id: string, centavos: string) =>
+        pendiente({
+          recurrente_id: id,
+          fecha: '2026-11-05',
+          tipo: 'gasto',
+          categoria_id: 16,
+          medio: 'efectivo',
+          monto_habitual_centavos: centavos,
+        });
+      apiFalsa(respuestaJson, {
+        pendientes: pendientes(otros('r-a', '5500000'), otros('r-b', '3000000'), otros('r-c', '1250050')),
+      });
+      await abrirTodos();
+      // Cada fila es una unidad: la casilla, con un solo nombre que dice todo lo de la fila; «Más» va aparte.
+      const casillas = screen.getAllByRole('checkbox').map((c) => c.props.accessibilityLabel as string);
+      expect(casillas).toEqual([
+        'Otros gastos, Gasto · 5 de noviembre de 2026, 55000 pesos',
+        'Otros gastos, Gasto · 5 de noviembre de 2026, 30000 pesos',
+        'Otros gastos, Gasto · 5 de noviembre de 2026, 12500 pesos con 50 centavos',
+      ]);
+      const mas = screen.getAllByRole('button', { name: /^Más opciones de Otros gastos/ });
+      expect(mas.map((b) => b.props.accessibilityLabel)).toEqual([
+        'Más opciones de Otros gastos de 55000 pesos del 5 de noviembre de 2026',
+        'Más opciones de Otros gastos de 30000 pesos del 5 de noviembre de 2026',
+        'Más opciones de Otros gastos de 12500 pesos con 50 centavos del 5 de noviembre de 2026',
+      ]);
+      expect(screen.getAllByText('Otros gastos')).toHaveLength(3);
+    });
+
+    it('ACC-004 (bug 231): «Más» dice el monto cambiado de su fila', async () => {
+      apiFalsa(respuestaJson, { pendientes: pendientes(energia, celular, salario) });
+      await abrirTodos();
+      await cambiarMonto('Salario', '1.100.000');
+      expect(mas('Salario').props.accessibilityLabel).toBe(
+        'Más opciones de Salario de 1100000 pesos del 1 de diciembre de 2026',
+      );
+    });
+
     it('ACC-004: con «Cambiar el monto» la casilla dice el monto nuevo en pesos', async () => {
       apiFalsa(respuestaJson, { pendientes: pendientes(energia, celular, salario) });
       await abrirTodos();

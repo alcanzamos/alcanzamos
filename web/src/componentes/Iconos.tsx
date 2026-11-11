@@ -68,6 +68,20 @@ export const IconoAtras = () => (
   </Icono>
 );
 
+// Agregar, de «Registrar» (E14-SDD 5.1 y 5.13; «Ícono / Agregar» del archivo de Penpot): una cruz.
+export const IconoAgregar = () => (
+  <Icono>
+    <path d="M12 5v14M5 12h14" />
+  </Icono>
+);
+
+// Movimientos, del destino de la navegación (E14-SDD 5.1 y 5.9; «Ícono / Movimientos» de Penpot): una lista.
+export const IconoMovimientos = () => (
+  <Icono>
+    <path d="M9 7h11M9 12h11M9 17h11M4.5 7h.01M4.5 12h.01M4.5 17h.01" />
+  </Icono>
+);
+
 // Cerrar, de la Hoja inferior (E14-SDD 5.12): una equis.
 export const IconoCerrar = () => (
   <Icono>

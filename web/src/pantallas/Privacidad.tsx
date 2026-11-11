@@ -30,6 +30,7 @@ const tarjetas: {
 //   mensaje de estado (4.16 T11);
 // - desde el menú (`/cuenta/privacidad`): con Atrás y sin «Continuar». Mientras no exista PN-66, se abre con la entrada
 //   provisional «Cómo cuidamos tus datos» de PN-71 (nota del 2026-11-08 de 4.14, bug 260), así que Atrás vuelve a PN-71.
+//   Solo este modo lleva la Navegación lateral web (4.6, variante web): en el primer uso todavía no se usa la app.
 // Sin «Leer la política completa»: abre PN-68, que no está construida.
 export function Privacidad({
   desdeElMenu = false,
@@ -39,6 +40,7 @@ export function Privacidad({
       titulo={textos.privacidad.titulo}
       atras={desdeElMenu ? "/cuenta/seguridad" : undefined}
       estado={desdeElMenu ? null : avisoDeLlegada()}
+      lateral={desdeElMenu ? {} : undefined}
     >
       <p>{textos.privacidad.intro}</p>
       {tarjetas.map(({ id, tarjeta, Icono }) => (

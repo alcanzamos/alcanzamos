@@ -426,7 +426,10 @@ test.describe("Borrador del registro (L10)", () => {
       "POST /api/v1/sesiones": responder(200, { estado: "activa" }),
     });
     await page.goto("/cuenta/seguridad");
-    await page.getByRole("link", { name: "Movimientos" }).click();
+    await page
+      .getByRole("main")
+      .getByRole("link", { name: "Movimientos" })
+      .click();
     await page.getByRole("link", { name: "Registrar", exact: true }).click();
     await page.getByLabel("Monto").fill("45.000");
     await page.getByRole("radio", { name: "Otros gastos" }).check();
@@ -444,7 +447,10 @@ test.describe("Borrador del registro (L10)", () => {
       .fill("OtraContrasena-2026");
     await page.getByRole("button", { name: "Iniciar sesión" }).click();
     await expect(page).toHaveURL(/\/cuenta\/seguridad$/);
-    await page.getByRole("link", { name: "Movimientos" }).click();
+    await page
+      .getByRole("main")
+      .getByRole("link", { name: "Movimientos" })
+      .click();
     await page.getByRole("link", { name: "Registrar", exact: true }).click();
 
     await expect(page.getByLabel("Monto")).toHaveValue("");
