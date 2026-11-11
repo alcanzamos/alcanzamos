@@ -59,6 +59,8 @@ ESPERADO = {
     ".azure-pipelines/plantillas/pasos/node.yml": {"comun", "web", "movil"},
     ".azure-pipelines/revision-diaria.yml": {"comun"},
     ".azure-pipelines/pruebas/cobertura.py": {"comun", "api"},
+    ".azure-pipelines/pruebas/vulnerabilidades.py": {"comun", "api"},
+    ".azure-pipelines/pruebas/vulnerabilidades_regresion.py": {"comun", "api"},
     "api/test/cobertura-base.json": {"comun", "api"},
     "web/README.md": {"comun", "web", "api"},
     "web/src/PantallaPrueba.tsx": {"comun", "web", "api"},

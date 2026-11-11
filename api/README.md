@@ -811,9 +811,16 @@ Excepciones de `errcheck` (A-13, D-178 (2)), todas con su razón en la configura
 
 ## Vulnerabilidades (govulncheck)
 
-El pipeline `api` corre `go tool govulncheck ./...` (v1.9.0, 2026-10-11) después de `go vet`. La herramienta está como directiva `tool` en `go.mod`, con sus sumas en `go.sum`, así que la versión queda fijada con el resto de las dependencias; no entra en el binario del API (`go version -m` lista los mismos módulos) y no está en `src/`, de modo que la barrera de cobertura no la ve. Con la salida por defecto falla (código 3) solo si el código llama a un símbolo vulnerable. En local: `cd api && go tool govulncheck ./...`.
+El pipeline `api` corre `go tool govulncheck -format json ./...` (v1.9.0, 2026-10-11) después de `golangci-lint`, y `.azure-pipelines/pruebas/vulnerabilidades.py` aplica la regla de los 7 días a cada vulnerabilidad que el código alcanza (las que harían salir a govulncheck con código 3): avisa sin fallar si el arreglo se publicó hace menos de 7 días, con el momento en que los cumple (para Go, contados desde el final del día de publicación, 00:00 UTC del día siguiente, D-201: la regla que obliga a adoptar una versión nunca se adelanta a la que permite adoptarla); falla si tiene 7 días o más, si no hay arreglo, si es solo una pseudo-versión o si no puede obtener la fecha. El aviso solo vale para fusionar, no para desplegar. Las fuentes de la fecha y el detalle están en `.azure-pipelines/README.md`. La herramienta está como directiva `tool` en `go.mod`, con sus sumas en `go.sum`, así que la versión queda fijada con el resto de las dependencias; no entra en el binario del API (`go version -m` lista los mismos módulos) y no está en `src/`, de modo que la barrera de cobertura no la ve. En local, desde la raíz del repositorio:
 
-Hallazgo conocido y documentado: `GO-2026-5932` (el paquete `golang.org/x/crypto/openpgp` está sin mantenimiento y es inseguro por diseño; sin versión corregida). Afecta al módulo `golang.org/x/crypto` que el API requiere, pero solo importa `x/crypto/argon2` y no llama a `openpgp`: govulncheck lo informa como «vulnerabilidad en módulos que requiere» y no hace fallar el paso. Si algún día el código llama a `openpgp`, el paso falla.
+```sh
+(cd api && mkdir -p bin && go tool govulncheck -format json ./... > bin/govulncheck.json)
+python3 -I -B .azure-pipelines/pruebas/vulnerabilidades.py revisar api/bin/govulncheck.json
+```
+
+Con la salida de texto (`cd api && go tool govulncheck ./...`) se ven las trazas, sin la regla de los 7 días.
+
+Hallazgo conocido y documentado: `GO-2026-5932` (el paquete `golang.org/x/crypto/openpgp` está sin mantenimiento y es inseguro por diseño; su único arreglo es la pseudo-versión `v0.58.1-0.20261009181718-2f1f834330b2`). Afecta al módulo `golang.org/x/crypto` que el API requiere, pero solo importa `x/crypto/argon2` y no llama a `openpgp`: govulncheck lo informa como «vulnerabilidad en módulos que requiere» y no cuenta. Si algún día el código llama a `openpgp`, el paso falla (el arreglo es solo una pseudo-versión).
 
 ## Dependencias
 
