@@ -17,8 +17,8 @@ const PeriodoRequerido = "periodo_requerido"
 // idMaximoDeCategoria es el tope de `smallint`.
 const idMaximoDeCategoria = 1<<15 - 1
 
-// ErrNoEncontrado es el 404 `no_encontrado`: el presupuesto no existe o es de otra persona (el mismo código, para no
-// revelar que existe).
+// ErrNoEncontrado es el 404 `no_encontrado`: el presupuesto no existe, es de otra persona o es uno compartido con el hogar
+// (el mismo código, para no revelar que existe).
 var ErrNoEncontrado = errors.New("presupuesto inexistente o de otra persona")
 
 // ErrPeriodoNoEditable es el 409 `periodo_no_editable` de E12: solo se pone, corrige o quita el presupuesto del mes en
@@ -33,18 +33,20 @@ var ErrPeriodoConIngresoOPresupuesto = errors.New("el periodo tiene ingreso regi
 var idDePresupuesto = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
 // Escritura es la persistencia de poner, corregir y quitar. Todo es de lo propio: `persona_id` de la sesión y `hogar_id`
-// nulo (el hogar llega en I08 y la tabla ya tiene su campo).
+// nulo (el hogar llega en I08 y la tabla ya tiene su campo). Uno compartido con el hogar no se lee, ni se corrige, ni se
+// quita, ni cuenta como presupuesto que ya tiene la categoría ni en lo asignado (L14 de la US-77).
 type Escritura interface {
 	// Poner guarda el presupuesto de la categoría en el periodo, o corrige el que ya tiene (E13: único por persona,
 	// periodo y categoría), y dice si lo creó. registro.ErrCategoriaInvalida si la categoría no existe, no es de gasto o
-	// la persona la ocultó (salvo que ya tenga presupuesto en el periodo, RN-011); ErrSoloAdultos con una persona menor;
-	// registro.ErrSinCuenta si la persona ya no existe.
+	// la persona la ocultó (salvo que ya tenga presupuesto propio en el periodo, RN-011); ErrSoloAdultos con una persona
+	// menor; registro.ErrSinCuenta si la persona ya no existe.
 	Poner(ctx context.Context, persona string, categoria int, periodo time.Time, monto int64) (Guardado, bool, error)
-	// Obtener lee un presupuesto de la persona. ErrNoEncontrado si no existe o es de otra persona.
+	// Obtener lee un presupuesto propio de la persona. ErrNoEncontrado si no existe, es de otra persona o es compartido.
 	Obtener(ctx context.Context, persona, id string) (Guardado, error)
-	// Corregir cambia el monto del presupuesto de la persona si es del periodo dado. ErrNoEncontrado si no.
+	// Corregir cambia el monto del presupuesto propio de la persona si es del periodo dado. ErrNoEncontrado si no.
 	Corregir(ctx context.Context, persona, id string, periodo time.Time, monto int64) error
-	// Quitar borra el presupuesto de la persona si es del periodo dado, sin tocar ningún gasto. ErrNoEncontrado si no.
+	// Quitar borra el presupuesto propio de la persona si es del periodo dado, sin tocar ningún gasto. ErrNoEncontrado si
+	// no.
 	Quitar(ctx context.Context, persona, id string, periodo time.Time) error
 	// DejarEnCero guarda la marca «en cero» de la persona en el periodo (`presupuesto_en_cero`) si el periodo sigue en
 	// cero: la suma de sus ingresos registrados y la de lo asignado son cero (las mismas sumas de la lectura). Si ya la

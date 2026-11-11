@@ -116,7 +116,7 @@ type Vista struct {
 	Periodo       string             `json:"periodo"`
 	Editable      bool               `json:"editable"` // el periodo es el mes en curso: se pone, corrige y quita (D-094)
 	Resumen       Resumen            `json:"resumen"`
-	LlegaDespues  []IngresoPendiente `json:"llega_despues"` // las fechas de ingreso esperadas del periodo, por fecha
+	LlegaDespues  []IngresoPendiente `json:"llega_despues"` // las fechas de ingreso pendientes del periodo, esperadas y por confirmar, por fecha
 	Categorias    []FilaDeCategoria  `json:"categorias"`
 }
 
@@ -131,13 +131,16 @@ type Resumen struct {
 	AsignadoCentavos          *big.Int `json:"asignado_centavos"`
 	SinAsignarCentavos        *big.Int `json:"sin_asignar_centavos"`
 	AsignadoSuperaPorCentavos *big.Int `json:"asignado_supera_por_centavos"`
-	// LlegaDespuesCentavos es lo esperado del periodo, sin lo por confirmar: no cuenta en «Sin asignar» (D-094, P-1).
+	// LlegaDespuesCentavos es lo esperado del periodo, la línea «Llega después: $X (esperado)», y PorConfirmarCentavos lo
+	// por confirmar, la línea «Por confirmar: $Y» (E14-PPA 4.1; L14 (1) de la US-77). Ninguno cuenta en «Sin asignar» ni
+	// decide el modo (D-094, P-1 y P-3) hasta que se confirma.
 	LlegaDespuesCentavos *big.Int `json:"llega_despues_centavos"`
+	PorConfirmarCentavos *big.Int `json:"por_confirmar_centavos"`
 }
 
 // IngresoPendiente es una fecha pendiente de una repetición de ingreso en el periodo (E15 5.2): esperada si todavía no
 // llega y por confirmar si ya llegó. Se confirma o se omite con las rutas de la US-60, con `recurrente_id` y `fecha`. En
-// «Llega después» solo hay esperadas.
+// «Llega después» van las dos, cada una con su `marca` (L14 (1) de la US-77).
 type IngresoPendiente struct {
 	RecurrenteID  string `json:"recurrente_id"`
 	Fecha         string `json:"fecha"`
@@ -178,13 +181,10 @@ func (s *Servicio) Ver(ctx context.Context, persona, periodo string) (Vista, err
 	if !d.Adulta {
 		return Vista{}, ErrSoloAdultos
 	}
-	pendientes, err := pendientesDelMes(d.Recurrentes, mes, hoy)
+	llegaDespues, err := pendientesDelMes(d.Recurrentes, mes, hoy)
 	if err != nil {
 		return Vista{}, err
 	}
-	// «Llega después» es solo lo esperado (D-094, P-1; E14-PPA 4.1; L12 (1) de la US-77): lo por confirmar ya llegó y
-	// sigue en «Por confirmar» de Movimientos y en PN-08.
-	llegaDespues := slices.DeleteFunc(pendientes, func(p IngresoPendiente) bool { return p.Marca != MarcaEsperado })
 	actual := hoy.Format(registro.FormatoDePeriodo)
 	v := Vista{PeriodoActual: actual, Periodo: mes.Format(registro.FormatoDePeriodo), LlegaDespues: llegaDespues}
 	v.Editable = v.Periodo == actual
@@ -194,12 +194,13 @@ func (s *Servicio) Ver(ctx context.Context, persona, periodo string) (Vista, err
 }
 
 // resumir hace las cuentas de la tarjeta de resumen. «Sin asignar» es el ingreso registrado menos lo asignado (RF-007);
-// lo esperado va aparte, en «Llega después», y lo por confirmar no cuenta en ninguno de los dos (D-094, P-1). PN-07 se
-// muestra cuando el ingreso registrado es cero o menor que lo asignado (D-094, P-3); con ingreso nulo no hay diferencia
-// que mostrar (E14-PPA 4.2). `en_cero` es la marca de «Dejar el presupuesto en cero» mientras el periodo siga en cero
-// (L6 (5) de la US-77).
+// lo esperado y lo por confirmar van aparte, cada uno con su total (D-094, P-1; L14 (1) de la US-77). PN-07 se muestra
+// cuando el ingreso registrado es cero o menor que lo asignado (D-094, P-3): lo pendiente no cuenta, así que un salario
+// vencido sin confirmar deja el mes en «ingreso nulo» y se ve en `por_confirmar_centavos`. Con ingreso nulo no hay
+// diferencia que mostrar (E14-PPA 4.2). `en_cero` es la marca de «Dejar el presupuesto en cero» mientras el periodo siga
+// en cero (L6 (5) de la US-77).
 func resumir(d DatosDelPresupuesto, llegaDespues []IngresoPendiente) Resumen {
-	ingreso, asignado, despues := new(big.Int), new(big.Int), new(big.Int)
+	ingreso, asignado, esperado, porConfirmar := new(big.Int), new(big.Int), new(big.Int), new(big.Int)
 	for _, i := range d.Ingresos {
 		ingreso.Add(ingreso, big.NewInt(i.Monto))
 	}
@@ -207,9 +208,13 @@ func resumir(d DatosDelPresupuesto, llegaDespues []IngresoPendiente) Resumen {
 		asignado.Add(asignado, big.NewInt(p.Monto))
 	}
 	for _, p := range llegaDespues {
-		despues.Add(despues, big.NewInt(p.MontoCentavos))
+		total := esperado
+		if p.Marca == MarcaPorConfirmar {
+			total = porConfirmar
+		}
+		total.Add(total, big.NewInt(p.MontoCentavos))
 	}
-	r := Resumen{IngresoRegistradoCentavos: ingreso, AsignadoCentavos: asignado, LlegaDespuesCentavos: despues}
+	r := Resumen{IngresoRegistradoCentavos: ingreso, AsignadoCentavos: asignado, LlegaDespuesCentavos: esperado, PorConfirmarCentavos: porConfirmar}
 	// La marca «en cero» queda guardada aunque llegue un ingreso o se asigne algo; solo vale mientras el mes siga en cero.
 	r.EnCero = d.EnCero && ingreso.Sign() == 0 && asignado.Sign() == 0
 	switch {
