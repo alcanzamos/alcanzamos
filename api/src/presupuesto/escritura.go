@@ -30,16 +30,23 @@ var ErrPeriodoNoEditable = errors.New("solo se cambia el presupuesto del mes en 
 // asignado (E14-PPA 4.2).
 var ErrPeriodoConIngresoOPresupuesto = errors.New("el periodo tiene ingreso registrado o algo asignado")
 
+// ErrPresupuestoCompartido es el 409 `presupuesto_compartido`: la categoría ya tiene en el periodo un presupuesto
+// compartido con el hogar de la persona. La clave única de E13 (persona, periodo, categoría) no lleva `hogar_id`, así que
+// el propio chocaría con esa fila; «Poner» nunca la toca (S7 de siete-dias-vulnerabilidades, opción A de L16 de la US-77).
+var ErrPresupuestoCompartido = errors.New("la categoría tiene un presupuesto compartido con el hogar en el periodo")
+
 var idDePresupuesto = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
 // Escritura es la persistencia de poner, corregir y quitar. Todo es de lo propio: `persona_id` de la sesión y `hogar_id`
 // nulo (el hogar llega en I08 y la tabla ya tiene su campo). Uno compartido con el hogar no se lee, ni se corrige, ni se
-// quita, ni cuenta como presupuesto que ya tiene la categoría ni en lo asignado (L14 de la US-77).
+// quita, ni cuenta como presupuesto que ya tiene la categoría ni en lo asignado (L14 de la US-77), ni se pisa al poner
+// (ErrPresupuestoCompartido, S7 de siete-dias-vulnerabilidades).
 type Escritura interface {
 	// Poner guarda el presupuesto de la categoría en el periodo, o corrige el que ya tiene (E13: único por persona,
 	// periodo y categoría), y dice si lo creó. registro.ErrCategoriaInvalida si la categoría no existe, no es de gasto o
-	// la persona la ocultó (salvo que ya tenga presupuesto propio en el periodo, RN-011); ErrSoloAdultos con una persona
-	// menor; registro.ErrSinCuenta si la persona ya no existe.
+	// la persona la ocultó (salvo que ya tenga presupuesto propio en el periodo, RN-011); ErrPresupuestoCompartido si la
+	// categoría ya tiene en el periodo uno compartido con el hogar (no lo toca, y lo decide en la misma escritura);
+	// ErrSoloAdultos con una persona menor; registro.ErrSinCuenta si la persona ya no existe.
 	Poner(ctx context.Context, persona string, categoria int, periodo time.Time, monto int64) (Guardado, bool, error)
 	// Obtener lee un presupuesto propio de la persona. ErrNoEncontrado si no existe, es de otra persona o es compartido.
 	Obtener(ctx context.Context, persona, id string) (Guardado, error)
@@ -103,7 +110,8 @@ func leerPeriodo(texto string) (time.Time, string) {
 
 // Presupuestar pone el presupuesto de una categoría de gasto en el mes en curso (CU-09 3, E12 `Presupuestar`), o lo
 // corrige si ya tiene uno (3a), y dice si lo creó. Primero la forma: ErrValidacion con todos los campos a la vez; después
-// ErrPeriodoNoEditable si el periodo no es el mes en curso; después lo que rechace el repositorio.
+// ErrPeriodoNoEditable si el periodo no es el mes en curso; después lo que rechace el repositorio (también
+// ErrPresupuestoCompartido).
 func (s *Servicio) Presupuestar(ctx context.Context, persona string, sol SolicitudDePresupuesto) (Presupuesto, bool, error) {
 	campos := map[string]string{}
 	periodo, codigo := leerPeriodo(sol.Periodo)
