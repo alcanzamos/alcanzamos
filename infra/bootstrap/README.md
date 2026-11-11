@@ -22,13 +22,13 @@ La cuenta de almacenamiento admite solo de 3 a 24 letras minúsculas y números,
    - Emisor: `https://vstoken.dev.azure.com/<ID de la organización>`.
    - Sujeto: `sc://alcanzamos/alcanzamos/sc-alcanzamos-<prod|uat>-mxc` (o el de la variable `conexion_de_servicio`).
    - Permisos: «Contributor» **solo sobre el grupo** y «Storage Blob Data Contributor» solo sobre la cuenta del estado.
-5. **Identidad del API**, con «Key Vault Secrets User» y «Communication and Email Service Owner» sobre el grupo. Este último es el rol que indica Microsoft para enviar correo con Entra ID. Se crea aquí para que el pipeline no pueda asignar roles.
+5. **Identidad del API**, con «Key Vault Secrets User» y «Communication and Email Service Owner» sobre el grupo. Este último es el rol que indica Microsoft para enviar correo con Entra ID. Con el primero, Container Apps lee del Key Vault el token `read:packages` para bajar la imagen privada de ghcr.io (D-200 (9)(a)). Se crea aquí para que el pipeline no pueda asignar roles.
 
 ## Primer despliegue de cada ambiente (orden)
 
 1. El dueño corre `tofu apply -var="ambiente=<uat|produccion>"` en `infra/bootstrap/` con su cuenta, en la suscripción del ambiente (ver «Dónde queda su estado»). Necesita el ID de la organización de Azure DevOps.
 2. En Azure DevOps crea la conexión de servicio `sc-alcanzamos-<prod|uat>-mxc`: tipo Azure Resource Manager, identidad federada, con el `client_id` y el `tenant_id` de las salidas.
-3. Con la salida `backend`, el pipeline de despliegue aplica `infra/azure/` (ver «Estado de cada ambiente» en su [README](../azure/README.md)).
+3. Con la salida `backend`, el pipeline de despliegue aplica `infra/azure/` (ver «Estado de cada ambiente» en su [README](../azure/README.md)). La primera vez, primero solo el Key Vault; el dueño carga ahí el token `read:packages` de ghcr.io y después se aplica todo («Acceso a la imagen privada» en ese README).
 4. El dueño carga en Cloudflare los registros de `registros_dns_de_avisos` del ambiente. Cuando Azure verifica el dominio, se asocia a Communication Services.
 5. En PostgreSQL, el administrador de Entra ID crea el rol de la identidad del API, con los permisos mínimos.
 6. En la suscripción de Azure for Students se borran los recursos de la prueba R-9 (`rg-alcanzamos-prueba-r9` y `sc-alcanzamos-prueba-r9`).

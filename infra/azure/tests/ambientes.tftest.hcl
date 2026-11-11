@@ -16,6 +16,14 @@ mock_provider "azurerm" {
     }
   }
 
+  # El ID del secreto del registro se arma con la URI del Key Vault, y el proveedor valida su forma.
+  mock_resource "azurerm_key_vault" {
+    defaults = {
+      id        = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.KeyVault/vaults/kv"
+      vault_uri = "https://kv.vault.azure.net/"
+    }
+  }
+
   mock_resource "azurerm_log_analytics_workspace" {
     defaults = {
       id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.OperationalInsights/workspaces/log"
@@ -64,6 +72,7 @@ variables {
   admin_postgres_object_id = "00000000-0000-0000-0000-000000000000"
   admin_postgres_nombre    = "andres@alcanzamos.co"
   imagen_api               = "ghcr.io/alcanzamos/alcanzamos-api@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  ghcr_usuario             = "usuario-de-prueba"
 }
 
 # Producción conserva los nombres aprobados (O-14, D-120) y los tamaños de ADR-006 §5.2.

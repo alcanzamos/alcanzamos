@@ -17,6 +17,10 @@ locals {
     CORREO_ENDPOINT  = "https://${azurerm_communication_service.correo.hostname}"
     CORREO_REMITENTE = "${azurerm_email_communication_service_domain_sender_username.avisos.name}@${azurerm_email_communication_service_domain.avisos.from_sender_domain}"
   }
+
+  # Token read:packages de ghcr.io en el Key Vault del ambiente (D-200 (9)(a)). Sin versión: Container Apps toma la
+  # última, así renovar el token es solo cargar una versión nueva. El dueño carga el valor; OpenTofu no lo conoce.
+  ghcr_secreto_en_key_vault = "${azurerm_key_vault.secretos.vault_uri}secrets/${var.ghcr_nombre_del_secreto}"
 }
 
 resource "azurerm_container_app" "api" {
@@ -29,6 +33,19 @@ resource "azurerm_container_app" "api" {
   identity {
     type         = "UserAssigned"
     identity_ids = [data.azurerm_user_assigned_identity.api.id]
+  }
+
+  # Paquete privado: la identidad del API (Key Vault Secrets User, del bootstrap) lee el token del Key Vault.
+  secret {
+    name                = var.ghcr_nombre_del_secreto
+    key_vault_secret_id = local.ghcr_secreto_en_key_vault
+    identity            = data.azurerm_user_assigned_identity.api.id
+  }
+
+  registry {
+    server               = "ghcr.io"
+    username             = var.ghcr_usuario
+    password_secret_name = var.ghcr_nombre_del_secreto
   }
 
   template {
@@ -76,6 +93,18 @@ resource "azurerm_container_app_job" "tareas" {
   identity {
     type         = "UserAssigned"
     identity_ids = [data.azurerm_user_assigned_identity.api.id]
+  }
+
+  secret {
+    name                = var.ghcr_nombre_del_secreto
+    key_vault_secret_id = local.ghcr_secreto_en_key_vault
+    identity            = data.azurerm_user_assigned_identity.api.id
+  }
+
+  registry {
+    server               = "ghcr.io"
+    username             = var.ghcr_usuario
+    password_secret_name = var.ghcr_nombre_del_secreto
   }
 
   schedule_trigger_config {
