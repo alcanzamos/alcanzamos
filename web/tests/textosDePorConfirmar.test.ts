@@ -26,14 +26,16 @@ const arriendo: Pendiente = {
 };
 
 describe("textos de una fila «Por confirmar» (E14-PRR 4.1 y 4.8)", () => {
-  it("la fila de un ingreso: categoría, apoyo con medio, y los nombres accesibles de E14", () => {
+  it("la fila de un ingreso: categoría, apoyo con medio, y los nombres accesibles con el monto (ACC-004, bug 231)", () => {
     expect(textosDeFilaPorConfirmar(salario)).toEqual({
       principal: "Salario",
       fecha: "16 de noviembre de 2026",
       apoyo: "Ingreso · Transferencia · 16 de noviembre de 2026",
       apoyoSinMedio: "Ingreso · 16 de noviembre de 2026",
-      nombreDeConfirmar: "Confirmar Salario del 16 de noviembre de 2026",
-      nombreDeMas: "Más opciones de Salario del 16 de noviembre de 2026",
+      nombreDeConfirmar:
+        "Confirmar Salario de $1.200.000 del 16 de noviembre de 2026",
+      nombreDeMas:
+        "Más opciones de Salario de $1.200.000 del 16 de noviembre de 2026",
       tituloDeLaHoja: "Salario · 16 de noviembre de 2026",
       tituloDelMonto: "¿Cuánto llegó?",
     });
@@ -45,6 +47,15 @@ describe("textos de una fila «Por confirmar» (E14-PRR 4.1 y 4.8)", () => {
       apoyo: "Gasto · Transferencia · 1 de diciembre de 2026",
       apoyoSinMedio: "Gasto · 1 de diciembre de 2026",
       tituloDelMonto: "¿Cuánto pagaste?",
+    });
+  });
+
+  it("con otro monto (el cambiado en «Confirmar todos»), los nombres dicen ese monto, con centavos si los hay", () => {
+    expect(textosDeFilaPorConfirmar(arriendo, 110000050n)).toMatchObject({
+      nombreDeConfirmar:
+        "Confirmar Arriendo o cuota de vivienda de $1.100.000,50 del 1 de diciembre de 2026",
+      nombreDeMas:
+        "Más opciones de Arriendo o cuota de vivienda de $1.100.000,50 del 1 de diciembre de 2026",
     });
   });
 

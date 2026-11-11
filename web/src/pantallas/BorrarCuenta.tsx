@@ -159,7 +159,7 @@ export function BorrarCuenta() {
   }
 
   return (
-    <Pagina titulo={t.borrarMiCuenta} atras="/cuenta/seguridad">
+    <Pagina titulo={t.borrarMiCuenta} atras="/cuenta/seguridad" lateral={{}}>
       {estado.fase === "error" && (
         <>
           <Aviso {...estado.aviso} />

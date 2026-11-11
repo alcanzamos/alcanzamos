@@ -17,6 +17,7 @@ pr:
       - marca/logo-horizontal-color.svg
       - .azure-pipelines/web.yml
       - .azure-pipelines/plantillas/web.yml
+      - .azure-pipelines/plantillas/pasos/node.yml
 
 # Los pasos viven en plantillas/web.yml.
 jobs:

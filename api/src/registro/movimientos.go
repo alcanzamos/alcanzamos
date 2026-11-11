@@ -16,7 +16,21 @@ import (
 // retiro. Se lista y se ve en el detalle; corregirlo y borrarlo es de las metas (D-170), y crearlo también.
 const Aporte = "aporte"
 
-const formatoDePeriodo = "2006-01"
+// FormatoDePeriodo es el de un periodo (un mes calendario) en el API: AAAA-MM.
+const FormatoDePeriodo = "2006-01"
+
+// LeerPeriodo lee el `periodo` AAAA-MM de una consulta; vacío es el mes de `hoy` (el de Colombia). Devuelve su primer
+// día, o PeriodoInvalido si no es AAAA-MM o es anterior a 1900. Lo comparten la lista de movimientos y el presupuesto.
+func LeerPeriodo(periodo string, hoy time.Time) (time.Time, string) {
+	if periodo == "" {
+		return fechas.Dia(hoy.Year(), hoy.Month(), 1), ""
+	}
+	mes, err := time.Parse(FormatoDePeriodo, periodo)
+	if err != nil || mes.Year() < anioMinimo {
+		return time.Time{}, PeriodoInvalido
+	}
+	return mes, ""
+}
 
 // Códigos de error de campo de la lista y de la corrección (422 `datos_invalidos`).
 const (
@@ -120,14 +134,10 @@ type Correccion struct {
 // con `periodo` y `categoria`.
 func (s *Servicio) Listar(ctx context.Context, persona, periodo, categoria string) (Listado, error) {
 	hoy := fechas.HoyEnColombia(s.reloj.Ahora())
-	actual := hoy.Format(formatoDePeriodo)
 	campos := map[string]string{}
-	if periodo == "" {
-		periodo = actual
-	}
-	mes, err := time.Parse(formatoDePeriodo, periodo)
-	if err != nil || mes.Year() < anioMinimo {
-		campos["periodo"] = PeriodoInvalido
+	mes, codigo := LeerPeriodo(periodo, hoy)
+	if codigo != "" {
+		campos["periodo"] = codigo
 	}
 	var id *int
 	if categoria != "" {
@@ -144,7 +154,7 @@ func (s *Servicio) Listar(ctx context.Context, persona, periodo, categoria strin
 	if err != nil {
 		return Listado{}, err
 	}
-	l.PeriodoActual, l.Periodo, l.CategoriaID = actual, periodo, id
+	l.PeriodoActual, l.Periodo, l.CategoriaID = hoy.Format(FormatoDePeriodo), mes.Format(FormatoDePeriodo), id
 	l.Meses, l.Categorias, l.Movimientos = noNulo(l.Meses), noNulo(l.Categorias), noNulo(l.Movimientos)
 	l.Resumen.Movimientos = len(l.Movimientos)
 	if id != nil {

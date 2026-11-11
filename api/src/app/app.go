@@ -23,6 +23,7 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/src/cuenta"
 	"github.com/alcanzamos/alcanzamos/api/src/interpretacion"
 	"github.com/alcanzamos/alcanzamos/api/src/pg"
+	"github.com/alcanzamos/alcanzamos/api/src/presupuesto"
 	"github.com/alcanzamos/alcanzamos/api/src/registro"
 	"github.com/alcanzamos/alcanzamos/api/src/reloj"
 	"github.com/alcanzamos/alcanzamos/api/src/seguridad"
@@ -140,6 +141,7 @@ func ArmarEnrutador(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, 
 		return nil, nil, fmt.Errorf("reglas de interpretación: %w", err)
 	}
 	registro.NuevoHandler(registro.NuevoServicio(pg.NuevoMovimientos(pool), hora).ConInterpretador(interpretacion.NuevoPorReglas(reglas)), log).Registrar(enrutador)
+	presupuesto.NuevoHandler(presupuesto.NuevoServicio(pg.NuevoPresupuestos(pool), hora), log).Registrar(enrutador)
 	repoDeBorrado := pg.NuevoBorrado(pool)
 	cuenta.NuevoHandlerDeBorrado(cuenta.NuevoBorrado(repoDeBorrado, hasher, limitador, hora), eventos, log).Registrar(enrutador)
 	cuenta.NuevoHandlerDeExportacion(cuenta.NuevoExportador(repoDeBorrado), log).Registrar(enrutador)

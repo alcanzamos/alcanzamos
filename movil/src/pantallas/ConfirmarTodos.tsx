@@ -91,8 +91,9 @@ export function ConfirmarTodos({ navigation, route }: NativeStackScreenProps<Rut
         <View style={estilos.tarjeta}>
           {pendientes.map((fila) => {
             const eleccion = de(fila);
-            const tf = textosDeFilaPorConfirmar(fila);
             const centavos = eleccion.monto ?? BigInt(fila.monto_habitual_centavos);
+            // ACC-004 (bug 231): la casilla es la unidad de la fila y, como «Más», dice el monto que se ve en ella.
+            const tf = textosDeFilaPorConfirmar(fila, centavos);
             const monto = formatearPesos(centavos);
             const estado = eleccion.omitida
               ? t.todos.noPaso

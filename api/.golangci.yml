@@ -51,6 +51,8 @@ linters:
               desc: Seguridad no importa módulos de negocio (E12 §4 regla 3)
             - pkg: github.com/alcanzamos/alcanzamos/api/src/registro
               desc: Seguridad no importa módulos de negocio (E12 §4 regla 3)
+            - pkg: github.com/alcanzamos/alcanzamos/api/src/presupuesto
+              desc: Seguridad no importa módulos de negocio (E12 §4 regla 3)
             - pkg: github.com/alcanzamos/alcanzamos/api/src/pg
               desc: Seguridad no importa adaptadores (E12 §4 regla 4)
         # E12 §4 regla 4 y E17 3.10: ninguna pieza que no sea un adaptador depende de uno (PostgreSQL, la conexión y
@@ -61,6 +63,7 @@ linters:
             - "**/src/autorizacion/**"
             - "**/src/cuenta/**"
             - "**/src/registro/**"
+            - "**/src/presupuesto/**"
             - "**/src/interpretacion/**"
             - "**/src/seguridad/**"
             - "**/src/reloj/**"

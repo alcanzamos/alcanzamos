@@ -14,8 +14,13 @@ El control único (`control.yml`, D-177 y D-178 (4)) corre en todo PR, sin `path
 corre solo si cambió su carpeta. La prueba comprueba que su mapa de carpetas (`pruebas/cambios.py`) sea igual a los
 filtros de cada pipeline por carpeta, que cada caso de ESPERADO dé las mismas etapas que los pipelines por carpeta, y
 la forma de `control.yml`: sin `paths`, cada etapa con su condición de cambio (salvo `comun`, que corre siempre, y
-las etapas finales: `control`, que corre solo si todas quedaron bien, y `control_rechazo`, que falla en cualquier otro caso).
+la etapa final `control`, que corre solo si todas quedaron bien; si alguna falla o se cancela, la corrida queda en rojo).
+
+Un pipeline programado (con `schedules:`) se acepta solo si está en PROGRAMADOS, y entonces no sigue D-183 sino su
+propia regla: `trigger: none`, `pr: none` y una sola programación diaria sobre `main` con `always: true` (sin eso Azure
+no la corre si `main` no cambió). No entra en la simulación de los filtros: no corre en ningún PR.
 """
+import re
 import importlib.util
 import pathlib
 import sys
@@ -24,7 +29,9 @@ RAIZ = pathlib.Path(__file__).resolve().parents[2]
 CARPETA = RAIZ / ".azure-pipelines"
 # El pipeline del control único (D-177): no filtra por ruta y no entra en la simulación de los pipelines por carpeta.
 CONTROL = "control"
-RECHAZO = "control_rechazo"
+# Pipelines programados aceptados a mano (revision-diaria.yml, D-201). No corren en ningún PR ni al fusionar; corren una
+# vez al día sobre main. Un `schedules:` en otro pipeline hace fallar la prueba.
+PROGRAMADOS = {"revision-diaria"}
 
 # Archivo de ejemplo -> pipelines por carpeta que deben correr; las etapas del control único (`comun` más las de
 # pruebas/cambios.py) deben ser las mismas. Cuando llegue un pipeline nuevo, se agregan aquí sus casos.
@@ -46,7 +53,15 @@ ESPERADO = {
     "api/go.mod": {"comun", "api"},
     ".azure-pipelines/api.yml": {"comun", "api"},
     ".azure-pipelines/plantillas/api.yml": {"comun", "api"},
+    # Pasos compartidos: los de Go y los de la barrera de vulnerabilidades los usa plantillas/api.yml; los de Node y npm,
+    # plantillas/web.yml y plantillas/movil.yml. La revisión diaria también los usa, pero no corre en ningún PR.
+    ".azure-pipelines/plantillas/pasos/go.yml": {"comun", "api"},
+    ".azure-pipelines/plantillas/pasos/vulnerabilidades.yml": {"comun", "api"},
+    ".azure-pipelines/plantillas/pasos/node.yml": {"comun", "web", "movil"},
+    ".azure-pipelines/revision-diaria.yml": {"comun"},
     ".azure-pipelines/pruebas/cobertura.py": {"comun", "api"},
+    ".azure-pipelines/pruebas/vulnerabilidades.py": {"comun", "api"},
+    ".azure-pipelines/pruebas/vulnerabilidades_regresion.py": {"comun", "api"},
     "api/test/cobertura-base.json": {"comun", "api"},
     "web/README.md": {"comun", "web", "api"},
     "web/src/PantallaPrueba.tsx": {"comun", "web", "api"},
@@ -156,13 +171,119 @@ def coincide(patron, ruta):
     return ruta == patron
 
 
+def raiz(texto):
+    """Líneas sin sangría (claves de primer nivel), sin comentarios."""
+    return [l.rstrip() for l in texto.splitlines() if l.strip() and not l.startswith((" ", "#"))]
+
+
+def programaciones(texto):
+    """Lee `schedules:`. Devuelve [{"cron": str, "props": {clave: valor}, "include": [..], "exclude": [..]}]."""
+    entradas, actual, dentro, lista_de = [], None, False, None
+    for linea in texto.splitlines():
+        if not linea.strip() or linea.lstrip().startswith("#"):
+            continue
+        sangria = len(linea) - len(linea.lstrip())
+        clave = linea.strip()
+        if sangria == 0:
+            dentro = clave == "schedules:"
+            continue
+        if not dentro:
+            continue
+        if sangria == 2 and clave.startswith("- cron:"):
+            actual = {"cron": clave[len("- cron:"):].strip().strip('"\''), "props": {}, "include": [], "exclude": []}
+            entradas.append(actual)
+            lista_de = None
+        elif actual is None:
+            entradas.append({"cron": None, "props": {}, "include": [], "exclude": []})
+            actual = entradas[-1]
+        elif sangria == 4:
+            nombre, _, valor = clave.partition(":")
+            actual["props"][nombre] = valor.strip()
+            lista_de = None
+        elif sangria == 6:
+            lista_de = clave.rstrip(":") if clave in ("include:", "exclude:") else None
+        elif sangria == 8 and lista_de and clave.startswith("- "):
+            actual[lista_de].append(clave[2:].strip().strip('"\''))
+    return entradas
+
+
+# Diario: minuto y hora fijos, todos los días. Una programación más frecuente gasta el cupo de minutos (D-116).
+CRON_DIARIO = re.compile(r"^[0-5]?\d ([01]?\d|2[0-3]) \* \* \*$")
+
+
+def revisar_programado(texto):
+    """Forma de un pipeline programado (D-201): `trigger: none`, `pr: none` y una sola programación diaria, solo sobre
+    main, con `always: true`. Devuelve la lista de fallas."""
+    fallas = []
+    claves = raiz(texto)
+    if "trigger: none" not in claves:
+        fallas.append("trigger: none (no corre al fusionar en main)")
+    if "pr: none" not in claves:
+        fallas.append("pr: none (no corre en ningún PR; sin `pr`, Azure lo corre en todo PR de GitHub)")
+    entradas = programaciones(texto)
+    if len(entradas) != 1:
+        fallas.append(f"una sola programación en schedules; hay {len(entradas)}")
+    for e in entradas:
+        if not CRON_DIARIO.match(e["cron"] or ""):
+            fallas.append(f"cron {e['cron']!r}: debe ser diario (minuto y hora fijos, «* * *»)")
+        if e["include"] != ["main"] or e["exclude"]:
+            fallas.append(f"branches: solo main (include {e['include']}, exclude {e['exclude']})")
+        if e["props"].get("always") != "true":
+            fallas.append("always: true (sin eso Azure no la corre si main no cambió desde la última corrida programada exitosa)")
+    return fallas
+
+
+# Cambios en revision-diaria.yml que su revisión debe rechazar: (texto, reemplazo).
+MUTACIONES_PROGRAMADO = (
+    ("    always: true\n", "    always: false\n"),
+    ("    always: true\n", ""),
+    ("        - main\n", "        - main\n        - ci/revision-diaria\n"),
+    ("        - main\n", "        - '*'\n"),
+    ("      include:\n        - main\n", "      include:\n        - main\n      exclude:\n        - main\n"),
+    ("pr: none\n", "pr:\n  drafts: false\n  branches:\n    include:\n      - main\n"),
+    ("pr: none\n", ""),
+    ("trigger: none\n", "trigger:\n  branches:\n    include:\n      - main\n"),
+    ("  - cron: \"0 10 * * *\"\n", "  - cron: \"0 * * * *\"\n"),
+    ("  - cron: \"0 10 * * *\"\n", "  - cron: \"0 10 * * 1\"\n"),
+    ("schedules:\n", "schedules:\n  - cron: \"0 22 * * *\"\n    branches:\n      include:\n        - main\n    always: true\n"),
+)
+
+
+def revisar_mutaciones_programado(texto, nombre):
+    fallas = []
+    for viejo, nuevo in MUTACIONES_PROGRAMADO:
+        if viejo not in texto:
+            fallas.append(f"mutación sin su texto en {nombre}.yml: {viejo!r}")
+        elif not revisar_programado(texto.replace(viejo, nuevo, 1)):
+            fallas.append(f"la revisión de {nombre}.yml no detecta el cambio {viejo!r} -> {nuevo!r}")
+    return fallas
+
+
+def revisar_programados(textos):
+    """`textos`: {nombre: texto} de todos los pipelines. Solo los de PROGRAMADOS tienen `schedules:`, y cada uno tiene
+    la forma de revisar_programado. Devuelve la lista de fallas."""
+    fallas = []
+    for nombre, texto in sorted(textos.items()):
+        tiene = "schedules:" in raiz(texto)
+        if tiene and nombre not in PROGRAMADOS:
+            fallas.append(f"{nombre}.yml: tiene schedules y no está en PROGRAMADOS (un programado se acepta a mano)")
+        if nombre in PROGRAMADOS:
+            if not tiene:
+                fallas.append(f"{nombre}.yml: está en PROGRAMADOS y no tiene schedules")
+            fallas += [f"{nombre}.yml: {f}" for f in revisar_programado(texto)]
+            fallas += revisar_mutaciones_programado(texto, nombre)
+    for nombre in sorted(PROGRAMADOS - set(textos)):
+        fallas.append(f"falta {nombre}.yml (está en PROGRAMADOS)")
+    return fallas
+
+
 def revisar_plantillas():
-    """Cada pipeline (salvo el control único, que las usa todas) corre plantillas/<nombre>.yml, y toda plantilla nombrada
-    existe. Devuelve la lista de fallas."""
+    """Cada pipeline (salvo el control único, que las usa todas, y los programados) corre plantillas/<nombre>.yml, y toda
+    plantilla nombrada existe. Devuelve la lista de fallas."""
     fallas = []
     for p in sorted(CARPETA.glob("*.yml")):
         lineas = p.read_text(encoding="utf-8").splitlines()
-        if p.stem != CONTROL and f"  - template: plantillas/{p.stem}.yml" not in lineas:
+        if p.stem != CONTROL and p.stem not in PROGRAMADOS and f"  - template: plantillas/{p.stem}.yml" not in lineas:
             fallas.append(f"{p.name}: debe correr plantillas/{p.stem}.yml")
         for linea in lineas:
             plantilla = linea.strip()[len("- template: "):]
@@ -256,7 +377,7 @@ def revisar_control(texto, carpetas):
     if "      - main" not in texto.splitlines():
         fallas.append("pr.branches.include debe tener main")
     etapas = etapas_de_control(texto)
-    esperadas = ["cambios", "comun", *carpetas, CONTROL, RECHAZO]
+    esperadas = ["cambios", "comun", *carpetas, CONTROL]
     if sorted(etapas) != sorted(esperadas):
         fallas.append(f"etapas {sorted(etapas)}; se esperaba {sorted(esperadas)}")
     for nombre, etapa in etapas.items():
@@ -272,16 +393,13 @@ def revisar_control(texto, carpetas):
                 fallas.append("comun: corre siempre (sin condition y con dependsOn: [])")
             if etapa["plantillas"] != ["plantillas/comun.yml"]:
                 fallas.append(f"comun: debe usar plantillas/comun.yml, usa {etapa['plantillas']}")
-        elif nombre in (CONTROL, RECHAZO):
-            otras = [e for e in etapas if e not in (CONTROL, RECHAZO)]
+        elif nombre == CONTROL:
+            otras = [e for e in etapas if e != CONTROL]
             if sorted(depende or []) != sorted(otras):
                 fallas.append(f"{nombre}: dependsOn {depende}; se esperaba {otras}")
-            bien = condicion_de_control(otras)
-            quiere = bien if nombre == CONTROL else f"not({bien})"
+            quiere = condicion_de_control(otras)
             if props.get("condition") != quiere:
                 fallas.append(f"{nombre}: condition debe ser {quiere}")
-            if nombre == RECHAZO and "exit 1" not in etapa["texto"]:
-                fallas.append("control_rechazo: el trabajo debe fallar (exit 1)")
             if etapa["variables"]:
                 fallas.append(f"{nombre}: sin variables de etapa con dependencies.<etapa>.result (quedan vacías en Azure)")
         else:
@@ -309,6 +427,16 @@ def revisar_mapa(cambios, pipelines):
                           f"solo en {nombre}.yml {sorted(filtro - mapa)}")
         if f".azure-pipelines/plantillas/{nombre}.yml" not in mapa:
             fallas.append(f"{nombre}: su plantilla no dispara su etapa")
+        # Los pasos compartidos que usa su plantilla (plantillas/pasos/*.yml) también disparan su etapa.
+        plantilla = CARPETA / "plantillas" / f"{nombre}.yml"
+        if plantilla.is_file():
+            for linea in plantilla.read_text(encoding="utf-8").splitlines():
+                if linea.strip().startswith("- template: "):
+                    usada = f".azure-pipelines/plantillas/{linea.strip()[len('- template: '):]}"
+                    if not (CARPETA.parent / usada).is_file():
+                        fallas.append(f"{nombre}: plantillas/{nombre}.yml usa {usada}, que no existe")
+                    if usada not in mapa:
+                        fallas.append(f"{nombre}: plantillas/{nombre}.yml usa {usada} y ese archivo no dispara su etapa")
     return fallas
 
 
@@ -354,11 +482,9 @@ MUTACIONES = (
      "eq(dependencies.cambios.outputs['cambios.detectar.web'], 'true'))"),
     ("eq(dependencies.cambios.outputs['cambios.detectar.infra'], 'true'))", "succeeded()"),
     ("    condition: and(in(dependencies.cambios.result", "    condition: always()\n    # and(in(dependencies.cambios.result"),
-    ("    condition: not(and(", "    condition: and(and("),
     ("    condition: and(in(dependencies.cambios.result, 'Succeeded', 'SucceededWithIssues'), in(dependencies.comun.result, 'Succeeded', 'SucceededWithIssues'),",
      "    condition: and(in(dependencies.cambios.result, 'Succeeded', 'SucceededWithIssues'), in(dependencies.comun.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'),"),
-    ("in(dependencies.infra.result, 'Succeeded', 'SucceededWithIssues', 'Skipped')))\n", "in(dependencies.infra.result, 'Succeeded', 'SucceededWithIssues', 'Skipped', 'Failed')))\n"),
-    ("              exit 1\n", "              exit 0\n"),
+    ("in(dependencies.infra.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'))\n", "in(dependencies.infra.result, 'Succeeded', 'SucceededWithIssues', 'Skipped', 'Failed'))\n"),
     ("      - template: plantillas/movil.yml", "      - template: plantillas/web.yml"),
     ("    dependsOn: []\n", "    dependsOn: cambios\n"),
     ("  - stage: infra\n", "  - stage: infra2\n"),
@@ -366,13 +492,15 @@ MUTACIONES = (
     ("  - stage: control\n    displayName: Control único (todas las etapas pasaron o se saltaron)\n    dependsOn:",
      "  - stage: control\n    displayName: Control único (todas las etapas pasaron o se saltaron)\n    variables:\n      RESULTADO_CAMBIOS: $[ dependencies.cambios.result ]\n    dependsOn:"),
     # `cambios` no puede contar como correcta si se saltó.
-    ("not(and(in(dependencies.cambios.result, 'Succeeded', 'SucceededWithIssues'),",
-     "not(and(in(dependencies.cambios.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'),"),
+    ("    condition: and(in(dependencies.cambios.result, 'Succeeded', 'SucceededWithIssues'),",
+     "    condition: and(in(dependencies.cambios.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'),"),
     # Un nombre de etapa mal escrito en la condición.
     ("in(dependencies.movil.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'), in(dependencies.infra.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'))\n",
      "in(dependencies.movil.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'), in(dependencies.infr.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'))\n"),
-    # control_rechazo sin depender de web.
-    ("      - web\n      - movil\n      - infra\n    condition: not(", "      - movil\n      - infra\n    condition: not("),
+    # control sin depender de web.
+    ("      - web\n      - movil\n      - infra\n    condition: and(in(dependencies.cambios", "      - movil\n      - infra\n    condition: and(in(dependencies.cambios"),
+    # Vuelve una etapa de rechazo: su check puede quedar «in progress» en GitHub cuando se salta (#100, corrida 680).
+    ("      - job: control\n", "      - job: control\n  - stage: control_rechazo\n    dependsOn: []\n    jobs:\n      - job: control_rechazo\n        steps:\n          - script: exit 1\n      - job: control_dummy\n"),
 )
 
 
@@ -387,8 +515,10 @@ def revisar_mutaciones(texto, carpetas):
 
 
 def main():
-    pipelines = {p.stem: filtros_pr(p.read_text(encoding="utf-8")) for p in sorted(CARPETA.glob("*.yml"))}
-    por_carpeta = {n: f for n, f in pipelines.items() if n != CONTROL}
+    textos = {p.stem: p.read_text(encoding="utf-8") for p in sorted(CARPETA.glob("*.yml"))}
+    pipelines = {n: filtros_pr(t) for n, t in textos.items()}
+    # Los programados no corren en ningún PR: no entran en la simulación de los filtros.
+    por_carpeta = {n: f for n, f in pipelines.items() if n != CONTROL and n not in PROGRAMADOS}
     cambios = cargar_cambios()
     fallas = []
     if cambios is None:
@@ -410,6 +540,8 @@ def main():
             if etapas != esperado:
                 fallas.append(f"control: {ruta}")
     for p in sorted(CARPETA.glob("*.yml")):
+        if p.stem in PROGRAMADOS:
+            continue
         faltan = disparadores(p.read_text(encoding="utf-8"))
         print(f"{'ok' if not faltan else 'FALLA':5} {p.name}: disparadores (D-183){'' if not faltan else '; falta ' + ', '.join(faltan)}")
         if faltan:
@@ -423,6 +555,12 @@ def main():
             print(f"FALLA {falla}")
         print(f"{'ok' if not otras else 'FALLA':5} control único (D-177): mapa de carpetas, detector y forma de control.yml")
         fallas += otras
+    programados = revisar_programados(textos)
+    for falla in programados:
+        print(f"FALLA {falla}")
+    print(f"{'ok' if not programados else 'FALLA':5} programados ({', '.join(sorted(PROGRAMADOS))}): trigger y pr none, "
+          "una programación diaria solo sobre main con always: true")
+    fallas += programados
     plantillas = revisar_plantillas()
     for falla in plantillas:
         print(f"FALLA {falla}")

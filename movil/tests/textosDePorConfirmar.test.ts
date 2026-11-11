@@ -32,8 +32,9 @@ describe('textos de una fila «Por confirmar» (E14-PRR 4.1 y 4.8)', () => {
       fecha: '16 de noviembre de 2026',
       apoyo: 'Ingreso · Transferencia · 16 de noviembre de 2026',
       apoyoSinMedio: 'Ingreso · 16 de noviembre de 2026',
-      nombreDeConfirmar: 'Confirmar Salario del 16 de noviembre de 2026',
-      nombreDeMas: 'Más opciones de Salario del 16 de noviembre de 2026',
+      nombreDeConfirmar: 'Confirmar Salario de 1200000 pesos del 16 de noviembre de 2026',
+      nombreDeMas: 'Más opciones de Salario de 1200000 pesos del 16 de noviembre de 2026',
+      etiqueta: 'Salario, Ingreso · Transferencia · 16 de noviembre de 2026, Por confirmar, 1200000 pesos',
       tituloDeLaHoja: 'Salario · 16 de noviembre de 2026',
       tituloDelMonto: '¿Cuánto llegó?',
     });
@@ -45,6 +46,13 @@ describe('textos de una fila «Por confirmar» (E14-PRR 4.1 y 4.8)', () => {
       apoyo: 'Gasto · Transferencia · 1 de diciembre de 2026',
       apoyoSinMedio: 'Gasto · 1 de diciembre de 2026',
       tituloDelMonto: '¿Cuánto pagaste?',
+    });
+  });
+
+  it('ACC-004 (bug 231): con un monto cambiado, los nombres dicen ese monto y no el habitual', () => {
+    expect(textosDeFilaPorConfirmar(arriendo, 110000050n)).toMatchObject({
+      nombreDeConfirmar: 'Confirmar Arriendo o cuota de vivienda de 1100000 pesos con 50 centavos del 1 de diciembre de 2026',
+      nombreDeMas: 'Más opciones de Arriendo o cuota de vivienda de 1100000 pesos con 50 centavos del 1 de diciembre de 2026',
     });
   });
 
