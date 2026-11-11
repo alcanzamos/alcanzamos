@@ -476,3 +476,49 @@ func TestIntegracionLecturasSinSesionYSinAutorizar(t *testing.T) {
 		}
 	}
 }
+
+// L12 (1) de la US-77 (D-094, E14-PPA 4.1): «Llega después» es solo lo esperado. El 17 de noviembre el salario del 16 (ya
+// pasó) y las ventas del 17 (hoy) están por confirmar: no llegan después ni suman en su total; las ventas del 24 sí. Lo
+// por confirmar sigue en «Por confirmar» de Movimientos (la lista de la US-60) y en PN-08.
+func TestIntegracionLlegaDespuesSoloLoEsperado(t *testing.T) {
+	formas(t, func(t *testing.T, android bool) {
+		s := nuevoServidor(t)
+		c := s.nuevaPersona("laura@ejemplo.test", android, true)
+		salarioRec := c.noviembre()
+		s.reloj.T = time.Date(2026, 11, 17, 15, 0, 0, 0, time.UTC)
+		_, ventasRec := c.registrar(registro.Ingreso, 2000000, "2026-11-10", ventas, `,"repeticion":{"periodicidad":"semanal"}`)
+
+		v := leerJSON[vistaLeida](t, c.llamar("GET", "/api/v1/presupuestos", ""))
+		if len(v.LlegaDespues) != 1 || v.LlegaDespues[0] != (presupuesto.IngresoPendiente{RecurrenteID: ventasRec, Fecha: "2026-11-24",
+			CategoriaID: ventas, MontoCentavos: 2000000, Marca: presupuesto.MarcaEsperado}) {
+			t.Errorf("llega después: %+v", v.LlegaDespues)
+		}
+		if v.Resumen.LlegaDespues != "2000000" || v.Resumen.IngresoRegistrado != "122000000" || v.Resumen.SinAsignar == nil || *v.Resumen.SinAsignar != "118000000" {
+			t.Errorf("resumen: %+v", v.Resumen)
+		}
+
+		l := leerJSON[ingresosLeidos](t, c.llamar("GET", "/api/v1/ingresos", ""))
+		if got := fuentesLeidas(l); got != "17=240000000[2026-11-01:registrado:120000000,2026-11-16:por_confirmar:120000000] "+
+			"18=6000000[2026-11-10:registrado:2000000,2026-11-17:por_confirmar:2000000,2026-11-24:esperado:2000000]" || l.Total.PorConfirmar != 2 {
+			t.Errorf("PN-08: %s %+v", got, l.Total)
+		}
+
+		type porConfirmar struct {
+			Pendientes []struct {
+				RecurrenteID string `json:"recurrente_id"`
+				Fecha        string `json:"fecha"`
+				Tipo         string `json:"tipo"`
+			} `json:"pendientes"`
+		}
+		lista := leerJSON[porConfirmar](t, c.llamar("GET", "/api/v1/repeticiones/pendientes", ""))
+		var ingresos []string
+		for _, p := range lista.Pendientes {
+			if p.Tipo == registro.Ingreso {
+				ingresos = append(ingresos, p.RecurrenteID+"@"+p.Fecha)
+			}
+		}
+		if got, quiere := strings.Join(ingresos, " "), salarioRec+"@2026-11-16 "+ventasRec+"@2026-11-17"; got != quiere {
+			t.Errorf("por confirmar en Movimientos: %s, se esperaba %s", got, quiere)
+		}
+	})
+}
