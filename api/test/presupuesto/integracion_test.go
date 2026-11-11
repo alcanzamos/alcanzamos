@@ -367,6 +367,46 @@ func TestIntegracionAportesFueraYCategoriasOcultas(t *testing.T) {
 	}
 }
 
+// L12 (2) de la US-77: PN-06 lee solo los presupuestos propios (`hogar_id` nulo), como la escritura y la descarga. Los
+// compartidos con el hogar, aunque los haya puesto la misma persona, no son filas ni suman en lo asignado: Alimentación
+// sale sin presupuesto (con su gasto) y Educación, sin gasto, no sale.
+func TestIntegracionPN06SoloLosPresupuestosPropios(t *testing.T) {
+	s := nuevoServidor(t)
+	c := s.nuevaPersona("laura@ejemplo.test", false, true)
+	c.registrar(registro.Ingreso, 10000000, "2026-11-01", salario, "")
+	c.registrar(registro.Gasto, 1000000, "2026-11-02", alimentacion, "")
+	c.registrar(registro.Gasto, 500000, "2026-11-02", transporte, "")
+	// El hogar y su administradora van en una transacción: `fk_hogar_administrador_miembro` es diferida.
+	ctx := context.Background()
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx)
+	var hogarID string
+	if err := tx.QueryRow(ctx, `INSERT INTO hogar (nombre, creado_en, administrador_id) VALUES ('Casa', '2026-11-01', $1::uuid) RETURNING id::text`, c.persona).Scan(&hogarID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO miembro_hogar (persona_id, hogar_id) VALUES ($1::uuid, $2::uuid)`, c.persona, hogarID); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	s.ejecutar(`INSERT INTO presupuesto (persona_id, hogar_id, categoria_id, periodo, monto_asignado) VALUES
+		($1::uuid, NULL, $3, '2026-11-01', 3000000), ($1::uuid, $2::uuid, $4, '2026-11-01', 5000000), ($1::uuid, $2::uuid, $5, '2026-11-01', 7000000)`,
+		c.persona, hogarID, transporte, alimentacion, educacion)
+
+	v := leerJSON[vistaLeida](t, c.llamar("GET", "/api/v1/presupuestos", ""))
+	if got := filasDeLaVista(v); got != "8:500000:3000000:quedan 1:1000000:-:-" {
+		t.Errorf("por categoría: %s", got)
+	}
+	if v.Resumen.Modo != presupuesto.ModoNormal || v.Resumen.IngresoRegistrado != "10000000" || v.Resumen.Asignado != "3000000" ||
+		v.Resumen.SinAsignar == nil || *v.Resumen.SinAsignar != "7000000" || v.Resumen.SuperaPor != nil {
+		t.Errorf("resumen: %+v", v.Resumen)
+	}
+}
+
 // E14-PPA 4.1, PN-06 fila 4 (L6 (6) de la US-77), con los nombres del catálogo de la base: con el mismo gasto, por nombre
 // y no por id. Educación (12) antes que Transporte (8), con presupuesto y sin gasto; Hogar y mantenimiento (6) antes que
 // Servicios públicos (5), sin presupuesto y con el mismo gasto.
@@ -475,4 +515,50 @@ func TestIntegracionLecturasSinSesionYSinAutorizar(t *testing.T) {
 			t.Errorf("%s sin sesión: %d %s", ruta, rr.Code, rr.Body)
 		}
 	}
+}
+
+// L12 (1) de la US-77 (D-094, E14-PPA 4.1): «Llega después» es solo lo esperado. El 17 de noviembre el salario del 16 (ya
+// pasó) y las ventas del 17 (hoy) están por confirmar: no llegan después ni suman en su total; las ventas del 24 sí. Lo
+// por confirmar sigue en «Por confirmar» de Movimientos (la lista de la US-60) y en PN-08.
+func TestIntegracionLlegaDespuesSoloLoEsperado(t *testing.T) {
+	formas(t, func(t *testing.T, android bool) {
+		s := nuevoServidor(t)
+		c := s.nuevaPersona("laura@ejemplo.test", android, true)
+		salarioRec := c.noviembre()
+		s.reloj.T = time.Date(2026, 11, 17, 15, 0, 0, 0, time.UTC)
+		_, ventasRec := c.registrar(registro.Ingreso, 2000000, "2026-11-10", ventas, `,"repeticion":{"periodicidad":"semanal"}`)
+
+		v := leerJSON[vistaLeida](t, c.llamar("GET", "/api/v1/presupuestos", ""))
+		if len(v.LlegaDespues) != 1 || v.LlegaDespues[0] != (presupuesto.IngresoPendiente{RecurrenteID: ventasRec, Fecha: "2026-11-24",
+			CategoriaID: ventas, MontoCentavos: 2000000, Marca: presupuesto.MarcaEsperado}) {
+			t.Errorf("llega después: %+v", v.LlegaDespues)
+		}
+		if v.Resumen.LlegaDespues != "2000000" || v.Resumen.IngresoRegistrado != "122000000" || v.Resumen.SinAsignar == nil || *v.Resumen.SinAsignar != "118000000" {
+			t.Errorf("resumen: %+v", v.Resumen)
+		}
+
+		l := leerJSON[ingresosLeidos](t, c.llamar("GET", "/api/v1/ingresos", ""))
+		if got := fuentesLeidas(l); got != "17=240000000[2026-11-01:registrado:120000000,2026-11-16:por_confirmar:120000000] "+
+			"18=6000000[2026-11-10:registrado:2000000,2026-11-17:por_confirmar:2000000,2026-11-24:esperado:2000000]" || l.Total.PorConfirmar != 2 {
+			t.Errorf("PN-08: %s %+v", got, l.Total)
+		}
+
+		type porConfirmar struct {
+			Pendientes []struct {
+				RecurrenteID string `json:"recurrente_id"`
+				Fecha        string `json:"fecha"`
+				Tipo         string `json:"tipo"`
+			} `json:"pendientes"`
+		}
+		lista := leerJSON[porConfirmar](t, c.llamar("GET", "/api/v1/repeticiones/pendientes", ""))
+		var ingresos []string
+		for _, p := range lista.Pendientes {
+			if p.Tipo == registro.Ingreso {
+				ingresos = append(ingresos, p.RecurrenteID+"@"+p.Fecha)
+			}
+		}
+		if got, quiere := strings.Join(ingresos, " "), salarioRec+"@2026-11-16 "+ventasRec+"@2026-11-17"; got != quiere {
+			t.Errorf("por confirmar en Movimientos: %s, se esperaba %s", got, quiere)
+		}
+	})
 }
