@@ -31,6 +31,7 @@ CARPETAS = {
         ".azure-pipelines/api.yml",
         ".azure-pipelines/plantillas/api.yml",
         ".azure-pipelines/plantillas/pasos/go.yml",
+        ".azure-pipelines/plantillas/pasos/vulnerabilidades.yml",
         ".azure-pipelines/pruebas/cobertura.py",
         ".azure-pipelines/pruebas/vulnerabilidades.py",
         ".azure-pipelines/pruebas/vulnerabilidades_regresion.py",

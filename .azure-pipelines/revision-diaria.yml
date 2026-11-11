@@ -1,14 +1,16 @@
-# Revisión diaria de vulnerabilidades sobre main (S3 de la regla de los 7 días, decidida por el dueño el 2026-11-11).
+# Revisión diaria de vulnerabilidades sobre main (D-201).
 # Cada mañana corre govulncheck en api/ y `npm audit` de producción en web/ y movil/, con las mismas versiones fijadas
 # (plantillas/pasos/) y los mismos comandos que los PR. Una vulnerabilidad se publica aunque el código no cambie: el PR
 # solo la ve si alguien abre uno; esta corrida la ve al día siguiente.
 #
 # Resultado de la corrida, que es lo que dispara el correo (README, «Revisión diaria»):
-# - Failed: una revisión falla (hoy, cualquier vulnerabilidad alta o crítica de npm o un símbolo vulnerable que el código
-#   llama, igual que en un PR), o un paso de instalación falla.
+# - Failed: una revisión falla (lo mismo que haría fallar un PR: cualquier vulnerabilidad alta o crítica de npm, o una
+#   que el código de api/ alcanza con un arreglo de 7 días o más, sin arreglo o sin fecha), o un paso de instalación falla.
 # - Partially succeeded: una revisión solo advierte. Un paso que imprime `##vso[task.logissue type=warning]…` y sale con 0
-#   termina con `##vso[task.complete result=SucceededWithIssues;]`. Hoy ninguna revisión advierte: lo hará la de Go cuando
-#   entre pruebas/vulnerabilidades.py (S2, abajo), con un arreglo de menos de 7 días.
+#   termina con `##vso[task.complete result=SucceededWithIssues;]`. Hoy advierte solo la de Go (pruebas/vulnerabilidades.py),
+#   con un arreglo de menos de 7 días: mientras main siga en Go 1.27.3, GO-2026-6859 (arreglada en go1.27.4, publicado el
+#   2026-11-10) deja la corrida en Partially succeeded hasta el 2026-11-18 a las 00:00 UTC; desde entonces la deja en
+#   Failed, hasta que entre el #112 (Go 1.27.4).
 # - Succeeded: sin hallazgos; no llega correo.
 # Lo que ya está aceptado no avisa: una vulnerabilidad solo de módulo que el código no llama (govulncheck la informa y
 # sale con 0) y una excepción vigente de movil/auditoria-excepciones.json. Una excepción vencida sí falla.
@@ -38,7 +40,7 @@ schedules:
 # - Cada trabajo de abajo pasa a una plantilla con un parámetro `ref` y corre dos veces: con `main` y con esa etiqueta
 #   (`git fetch --depth 1 origin tag <etiqueta>` y `git worktree add` en $(Agent.TempDirectory), o un `checkout` de un
 #   recurso de repositorio con `ref: refs/tags/<etiqueta>`).
-# - Con la etiqueta desplegada, la regla es la del despliegue (S2): falla con cualquier vulnerabilidad que el código
+# - Con la etiqueta desplegada, la regla es la del despliegue (D-201): falla con cualquier vulnerabilidad que el código
 #   alcance y tenga arreglo, aunque tenga menos de 7 días, salvo una excepción registrada por el dueño.
 # - Gasta lo mismo otra vez (unos 1 a 1,6 minutos más por día).
 
@@ -55,23 +57,13 @@ jobs:
       # El mismo Go que el PR (plantillas/pasos/go.yml): govulncheck revisa la biblioteca estándar de esa versión.
       - template: plantillas/pasos/go.yml
 
-      # El mismo comando que plantillas/api.yml: falla (código 3) si el código llama a un símbolo vulnerable.
-      # CAMBIA CUANDO ENTRE EL PR DE S2 (.azure-pipelines/pruebas/vulnerabilidades.py, regla de los 7 días): este paso
-      # pasa a ser el mismo de plantillas/api.yml,
-      #   python3 -I -B .azure-pipelines/pruebas/vulnerabilidades.py probar   (en la raíz, antes: el script se prueba)
-      #   go tool govulncheck -format json ./... | python3 -I -B ../.azure-pipelines/pruebas/vulnerabilidades.py revisar -
-      # Con -format json govulncheck sale siempre con 0: el script es la única barrera. Un arreglo de menos de 7 días debe
-      # imprimirse como `##vso[task.logissue type=warning]…` y salir con 0, para que este paso deje la corrida en
+      # La misma barrera que el PR (plantillas/api.yml): el script se prueba a sí mismo, govulncheck escribe su JSON y el
+      # script aplica la regla de los 7 días (D-201). Con -format json govulncheck sale siempre con 0: el script es la
+      # única barrera. Con avisoEnElResultado, un arreglo de menos de 7 días (sale con 0 y avisa) deja la corrida en
       # Partially succeeded; todo lo demás sale con un código distinto de 0 y la deja en Failed.
-      - script: |
-          set -eu -o pipefail
-          salida="$(Agent.TempDirectory)/govulncheck.txt"
-          go tool govulncheck ./... | tee "$salida"
-          if grep -q '^##vso\[task\.logissue type=warning' "$salida"; then
-            echo "##vso[task.complete result=SucceededWithIssues;]Hay avisos que solo advierten: ver el registro de este paso"
-          fi
-        workingDirectory: api
-        displayName: Vulnerabilidades de Go (govulncheck)
+      - template: plantillas/pasos/vulnerabilidades.yml
+        parameters:
+          avisoEnElResultado: true
 
   - job: web
     displayName: npm audit (web/)

@@ -29,8 +29,8 @@ RAIZ = pathlib.Path(__file__).resolve().parents[2]
 CARPETA = RAIZ / ".azure-pipelines"
 # El pipeline del control único (D-177): no filtra por ruta y no entra en la simulación de los pipelines por carpeta.
 CONTROL = "control"
-# Pipelines programados aceptados a mano (revision-diaria.yml: S3 de la regla de los 7 días). No corren en ningún PR ni
-# al fusionar; corren una vez al día sobre main. Un `schedules:` en otro pipeline hace fallar la prueba.
+# Pipelines programados aceptados a mano (revision-diaria.yml, D-201). No corren en ningún PR ni al fusionar; corren una
+# vez al día sobre main. Un `schedules:` en otro pipeline hace fallar la prueba.
 PROGRAMADOS = {"revision-diaria"}
 
 # Archivo de ejemplo -> pipelines por carpeta que deben correr; las etapas del control único (`comun` más las de
@@ -53,9 +53,10 @@ ESPERADO = {
     "api/go.mod": {"comun", "api"},
     ".azure-pipelines/api.yml": {"comun", "api"},
     ".azure-pipelines/plantillas/api.yml": {"comun", "api"},
-    # Pasos compartidos: los de Go los usa plantillas/api.yml; los de Node y npm, plantillas/web.yml y plantillas/movil.yml.
-    # La revisión diaria también los usa, pero no corre en ningún PR.
+    # Pasos compartidos: los de Go y los de la barrera de vulnerabilidades los usa plantillas/api.yml; los de Node y npm,
+    # plantillas/web.yml y plantillas/movil.yml. La revisión diaria también los usa, pero no corre en ningún PR.
     ".azure-pipelines/plantillas/pasos/go.yml": {"comun", "api"},
+    ".azure-pipelines/plantillas/pasos/vulnerabilidades.yml": {"comun", "api"},
     ".azure-pipelines/plantillas/pasos/node.yml": {"comun", "web", "movil"},
     ".azure-pipelines/revision-diaria.yml": {"comun"},
     ".azure-pipelines/pruebas/cobertura.py": {"comun", "api"},
@@ -209,7 +210,7 @@ CRON_DIARIO = re.compile(r"^[0-5]?\d ([01]?\d|2[0-3]) \* \* \*$")
 
 
 def revisar_programado(texto):
-    """Forma de un pipeline programado (S3): `trigger: none`, `pr: none` y una sola programación diaria, solo sobre
+    """Forma de un pipeline programado (D-201): `trigger: none`, `pr: none` y una sola programación diaria, solo sobre
     main, con `always: true`. Devuelve la lista de fallas."""
     fallas = []
     claves = raiz(texto)

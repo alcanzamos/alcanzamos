@@ -34,31 +34,9 @@ jobs:
         workingDirectory: api
         displayName: Analizador agregado (golangci-lint)
 
-      # govulncheck está fijado como `tool` en api/go.mod (v1.9.0, con sus sumas en go.sum): no se instala nada aparte y no
-      # entra en el binario. Regla de los 7 días (D-201): por cada vulnerabilidad que el código alcanza (las que harían salir
-      # a govulncheck con código 3), pruebas/vulnerabilidades.py avisa si su arreglo tiene menos de 7 días (para Go, desde
-      # el final del día de publicación, 00:00 UTC del día siguiente) y falla si tiene 7 o más, si no hay arreglo, si es solo
-      # una pseudo-versión o si no obtiene la fecha.
-      # Con -format json govulncheck sale con 0 aunque encuentre vulnerabilidades: el script es la única barrera, y se
-      # prueba a sí mismo antes. Si govulncheck no termina (sin red, un paquete que no compila) sale con otro código y el
-      # paso falla. Una vulnerabilidad solo de módulo (GO-2026-5932, x/crypto/openpgp; api no importa openpgp) no cuenta.
-      # El aviso solo vale para fusionar: el despliegue (US-79) falla con cualquier vulnerabilidad alcanzada con arreglo.
-      # revision-diaria.yml corre la misma barrera cada día sobre main: si estos pasos cambian, cambian también allí.
-      - script: python3 -I -B .azure-pipelines/pruebas/vulnerabilidades.py probar
-        displayName: La barrera de vulnerabilidades se prueba a sí misma
-
-      # Pruebas de regresión de un verificador independiente (JSON no estricto, comandos del agente, momento exacto).
-      - script: python3 -I -B .azure-pipelines/pruebas/vulnerabilidades_regresion.py
-        displayName: Pruebas de regresión de la barrera de vulnerabilidades
-
-      - script: |
-          set -eu
-          go tool govulncheck -format json ./... > "$(Agent.TempDirectory)/govulncheck.json"
-        workingDirectory: api
-        displayName: Análisis de vulnerabilidades en JSON (govulncheck)
-
-      - script: python3 -I -B .azure-pipelines/pruebas/vulnerabilidades.py revisar "$(Agent.TempDirectory)/govulncheck.json"
-        displayName: Vulnerabilidades alcanzadas con la regla de los 7 días (aviso si el arreglo es más nuevo, falla si no)
+      # Barrera de vulnerabilidades con la regla de los 7 días (D-201): cuatro pasos en plantillas/pasos/vulnerabilidades.yml,
+      # que también corre la revisión diaria (revision-diaria.yml) sobre main. Qué hace cada uno: en esa plantilla.
+      - template: pasos/vulnerabilidades.yml
 
       - script: go test -race ./...
         workingDirectory: api
