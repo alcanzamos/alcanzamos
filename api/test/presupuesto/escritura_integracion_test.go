@@ -159,6 +159,50 @@ func TestIntegracionOtroMesYLoAjeno(t *testing.T) {
 	}
 }
 
+// L14 (cambio 2) de la US-77: la escritura, como la lectura, solo toca los presupuestos propios (`hogar_id` nulo). Uno
+// compartido con el hogar, aunque lo haya puesto la misma persona y sea del mes en curso, no se corrige ni se quita
+// (`404 no_encontrado`, el mismo de uno ajeno) y el repositorio no lo lee (Obtener), ni lo corrige ni lo quita aunque el
+// servicio no lo hubiera comprobado antes. Una categoría oculta que solo tiene un presupuesto compartido no vale para
+// «Poner» (`422 categoria_invalida`): la excepción de RN-011 es para la que ya tiene presupuesto propio. Nada cambia.
+func TestIntegracionLaEscrituraNoTocaLosPresupuestosCompartidos(t *testing.T) {
+	s := nuevoServidor(t)
+	c := s.nuevaPersona("laura@ejemplo.test", false, true)
+	hogarID := s.nuevoHogar(c.persona)
+	var compartido string
+	if err := s.pool.QueryRow(context.Background(), `INSERT INTO presupuesto (persona_id, hogar_id, categoria_id, periodo, monto_asignado)
+		VALUES ($1::uuid, $2::uuid, $3, '2026-11-01', 5000000), ($1::uuid, $2::uuid, $4, '2026-11-01', 7000000) RETURNING id::text`,
+		c.persona, hogarID, transporte, recreacion).Scan(&compartido); err != nil {
+		t.Fatal(err)
+	}
+	s.ejecutar(`INSERT INTO ocultamiento_categoria (persona_id, categoria_id) VALUES ($1::uuid, $2)`, c.persona, recreacion)
+	antes := s.fotoDePresupuestos()
+
+	for _, p := range []struct{ metodo, ruta, cuerpo, quiere string }{
+		{"PUT", "/api/v1/presupuestos/" + compartido, `{"monto_centavos":1}`, `{"error":"no_encontrado"}`},
+		{"DELETE", "/api/v1/presupuestos/" + compartido, "", `{"error":"no_encontrado"}`},
+		{"POST", "/api/v1/presupuestos", `{"periodo":"2026-11","categoria_id":11,"monto_centavos":1}`, `{"campos":{"categoria_id":"categoria_invalida"},"error":"datos_invalidos"}`},
+	} {
+		if r := c.llamar(p.metodo, p.ruta, p.cuerpo); r.Cuerpo != p.quiere {
+			t.Errorf("%s %s: %d %s", p.metodo, p.ruta, r.Codigo, r.Cuerpo)
+		}
+	}
+
+	repo := pg.NuevoPresupuestos(s.pool)
+	ctx, noviembre := context.Background(), time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	if _, err := repo.Obtener(ctx, c.persona, compartido); !errors.Is(err, presupuesto.ErrNoEncontrado) {
+		t.Errorf("obtener: %v", err)
+	}
+	if err := repo.Corregir(ctx, c.persona, compartido, noviembre, 1); !errors.Is(err, presupuesto.ErrNoEncontrado) {
+		t.Errorf("corregir: %v", err)
+	}
+	if err := repo.Quitar(ctx, c.persona, compartido, noviembre); !errors.Is(err, presupuesto.ErrNoEncontrado) {
+		t.Errorf("quitar: %v", err)
+	}
+	if despues := s.fotoDePresupuestos(); despues != antes {
+		t.Errorf("cambió:\n%s\n%s", antes, despues)
+	}
+}
+
 // Solo una persona adulta presupuesta (E12, RF-007): el repositorio no guarda el de una menor (ErrSoloAdultos) ni el de
 // una cuenta borrada (ErrSinCuenta). Va contra el repositorio porque un menor todavía no inicia sesión (I11).
 func TestIntegracionUnaMenorYUnaCuentaBorradaNoPresupuestan(t *testing.T) {

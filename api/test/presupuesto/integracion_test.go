@@ -192,6 +192,7 @@ type vistaLeida struct {
 		SinAsignar        *json.Number `json:"sin_asignar_centavos"`
 		SuperaPor         *json.Number `json:"asignado_supera_por_centavos"`
 		LlegaDespues      json.Number  `json:"llega_despues_centavos"`
+		PorConfirmar      json.Number  `json:"por_confirmar_centavos"`
 	} `json:"resumen"`
 	LlegaDespues []presupuesto.IngresoPendiente `json:"llega_despues"`
 	Categorias   []struct {
@@ -284,7 +285,7 @@ func TestIntegracionPN06NoviembreDeLaura(t *testing.T) {
 		v := leerJSON[vistaLeida](t, c.llamar("GET", "/api/v1/presupuestos", ""))
 		if v.PeriodoActual != "2026-11" || v.Periodo != "2026-11" || !v.Editable || v.Resumen.Modo != presupuesto.ModoNormal ||
 			v.Resumen.IngresoRegistrado != "120000000" || v.Resumen.Asignado != "4000000" || v.Resumen.SinAsignar == nil ||
-			*v.Resumen.SinAsignar != "116000000" || v.Resumen.SuperaPor != nil || v.Resumen.LlegaDespues != "120000000" {
+			*v.Resumen.SinAsignar != "116000000" || v.Resumen.SuperaPor != nil || v.Resumen.LlegaDespues != "120000000" || v.Resumen.PorConfirmar != "0" {
 			t.Errorf("resumen: %+v", v)
 		}
 		if len(v.LlegaDespues) != 1 || v.LlegaDespues[0] != (presupuesto.IngresoPendiente{RecurrenteID: salarioRec, Fecha: "2026-11-16",
@@ -296,6 +297,66 @@ func TestIntegracionPN06NoviembreDeLaura(t *testing.T) {
 		}
 		if v.Categorias[0].Nombre != "Transporte" || v.Categorias[0].Presupuesto.ID == "" {
 			t.Errorf("fila de Transporte: %+v", v.Categorias[0])
+		}
+	})
+}
+
+// llegaDespuesLeido resume `llega_despues` como «fecha:marca:monto».
+func llegaDespuesLeido(v vistaLeida) string {
+	var partes []string
+	for _, p := range v.LlegaDespues {
+		partes = append(partes, fmt.Sprintf("%s:%s:%d", p.Fecha, p.Marca, p.MontoCentavos))
+	}
+	return strings.Join(partes, " ")
+}
+
+// L14 (1) de la US-77 de punta a punta: «Llega después» trae lo esperado y lo por confirmar, cada fecha con su marca, y un
+// total para cada uno. El 2 de noviembre Laura registra tres ingresos de octubre con repetición mensual: Ventas el 5
+// ($30.000), Salario el 16 ($1.200.000) y Ayudas el 25 ($250.000). En noviembre no registra ninguno: es PN-07 «ingreso
+// nulo», también con el salario vencido sin confirmar, que se ve en `por_confirmar_centavos`. El 16: el 5 y el 16 por
+// confirmar y el 25 esperado. El 26: todo por confirmar. El 2 de diciembre, noviembre terminado sigue con sus tres fechas
+// por confirmar; al confirmar el salario con la ruta de la US-60 pasa a lo registrado y sale de la lista.
+func TestIntegracionLlegaDespuesConLoEsperadoYLoPorConfirmar(t *testing.T) {
+	formas(t, func(t *testing.T, android bool) {
+		s := nuevoServidor(t)
+		c := s.nuevaPersona("laura@ejemplo.test", android, true)
+		const mensual = `,"repeticion":{"periodicidad":"mensual"}`
+		_, ventasRec := c.registrar(registro.Ingreso, 3000000, "2026-10-05", ventas, mensual)
+		_, salarioRec := c.registrar(registro.Ingreso, 120000000, "2026-10-16", salario, mensual)
+		_, ayudasRec := c.registrar(registro.Ingreso, 25000000, "2026-10-25", ayudas, mensual)
+
+		s.reloj.T = time.Date(2026, 11, 16, 15, 0, 0, 0, time.UTC)
+		v := leerJSON[vistaLeida](t, c.llamar("GET", "/api/v1/presupuestos", ""))
+		if v.Resumen.Modo != presupuesto.ModoIngresoNulo || v.Resumen.IngresoRegistrado != "0" || v.Resumen.SinAsignar != nil ||
+			v.Resumen.LlegaDespues != "25000000" || v.Resumen.PorConfirmar != "123000000" {
+			t.Errorf("el 16: %+v", v.Resumen)
+		}
+		if got := llegaDespuesLeido(v); got != "2026-11-05:por_confirmar:3000000 2026-11-16:por_confirmar:120000000 2026-11-25:esperado:25000000" ||
+			v.LlegaDespues[0].RecurrenteID != ventasRec || v.LlegaDespues[1].RecurrenteID != salarioRec || v.LlegaDespues[2].RecurrenteID != ayudasRec {
+			t.Errorf("el 16: %s %+v", got, v.LlegaDespues)
+		}
+
+		const todoPorConfirmar = "2026-11-05:por_confirmar:3000000 2026-11-16:por_confirmar:120000000 2026-11-25:por_confirmar:25000000"
+		s.reloj.T = time.Date(2026, 11, 26, 15, 0, 0, 0, time.UTC)
+		v = leerJSON[vistaLeida](t, c.llamar("GET", "/api/v1/presupuestos", ""))
+		if got := llegaDespuesLeido(v); got != todoPorConfirmar || v.Resumen.LlegaDespues != "0" || v.Resumen.PorConfirmar != "148000000" ||
+			v.Resumen.Modo != presupuesto.ModoIngresoNulo {
+			t.Errorf("el 26: %s %+v", got, v.Resumen)
+		}
+
+		s.reloj.T = time.Date(2026, 12, 2, 15, 0, 0, 0, time.UTC)
+		v = leerJSON[vistaLeida](t, c.llamar("GET", "/api/v1/presupuestos?periodo=2026-11", ""))
+		if got := llegaDespuesLeido(v); v.Editable || got != todoPorConfirmar || v.Resumen.LlegaDespues != "0" || v.Resumen.PorConfirmar != "148000000" {
+			t.Errorf("noviembre terminado: %s %+v", got, v)
+		}
+		if r := c.llamar("POST", "/api/v1/repeticiones/"+salarioRec+"/confirmacion", `{"fecha":"2026-11-16"}`); r.Codigo != 201 {
+			t.Fatalf("confirmar: %d %s", r.Codigo, r.Cuerpo)
+		}
+		v = leerJSON[vistaLeida](t, c.llamar("GET", "/api/v1/presupuestos?periodo=2026-11", ""))
+		if got := llegaDespuesLeido(v); got != "2026-11-05:por_confirmar:3000000 2026-11-25:por_confirmar:25000000" ||
+			v.Resumen.LlegaDespues != "0" || v.Resumen.PorConfirmar != "28000000" || v.Resumen.Modo != presupuesto.ModoNormal ||
+			v.Resumen.IngresoRegistrado != "120000000" || v.Resumen.SinAsignar == nil || *v.Resumen.SinAsignar != "120000000" {
+			t.Errorf("tras confirmar el salario: %s %+v", got, v.Resumen)
 		}
 	})
 }
@@ -367,6 +428,29 @@ func TestIntegracionAportesFueraYCategoriasOcultas(t *testing.T) {
 	}
 }
 
+// nuevoHogar crea un hogar con la persona como administradora y miembro, y devuelve su id. Van en una transacción:
+// `fk_hogar_administrador_miembro` es diferida.
+func (s *servidorDePrueba) nuevoHogar(persona string) string {
+	s.t.Helper()
+	ctx := context.Background()
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	defer tx.Rollback(ctx)
+	var hogarID string
+	if err := tx.QueryRow(ctx, `INSERT INTO hogar (nombre, creado_en, administrador_id) VALUES ('Casa', '2026-11-01', $1::uuid) RETURNING id::text`, persona).Scan(&hogarID); err != nil {
+		s.t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO miembro_hogar (persona_id, hogar_id) VALUES ($1::uuid, $2::uuid)`, persona, hogarID); err != nil {
+		s.t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		s.t.Fatal(err)
+	}
+	return hogarID
+}
+
 // L12 (2) de la US-77: PN-06 lee solo los presupuestos propios (`hogar_id` nulo), como la escritura y la descarga. Los
 // compartidos con el hogar, aunque los haya puesto la misma persona, no son filas ni suman en lo asignado: Alimentación
 // sale sin presupuesto (con su gasto) y Educación, sin gasto, no sale.
@@ -376,23 +460,7 @@ func TestIntegracionPN06SoloLosPresupuestosPropios(t *testing.T) {
 	c.registrar(registro.Ingreso, 10000000, "2026-11-01", salario, "")
 	c.registrar(registro.Gasto, 1000000, "2026-11-02", alimentacion, "")
 	c.registrar(registro.Gasto, 500000, "2026-11-02", transporte, "")
-	// El hogar y su administradora van en una transacción: `fk_hogar_administrador_miembro` es diferida.
-	ctx := context.Background()
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer tx.Rollback(ctx)
-	var hogarID string
-	if err := tx.QueryRow(ctx, `INSERT INTO hogar (nombre, creado_en, administrador_id) VALUES ('Casa', '2026-11-01', $1::uuid) RETURNING id::text`, c.persona).Scan(&hogarID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := tx.Exec(ctx, `INSERT INTO miembro_hogar (persona_id, hogar_id) VALUES ($1::uuid, $2::uuid)`, c.persona, hogarID); err != nil {
-		t.Fatal(err)
-	}
-	if err := tx.Commit(ctx); err != nil {
-		t.Fatal(err)
-	}
+	hogarID := s.nuevoHogar(c.persona)
 	s.ejecutar(`INSERT INTO presupuesto (persona_id, hogar_id, categoria_id, periodo, monto_asignado) VALUES
 		($1::uuid, NULL, $3, '2026-11-01', 3000000), ($1::uuid, $2::uuid, $4, '2026-11-01', 5000000), ($1::uuid, $2::uuid, $5, '2026-11-01', 7000000)`,
 		c.persona, hogarID, transporte, alimentacion, educacion)
@@ -490,7 +558,7 @@ func TestIntegracionPN08ConLasFechasDeLaUS60(t *testing.T) {
 			t.Errorf("confirmado: %s %+v", got, l.Total)
 		}
 		v := leerJSON[vistaLeida](t, c.llamar("GET", "/api/v1/presupuestos", ""))
-		if *v.Resumen.SinAsignar != "236000000" || v.Resumen.LlegaDespues != "0" || len(v.LlegaDespues) != 0 {
+		if *v.Resumen.SinAsignar != "236000000" || v.Resumen.LlegaDespues != "0" || v.Resumen.PorConfirmar != "0" || len(v.LlegaDespues) != 0 {
 			t.Errorf("PN-06 tras confirmar: %+v", v.Resumen)
 		}
 

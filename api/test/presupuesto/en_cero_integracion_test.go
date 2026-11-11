@@ -113,6 +113,30 @@ func TestIntegracionDejarEnCeroConAlgoAsignadoYEnOtroMes(t *testing.T) {
 	}
 }
 
+// L14 (cambio 2) de la US-77: lo asignado de «Dejar el presupuesto en cero» es solo lo propio (`hogar_id` nulo), la misma
+// suma de `resumen.asignado_centavos`. Con solo presupuestos compartidos con el hogar el mes sigue en cero: `204`, la marca
+// se guarda y `en_cero` es true. Los compartidos no cambian.
+func TestIntegracionDejarEnCeroConSoloPresupuestosCompartidos(t *testing.T) {
+	s := nuevoServidor(t)
+	c := s.nuevaPersona("laura@ejemplo.test", false, true)
+	hogarID := s.nuevoHogar(c.persona)
+	s.ejecutar(`INSERT INTO presupuesto (persona_id, hogar_id, categoria_id, periodo, monto_asignado) VALUES ($1::uuid, $2::uuid, $3, '2026-11-01', 5000000)`,
+		c.persona, hogarID, transporte)
+	antes := s.fotoDePresupuestos()
+	if r := c.llamar("POST", "/api/v1/presupuestos/en-cero", `{"periodo":"2026-11"}`); r.Codigo != 204 || r.Cuerpo != "" {
+		t.Fatalf("con solo compartidos: %d %s", r.Codigo, r.Cuerpo)
+	}
+	if got := s.fotoDeEnCero(); got != c.persona+"|2026-11-01" {
+		t.Errorf("guardado: %q", got)
+	}
+	if v := leerJSON[vistaLeida](t, c.llamar("GET", "/api/v1/presupuestos", "")); !v.Resumen.EnCero || v.Resumen.Asignado != "0" {
+		t.Errorf("en cero: %+v", v.Resumen)
+	}
+	if despues := s.fotoDePresupuestos(); despues != antes {
+		t.Errorf("cambió:\n%s\n%s", antes, despues)
+	}
+}
+
 // Solo una persona adulta deja su presupuesto en cero (la llave de 0004 apunta a `perfil_adulto`): el repositorio da
 // ErrSoloAdultos con una menor y ErrSinCuenta con una cuenta borrada, sin guardar nada. Va contra el repositorio porque un
 // menor todavía no inicia sesión (I11).

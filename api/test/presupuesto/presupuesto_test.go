@@ -30,6 +30,7 @@ const (
 	recSalario  = "0192f3c4-0000-7000-8000-0000000000a1"
 	recVentas   = "0192f3c4-0000-7000-8000-0000000000a2"
 	recArriendo = "0192f3c4-0000-7000-8000-0000000000a3"
+	recAyudas   = "0192f3c4-0000-7000-8000-0000000000a4"
 
 	// El 2 de noviembre de 2026 a las 10:00 en Colombia: la fecha de referencia de E14-PPA 2.1.
 	dosDeNoviembre = "2026-11-02T15:00:00Z"
@@ -207,7 +208,7 @@ func TestPN06NoviembreDeLauraConSinAsignarYLlegaDespues(t *testing.T) {
 	repo := &repoFalso{presupuesto: noviembreDeLaura()}
 	const quiere = `{"periodo_actual":"2026-11","periodo":"2026-11","editable":true,` +
 		`"resumen":{"modo":"normal","en_cero":false,"ingreso_registrado_centavos":120000000,"asignado_centavos":4000000,"sin_asignar_centavos":116000000,` +
-		`"asignado_supera_por_centavos":null,"llega_despues_centavos":120000000},` +
+		`"asignado_supera_por_centavos":null,"llega_despues_centavos":120000000,"por_confirmar_centavos":0},` +
 		`"llega_despues":[{"recurrente_id":"` + recSalario + `","fecha":"2026-11-16","categoria_id":17,"monto_centavos":120000000,"marca":"esperado"}],` +
 		`"categorias":[` +
 		`{"categoria_id":8,"nombre":"Transporte","oculta":false,"presupuesto":{"id":"p-transporte","monto_centavos":4000000},"gastado_centavos":4000000,"estado":"usado_todo","quedan_centavos":null},` +
@@ -255,7 +256,7 @@ func TestPN07MesVacioEsIngresoNuloSinSinAsignar(t *testing.T) {
 	repo := &repoFalso{presupuesto: presupuesto.DatosDelPresupuesto{Adulta: true, Categorias: catalogo()}}
 	const quiere = `{"periodo_actual":"2026-11","periodo":"2026-11","editable":true,` +
 		`"resumen":{"modo":"ingreso_nulo","en_cero":false,"ingreso_registrado_centavos":0,"asignado_centavos":0,"sin_asignar_centavos":null,` +
-		`"asignado_supera_por_centavos":null,"llega_despues_centavos":0},"llega_despues":[],"categorias":[]}`
+		`"asignado_supera_por_centavos":null,"llega_despues_centavos":0,"por_confirmar_centavos":0},"llega_despues":[],"categorias":[]}`
 	if got := verPresupuesto(t, repo, dosDeNoviembre, ""); got != quiere {
 		t.Errorf("respuesta\n%s\nse esperaba\n%s", got, quiere)
 	}
@@ -270,7 +271,7 @@ func TestPN07IngresoBajoDaLoQueSuperaLoAsignado(t *testing.T) {
 			{ID: "p-transporte", CategoriaID: transporte, Monto: 6000000}, {ID: "p-alimentacion", CategoriaID: alimentacion, Monto: 10000000}}}
 	const quiere = `{"periodo_actual":"2026-11","periodo":"2026-11","editable":true,` +
 		`"resumen":{"modo":"ingreso_bajo","en_cero":false,"ingreso_registrado_centavos":15000000,"asignado_centavos":16000000,"sin_asignar_centavos":null,` +
-		`"asignado_supera_por_centavos":1000000,"llega_despues_centavos":0},"llega_despues":[],"categorias":[` +
+		`"asignado_supera_por_centavos":1000000,"llega_despues_centavos":0,"por_confirmar_centavos":0},"llega_despues":[],"categorias":[` +
 		`{"categoria_id":1,"nombre":"Alimentación","oculta":false,"presupuesto":{"id":"p-alimentacion","monto_centavos":10000000},"gastado_centavos":0,"estado":"quedan","quedan_centavos":10000000},` +
 		`{"categoria_id":8,"nombre":"Transporte","oculta":false,"presupuesto":{"id":"p-transporte","monto_centavos":6000000},"gastado_centavos":0,"estado":"quedan","quedan_centavos":6000000}]}`
 	if got := verPresupuesto(t, &repoFalso{presupuesto: d}, dosDeNoviembre, ""); got != quiere {
@@ -425,8 +426,9 @@ func TestPN06ElNombreSeComparaComoEnEspanol(t *testing.T) {
 	}
 }
 
-// Un mes pasado no se edita (D-094) y su fecha pendiente que ya llegó está por confirmar; una fecha omitida («No pasó»,
-// D-092) y una repetición detenida no llegan después; un gasto recurrente tampoco.
+// Un mes pasado no se edita (D-094) y su fecha pendiente que ya llegó está por confirmar: va en `llega_despues` con su
+// marca y suma en `por_confirmar_centavos`, no en `llega_despues_centavos` (L14 (1) de la US-77). Una fecha omitida («No
+// pasó», D-092) y una repetición detenida no llegan después; un gasto recurrente tampoco.
 func TestPN06MesPasadoNoEditableConLoPorConfirmarYSinLoOmitido(t *testing.T) {
 	detenida := dia("2026-10-20")
 	d := presupuesto.DatosDelPresupuesto{Adulta: true, Categorias: catalogo(), Recurrentes: []registro.Recurrente{
@@ -438,10 +440,71 @@ func TestPN06MesPasadoNoEditableConLoPorConfirmarYSinLoOmitido(t *testing.T) {
 	got := verPresupuesto(t, &repoFalso{presupuesto: d}, dosDeNoviembre, "?periodo=2026-10")
 	const quiere = `{"periodo_actual":"2026-11","periodo":"2026-10","editable":false,` +
 		`"resumen":{"modo":"ingreso_nulo","en_cero":false,"ingreso_registrado_centavos":0,"asignado_centavos":0,"sin_asignar_centavos":null,` +
-		`"asignado_supera_por_centavos":null,"llega_despues_centavos":120000000},` +
+		`"asignado_supera_por_centavos":null,"llega_despues_centavos":0,"por_confirmar_centavos":120000000},` +
 		`"llega_despues":[{"recurrente_id":"` + recSalario + `","fecha":"2026-10-16","categoria_id":17,"monto_centavos":120000000,"marca":"por_confirmar"}],"categorias":[]}`
 	if got != quiere {
 		t.Errorf("respuesta\n%s\nse esperaba\n%s", got, quiere)
+	}
+}
+
+// tresIngresosMensuales son tres repeticiones de ingreso creadas el 2 de noviembre, con su fecha de octubre registrada:
+// Ventas el 5 ($30.000), Salario el 16 ($1.200.000) y Ayudas el 25 ($250.000). En noviembre no hay ningún ingreso
+// registrado.
+func tresIngresosMensuales() []registro.Recurrente {
+	mensual := func(id string, categoria int, monto int64, inicio string) registro.Recurrente {
+		return registro.Recurrente{ID: id, Tipo: registro.Ingreso, CategoriaID: categoria, Medio: "efectivo", Periodicidad: fechas.Mensual,
+			Monto: monto, Inicio: dia(inicio), CreadoEl: dia("2026-11-02"), Confirmadas: []time.Time{dia(inicio)}}
+	}
+	return []registro.Recurrente{mensual(recVentas, ventas, 3000000, "2026-10-05"), mensual(recSalario, salario, 120000000, "2026-10-16"),
+		mensual(recAyudas, ayudas, 25000000, "2026-10-25")}
+}
+
+// L14 (1) de la US-77: «Llega después» trae lo esperado y lo por confirmar, cada fecha con su marca, y un total para cada
+// uno. El 16 de noviembre: el 5 ya pasó y el 16 es hoy (por confirmar, $1.230.000) y el 25 todavía no llega (esperado,
+// $250.000). Ninguno cuenta en «Sin asignar», y el modo sigue siendo el de lo registrado (D-094, P-1 y P-3): sin ingreso
+// registrado es PN-07 «ingreso nulo», aunque el salario esté por confirmar.
+func TestPN06LlegaDespuesSeparaLoEsperadoDeLoPorConfirmar(t *testing.T) {
+	repo := &repoFalso{presupuesto: presupuesto.DatosDelPresupuesto{Adulta: true, Categorias: catalogo(), Recurrentes: tresIngresosMensuales()}}
+	got := verPresupuesto(t, repo, "2026-11-16T15:00:00Z", "")
+	const quiere = `{"periodo_actual":"2026-11","periodo":"2026-11","editable":true,` +
+		`"resumen":{"modo":"ingreso_nulo","en_cero":false,"ingreso_registrado_centavos":0,"asignado_centavos":0,"sin_asignar_centavos":null,` +
+		`"asignado_supera_por_centavos":null,"llega_despues_centavos":25000000,"por_confirmar_centavos":123000000},` +
+		`"llega_despues":[` +
+		`{"recurrente_id":"` + recVentas + `","fecha":"2026-11-05","categoria_id":18,"monto_centavos":3000000,"marca":"por_confirmar"},` +
+		`{"recurrente_id":"` + recSalario + `","fecha":"2026-11-16","categoria_id":17,"monto_centavos":120000000,"marca":"por_confirmar"},` +
+		`{"recurrente_id":"` + recAyudas + `","fecha":"2026-11-25","categoria_id":20,"monto_centavos":25000000,"marca":"esperado"}],` +
+		`"categorias":[]}`
+	if got != quiere {
+		t.Errorf("respuesta\n%s\nse esperaba\n%s", got, quiere)
+	}
+}
+
+// Con todo por confirmar, el total de lo esperado es 0 y el de lo por confirmar, la suma de las tres fechas: el 26 de
+// noviembre, que sigue en curso, y el 2 de diciembre, con noviembre ya terminado. En un mes terminado toda fecha pendiente
+// ya llegó (E15 5.2): solo quedan las por confirmar que nadie confirmó ni omitió. Un mes que no ha empezado solo tiene
+// esperadas.
+func TestPN06SoloPorConfirmarYUnMesTerminado(t *testing.T) {
+	const lista = `"llega_despues":[` +
+		`{"recurrente_id":"` + recVentas + `","fecha":"2026-11-05","categoria_id":18,"monto_centavos":3000000,"marca":"por_confirmar"},` +
+		`{"recurrente_id":"` + recSalario + `","fecha":"2026-11-16","categoria_id":17,"monto_centavos":120000000,"marca":"por_confirmar"},` +
+		`{"recurrente_id":"` + recAyudas + `","fecha":"2026-11-25","categoria_id":20,"monto_centavos":25000000,"marca":"por_confirmar"}]`
+	const totales = `"llega_despues_centavos":0,"por_confirmar_centavos":148000000}`
+	for _, c := range []struct{ nombre, ahora, consulta, inicio string }{
+		{"el 26, en curso", "2026-11-26T15:00:00Z", "", `{"periodo_actual":"2026-11","periodo":"2026-11","editable":true,`},
+		{"el 2 de diciembre, terminado", "2026-12-02T15:00:00Z", "?periodo=2026-11", `{"periodo_actual":"2026-12","periodo":"2026-11","editable":false,`},
+	} {
+		t.Run(c.nombre, func(t *testing.T) {
+			repo := &repoFalso{presupuesto: presupuesto.DatosDelPresupuesto{Adulta: true, Categorias: catalogo(), Recurrentes: tresIngresosMensuales()}}
+			got := verPresupuesto(t, repo, c.ahora, c.consulta)
+			if !strings.HasPrefix(got, c.inicio) || !strings.Contains(got, totales) || !strings.Contains(got, lista) {
+				t.Errorf("respuesta\n%s\nse esperaba %s, %s y %s", got, c.inicio, totales, lista)
+			}
+		})
+	}
+	repo := &repoFalso{presupuesto: presupuesto.DatosDelPresupuesto{Adulta: true, Categorias: catalogo(), Recurrentes: tresIngresosMensuales()}}
+	got := verPresupuesto(t, repo, "2026-11-16T15:00:00Z", "?periodo=2026-12")
+	if !strings.Contains(got, `"llega_despues_centavos":148000000,"por_confirmar_centavos":0}`) || strings.Contains(got, `"marca":"por_confirmar"`) {
+		t.Errorf("diciembre: %s", got)
 	}
 }
 
@@ -623,7 +686,7 @@ func TestDosIngresosPendientesDelMismoDia(t *testing.T) {
 	const quiere = `"llega_despues":[` +
 		`{"recurrente_id":"` + recSalario + `","fecha":"2026-11-16","categoria_id":17,"monto_centavos":4,"marca":"esperado"},` +
 		`{"recurrente_id":"` + recVentas + `","fecha":"2026-11-16","categoria_id":18,"monto_centavos":3,"marca":"esperado"}]`
-	if !strings.Contains(got, quiere) || !strings.Contains(got, `"llega_despues_centavos":7}`) {
+	if !strings.Contains(got, quiere) || !strings.Contains(got, `"llega_despues_centavos":7,"por_confirmar_centavos":0}`) {
 		t.Errorf("%s", got)
 	}
 }
