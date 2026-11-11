@@ -1874,7 +1874,7 @@
         },
         "seSumaCuandoLlegue": {
           "texto": "{nombre} del {fecha} se suma cuando llegue.",
-          "e14": "Propuesto en la US-77 (T3, web), pendiente de aprobación del dueño: E14 no tiene el texto. Sale de E14-PPA 4.1 (PN-06), fila 3 («El salario del 16 de noviembre de 2026 se suma cuando llegue.»), con el nombre de la categoría tal cual; solo con una fecha esperada"
+          "e14": "Propuesto en la US-77 (T3, web) y aprobado por el dueño (L14 de la US-77, punto 3, 2026-11-11): E14 no tiene el texto. Sale de E14-PPA 4.1 (PN-06), fila 3 («El salario del 16 de noviembre de 2026 se suma cuando llegue.»), con el nombre de la categoría tal cual; solo con una fecha esperada"
         },
         "seSumaCuandoLoConfirmes": {
           "texto": "{nombre} del {fecha} se suma cuando lo confirmes.",
@@ -1952,11 +1952,11 @@
         },
         "nombreDePoner": {
           "texto": "Poner presupuesto a {categoria}",
-          "e14": "Propuesto en la US-77 (T3, web), pendiente de aprobación del dueño: E14 no tiene el texto. E14-PPA 4.1 (PN-06) pide el nombre de la categoría en el nombre accesible de «Poner presupuesto» (RNF-019, criterio 6)"
+          "e14": "Propuesto en la US-77 (T3, web) y aprobado por el dueño (L17 de la US-77, 2026-11-11): E14 no tiene el texto. E14-PPA 4.1 (PN-06) pide el nombre de la categoría en el nombre accesible de «Poner presupuesto» (RNF-019, criterio 6)"
         },
         "nombreDeQuitar": {
           "texto": "Quitar el presupuesto de {categoria}",
-          "e14": "Propuesto en la US-77 (T3, web), pendiente de aprobación del dueño: E14 no tiene el texto. E14-PPA 4.1 (PN-06) pide el nombre de la categoría en el nombre accesible de «Quitar» (SC-E21-13); sale del título de la hoja «¿Quitar el presupuesto de Transporte?»"
+          "e14": "Propuesto en la US-77 (T3, web) y aprobado por el dueño (L17 de la US-77, 2026-11-11): E14 no tiene el texto. E14-PPA 4.1 (PN-06) pide el nombre de la categoría en el nombre accesible de «Quitar» (SC-E21-13); sale del título de la hoja «¿Quitar el presupuesto de Transporte?»"
         },
         "agregarOtra": {
           "texto": "Agregar otra categoría",

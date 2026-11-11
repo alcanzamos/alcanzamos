@@ -141,7 +141,7 @@ const encabezado = (page: Page, nombre: string) =>
 /** Lo que la Navegación lateral web (E14-SDD 5.13) muestra en una pantalla con sesión. */
 export type Lateral = {
   /** El enlace con `aria-current="page"`; `null` cuando la pantalla no es un destino (E14-PTU 4.0). */
-  activo: "Movimientos" | "Registrar" | null;
+  activo: "Movimientos" | "Presupuesto" | "Registrar" | null;
   /** Secundario donde la pantalla ya tiene su Primario: un solo Primario por pantalla (E14-SDD 5.13). */
   registrar: "primario" | "secundario";
 };
@@ -382,9 +382,11 @@ export const pantallas: Pantalla[] = [
       await expect(page.getByRole("radio", { name: "Cada mes" })).toBeChecked();
     },
   },
+  // PN-06 y PN-07 son el destino «Presupuesto» (E14-PPA 4.1, variante web); PN-08 no es un destino (E14-PPA 1): lleva
+  // Barra superior con Atrás y la barra sin destino activo, como PN-03.
   {
     nombre: "PN-06 /presupuesto",
-    lateral: { activo: null, registrar: "primario" },
+    lateral: { activo: "Presupuesto", registrar: "primario" },
     preparar: (page) => apiDePresupuesto(page, casos.laura()),
     abrir: async (page) => {
       await abrirConTitulo("/presupuesto", "Presupuesto de noviembre")(page);
@@ -395,7 +397,7 @@ export const pantallas: Pantalla[] = [
   },
   {
     nombre: "PN-06 /presupuesto con la hoja «Poner presupuesto» abierta",
-    lateral: { activo: null, registrar: "primario" },
+    lateral: { activo: "Presupuesto", registrar: "primario" },
     preparar: (page) => apiDePresupuesto(page, casos.laura()),
     abrir: async (page) => {
       await abrirConTitulo("/presupuesto", "Presupuesto de noviembre")(page);
@@ -410,7 +412,7 @@ export const pantallas: Pantalla[] = [
   },
   {
     nombre: "PN-07 /presupuesto con ingreso nulo",
-    lateral: { activo: null, registrar: "primario" },
+    lateral: { activo: "Presupuesto", registrar: "primario" },
     preparar: (page) => apiDePresupuesto(page, casos.nulo()),
     abrir: async (page) => {
       await abrirConTitulo("/presupuesto", "Presupuesto de noviembre")(page);
@@ -421,7 +423,7 @@ export const pantallas: Pantalla[] = [
   },
   {
     nombre: "PN-07 /presupuesto con ingreso bajo",
-    lateral: { activo: null, registrar: "primario" },
+    lateral: { activo: "Presupuesto", registrar: "primario" },
     preparar: (page) => apiDePresupuesto(page, casos.bajo()),
     abrir: async (page) => {
       await abrirConTitulo("/presupuesto", "Presupuesto de noviembre")(page);
