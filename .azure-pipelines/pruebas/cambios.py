@@ -30,7 +30,11 @@ CARPETAS = {
         "marca/logo-horizontal-color.svg",
         ".azure-pipelines/api.yml",
         ".azure-pipelines/plantillas/api.yml",
+        ".azure-pipelines/plantillas/pasos/go.yml",
+        ".azure-pipelines/plantillas/pasos/vulnerabilidades.yml",
         ".azure-pipelines/pruebas/cobertura.py",
+        ".azure-pipelines/pruebas/vulnerabilidades.py",
+        ".azure-pipelines/pruebas/vulnerabilidades_regresion.py",
     ),
     "web": (
         "web/*",
@@ -38,6 +42,7 @@ CARPETAS = {
         "marca/logo-horizontal-color.svg",
         ".azure-pipelines/web.yml",
         ".azure-pipelines/plantillas/web.yml",
+        ".azure-pipelines/plantillas/pasos/node.yml",
     ),
     "movil": (
         "movil/*",
@@ -45,6 +50,7 @@ CARPETAS = {
         "marca/logo-horizontal-color.svg",
         ".azure-pipelines/movil.yml",
         ".azure-pipelines/plantillas/movil.yml",
+        ".azure-pipelines/plantillas/pasos/node.yml",
     ),
     "infra": (
         "infra/*",
