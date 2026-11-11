@@ -713,7 +713,7 @@ Es Laura el 2 de noviembre de 2026 (E14-PPA 2.2, caso F): «Ingreso registrado $
 | `editable` | `periodo` es el mes en curso: solo entonces se pone, corrige y quita un presupuesto (D-094, SC-E21-13) |
 | `resumen.modo` | Qué tarjeta muestra la app (D-094, P-3): `normal` (PN-06) si hay ingreso registrado y lo asignado no lo supera; `ingreso_bajo` (PN-07) si lo asignado supera el ingreso registrado; `ingreso_nulo` (PN-07) si el ingreso registrado es cero, haya o no algo asignado |
 | `ingreso_registrado_centavos` | La suma de los movimientos de **ingreso** del periodo (RF-007: nunca supone un salario). Un retiro de una meta no es un ingreso (RN-013) |
-| `asignado_centavos` | La suma de los presupuestos del periodo |
+| `asignado_centavos` | La suma de los presupuestos **propios** del periodo (`hogar_id` nulo, como la escritura y la descarga; L12 (2) de la US-77): uno compartido con el hogar no suma ni es fila de `categorias` |
 | `sin_asignar_centavos` | Registrado menos asignado, **solo en `normal`** (≥ 0); `null` en los otros dos modos |
 | `asignado_supera_por_centavos` | Asignado menos registrado, **solo en `ingreso_bajo`** (> 0): «Lo asignado supera por $10.000 lo que registraste.» El API da el hecho y la app lo dice sin signo menos (RNF-017); `null` en los otros modos. Con `ingreso_nulo` no hay diferencia (E14-PPA 4.2) |
 | `llega_despues_centavos` y `llega_despues` | Las fechas pendientes de las repeticiones de **ingreso** del periodo: `esperado` si todavía no llegan y `por_confirmar` si ya llegaron. **No cuentan en «Sin asignar»** (D-094, P-1) hasta que se confirman. Cada una trae `recurrente_id` y `fecha`, los de las rutas de confirmar y omitir de la US-60. Sin pendientes, `0` y `[]`: la fila «Llega después» no se ve |

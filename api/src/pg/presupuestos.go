@@ -68,10 +68,12 @@ func (p *Presupuestos) Presupuesto(ctx context.Context, persona string, mes time
 	var d presupuesto.DatosDelPresupuesto
 	adulta, categorias, err := p.leer(ctx, persona, func(tx pgx.Tx) error {
 		var err error
+		// Solo los propios (`hogar_id` nulo), como la escritura y la descarga: los compartidos con el hogar no se mezclan
+		// (L12 (2) de la US-77).
 		if d.Presupuestos, err = filasDe(ctx, tx, "los presupuestos", func(f pgx.CollectableRow) (presupuesto.Guardado, error) {
 			g := presupuesto.Guardado{Periodo: mes}
 			return g, f.Scan(&g.ID, &g.CategoriaID, &g.Monto)
-		}, `SELECT id::text, categoria_id, monto_asignado FROM presupuesto WHERE persona_id = $1::uuid AND periodo = $2 ORDER BY categoria_id`,
+		}, `SELECT id::text, categoria_id, monto_asignado FROM presupuesto WHERE persona_id = $1::uuid AND hogar_id IS NULL AND periodo = $2 ORDER BY categoria_id`,
 			persona, mes); err != nil {
 			return err
 		}
