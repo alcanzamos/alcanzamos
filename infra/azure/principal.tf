@@ -47,6 +47,6 @@ resource "azurerm_key_vault" "secretos" {
   sku_name                   = "standard"
   rbac_authorization_enabled = true
   purge_protection_enabled   = true
-  soft_delete_retention_days = 90
+  soft_delete_retention_days = var.secretos_dias_de_retencion
   tags                       = local.etiquetas
 }

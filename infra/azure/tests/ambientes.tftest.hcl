@@ -111,6 +111,8 @@ run "produccion_conserva_nombres_y_tamanos" {
       azurerm_postgresql_flexible_server.datos.sku_name == "B_Standard_B1ms",
       azurerm_postgresql_flexible_server.datos.storage_mb == 32768,
       azurerm_log_analytics_workspace.registros.retention_in_days == 90,
+      azurerm_key_vault.secretos.soft_delete_retention_days == 90,
+      azurerm_key_vault.secretos.purge_protection_enabled == true,
       azurerm_container_app.api.template[0].min_replicas == 1,
       azurerm_container_app.api.template[0].max_replicas == 1,
       azurerm_container_app.api.template[0].container[0].cpu == 0.25,
@@ -223,6 +225,55 @@ run "los_tamanos_se_cambian_por_variable" {
     ])
     error_message = "Los tamaños deben salir de las variables."
   }
+}
+
+# Valores de UAT que decidió el dueño (S11, D-200 (8)), los mismos de uat.tfvars.example: API apagado sin tráfico,
+# registros por 30 días y Key Vault con protección contra el borrado, como producción, con la retención mínima de 7 días.
+run "uat_usa_los_valores_del_dueno" {
+  command = plan
+
+  variables {
+    ambiente                    = "uat"
+    dominio_de_correo           = "avisos-uat.alcanzamos.co"
+    api_replicas_minimas        = 0
+    registros_dias_de_retencion = 30
+    secretos_dias_de_retencion  = 7
+  }
+
+  assert {
+    condition = alltrue([
+      azurerm_container_app.api.template[0].min_replicas == 0,
+      azurerm_log_analytics_workspace.registros.retention_in_days == 30,
+      azurerm_key_vault.secretos.soft_delete_retention_days == 7,
+      azurerm_key_vault.secretos.purge_protection_enabled == true,
+    ])
+    error_message = "UAT debe usar réplicas mínimas 0, registros por 30 días y Key Vault con 7 días de retención y protección contra el borrado (S11)."
+  }
+}
+
+# Azure acepta de 7 a 90 días de retención en un Key Vault eliminado.
+run "secretos_con_menos_de_7_dias_se_rechaza" {
+  command = plan
+
+  variables {
+    ambiente                   = "uat"
+    dominio_de_correo          = "avisos-uat.alcanzamos.co"
+    secretos_dias_de_retencion = 6
+  }
+
+  expect_failures = [var.secretos_dias_de_retencion]
+}
+
+run "secretos_con_mas_de_90_dias_se_rechaza" {
+  command = plan
+
+  variables {
+    ambiente                   = "produccion"
+    dominio_de_correo          = "avisos.alcanzamos.co"
+    secretos_dias_de_retencion = 91
+  }
+
+  expect_failures = [var.secretos_dias_de_retencion]
 }
 
 run "ambiente_desconocido_se_rechaza" {

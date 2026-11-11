@@ -15,16 +15,16 @@ El desarrollo sigue en local ([`infra/local/`](../local/README.md)).
 
 | Recurso | Producción (O-14) | UAT | Notas |
 |---|---|---|---|
-| Log Analytics | `log-alcanzamos-prod-mxc` | `log-alcanzamos-uat-mxc` | Registros de Container Apps y eventos de seguridad; 90 días (RNF-025) |
-| Key Vault Standard | `kv-alcanzamos-prod-mxc` | `kv-alcanzamos-uat-mxc` | Permisos por RBAC; protección contra purga. Nombre único en todo Azure, de 3 a 24 caracteres (21 y 20) |
+| Log Analytics | `log-alcanzamos-prod-mxc` | `log-alcanzamos-uat-mxc` | Registros de Container Apps y eventos de seguridad; 90 días en producción (RNF-025) y 30 en UAT (S11) |
+| Key Vault Standard | `kv-alcanzamos-prod-mxc` | `kv-alcanzamos-uat-mxc` | Permisos por RBAC; protección contra purga en los dos ambientes; se recupera 90 días después de eliminarlo en producción y 7 en UAT (S11). Nombre único en todo Azure, de 3 a 24 caracteres (21 y 20) |
 | PostgreSQL flexible 18 | `psql-alcanzamos-prod-mxc` | `psql-alcanzamos-uat-mxc` | B1ms, 32 GiB (ADR-006 §5.2). Solo Entra ID, sin contraseñas; TLS obligatorio. Nombre único en todo Azure |
 | Entorno de Container Apps | `cae-alcanzamos-prod-mxc` | `cae-alcanzamos-uat-mxc` | Consumo |
-| App del API | `ca-api-alcanzamos-prod-mxc` | `ca-api-alcanzamos-uat-mxc` | 0,25 vCPU, 0,5 GiB, réplica mínima 1. Hasta 32 caracteres (26 y 25) |
+| App del API | `ca-api-alcanzamos-prod-mxc` | `ca-api-alcanzamos-uat-mxc` | 0,25 vCPU, 0,5 GiB, réplica mínima 1 en producción y 0 en UAT (S11). Hasta 32 caracteres (26 y 25) |
 | Trabajo programado | `caj-tareas-alcanzamos-prod-mxc` | `caj-tareas-alcanzamos-uat-mxc` | Misma imagen, comando `tareas`, cada 15 minutos (UTC). Hasta 32 caracteres (30 y 29) |
 | Servicio de correo | `ecs-alcanzamos-prod-mxc` | `ecs-alcanzamos-uat-mxc` | Datos en Francia (D-113) |
 | Dominio de correo | `avisos.alcanzamos.co` | `avisos-uat.alcanzamos.co` | Administrado por el cliente; remitente `no-responder@<dominio>` (D-120). Un dominio pertenece a un solo servicio de correo: cada ambiente tiene el suyo (D-200 (8), S5) |
 | Communication Services | `acs-alcanzamos-prod-mxc` | `acs-alcanzamos-uat-mxc` | Datos en Francia. Nombre único en todo Azure |
-| Grupo de acciones y alerta | `ag-seguridad-alcanzamos-prod-mxc`, `alrt-seguridad-alcanzamos-prod-mxc` | `ag-seguridad-alcanzamos-uat-mxc`, `alrt-seguridad-alcanzamos-uat-mxc` | RNF-025: más de 10 eventos de un mismo tipo en 15 minutos, aviso a `andres@alcanzamos.co` (O-5, D-120) |
+| Grupo de acciones y alerta | `ag-seguridad-alcanzamos-prod-mxc`, `alrt-seguridad-alcanzamos-prod-mxc` | `ag-seguridad-alcanzamos-uat-mxc`, `alrt-seguridad-alcanzamos-uat-mxc` | RNF-025: más de 10 eventos de un mismo tipo en 15 minutos, aviso a `andres@alcanzamos.co` (O-5, D-120), el mismo correo en los dos ambientes (S11) |
 
 El grupo (`rg-alcanzamos-<prod|uat>-mxc`), la identidad del API (`id-alcanzamos-<prod|uat>-mxc`) y sus roles los crea [`infra/bootstrap/`](../bootstrap/README.md), una vez por ambiente.
 
@@ -42,10 +42,22 @@ Se declaran en `ambiente.tf` (más `subscription_id` e `imagen_api` en `variable
 | `imagen_api` | El digest probado en UAT | El digest que construye el pipeline | La pasa el pipeline de despliegue; `latest` se rechaza |
 | `postgres_sku`, `postgres_almacenamiento_mb` | `B_Standard_B1ms`, `32768` | Igual | Por defecto, los de producción (ADR-006 §5.2) |
 | `contenedor_cpu`, `contenedor_memoria` | `0.25`, `0.5Gi` | Igual | API y trabajo programado |
-| `api_replicas_minimas` | `1` | Igual (o `0`, si el dueño lo decide) | Con `0` el API se apaga sin tráfico y el primer pedido espera el arranque |
-| `registros_dias_de_retencion` | `90` | Igual | RNF-025 |
+| `api_replicas_minimas` | `1` | `0` | Con `0` el API se apaga sin tráfico y el primer pedido espera el arranque |
+| `registros_dias_de_retencion` | `90` | `30` | RNF-025 en producción. 30 es el mínimo de Log Analytics con `PerGB2018` |
+| `secretos_dias_de_retencion` | `90` | `7` | Días para recuperar el Key Vault eliminado; de 7 a 90 (el rango de Azure). La protección contra purga sigue activa en los dos |
 
-UAT usa los mismos tamaños que producción para que el paso a producción sea transparente; se cambian solo si hace falta (D-200 (8)).
+UAT usa los mismos tamaños que producción para que el paso a producción sea transparente; se cambian solo si hace falta (D-200 (8)). Las tres diferencias de la tabla (réplicas, registros y Key Vault) las decidió el dueño (S11) y están en `uat.tfvars.example`. Las alertas van al mismo correo en los dos ambientes.
+
+### PostgreSQL de UAT se puede detener cuando no se usa
+
+Para cuidar el crédito de Azure for Students, el servidor de UAT se detiene a mano cuando no se usa y se arranca antes de probar (S11). OpenTofu no lo detiene ni lo arranca:
+
+```sh
+az postgres flexible-server stop --resource-group rg-alcanzamos-uat-mxc --name psql-alcanzamos-uat-mxc
+az postgres flexible-server start --resource-group rg-alcanzamos-uat-mxc --name psql-alcanzamos-uat-mxc
+```
+
+Azure arranca solo un servidor detenido a los 7 días (Microsoft Learn, «Limits in Azure Database for PostgreSQL flexible server», consultado el 2026-11-10): si UAT sigue sin usarse, hay que detenerlo de nuevo.
 
 ## Estado de cada ambiente
 
@@ -91,7 +103,7 @@ No bloquean la US-44.
 
 1. **Red de PostgreSQL.** Llevar el riesgo de la regla `0.0.0.0` a E11-EIP y calcular, con fuente, el costo de la red virtual. Lo decide el dueño antes de crear el servidor: esa elección no se cambia después en el mismo servidor.
 2. **Rol mínimo para enviar correo** en lugar de «Communication and Email Service Owner» sobre todo el grupo. Se define en la US-45.
-3. **Comprobar con `list-skus`** que PostgreSQL 18 y la zona 1 existen en México Central, en cada suscripción: las cuotas y los servicios de la región se comparan al desplegar UAT (D-200 (8)).
+3. **Comprobar con `list-skus`** que PostgreSQL 18 y la zona 1 existen en México Central, en cada suscripción: las cuotas y los servicios de la región se comparan al desplegar UAT (D-200 (8)). La zona de PostgreSQL y el tenant de Entra ID de la suscripción de UAT se comprueban al desplegar (S11; US-79 T5 y T6).
 4. **Costos en ADR-006:** Communication Services, la regla de alerta y la retención de 90 días.
 5. **Probar que el aviso de la alerta llega** a `andres@alcanzamos.co` (O-5).
 6. **Variables de la base (D-123).** La configuración pasa `PGHOST`, `PGDATABASE`, `PGUSER` y `PGSSLMODE`, pero el API lee `BASE_DE_DATOS_URL`. Se resuelve en I05, con la conexión por Entra ID.
@@ -111,7 +123,7 @@ Consultadas el 2026-10-22:
 
 ## Validación
 
-Sin credenciales y sin aplicar. `tofu test` hace solo plan, con el proveedor simulado (`tests/ambientes.tftest.hcl`): comprueba los nombres, las etiquetas, los tamaños y el dominio de correo de cada ambiente, que producción conserve sus nombres y que se rechacen un ambiente desconocido y un dominio de otro ambiente.
+Sin credenciales y sin aplicar. `tofu test` hace solo plan, con el proveedor simulado (`tests/ambientes.tftest.hcl`): comprueba los nombres, las etiquetas, los tamaños y el dominio de correo de cada ambiente, los valores de UAT (S11), que producción conserve sus nombres y que se rechacen un ambiente desconocido, un dominio de otro ambiente y una retención del Key Vault fuera de 7 a 90 días.
 
 ```sh
 cd infra/azure

@@ -7,5 +7,5 @@ admin_postgres_object_id = "00000000-0000-0000-0000-000000000000"
 admin_postgres_nombre    = "andres@alcanzamos.co"
 imagen_api               = "ghcr.io/alcanzamos/alcanzamos-api@sha256:<digest>" # la pasa el pipeline: el digest probado en UAT
 # alerta_umbral, alerta_ventana y alerta_correo tienen los valores de O-5 (D-120).
-# Los tamaños (postgres_sku, postgres_almacenamiento_mb, registros_dias_de_retencion, api_replicas_minimas,
-# contenedor_cpu y contenedor_memoria) tienen por defecto los de producción (ADR-006 §5.2).
+# Los tamaños (postgres_sku, postgres_almacenamiento_mb, registros_dias_de_retencion, secretos_dias_de_retencion,
+# api_replicas_minimas, contenedor_cpu y contenedor_memoria) tienen por defecto los de producción (ADR-006 §5.2).

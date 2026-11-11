@@ -40,6 +40,18 @@ variable "registros_dias_de_retencion" {
   default     = 90
 }
 
+# Azure acepta de 7 a 90 días. La protección contra el borrado sigue activa en los dos ambientes (S11).
+variable "secretos_dias_de_retencion" {
+  description = "Días que se puede recuperar el Key Vault después de eliminarlo: 90 en producción y 7 en UAT (S11)."
+  type        = number
+  default     = 90
+
+  validation {
+    condition     = var.secretos_dias_de_retencion >= 7 && var.secretos_dias_de_retencion <= 90
+    error_message = "La retención del Key Vault eliminado es de 7 a 90 días."
+  }
+}
+
 variable "api_replicas_minimas" {
   description = "Réplicas mínimas del API. Con 0 se apaga sin tráfico y el primer pedido espera el arranque."
   type        = number
