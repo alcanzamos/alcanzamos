@@ -331,7 +331,7 @@ describe("El paso «Revisa y confirma» (RF-004, RN-001, D-084)", () => {
     const titulo = screen.getByRole("heading", { name: "Revisa y confirma" });
     expect(titulo.tagName).toBe("H2");
     expect(titulo).toHaveFocus();
-    const filas = screen.getAllByRole("listitem");
+    const filas = within(screen.getByRole("main")).getAllByRole("listitem");
     expect(filas.map((f) => f.textContent?.replace(/Cambiar$/, ""))).toEqual([
       "TipoGasto",
       "Monto$45.000",
@@ -403,6 +403,69 @@ describe("El paso «Revisa y confirma» (RF-004, RN-001, D-084)", () => {
     expect(screen.getByText(porTexto("$46.000"))).toBeInTheDocument();
   });
 
+  it("marca el paso para que por debajo de 768 px el cuadro tampoco quede, sin perder su texto (bug 266)", async () => {
+    api();
+    await irAlPaso();
+    const cuadro = screen.getByLabelText("Escribe el gasto o el ingreso", {
+      selector: "textarea",
+    });
+    expect(cuadro.closest(".registro")).toHaveClass("registro--en-paso");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Volver al formulario" }),
+    );
+    await screen.findByLabelText("Monto");
+    expect(cuadro.closest(".registro")).not.toHaveClass("registro--en-paso");
+    expect(cuadro).toHaveValue("mercado 45 mil ayer");
+  });
+
+  it("durante el paso, «Atrás» de la barra hace lo de «Volver al formulario»: todo como estaba, sin guardar ni salir", async () => {
+    const pedidos = api();
+    window.history.replaceState(null, "", "/registrar");
+    await irAlPaso();
+    expect(
+      screen.queryByRole("link", { name: "Atrás" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Atrás" }));
+    expect(await screen.findByLabelText("Monto")).toHaveValue("$45.000");
+    expect(
+      screen.queryByRole("heading", { name: "Revisa y confirma" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Escribe el gasto o el ingreso")).toHaveValue(
+      "mercado 45 mil ayer",
+    );
+    expect(
+      screen.getByText(
+        "Llenamos el formulario con tu texto. Cambia lo que quieras.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Efectivo" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Gasto" })).toHaveFocus();
+    expect(window.location.pathname).toBe("/registrar");
+    expect(guardados(pedidos)).toHaveLength(0);
+    // Fuera del paso, «Atrás» vuelve a ser el enlace a PN-01.
+    expect(screen.getByRole("link", { name: "Atrás" })).toHaveAttribute(
+      "href",
+      "/movimientos",
+    );
+    expect(
+      screen.queryByRole("button", { name: "Atrás" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("«Atrás» durante el paso también quita el aviso de un guardado fallido, como «Volver al formulario»", async () => {
+    api({ guardar: () => json(500, { error: "error_interno" }) });
+    await irAlPaso();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Confirmar y guardar" }),
+    );
+    await screen.findByText("No pudimos guardar tu gasto.");
+    fireEvent.click(screen.getByRole("button", { name: "Atrás" }));
+    await screen.findByLabelText("Monto");
+    expect(
+      screen.queryByText("No pudimos guardar tu gasto."),
+    ).not.toBeInTheDocument();
+  });
+
   it.each([
     ["Tipo", "tipo-gasto"],
     ["Monto", "monto"],
@@ -415,7 +478,7 @@ describe("El paso «Revisa y confirma» (RF-004, RN-001, D-084)", () => {
     async (fila, id) => {
       api();
       await irAlPaso();
-      const filaCompleta = screen
+      const filaCompleta = within(screen.getByRole("main"))
         .getAllByRole("listitem")
         .find((f) => f.textContent?.startsWith(fila))!;
       fireEvent.click(
@@ -446,8 +509,9 @@ describe("El paso «Revisa y confirma» (RF-004, RN-001, D-084)", () => {
     ).toBeInTheDocument();
     expect(aviso.closest(".aviso")).toHaveClass("aviso--informacion");
     expect(
-      aviso.compareDocumentPosition(screen.getAllByRole("listitem")[0]!) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
+      aviso.compareDocumentPosition(
+        within(screen.getByRole("main")).getAllByRole("listitem")[0]!,
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   });
 
