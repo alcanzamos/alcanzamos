@@ -19,16 +19,13 @@ export type CategoriaDelPresupuesto = {
   quedan_centavos: string | null;
 };
 
-/**
- * Una fecha esperada de una repetición de ingreso: todavía no llega y no cuenta en «Sin asignar» (D-094, P-1).
- * Lo por confirmar no viene aquí: sigue en Movimientos y en PN-08 (L12 (1) de la US-77).
- */
+/** Una fecha pendiente de una repetición de ingreso: no cuenta en «Sin asignar» (D-094, P-1). */
 export type FechaQueLlegaDespues = {
   recurrente_id: string;
   fecha: string;
   categoria_id: number;
   monto_centavos: string;
-  marca: "esperado";
+  marca: "esperado" | "por_confirmar";
 };
 
 export type PresupuestoDelPeriodo = {
@@ -44,7 +41,6 @@ export type PresupuestoDelPeriodo = {
     asignado_centavos: string;
     sin_asignar_centavos: string | null;
     asignado_supera_por_centavos: string | null;
-    /** Solo lo esperado; un mes que ya terminó da "0" y `llega_despues` vacío. */
     llega_despues_centavos: string;
   };
   llega_despues: FechaQueLlegaDespues[];
