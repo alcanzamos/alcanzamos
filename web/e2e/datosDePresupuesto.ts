@@ -33,8 +33,16 @@ type Caso = {
   /** Lo gastado en el mes, por categoría. */
   gastos: Record<number, number>;
   presupuestos: Record<number, number>;
-  /** Las fechas pendientes de las repeticiones de ingreso (no cuentan en «Sin asignar»). */
-  esperados: { fecha: string; categoria_id: number; monto: number }[];
+  /**
+   * Las fechas pendientes de las repeticiones de ingreso (no cuentan en «Sin asignar»): esperadas o, si ya pasaron sin
+   * confirmar, `por_confirmar` (sin marca, esperadas).
+   */
+  esperados: {
+    fecha: string;
+    categoria_id: number;
+    monto: number;
+    marca?: "esperado" | "por_confirmar";
+  }[];
 };
 
 export const casos = {
@@ -60,7 +68,11 @@ export const casos = {
 
 function respuestaDe(caso: Caso, enCero: boolean) {
   const asignado = Object.values(caso.presupuestos).reduce((a, b) => a + b, 0);
-  const llega = caso.esperados.reduce((a, e) => a + e.monto, 0);
+  // Un total por marca: «Llega después» solo lo esperado y «Por confirmar» lo demás (L14 de la US-77).
+  const totalDe = (marca: "esperado" | "por_confirmar") =>
+    caso.esperados
+      .filter((e) => (e.marca ?? "esperado") === marca)
+      .reduce((a, e) => a + e.monto, 0);
   const modo =
     caso.ingreso === 0
       ? "ingreso_nulo"
@@ -107,14 +119,15 @@ function respuestaDe(caso: Caso, enCero: boolean) {
       sin_asignar_centavos: modo === "normal" ? caso.ingreso - asignado : null,
       asignado_supera_por_centavos:
         modo === "ingreso_bajo" ? asignado - caso.ingreso : null,
-      llega_despues_centavos: llega,
+      llega_despues_centavos: totalDe("esperado"),
+      por_confirmar_centavos: totalDe("por_confirmar"),
     },
     llega_despues: caso.esperados.map((e, i) => ({
       recurrente_id: `r${i + 1}`,
       fecha: e.fecha,
       categoria_id: e.categoria_id,
       monto_centavos: e.monto,
-      marca: "esperado",
+      marca: e.marca ?? "esperado",
     })),
     categorias: filas
       .filter((f) => f.presupuesto || f.gastado_centavos > 0)

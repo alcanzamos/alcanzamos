@@ -43,6 +43,7 @@ type Resumen = {
   sin_asignar_centavos: number | null;
   asignado_supera_por_centavos: number | null;
   llega_despues_centavos: number;
+  por_confirmar_centavos: number;
 };
 const datos = (
   resumen: Resumen,
@@ -65,6 +66,13 @@ const salarioEsperado = {
   monto_centavos: 120000000,
   marca: "esperado",
 };
+// El salario del 1 de noviembre ya pasó y no se ha confirmado: «Por confirmar» (US-60), no cuenta en «Sin asignar».
+const salarioPorConfirmar = {
+  ...salarioEsperado,
+  recurrente_id: "r2",
+  fecha: "2026-11-01",
+  marca: "por_confirmar",
+};
 
 const laura = datos(
   {
@@ -74,6 +82,7 @@ const laura = datos(
     sin_asignar_centavos: 116000000,
     asignado_supera_por_centavos: null,
     llega_despues_centavos: 120000000,
+    por_confirmar_centavos: 0,
   },
   [
     transporte,
@@ -95,6 +104,7 @@ const nulo = (enCero = false, categorias: unknown[] = []) =>
       sin_asignar_centavos: null,
       asignado_supera_por_centavos: null,
       llega_despues_centavos: 0,
+      por_confirmar_centavos: 0,
     },
     categorias,
   );
@@ -107,6 +117,7 @@ const bajo = datos(
     sin_asignar_centavos: null,
     asignado_supera_por_centavos: 1000000,
     llega_despues_centavos: 0,
+    por_confirmar_centavos: 0,
   },
   [
     fila({
@@ -277,6 +288,119 @@ describe("PN-06 · Presupuesto del periodo por categorías (E14-PPA 4.1)", () =>
     expect(screen.queryByText(/se suma cuando llegue/)).toBeNull();
   });
 
+  // L14 de la US-77, puntos 2 y 3: «Llega después» separa lo esperado de lo por confirmar; cada línea sale solo si su
+  // total es mayor que cero, y la frase de una sola fecha va por cada marca.
+  const resumenCon = (
+    llega: number,
+    porConfirmar: number,
+    llegaDespues: unknown[],
+  ) => ({
+    ...laura,
+    resumen: {
+      ...laura.resumen,
+      llega_despues_centavos: llega,
+      por_confirmar_centavos: porConfirmar,
+    },
+    llega_despues: llegaDespues,
+  });
+
+  it("solo con lo esperado: «Llega después» y la frase de la fecha esperada, sin «Por confirmar»", async () => {
+    api([laura]);
+    await abrir();
+    expect(
+      screen.getByText(porTexto("Llega después: $1.200.000 (esperado)")),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Por confirmar/)).toBeNull();
+    expect(screen.queryByText(/cuando lo confirmes/)).toBeNull();
+  });
+
+  it("solo con lo por confirmar: «Por confirmar: $X» sin «Llega después», y la frase «se suma cuando lo confirmes»", async () => {
+    api([resumenCon(0, 120000000, [salarioPorConfirmar])]);
+    await abrir();
+    expect(tarjeta("Tu presupuesto este mes")).toHaveTextContent(
+      [
+        "Tu presupuesto este mes",
+        "Ingreso registrado$1.200.000",
+        "Asignado$40.000",
+        "Sin asignar$1.160.000",
+        "Por confirmar: $1.200.000",
+        "Sin asignar cuenta lo que ya registraste. Salario del 1 de noviembre de 2026 se suma cuando lo confirmes.",
+        "Ver mis ingresos",
+      ].join(""),
+    );
+    expect(screen.queryByText(/Llega después/)).toBeNull();
+    expect(screen.queryByText(/se suma cuando llegue/)).toBeNull();
+  });
+
+  it("con las dos marcas: dos líneas con su total exacto y la frase de la única fecha esperada", async () => {
+    api([
+      resumenCon(25000000, 123000000, [
+        {
+          ...salarioPorConfirmar,
+          fecha: "2026-11-05",
+          monto_centavos: 60000000,
+        },
+        {
+          ...salarioPorConfirmar,
+          fecha: "2026-11-16",
+          monto_centavos: 63000000,
+        },
+        {
+          ...salarioEsperado,
+          fecha: "2026-11-25",
+          categoria_id: 18,
+          monto_centavos: 25000000,
+        },
+      ]),
+    ]);
+    await abrir();
+    expect(tarjeta("Tu presupuesto este mes")).toHaveTextContent(
+      [
+        "Sin asignar$1.160.000",
+        "Llega después: $250.000 (esperado)",
+        "Por confirmar: $1.230.000",
+        "Sin asignar cuenta lo que ya registraste. Trabajo independiente o ventas del 25 de noviembre de 2026 se suma cuando llegue.",
+        "Ver mis ingresos",
+      ].join(""),
+    );
+    // Dos fechas por confirmar: la línea «Por confirmar» basta.
+    expect(screen.queryByText(/cuando lo confirmes/)).toBeNull();
+  });
+
+  it("una fecha de cada marca: las dos frases, primero la esperada", async () => {
+    api([
+      resumenCon(120000000, 30000000, [
+        salarioEsperado,
+        {
+          ...salarioPorConfirmar,
+          categoria_id: 18,
+          fecha: "2026-11-05",
+          monto_centavos: 30000000,
+        },
+      ]),
+    ]);
+    await abrir();
+    expect(
+      screen.getByText(porTexto("Por confirmar: $300.000")),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        porTexto(
+          "Sin asignar cuenta lo que ya registraste. Salario del 16 de noviembre de 2026 se suma cuando llegue. Trabajo independiente o ventas del 5 de noviembre de 2026 se suma cuando lo confirmes.",
+        ),
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("los números de «Por confirmar» van en Figtree (D-123)", async () => {
+    api([resumenCon(0, 123456789, [salarioPorConfirmar])]);
+    await abrir();
+    const linea = screen.getByText(porTexto("Por confirmar: $1.234.567,89"));
+    expect(
+      Array.from(linea.querySelectorAll(".cifra"), (c) => c.textContent),
+    ).toEqual(["1", "234", "567", "89"]);
+  });
+
   it("los tres estados describen sin calificar y una oculta lleva el ícono y la palabra «Oculta» (RN-011)", async () => {
     api([
       datos(laura.resumen, [
@@ -360,6 +484,22 @@ describe("PN-07 · Presupuesto con ingreso bajo o nulo (E14-PPA 4.2)", () => {
     expect(tarjeta("Por categoría")).toHaveTextContent(
       "Por categoríaTodavía no hay gastos este mes.",
     );
+    sinReproche();
+  });
+
+  it("con ingreso nulo y el salario por confirmar: la línea «Por confirmar» lo muestra (L14 de la US-77)", async () => {
+    api([
+      {
+        ...nulo(),
+        resumen: { ...nulo().resumen, por_confirmar_centavos: 120000000 },
+        llega_despues: [salarioPorConfirmar],
+      },
+    ]);
+    await abrir();
+    expect(tarjeta("Tu presupuesto este mes")).toHaveTextContent(
+      "Tu presupuesto este mesIngreso registrado$0Por confirmar: $1.200.000Puedes repartir lo que llegue o dejar el presupuesto en cero.Ver mis ingresos",
+    );
+    expect(screen.queryByText(/Llega después/)).toBeNull();
     sinReproche();
   });
 
