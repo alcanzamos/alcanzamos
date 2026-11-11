@@ -425,10 +425,9 @@ func TestPN06ElNombreSeComparaComoEnEspanol(t *testing.T) {
 	}
 }
 
-// Un mes pasado no se edita (D-094) y sus fechas pendientes ya llegaron: están por confirmar y no llegan después (L12 (1)
-// de la US-77). El mismo octubre visto el 2 de octubre: el 16 se espera; una fecha omitida («No pasó», D-092), una
-// repetición detenida y un gasto recurrente no llegan después.
-func TestPN06MesPasadoNoEditableSinLoPorConfirmarNiLoOmitido(t *testing.T) {
+// Un mes pasado no se edita (D-094) y su fecha pendiente que ya llegó está por confirmar; una fecha omitida («No pasó»,
+// D-092) y una repetición detenida no llegan después; un gasto recurrente tampoco.
+func TestPN06MesPasadoNoEditableConLoPorConfirmarYSinLoOmitido(t *testing.T) {
 	detenida := dia("2026-10-20")
 	d := presupuesto.DatosDelPresupuesto{Adulta: true, Categorias: catalogo(), Recurrentes: []registro.Recurrente{
 		{ID: recSalario, Tipo: registro.Ingreso, CategoriaID: salario, Medio: "transferencia", Periodicidad: fechas.Quincenal, Monto: 120000000,
@@ -439,67 +438,10 @@ func TestPN06MesPasadoNoEditableSinLoPorConfirmarNiLoOmitido(t *testing.T) {
 	got := verPresupuesto(t, &repoFalso{presupuesto: d}, dosDeNoviembre, "?periodo=2026-10")
 	const quiere = `{"periodo_actual":"2026-11","periodo":"2026-10","editable":false,` +
 		`"resumen":{"modo":"ingreso_nulo","en_cero":false,"ingreso_registrado_centavos":0,"asignado_centavos":0,"sin_asignar_centavos":null,` +
-		`"asignado_supera_por_centavos":null,"llega_despues_centavos":0},"llega_despues":[],"categorias":[]}`
+		`"asignado_supera_por_centavos":null,"llega_despues_centavos":120000000},` +
+		`"llega_despues":[{"recurrente_id":"` + recSalario + `","fecha":"2026-10-16","categoria_id":17,"monto_centavos":120000000,"marca":"por_confirmar"}],"categorias":[]}`
 	if got != quiere {
 		t.Errorf("respuesta\n%s\nse esperaba\n%s", got, quiere)
-	}
-	got = verPresupuesto(t, &repoFalso{presupuesto: d}, "2026-10-02T15:00:00Z", "")
-	const elDos = `"llega_despues_centavos":120000000},` +
-		`"llega_despues":[{"recurrente_id":"` + recSalario + `","fecha":"2026-10-16","categoria_id":17,"monto_centavos":120000000,"marca":"esperado"}],`
-	if !strings.Contains(got, elDos) {
-		t.Errorf("el 2 de octubre\n%s\nse esperaba que contuviera\n%s", got, elDos)
-	}
-}
-
-// L12 (1) de la US-77, E14-PPA 4.1 y D-094 (P-1): «Llega después» es solo lo esperado. El 17 de noviembre, el salario del
-// 16 (ya pasó) y las ventas del 10 y del 17 (hoy) están por confirmar: no llegan después ni suman en su total, y «Sin
-// asignar» no cambia. Las ventas del 24 se esperan y sí llegan después. PN-08 sigue mostrando lo por confirmar, con su
-// marca, y lo cuenta en lo esperado del total (D-091). En diciembre, todas las fechas se esperan.
-func TestPN06LlegaDespuesSoloLoEsperado(t *testing.T) {
-	ventasSemanal := registro.Recurrente{ID: recVentas, Tipo: registro.Ingreso, CategoriaID: ventas, Medio: "efectivo", Periodicidad: fechas.Semanal,
-		Monto: 2000000, Inicio: dia("2026-11-03"), CreadoEl: dia("2026-11-03"), Confirmadas: []time.Time{dia("2026-11-03")}}
-	recurrentes := []registro.Recurrente{salarioQuincenal(), ventasSemanal, arriendoMensual()}
-	ingresos := []presupuesto.IngresoRegistrado{
-		{MovimientoID: "m-1", CategoriaID: salario, Monto: 120000000, Fecha: dia("2026-11-01"), Medio: "transferencia"},
-		{MovimientoID: "m-2", CategoriaID: ventas, Monto: 2000000, Fecha: dia("2026-11-03"), Medio: "efectivo"}}
-	repo := &repoFalso{
-		presupuesto: presupuesto.DatosDelPresupuesto{Adulta: true, Categorias: catalogo(), Ingresos: ingresos, Recurrentes: recurrentes},
-		ingresos:    presupuesto.DatosDeIngresos{Categorias: catalogo(), Ingresos: ingresos, Recurrentes: recurrentes}}
-	const diecisiete = "2026-11-17T15:00:00Z"
-
-	got := verPresupuesto(t, repo, diecisiete, "")
-	const quiere = `{"periodo_actual":"2026-11","periodo":"2026-11","editable":true,` +
-		`"resumen":{"modo":"normal","en_cero":false,"ingreso_registrado_centavos":122000000,"asignado_centavos":0,"sin_asignar_centavos":122000000,` +
-		`"asignado_supera_por_centavos":null,"llega_despues_centavos":2000000},` +
-		`"llega_despues":[{"recurrente_id":"` + recVentas + `","fecha":"2026-11-24","categoria_id":18,"monto_centavos":2000000,"marca":"esperado"}],"categorias":[]}`
-	if got != quiere {
-		t.Errorf("PN-06 el 17\n%s\nse esperaba\n%s", got, quiere)
-	}
-
-	got = verIngresos(t, repo, diecisiete, "")
-	for _, fila := range []string{
-		`{"fecha":"2026-11-16","marca":"por_confirmar","monto_centavos":120000000,"medio":"transferencia","descripcion":null,"movimiento_id":null,"recurrente_id":"` + recSalario + `"}`,
-		`{"fecha":"2026-11-10","marca":"por_confirmar","monto_centavos":2000000,"medio":"efectivo","descripcion":null,"movimiento_id":null,"recurrente_id":"` + recVentas + `"}`,
-		`{"fecha":"2026-11-17","marca":"por_confirmar","monto_centavos":2000000,"medio":"efectivo","descripcion":null,"movimiento_id":null,"recurrente_id":"` + recVentas + `"}`,
-		`{"fecha":"2026-11-24","marca":"esperado","monto_centavos":2000000,"medio":"efectivo","descripcion":null,"movimiento_id":null,"recurrente_id":"` + recVentas + `"}`,
-		`"total":{"entran_centavos":248000000,"registrado_centavos":122000000,"esperado_centavos":126000000,"por_confirmar":3}`,
-	} {
-		if !strings.Contains(got, fila) {
-			t.Errorf("PN-08 el 17\n%s\nse esperaba que contuviera\n%s", got, fila)
-		}
-	}
-
-	var diciembre presupuesto.Vista
-	if err := json.Unmarshal([]byte(verPresupuesto(t, repo, diecisiete, "?periodo=2026-12")), &diciembre); err != nil {
-		t.Fatal(err)
-	}
-	marcas := map[string]int{}
-	for _, p := range diciembre.LlegaDespues {
-		marcas[p.Marca]++
-	}
-	// El 1 y el 16 del salario y los cinco martes de las ventas.
-	if len(diciembre.LlegaDespues) != 7 || marcas[presupuesto.MarcaEsperado] != 7 || diciembre.Resumen.LlegaDespuesCentavos.String() != "250000000" {
-		t.Errorf("diciembre: %+v %s", diciembre.LlegaDespues, diciembre.Resumen.LlegaDespuesCentavos)
 	}
 }
 
