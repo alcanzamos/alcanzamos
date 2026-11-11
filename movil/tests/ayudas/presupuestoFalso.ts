@@ -45,6 +45,7 @@ export const datos = (
     sin_asignar_centavos: null,
     asignado_supera_por_centavos: null,
     llega_despues_centavos: '0',
+    por_confirmar_centavos: '0',
     ...resumen,
   },
   llega_despues: llegaDespues,
@@ -59,6 +60,14 @@ export const salarioEsperado = {
   categoria_id: 17,
   monto_centavos: '120000000',
   marca: 'esperado' as const,
+};
+
+// El salario del 1 de noviembre ya pasó y falta confirmarlo (US-60): «Por confirmar», tampoco cuenta en «Sin asignar».
+export const salarioPorConfirmar = {
+  ...salarioEsperado,
+  recurrente_id: 'r-salario-1',
+  fecha: '2026-11-01',
+  marca: 'por_confirmar' as const,
 };
 
 export const laura = datos(

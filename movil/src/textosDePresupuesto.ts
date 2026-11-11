@@ -56,14 +56,26 @@ export function textosDeCategoria(c: CategoriaDelPresupuesto) {
   };
 }
 
-/** «Salario del 16 de noviembre de 2026 se suma cuando llegue.»: solo con una fecha; con más, la fila «Llega después» basta. */
-export function seSumaCuandoLlegue(fechas: FechaQueLlegaDespues[]) {
-  const [unica] = fechas;
-  if (!unica || fechas.length > 1) return null;
-  return formatear(t.resumen.seSumaCuandoLlegue, {
-    nombre: nombreDeCategoria(unica.categoria_id),
-    fecha: diaEnPalabras(unica.fecha) ?? unica.fecha,
+const fraseDeUnaFecha = { esperado: t.resumen.seSumaCuandoLlegue, por_confirmar: t.resumen.seSumaCuandoLoConfirmes };
+
+/**
+ * La frase de una sola fecha, por cada marca (L14 de la US-77, punto 3): «Salario del 16 de noviembre de 2026 se suma
+ * cuando llegue.» si hay una sola fecha esperada y «… se suma cuando lo confirmes.» si hay una sola por confirmar; con
+ * más fechas de una marca, su línea («Llega después» o «Por confirmar») basta. Primero la esperada; sin ninguna, `null`.
+ */
+export function seSumaCuando(fechas: FechaQueLlegaDespues[]) {
+  const frases = (['esperado', 'por_confirmar'] as const).flatMap((marca) => {
+    const grupo = fechas.filter((f) => f.marca === marca);
+    const [unica] = grupo;
+    if (!unica || grupo.length > 1) return [];
+    return [
+      formatear(fraseDeUnaFecha[marca], {
+        nombre: nombreDeCategoria(unica.categoria_id),
+        fecha: diaEnPalabras(unica.fecha) ?? unica.fecha,
+      }),
+    ];
   });
+  return frases.length > 0 ? frases.join(' ') : null;
 }
 
 const informacion = (titulo: string, mensaje?: string): DatosDeAviso => ({

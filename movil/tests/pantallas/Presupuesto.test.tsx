@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
+import type { PresupuestoDelPeriodo } from '../../src/api/presupuesto';
 import { reiniciarBorrador } from '../../src/borradorDeRegistro';
 import { Navegacion } from '../../src/navegacion/Navegacion';
 import { tokens } from '../../src/tokens/tokens.generated';
@@ -14,6 +15,8 @@ import {
   fila,
   laura,
   nulo,
+  salarioEsperado,
+  salarioPorConfirmar,
   sinPresupuesto,
   transporte,
 } from '../ayudas/presupuestoFalso';
@@ -117,6 +120,84 @@ describe('PN-06 y PN-07 · Presupuesto, Android (E14-PPA 4.1 y 4.2, US-77)', () 
       });
       await abrirPresupuesto();
       expect(screen.getByText('Sin asignar cuenta lo que ya registraste.')).toBeOnTheScreen();
+    });
+
+    // L14 de la US-77, puntos 2 y 3: «Llega después» separa lo esperado de lo por confirmar; cada línea sale solo si su
+    // total es mayor que cero, se lee en pesos (D-187) y la frase de una sola fecha va por cada marca.
+    const conLoQueLlega = (llega: string, porConfirmar: string, fechas: PresupuestoDelPeriodo['llega_despues']) => ({
+      ...laura,
+      resumen: { ...laura.resumen, llega_despues_centavos: llega, por_confirmar_centavos: porConfirmar },
+      llega_despues: fechas,
+    });
+
+    it('solo con lo esperado: «Llega después» y la frase de la fecha esperada, sin «Por confirmar»', async () => {
+      apiDelPresupuesto(respuestaJson);
+      await abrirPresupuesto();
+      expect(screen.getByText('Llega después: $1.200.000 (esperado)')).toBeOnTheScreen();
+      expect(screen.queryByText(/Por confirmar/)).not.toBeOnTheScreen();
+      expect(screen.queryByText(/cuando lo confirmes/)).not.toBeOnTheScreen();
+    });
+
+    it('solo con lo por confirmar: «Por confirmar: $X» leído en pesos, sin «Llega después», y «se suma cuando lo confirmes»', async () => {
+      apiDelPresupuesto(respuestaJson, { presupuesto: conLoQueLlega('0', '120000000', [salarioPorConfirmar]) });
+      await abrirPresupuesto();
+      expect(screen.getByText('Por confirmar: $1.200.000')).toBeOnTheScreen();
+      expect(leido('Por confirmar: 1200000 pesos')).toBeOnTheScreen();
+      expect(
+        screen.getByText(
+          'Sin asignar cuenta lo que ya registraste. Salario del 1 de noviembre de 2026 se suma cuando lo confirmes.',
+        ),
+      ).toBeOnTheScreen();
+      expect(screen.queryByText(/Llega después/)).not.toBeOnTheScreen();
+      expect(screen.queryByText(/se suma cuando llegue/)).not.toBeOnTheScreen();
+      expect(screen.queryByLabelText(/\$/)).not.toBeOnTheScreen();
+    });
+
+    it('con las dos marcas: dos líneas con su total exacto, en pesos para TalkBack, y la frase de la única fecha esperada', async () => {
+      apiDelPresupuesto(respuestaJson, {
+        presupuesto: conLoQueLlega('25000000', '123000000', [
+          { ...salarioPorConfirmar, fecha: '2026-11-05', monto_centavos: '60000000' },
+          { ...salarioPorConfirmar, fecha: '2026-11-16', monto_centavos: '63000000' },
+          { ...salarioEsperado, fecha: '2026-11-25', categoria_id: 18, monto_centavos: '25000000' },
+        ]),
+      });
+      await abrirPresupuesto();
+      expect(screen.getByText('Llega después: $250.000 (esperado)')).toBeOnTheScreen();
+      expect(leido('Llega después: 250000 pesos (esperado)')).toBeOnTheScreen();
+      expect(screen.getByText('Por confirmar: $1.230.000')).toBeOnTheScreen();
+      expect(leido('Por confirmar: 1230000 pesos')).toBeOnTheScreen();
+      expect(
+        screen.getByText(
+          'Sin asignar cuenta lo que ya registraste. Trabajo independiente o ventas del 25 de noviembre de 2026 se suma cuando llegue.',
+        ),
+      ).toBeOnTheScreen();
+      // Dos fechas por confirmar: la línea «Por confirmar» basta.
+      expect(screen.queryByText(/cuando lo confirmes/)).not.toBeOnTheScreen();
+    });
+
+    it('una fecha de cada marca: las dos frases, primero la esperada', async () => {
+      apiDelPresupuesto(respuestaJson, {
+        presupuesto: conLoQueLlega('120000000', '30000000', [
+          salarioEsperado,
+          { ...salarioPorConfirmar, categoria_id: 18, fecha: '2026-11-05', monto_centavos: '30000000' },
+        ]),
+      });
+      await abrirPresupuesto();
+      expect(screen.getByText('Por confirmar: $300.000')).toBeOnTheScreen();
+      expect(
+        screen.getByText(
+          'Sin asignar cuenta lo que ya registraste. Salario del 16 de noviembre de 2026 se suma cuando llegue. Trabajo independiente o ventas del 5 de noviembre de 2026 se suma cuando lo confirmes.',
+        ),
+      ).toBeOnTheScreen();
+    });
+
+    it('un total por confirmar que no cabe en un number se muestra y se lee exacto (D-082)', async () => {
+      apiDelPresupuesto(respuestaJson, {
+        presupuesto: conLoQueLlega('0', '9223372036854775807', [salarioPorConfirmar]),
+      });
+      await abrirPresupuesto();
+      expect(screen.getByText('Por confirmar: $92.233.720.368.547.758,07')).toBeOnTheScreen();
+      expect(leido('Por confirmar: 92233720368547758 pesos con 7 centavos')).toBeOnTheScreen();
     });
 
     it('«Por categoría» en el orden del API, cada fila agrupada para TalkBack y sus botones con el nombre de la categoría', async () => {
@@ -362,6 +443,22 @@ describe('PN-06 y PN-07 · Presupuesto, Android (E14-PPA 4.1 y 4.2, US-77)', () 
       expect(screen.getByText('Todavía no hay gastos este mes.')).toBeOnTheScreen();
       expect(screen.getByRole('button', { name: 'Registrar un ingreso' })).toBeOnTheScreen();
       expect(screen.getByRole('button', { name: 'Dejar el presupuesto en cero' })).toBeOnTheScreen();
+    });
+
+    it('ingreso nulo con el salario por confirmar: la línea «Por confirmar» lo muestra y lo lee en pesos (L14 de la US-77)', async () => {
+      const conSalario = nulo();
+      apiDelPresupuesto(respuestaJson, {
+        presupuesto: {
+          ...conSalario,
+          resumen: { ...conSalario.resumen, por_confirmar_centavos: '120000000' },
+          llega_despues: [salarioPorConfirmar],
+        },
+      });
+      await abrirPresupuesto();
+      expect(screen.getByText('Por confirmar: $1.200.000')).toBeOnTheScreen();
+      expect(leido('Por confirmar: 1200000 pesos')).toBeOnTheScreen();
+      expect(screen.getByText(NULO)).toBeOnTheScreen();
+      expect(screen.queryByText(/Llega después/)).not.toBeOnTheScreen();
     });
 
     it('«Dejar el presupuesto en cero» guarda la marca sin confirmar, dice el aviso y el botón ya no vuelve', async () => {

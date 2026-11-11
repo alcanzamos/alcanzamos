@@ -34,7 +34,7 @@ import {
   nombreDeCategoria,
   pesos,
   pesosHablados,
-  seSumaCuandoLlegue,
+  seSumaCuando,
   textosDeCategoria,
 } from '../textosDePresupuesto';
 import { formatear, textos } from '../textos/es.generated';
@@ -80,11 +80,13 @@ export function FilaConValor({ etiqueta, centavos, grande = false }: { etiqueta:
 }
 
 // La tarjeta «Tu presupuesto este mes»: la de PN-06 con `normal` y la de PN-07 con un ingreso bajo o nulo (D-094, P-3).
-// Describe sin calificar: sin Atención, sin rojo y sin signo menos (RNF-017).
+// Describe sin calificar: sin Atención, sin rojo y sin signo menos (RNF-017). «Llega después» y «Por confirmar» son dos
+// líneas, cada una solo con su total mayor que cero y leída en pesos (L14 de la US-77, D-187).
 function Resumen({ datos, alVerIngresos }: { datos: PresupuestoDelPeriodo; alVerIngresos: () => void }) {
   const r = datos.resumen;
   const llegaDespues = BigInt(r.llega_despues_centavos) > 0n;
-  const frase = seSumaCuandoLlegue(datos.llega_despues);
+  const porConfirmar = BigInt(r.por_confirmar_centavos) > 0n;
+  const frase = seSumaCuando(datos.llega_despues);
   const supera = r.asignado_supera_por_centavos;
   const cuenta = [t.resumen.cuentaLoRegistrado, frase].filter(Boolean).join(' ');
   return (
@@ -103,6 +105,11 @@ function Resumen({ datos, alVerIngresos }: { datos: PresupuestoDelPeriodo; alVer
       {llegaDespues && (
         <Texto etiqueta={formatear(t.resumen.llegaDespues, { monto: pesosHablados(r.llega_despues_centavos) })}>
           {formatear(t.resumen.llegaDespues, { monto: pesos(r.llega_despues_centavos) })}
+        </Texto>
+      )}
+      {porConfirmar && (
+        <Texto etiqueta={formatear(t.resumen.porConfirmar, { monto: pesosHablados(r.por_confirmar_centavos) })}>
+          {formatear(t.resumen.porConfirmar, { monto: pesos(r.por_confirmar_centavos) })}
         </Texto>
       )}
       {r.modo === 'normal' && (

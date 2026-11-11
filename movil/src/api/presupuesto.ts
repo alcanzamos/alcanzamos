@@ -20,7 +20,10 @@ export type CategoriaDelPresupuesto = {
   quedan_centavos: string | null;
 };
 
-/** Una fecha pendiente de una repetición de ingreso: no cuenta en «Sin asignar» (D-094, P-1). */
+/**
+ * Una fecha pendiente de una repetición de ingreso: no cuenta en «Sin asignar» (D-094, P-1). La marca dice si todavía
+ * no llega (`esperado`) o si ya pasó y falta confirmarla (`por_confirmar`, US-60).
+ */
 export type FechaQueLlegaDespues = {
   recurrente_id: string;
   fecha: string;
@@ -42,7 +45,10 @@ export type PresupuestoDelPeriodo = {
     asignado_centavos: string;
     sin_asignar_centavos: string | null;
     asignado_supera_por_centavos: string | null;
+    /** Solo lo esperado: «Llega después: $X (esperado)». */
     llega_despues_centavos: string;
+    /** Solo lo por confirmar: la línea aparte «Por confirmar: $Y» (L14 de la US-77). */
+    por_confirmar_centavos: string;
   };
   llega_despues: FechaQueLlegaDespues[];
   /** Primero las que tienen presupuesto y después las demás, en el orden que manda el API. */
