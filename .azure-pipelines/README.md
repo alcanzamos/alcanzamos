@@ -6,7 +6,8 @@ Definiciones de pipelines de Azure Pipelines, uno por carpeta del monorepo, con 
 - Reglas: estándar de codificación (E17-ECO), `commitlint` valida el título del PR (Conventional Commits) y `main` exige PR y verificaciones.
 - Una prueba comprueba que cada carpeta dispara solo su pipeline.
 - **Control único (D-177, D-178 (4)):** `control.yml` corre en todo PR, sin filtros de ruta, ejecuta los trabajos de las carpetas que cambiaron y falla si alguno falla. Cuando el dueño lo haga obligatorio, reemplaza a los seis pipelines por carpeta (ver «Control único» abajo).
-- Los pasos de cada pipeline viven una sola vez, en `plantillas/<carpeta>.yml`: los usan el pipeline por carpeta y la etapa de `control.yml`.
+- Los pasos de cada pipeline viven una sola vez, en `plantillas/<carpeta>.yml`: los usan el pipeline por carpeta y la etapa de `control.yml`. Las instalaciones de Go (`plantillas/pasos/go.yml`) y de Node y npm (`plantillas/pasos/node.yml`) también viven una sola vez: las usan `api`, `web`, `movil` y la revisión diaria.
+- **Revisión diaria (S3):** `revision-diaria.yml` corre cada mañana sobre `main`, fuera de los PR: `govulncheck` en `api/` y `npm audit` en `web/` y `movil/`. Si encuentra algo, la corrida queda en rojo o en «Partially succeeded» y al dueño le llega un correo (ver «Revisión diaria» abajo).
 
 ## Pipelines
 
@@ -19,6 +20,7 @@ Definiciones de pipelines de Azure Pipelines, uno por carpeta del monorepo, con 
 | `web.yml` | Cambios en `web/`, `diseno/` (tokens, textos y fuentes) o su YAML, en un PR hacia `main` que no sea borrador | Instala Node 24.22.1 desde el tarball oficial con SHA-256 verificado y npm 12.2.1 desde el tarball del registro con SHA-512 verificado; `npm run antiguedad` (antigüedad mínima de las versiones del lockfile, antes de instalar, D-158), `npm ci` (con `web/.npmrc`), `npm audit signatures`, tipos, ESLint (con la regla de textos sueltos en JSX, D-162), Prettier, tokens y textos regenerados sin diff (`git diff --exit-code diseno/ web/ movil/`; los textos salen de `diseno/textos/es.json`, D-160), pruebas con cobertura (mínimo 60 % de líneas), `vite build` y Playwright con axe-core |
 | `movil.yml` | Cambios en `movil/`, `diseno/` o su YAML, en un PR hacia `main` que no sea borrador | Instala Node 24.22.1 desde el tarball oficial con SHA-256 verificado y npm 12.2.1 desde el tarball del registro con SHA-512 verificado; `npm run antiguedad` (antigüedad mínima de las versiones del lockfile, antes de instalar, D-158), `npm ci` (con `movil/.npmrc`), `npm audit signatures`, ESLint (`typescript-eslint`, `react-hooks`, `react-native-a11y`, la regla de solo tokens y la de textos sueltos en JSX, D-162), tipos, tokens y textos regenerados sin diff (`git diff --exit-code -- ../diseno ../web ../movil`; los textos salen de `diseno/textos/es.json`, D-160), pruebas con cobertura (mínimo 50 % de líneas; el resumen final lista el nombre de cada prueba que falla, también con `--silent`, US-59 S6), vulnerabilidades altas o críticas de producción (`npm audit` con las excepciones de `movil/auditoria-excepciones.json`), licencias de producción contra la lista AGPLv3 (excepciones por paquete en `movil/licencias-excepciones.json`) y `npx expo export` para comprobar que `node-forge` no entra en la app. Las excepciones llevan una fecha de revisión (D-150) y el pipeline falla si pasó. No compila el paquete de Android |
 | `infra.yml` | Cambios en `infra/` o en su YAML, en un PR hacia `main` que no sea borrador | Verifica el SHA-256 de OpenTofu, `tofu fmt -check`, `tofu init -backend=false` y `tofu validate` de `bootstrap/` y `produccion/`, y `docker compose config` del compose local. Nunca hace plan ni apply |
+| `revision-diaria.yml` | Todos los días a las 10:00 UTC (5:00 a. m. en Colombia) sobre `main`, haya o no cambios (`always: true`). Nunca en un PR ni al fusionar | Tres trabajos: `govulncheck` en `api/` (el mismo Go fijado y el mismo comando que el PR) y `npm run auditoria` en `web/` y en `movil/` (el mismo Node y npm fijados y el mismo comando que el PR, sin `npm ci`: `npm audit` lee el lockfile). Falla con lo mismo que haría fallar un PR; queda en «Partially succeeded» si una revisión solo advierte. Ver «Revisión diaria» |
 
 **commitlint (D-158).** Vive en `.azure-pipelines/commitlint/`: `package.json` (privado, versiones exactas de `@commitlint/cli` y `@commitlint/config-conventional`, `engines` de Node y npm, `allowScripts` vacío porque ninguna dependencia tiene scripts de instalación), `package-lock.json`, `.npmrc` (las mismas reglas que `web/.npmrc`), `antiguedad-excepciones.json` (`[]`, sin excepciones) y `commitlint.config.mjs` (las reglas de siempre: tipos en inglés, ámbito = carpeta, encabezado de hasta 150 caracteres). En un PR, `comun.yml` hace en orden: instala Node 24.22.1 desde el tarball con SHA-256 (`NODE_SHA256`) y npm 12.2.1 con SHA-512 (igual que `web.yml`); `node web/scripts/antiguedad.mjs .azure-pipelines/commitlint` (el script de `web/` con la carpeta como argumento: sin argumento revisa `web/`; es un paso hacia la unificación pendiente, D-160); `npm ci`; `npm audit signatures`; y `node_modules/.bin/commitlint` sobre el título del PR. Antes corría con `npx --yes` y `UseNode@1`, fuera de cualquier `.npmrc` y sin lockfile.
 
@@ -32,7 +34,7 @@ Para subir commitlint: en esa carpeta, `npm install --save-exact @commitlint/cli
 
 El pipeline de `diseno/` se agrega cuando haga falta, con sus filtros y sus casos en `pruebas/filtros.py`. Un cambio en `diseno/` (también en `diseno/textos/`, la fuente única de los textos, D-160) dispara el de `web/` y el de `movil/`, que construyen con sus tokens, textos y fuentes, y el de `api/`, porque la imagen del API embebe la web. Un cambio en `web/` dispara también el de `api/`.
 
-**Cupo:** el plan gratuito de Microsoft-hosted da 1 trabajo a la vez y 1.800 minutos al mes. Los filtros (y en `control.yml`, las condiciones de cada etapa) evitan compilar lo que no cambió.
+**Cupo:** el plan gratuito de Microsoft-hosted da 1 trabajo a la vez y 1.800 minutos al mes. Los filtros (y en `control.yml`, las condiciones de cada etapa) evitan compilar lo que no cambió. La revisión diaria gasta unos 30 a 50 minutos al mes (ver «Revisión diaria»).
 
 ## Control único (D-177)
 
@@ -64,7 +66,7 @@ El pipeline de `diseno/` se agrega cuando haga falta, con sus filtros y sus caso
 
 Mientras el dueño no haga los pasos 3 y 5 rige D-118: el check obligatorio es `comun` y los demás se miran antes de fusionar.
 
-Versiones fijadas (verificadas en sus fuentes oficiales el 2026-10-21): gitleaks v8.30.1 (imagen del 2026-03-21; digest del índice multiarquitectura `sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f`, resuelto en ghcr.io el 2026-10-24), `@commitlint/cli` y `@commitlint/config-conventional` 21.2.3 (la versión más nueva con 7 días o más que resolvió npm el 2026-10-24; la 21.2.4 es del 2026-10-18), Node 24.22.1 LTS (nodejs.org), npm 12.2.1 (registro de npm, 2026-10-24; SHA-512 del tarball fijado en `web.yml`, `movil.yml`, `comun.yml` y `api/Dockerfile`; reglas de instalación en `web/.npmrc`, `movil/.npmrc` y `commitlint/.npmrc`), OpenTofu 1.13.2 (GitHub releases, 2026-10-22; SHA-256 del zip fijado en el pipeline, tomado de `tofu_1.13.2_SHA256SUMS`), Go 1.27.3 (go.dev/dl, 2026-10-22; SHA-256 del tarball fijado en el pipeline), Node 24.22.1 para `web.yml` y `comun.yml` (nodejs.org, `SHASUMS256.txt`, 2026-10-22; SHA-256 del tarball fijado en el pipeline; las dependencias de `web/` están en su README), imagen `ubuntu-24.04`.
+Versiones fijadas (verificadas en sus fuentes oficiales el 2026-10-21): gitleaks v8.30.1 (imagen del 2026-03-21; digest del índice multiarquitectura `sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f`, resuelto en ghcr.io el 2026-10-24), `@commitlint/cli` y `@commitlint/config-conventional` 21.2.3 (la versión más nueva con 7 días o más que resolvió npm el 2026-10-24; la 21.2.4 es del 2026-10-18), Node 24.22.1 LTS (nodejs.org), npm 12.2.1 (registro de npm, 2026-10-24; SHA-512 del tarball fijado en `plantillas/pasos/node.yml` (web, movil y la revisión diaria), `plantillas/comun.yml` y `api/Dockerfile`; reglas de instalación en `web/.npmrc`, `movil/.npmrc` y `commitlint/.npmrc`), OpenTofu 1.13.2 (GitHub releases, 2026-10-22; SHA-256 del zip fijado en el pipeline, tomado de `tofu_1.13.2_SHA256SUMS`), Go 1.27.3 (go.dev/dl, 2026-10-22; SHA-256 del tarball fijado en `plantillas/pasos/go.yml`, que usan `api` y la revisión diaria), Node 24.22.1 (nodejs.org, `SHASUMS256.txt`, 2026-10-22; SHA-256 del tarball fijado en `plantillas/pasos/node.yml` y en `plantillas/comun.yml`; las dependencias de `web/` están en su README), imagen `ubuntu-24.04`.
 
 ## Cuándo corren: una sola vez por PR (D-183)
 
@@ -80,9 +82,79 @@ Cada corrida gasta minutos del cupo gratuito (1.800 por mes, D-116). Para que ca
 - **Los PR encadenados** (con base en otra rama) no corren hasta que su base es `main`.
 - **Cambios chicos del mismo componente** van juntos en un PR, bajo el tope de unas 600 líneas.
 
-`pruebas/filtros.py` comprueba que cada pipeline tenga `trigger: none` y `pr.drafts: false`, también `control.yml`.
+`pruebas/filtros.py` comprueba que cada pipeline tenga `trigger: none` y `pr.drafts: false`, también `control.yml`. La única excepción es la revisión diaria (`revision-diaria.yml`), que no corre en ningún PR: tiene `pr: none` y su propia comprobación (sección «Revisión diaria»).
 
 Ojo: hasta que el dueño cambie la protección (sección «Control único»), el único check obligatorio para fusionar es `comun`. Los de `api`, `web`, `movil`, `infra` y `reglas` hay que mirarlos antes de fusionar. Después, el único check obligatorio es `control`, que ya incluye los de las carpetas que cambiaron.
+
+## Revisión diaria (S3, regla de los 7 días)
+
+Decidido por el dueño el 2026-11-11: «una corrida diaria programada sobre main con govulncheck y las auditorías de npm de web y movil. En Azure el cron necesita always: true, porque sin eso no corre si no hubo commits. Si aparece un aviso nuevo, me llega un correo. Dime cuántos minutos gasta al mes. Cuando haya producción (US-79), revisa además la etiqueta desplegada.»
+
+**Por qué.** Un PR solo ve una vulnerabilidad si alguien abre uno; los avisos se publican aunque el código no cambie. La corrida 687 (#103) encontró `GO-2026-6859` en la biblioteca estándar de Go 1.27.3, que `main` también llama: sin un PR de `api/`, nadie se habría enterado.
+
+**Cuándo corre.** `schedules` con un solo cron, `0 10 * * *`: Azure lee el cron en UTC, así que corre a las 5:00 a. m. en Colombia (UTC-5, sin horario de verano). Solo sobre `main`, con `always: true`. Sin él, Azure corre la programación solo «if there have been source code or pipeline settings changes since the last successful scheduled run» ([Configure schedules for pipelines](https://learn.microsoft.com/en-us/azure/devops/pipelines/process/scheduled-triggers)): un día sin commits en `main` no habría revisión. Tiene `trigger: none` (no corre al fusionar) y `pr: none` (sin `pr`, Azure corre un pipeline de GitHub en todo PR). Cada trabajo tiene un tope de 10 minutos.
+
+**Qué corre.** Los mismos comandos y las mismas versiones fijadas que un PR, para que la revisión diaria y el PR digan lo mismo:
+
+| Trabajo | Instala | Revisa |
+|---|---|---|
+| `api` | Go desde `plantillas/pasos/go.yml` (`govulncheck` revisa la biblioteca estándar de la versión de Go con la que corre) | `go tool govulncheck ./...`: falla (código 3) si el código llama a un símbolo vulnerable |
+| `web` | Node y npm desde `plantillas/pasos/node.yml` | `npm run auditoria` (`npm audit --omit=dev --audit-level=high`) |
+| `movil` | Node y npm desde `plantillas/pasos/node.yml` | `npm run auditoria` (altas o críticas de producción, con las excepciones de `movil/auditoria-excepciones.json`; una excepción vencida falla) |
+
+Sin `npm ci`: `npm audit` lee el lockfile, así que no se instala ningún paquete ni corre ningún script de instalación (comprobado en local el 2026-11-11: `web/` y `movil/` sin `node_modules` dan el mismo resultado).
+
+**Resultado de la corrida.**
+
+- **Failed**: una revisión falla (lo mismo que haría fallar un PR) o falla una instalación.
+- **Partially succeeded**: una revisión solo advierte. El paso guarda su salida; si sale con 0 y alguna línea empieza con `##vso[task.logissue type=warning]`, termina con `##vso[task.complete result=SucceededWithIssues;]` ([logging commands](https://learn.microsoft.com/en-us/azure/devops/pipelines/scripts/logging-commands): «The build will be completed as partially succeeded at best»). Hoy ninguna revisión advierte: lo hará la de Go con la regla de los 7 días (S2) y, después, la de npm (S5).
+- **Succeeded**: sin hallazgos. No llega correo.
+
+Lo que ya está aceptado no avisa: una vulnerabilidad de un módulo que el código no llama (`GO-2026-5932`, `govulncheck` la informa y sale con 0) y una excepción vigente de `movil/auditoria-excepciones.json`.
+
+**Ojo, hasta que entre el #112 (Go 1.27.4).** Con Go 1.27.3, `main` llama a `GO-2026-6859` (corrida 687), así que cada revisión diaria va a terminar en Failed, con un correo por día. Cuando entre el PR de S2 pasará a Partially succeeded (el arreglo, Go 1.27.4, es del 2026-11-10 y no cumple 7 días hasta el 2026-11-17), y desaparecerá cuando entre el #112.
+
+**«Aviso nuevo»: correo cada día mientras haya un hallazgo, sin estado.** La corrida no recuerda la anterior: si un hallazgo sigue ahí, vuelve a mandar correo al día siguiente. La alternativa, avisar solo lo que no estaba ayer, necesita guardar el resultado de cada corrida (un artefacto de la anterior, descargado con la API de Azure DevOps), compararlo y decidir qué pasa si se borró o venció. No es trivial y agrega un modo de fallar en silencio: si la comparación se equivoca, un aviso nunca llega. Se elige el correo diario porque:
+
+- lo que el dueño ya decidió no manda correo: está en el repositorio, como una excepción con su fecha de revisión (`movil/auditoria-excepciones.json`, D-150) o como un aviso que solo es de módulo. «Nuevo» es todo lo que no tiene esa decisión;
+- un aviso de menos de 7 días (S2) dura como mucho 7 días como advertencia; después falla, hasta que entra el arreglo;
+- un correo por día es el recordatorio de algo que sigue abierto.
+
+Si el correo diario resulta ruidoso, el paso siguiente es la comparación con la corrida anterior.
+
+**Correo (lo hace el dueño, una vez).** La suscripción por defecto «Build completes» avisa solo de «a build you queued or that was queued for you» ([notificaciones por defecto](https://learn.microsoft.com/en-us/azure/devops/organizations/notifications/oob-built-in-notifications)). Una corrida programada no la pide ninguna persona (en esta organización las de PR figuran a nombre de «GitHub»), así que sin una suscripción propia no llega nada. No hace falta ningún secreto en el repositorio:
+
+1. Registrar el pipeline (después de fusionar este cambio): Azure DevOps → proyecto `alcanzamos` → Pipelines → New pipeline → GitHub → `alcanzamos/alcanzamos` → «Existing Azure Pipelines YAML file» → rama `main`, ruta `/.azure-pipelines/revision-diaria.yml` → Continue → en el menú junto a Run, **Save** (sin correr). Renombrarlo a `revision-diaria` (⋮ → Rename/move). No necesita variables ni la variable `GITHUB_TOKEN_PR`.
+2. Comprobar la programación: en el pipeline, ⋮ → **Scheduled runs**: la próxima corrida a las 5:00 a. m. (la página la muestra en la hora del navegador). No agregar programaciones en Edit → ⋮ → Triggers: las de la interfaz reemplazan a las del YAML.
+3. Crear la suscripción personal: arriba a la derecha, **User settings** (el ícono junto al avatar) → **Notifications** → **New subscription** → Category **Build**, Template **A build completes** → Next.
+4. En el formulario:
+   - Description: `revision-diaria: falla o aviso`.
+   - Deliver to: el correo preferido (u otra dirección).
+   - Filter: **A specific team project** → `alcanzamos`.
+   - Filter criteria: `Definition name` `=` `revision-diaria`; Add new clause → `And` `Status` `<>` `Succeeded`. Así llega con Failed, Partially succeeded y una corrida detenida o cancelada (por ejemplo, por el tope de 10 minutos). Si `Status` no ofrece `<>`, dos cláusulas agrupadas: `Status` `=` `Failed` Or `Status` `=` `Partially Succeeded`.
+   - Finish.
+5. Probarla: Run pipeline sobre `main`. Mientras `main` tenga `GO-2026-6859` (hasta el #112), la corrida termina en Failed y el correo debe llegar en unos minutos. Esa corrida mide también los minutos reales (abajo).
+
+**Minutos.** Estimación con las duraciones reales de los pasos en las corridas 683, 684 y 687 de `control` (API de timeline), por trabajo (inicio, checkout, instalación, revisión y cierre):
+
+| Trabajo | Duración por corrida | De dónde sale |
+|---|---|---|
+| `api` | 36 a 67 s | Inicio 0,6 a 0,9 s, checkout 1,8 a 2 s, Go 3,2 a 3,6 s, versión 0,2 s. `govulncheck` en las corridas tardó 7,5 a 10,5 s, pero con los módulos ya bajados por `go vet` (48 a 51 s). Aquí corre en frío: se toma entre 30 s (en local, 16 s de `go mod download` y 10 s de `govulncheck`) y 61 s (`go vet` más `govulncheck`) |
+| `web` | 12 a 13 s | Inicio 0,6 s, checkout 2 a 2,2 s, Node 3,3 a 3,8 s, npm 4,9 s, `npm audit` 0,9 a 1 s |
+| `movil` | 15 s | Inicio 0,8 s, checkout 2,5 s, Node 4 s, npm 5,1 s, `npm audit` 2,2 s |
+
+Total: 63 a 95 s por día, **unos 32 a 48 minutos al mes** (× 30). Si Azure redondeara cada trabajo al minuto entero, serían 3 minutos por día, 90 al mes, el peor caso. Contra el cupo: el proyecto `alcanzamos` es **privado**, así que aplica el plan gratuito de Microsoft-hosted para proyectos privados (D-116): 1 trabajo a la vez y **1.800 minutos al mes**, sin compras (`az devops invoke … resourceusage` del 2026-11-11: `FreeCount` 1, `PurchasedCount` 0, `totalMinutes` 1.800, `usedMinutes` 1.101). La revisión diaria es del 2 al 3 % del cupo (5 % en el peor caso), lo mismo que unas dos corridas de un PR de `api` y `web` al mes (corrida 683: 19,5 minutos). La primera corrida manual (paso 5) da el número real: Azure DevOps → la corrida → la duración de cada trabajo.
+
+**Cuando entre el PR de S2 (`pruebas/vulnerabilidades.py`).** En `revision-diaria.yml` hay una nota «CAMBIA CUANDO ENTRE EL PR DE S2» en el paso de Go: el paso pasa a ser el mismo de `plantillas/api.yml`, primero `vulnerabilidades.py probar` (el script se prueba a sí mismo) y después `go tool govulncheck -format json ./... | python3 -I -B ../.azure-pipelines/pruebas/vulnerabilidades.py revisar -`. Con `-format json`, `govulncheck` sale siempre con 0: el script es la única barrera. Para que la corrida quede en Partially succeeded con un arreglo de menos de 7 días, el script debe imprimir ese aviso como `##vso[task.logissue type=warning]…` y salir con 0; todo lo demás sale con otro código y la deja en Failed.
+
+**TODO (US-79): la etiqueta desplegada.** Cuando haya producción, la revisión diaria revisa también la etiqueta `v*` desplegada, porque lo que corre en producción puede no ser `main`. Plan, sin implementar (la nota «TODO(US-79)» está en el YAML):
+
+- La etiqueta desplegada es la de la última corrida exitosa del pipeline de despliegue hacia producción (`Build.SourceBranch` = `refs/tags/v…`); se lee con la API de Azure DevOps y `$(System.AccessToken)`, sin secretos en el repositorio.
+- Cada trabajo pasa a una plantilla con un parámetro `ref` y corre dos veces, con `main` y con la etiqueta (`git fetch --depth 1 origin tag <etiqueta>` y `git worktree add` en `$(Agent.TempDirectory)`, o un recurso de repositorio con `ref: refs/tags/<etiqueta>`).
+- Sobre la etiqueta rige la regla del despliegue (S2): falla con cualquier vulnerabilidad que el código alcance y que tenga arreglo, aunque tenga menos de 7 días, salvo una excepción que registre el dueño.
+- Gasta lo mismo otra vez: unos 1 a 1,6 minutos más por día.
+
+**Qué comprueba `pruebas/filtros.py`.** Un pipeline con `schedules` se acepta solo si está en `PROGRAMADOS` (hoy, solo `revision-diaria`). Debe tener `trigger: none`, `pr: none` y una sola programación, diaria (minuto y hora fijos, `* * *`), con `branches.include` igual a `main` y sin `exclude`, y `always: true`. La prueba también comprueba que su revisión rechace once cambios rotos (`MUTACIONES_PROGRAMADO`: `always` en `false` o ausente, otra rama, `'*'`, un `exclude`, un `pr` o un `trigger` con ramas, sin `pr`, un cron cada hora o semanal y una segunda programación). No entra en la simulación de los filtros, porque no corre en ningún PR. Además, los pasos compartidos que usa cada plantilla (`plantillas/pasos/*.yml`) deben disparar su etapa y su pipeline por carpeta: un cambio en `plantillas/pasos/go.yml` corre `api`, y uno en `plantillas/pasos/node.yml` corre `web` y `movil`.
 
 ## Token de GitHub de `comun` (D-167)
 

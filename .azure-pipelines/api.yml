@@ -21,6 +21,7 @@ pr:
       - marca/logo-horizontal-color.svg
       - .azure-pipelines/api.yml
       - .azure-pipelines/plantillas/api.yml
+      - .azure-pipelines/plantillas/pasos/go.yml
       - .azure-pipelines/pruebas/cobertura.py
 
 # Los pasos viven en plantillas/api.yml.
