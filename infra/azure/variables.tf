@@ -1,5 +1,5 @@
 variable "subscription_id" {
-  description = "Suscripción de Azure for Students. Se pasa al aplicar."
+  description = "Suscripción del ambiente: Azure for Students en UAT, pago por uso en producción (D-200 (7) y (8)). Se pasa al aplicar."
   type        = string
 }
 

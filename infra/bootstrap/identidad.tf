@@ -2,6 +2,10 @@
 # Azure DevOps (workload identity federation). Sin secretos.
 data "azurerm_client_config" "actual" {}
 
+locals {
+  conexion_de_servicio = coalesce(var.conexion_de_servicio, "sc-${local.sufijo}")
+}
+
 resource "azuread_application" "pipeline" {
   display_name = "app-pipeline-${local.sufijo}"
 }
@@ -12,10 +16,10 @@ resource "azuread_service_principal" "pipeline" {
 
 resource "azuread_application_federated_identity_credential" "azure_devops" {
   application_id = azuread_application.pipeline.id
-  display_name   = "azure-devops-${var.conexion_de_servicio}"
+  display_name   = "azure-devops-${local.conexion_de_servicio}"
   audiences      = ["api://AzureADTokenExchange"]
   issuer         = "https://vstoken.dev.azure.com/${var.azure_devops_organizacion_id}"
-  subject        = "sc://alcanzamos/alcanzamos/${var.conexion_de_servicio}"
+  subject        = "sc://alcanzamos/alcanzamos/${local.conexion_de_servicio}"
 }
 
 # Permisos solo sobre el grupo de recursos del proyecto (D-119, opción A).

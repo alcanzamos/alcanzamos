@@ -32,14 +32,14 @@ resource "azurerm_container_app" "api" {
   }
 
   template {
-    min_replicas = 1
+    min_replicas = var.api_replicas_minimas
     max_replicas = 1
 
     container {
       name   = "api"
       image  = var.imagen_api
-      cpu    = 0.25
-      memory = "0.5Gi"
+      cpu    = var.contenedor_cpu
+      memory = var.contenedor_memoria
 
       dynamic "env" {
         for_each = local.variables_api
@@ -87,8 +87,8 @@ resource "azurerm_container_app_job" "tareas" {
       name    = "tareas"
       image   = var.imagen_api
       command = ["/alcanzamos", "tareas"]
-      cpu     = 0.25
-      memory  = "0.5Gi"
+      cpu     = var.contenedor_cpu
+      memory  = var.contenedor_memoria
 
       dynamic "env" {
         for_each = local.variables_api
