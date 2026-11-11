@@ -15,7 +15,8 @@ import (
 )
 
 // Presupuestos es la persistencia del presupuesto (E13 `presupuesto`) y de lo que PN-06 a PN-08 leen de los movimientos
-// y las repeticiones: implementa presupuesto.Repositorio. Todo es de lo propio (`persona_id`).
+// y las repeticiones: implementa presupuesto.Repositorio. Todo es de lo propio (`persona_id`; en `presupuesto`, además,
+// `hogar_id` nulo).
 type Presupuestos struct{ pool *pgxpool.Pool }
 
 // NuevoPresupuestos crea el repositorio sobre un pool.
