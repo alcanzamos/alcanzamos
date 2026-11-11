@@ -20,11 +20,6 @@ jobs:
       NPM_SHA512: 6ca0a6151553fc107e60f1186d9c10d57508dcde6de31292a54d4cc4e8e8ef3de25b3281274657442d7115d10df930bb3794ddcb0681cdfd9d317189abf7b63d
 
     steps:
-      # COMMIT TEMPORAL: hace fallar `comun` para probar que el check `control` queda en rojo. Se revierte.
-      - script: |
-          echo "Falla a propósito (prueba temporal)."
-          exit 1
-        displayName: Falla a propósito (prueba temporal)
       - checkout: self
         fetchDepth: 0
 
