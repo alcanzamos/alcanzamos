@@ -367,6 +367,46 @@ func TestIntegracionAportesFueraYCategoriasOcultas(t *testing.T) {
 	}
 }
 
+// L12 (2) de la US-77: PN-06 lee solo los presupuestos propios (`hogar_id` nulo), como la escritura y la descarga. Los
+// compartidos con el hogar, aunque los haya puesto la misma persona, no son filas ni suman en lo asignado: Alimentación
+// sale sin presupuesto (con su gasto) y Educación, sin gasto, no sale.
+func TestIntegracionPN06SoloLosPresupuestosPropios(t *testing.T) {
+	s := nuevoServidor(t)
+	c := s.nuevaPersona("laura@ejemplo.test", false, true)
+	c.registrar(registro.Ingreso, 10000000, "2026-11-01", salario, "")
+	c.registrar(registro.Gasto, 1000000, "2026-11-02", alimentacion, "")
+	c.registrar(registro.Gasto, 500000, "2026-11-02", transporte, "")
+	// El hogar y su administradora van en una transacción: `fk_hogar_administrador_miembro` es diferida.
+	ctx := context.Background()
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx)
+	var hogarID string
+	if err := tx.QueryRow(ctx, `INSERT INTO hogar (nombre, creado_en, administrador_id) VALUES ('Casa', '2026-11-01', $1::uuid) RETURNING id::text`, c.persona).Scan(&hogarID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO miembro_hogar (persona_id, hogar_id) VALUES ($1::uuid, $2::uuid)`, c.persona, hogarID); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	s.ejecutar(`INSERT INTO presupuesto (persona_id, hogar_id, categoria_id, periodo, monto_asignado) VALUES
+		($1::uuid, NULL, $3, '2026-11-01', 3000000), ($1::uuid, $2::uuid, $4, '2026-11-01', 5000000), ($1::uuid, $2::uuid, $5, '2026-11-01', 7000000)`,
+		c.persona, hogarID, transporte, alimentacion, educacion)
+
+	v := leerJSON[vistaLeida](t, c.llamar("GET", "/api/v1/presupuestos", ""))
+	if got := filasDeLaVista(v); got != "8:500000:3000000:quedan 1:1000000:-:-" {
+		t.Errorf("por categoría: %s", got)
+	}
+	if v.Resumen.Modo != presupuesto.ModoNormal || v.Resumen.IngresoRegistrado != "10000000" || v.Resumen.Asignado != "3000000" ||
+		v.Resumen.SinAsignar == nil || *v.Resumen.SinAsignar != "7000000" || v.Resumen.SuperaPor != nil {
+		t.Errorf("resumen: %+v", v.Resumen)
+	}
+}
+
 // E14-PPA 4.1, PN-06 fila 4 (L6 (6) de la US-77), con los nombres del catálogo de la base: con el mismo gasto, por nombre
 // y no por id. Educación (12) antes que Transporte (8), con presupuesto y sin gasto; Hogar y mantenimiento (6) antes que
 // Servicios públicos (5), sin presupuesto y con el mismo gasto.
