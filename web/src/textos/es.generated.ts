@@ -749,8 +749,8 @@ export const textos = {
     cuadro: {
       // E14-PPN 3.1, fila 3
       etiqueta: "Escribe el gasto o el ingreso",
-      // E14-PPN 3.1, fila 3
-      ayuda: "Por ejemplo: mercado 45 mil ayer.",
+      // E14-PPN 3.1, fila 3, con «Un movimiento a la vez.» antes del ejemplo (nota provisional de D-196, versión 1.14)
+      ayuda: "Un movimiento a la vez. Por ejemplo: mercado 45 mil ayer.",
       // E14-PPN 3.1, fila 4 (NM-12)
       privacidad: "No escribas datos de salud, religión ni de otras personas.",
       // E14-PPN 3.1, fila 5

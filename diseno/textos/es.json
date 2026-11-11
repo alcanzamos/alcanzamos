@@ -1278,8 +1278,8 @@
           "e14": "E14-PPN 3.1, fila 3"
         },
         "ayuda": {
-          "texto": "Por ejemplo: mercado 45 mil ayer.",
-          "e14": "E14-PPN 3.1, fila 3"
+          "texto": "Un movimiento a la vez. Por ejemplo: mercado 45 mil ayer.",
+          "e14": "E14-PPN 3.1, fila 3, con «Un movimiento a la vez.» antes del ejemplo (nota provisional de D-196, versión 1.14)"
         },
         "privacidad": {
           "texto": "No escribas datos de salud, religión ni de otras personas.",

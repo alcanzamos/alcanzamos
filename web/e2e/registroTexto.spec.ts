@@ -75,7 +75,9 @@ test.describe("F-1 · cuadro de lenguaje natural y «Revisa y confirma» (US-62)
     await page.goto("/registrar");
     await expect(cuadro(page)).toBeVisible();
     await expect(
-      page.getByText("Por ejemplo: mercado 45 mil ayer."),
+      page.getByText(
+        "Un movimiento a la vez. Por ejemplo: mercado 45 mil ayer.",
+      ),
     ).toBeVisible();
     await sinViolaciones(page);
 
@@ -175,16 +177,37 @@ test.describe("F-1 · cuadro de lenguaje natural y «Revisa y confirma» (US-62)
     expect(guardados(pedidos)).toEqual([]);
   });
 
-  test("varios movimientos: el aviso va encima de la tarjeta", async ({
+  test("varios movimientos (D-196, paso 1): sin categoría, «Revisar y guardar» la pide con el foco en ella; elegida, el aviso va encima de la tarjeta", async ({
     page,
   }) => {
     await hoyEs2DeNoviembre(page);
-    await api(page, { ...propuesta, varios_movimientos: true });
+    const pedidos = await api(page, {
+      ...propuesta,
+      categoria: null,
+      varios_movimientos: true,
+    });
     await page.goto("/registrar");
     await cuadro(page).fill("mercado 45 mil ayer y 12 mil de pasajes");
     await page.getByRole("button", { name: "Llenar el formulario" }).click();
+    await expect(page.getByLabel("Monto")).toHaveValue("$45.000");
+    await expect(page.getByLabel("Fecha")).toHaveValue("2026-11-01");
+    for (const nombre of ["Alimentación", "Transporte", "Otros gastos"])
+      await expect(page.getByRole("radio", { name: nombre })).not.toBeChecked();
     await page.getByRole("radio", { name: "Efectivo" }).check();
     await page.getByRole("button", { name: "Revisar y guardar" }).click();
+    await expect(page.getByText("Falta elegir la categoría.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Ver todas" })).toBeFocused();
+    await expect(
+      page.getByRole("heading", { level: 2, name: "Revisa y confirma" }),
+    ).toHaveCount(0);
+    await sinViolaciones(page);
+    expect(guardados(pedidos)).toEqual([]);
+
+    await page.getByRole("radio", { name: "Alimentación" }).check();
+    await page.getByRole("button", { name: "Revisar y guardar" }).click();
+    await expect(
+      page.getByRole("heading", { level: 2, name: "Revisa y confirma" }),
+    ).toBeFocused();
     await expect(
       page.getByText("Encontramos más de un movimiento"),
     ).toBeVisible();
@@ -443,10 +466,16 @@ test.describe("«Revisa y confirma» a 360 px reemplaza el formulario (bug 266)"
     }) => {
       await page.setViewportSize({ width: ancho, height: 900 });
       await hoyEs2DeNoviembre(page);
-      await api(page, { ...propuesta, varios_movimientos: true });
+      await api(page, {
+        ...propuesta,
+        categoria: null,
+        varios_movimientos: true,
+      });
       await page.goto("/registrar");
       await cuadro(page).fill("mercado 45 mil ayer y 12 mil de pasajes");
       await page.getByRole("button", { name: "Llenar el formulario" }).click();
+      // Con varios montos la categoría llega vacía y la persona la elige (D-196, paso 1).
+      await page.getByRole("radio", { name: "Alimentación" }).check();
       await page.getByRole("radio", { name: "Efectivo" }).check();
       await page.getByRole("button", { name: "Revisar y guardar" }).click();
 

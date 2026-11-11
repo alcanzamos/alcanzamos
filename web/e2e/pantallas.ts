@@ -340,7 +340,7 @@ export const pantallas: Pantalla[] = [
           resultado: "propuesta",
           tipo: "gasto",
           monto_centavos: 4500000,
-          categoria: { id: 1, nombre: "Alimentación" },
+          categoria: null,
           fecha: "2026-12-13",
           varios_movimientos: true,
         }),
@@ -352,6 +352,8 @@ export const pantallas: Pantalla[] = [
         .getByLabel("Escribe el gasto o el ingreso")
         .fill("mercado 45 mil ayer y 12 mil de pasajes");
       await page.getByRole("button", { name: "Llenar el formulario" }).click();
+      // Con varios montos la categoría llega vacía y la persona la elige (D-196, paso 1).
+      await page.getByRole("radio", { name: "Alimentación" }).check();
       await page.getByRole("radio", { name: "Efectivo" }).check();
       await page.getByRole("button", { name: "Revisar y guardar" }).click();
       await expect(
