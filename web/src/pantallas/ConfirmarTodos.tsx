@@ -141,7 +141,10 @@ export function ConfirmarTodos({
         {pendientes.map((fila) => {
           const clave = claveDe(fila);
           const eleccion = de(fila);
-          const tf = textosDeFilaPorConfirmar(fila);
+          const centavos =
+            eleccion.monto ?? BigInt(fila.monto_habitual_centavos);
+          // ACC-004 (bug 231): «Más» dice el monto que se ve en la fila, también el cambiado.
+          const tf = textosDeFilaPorConfirmar(fila, centavos);
           const estado = eleccion.omitida
             ? t.todos.noPaso
             : !eleccion.marcada
@@ -168,12 +171,7 @@ export function ConfirmarTodos({
                         </span>
                         {estado && <span className="ayuda">{estado}</span>}
                       </span>
-                      <span className="cifra">
-                        {formatearPesos(
-                          eleccion.monto ??
-                            BigInt(fila.monto_habitual_centavos),
-                        )}
-                      </span>
+                      <span className="cifra">{formatearPesos(centavos)}</span>
                     </>
                   }
                 />

@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
 import { navegar } from "../src/enrutador";
@@ -46,7 +52,11 @@ const escribir = async (valor: string) =>
   fireEvent.change(await monto(), { target: { value: valor } });
 const ir = (ruta: string) => navegar(ruta);
 const abrirDesdePN01 = async () => {
-  fireEvent.click(await screen.findByRole("link", { name: "Registrar" }));
+  fireEvent.click(
+    within(await screen.findByRole("main")).getByRole("link", {
+      name: "Registrar",
+    }),
+  );
   await monto();
 };
 

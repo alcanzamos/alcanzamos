@@ -97,7 +97,11 @@ export function SeRepite() {
   }
 
   return (
-    <Pagina titulo={p.titulo} atras="/registrar">
+    <Pagina
+      titulo={p.titulo}
+      atras="/registrar"
+      lateral={{ registrarSecundario: true }}
+    >
       <p>{p.intro}</p>
       <ChipsDeEleccion
         id="periodicidad"

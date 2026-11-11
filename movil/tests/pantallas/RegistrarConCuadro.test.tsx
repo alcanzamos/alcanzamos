@@ -13,7 +13,12 @@ import {
 } from "../../src/borradorDeRegistro";
 import { Registrar } from "../../src/pantallas/Registrar";
 import { tokens } from "../../src/tokens/tokens.generated";
-import { esperarAnuncio } from "../ayudas/anuncios";
+import {
+  esperarAnuncio,
+  focosDeTalkBack,
+  limpiarAnuncios,
+  nombreDe,
+} from "../ayudas/anuncios";
 import { respuestaJson } from "../ayudas/fetchFalso";
 import { navegacionFalsa, propiedades } from "../ayudas/pantalla";
 import { fijarHoy } from "../ayudas/reloj";
@@ -158,12 +163,17 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
       const cuadro = campo(CUADRO);
       expect(cuadro.props.multiline).toBe(true);
       expect(cuadro.props.maxLength).toBe(280);
+      // La ayuda pide un movimiento a la vez, antes del ejemplo (D-196, paso 1); el «45» va en cifras (D-123).
       expect(cuadro.props.accessibilityHint).toBe(
-        "Por ejemplo: mercado 45 mil ayer.",
+        "Un movimiento a la vez. Por ejemplo: mercado 45 mil ayer.",
       );
-      expect(
-        screen.getByText("Por ejemplo: mercado 45 mil ayer."),
-      ).toBeOnTheScreen();
+      const ayuda = screen.getByText(
+        "Un movimiento a la vez. Por ejemplo: mercado 45 mil ayer.",
+      );
+      expect(ayuda).toBeOnTheScreen();
+      expect(within(ayuda).getByText("45")).toHaveStyle({
+        fontVariant: ["tabular-nums"],
+      });
       // La advertencia está dos veces: bajo el cuadro (fila 4) y como ayuda de la descripción (fila 12).
       expect(
         screen.getAllByText(
@@ -437,12 +447,18 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
     });
 
     it("varios movimientos: el aviso de D-077 va encima de la tarjeta y la propuesta sigue siendo la del primero", async () => {
+      // Con varios montos el API manda la categoría vacía (D-196, paso 1): la persona la elige antes del paso.
       api({
         interpretar: () =>
-          respuestaJson(200, { ...propuesta, varios_movimientos: true }),
+          respuestaJson(200, {
+            ...propuesta,
+            categoria: null,
+            varios_movimientos: true,
+          }),
       });
-      await interpretarYLlenar();
+      await interpretarYLlenar("mercado 45 mil ayer y 12 mil de pasajes");
       await elegir("Efectivo");
+      await elegir("Alimentación");
       await tocar("Revisar y guardar");
       const aviso = await screen.findByText("Encontramos más de un movimiento");
       expect(
@@ -455,6 +471,53 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
         "Encontramos más de un movimiento Tomamos solo el primer movimiento. Registra los otros por separado.",
       );
       expect(antes("Encontramos más de un movimiento", "Tipo")).toBe(true);
+    });
+
+    it("varios movimientos (D-196, paso 1): el formulario llega sin categoría y «Revisar y guardar» pide elegirla, con el foco de TalkBack en ella, sin pasar al paso", async () => {
+      const pedidos = api({
+        interpretar: () =>
+          respuestaJson(200, {
+            ...propuesta,
+            categoria: null,
+            varios_movimientos: true,
+          }),
+      });
+      await interpretarYLlenar("mercado 45 mil ayer y 12 mil de pasajes");
+      expect(campo("Monto en pesos").props.value).toBe("45.000");
+      for (const chip of within(
+        screen.getByText("Categoría").parent!,
+      ).getAllByRole("radio"))
+        expect(chip).not.toBeChecked();
+      await elegir("Efectivo");
+      limpiarAnuncios();
+      await tocar("Revisar y guardar");
+      expect(
+        await screen.findByText("Falta elegir la categoría."),
+      ).toBeOnTheScreen();
+      expect(screen.getAllByText(/^Falta/)).toHaveLength(1);
+      expect(focosDeTalkBack().map(nombreDe)).toEqual([
+        "Categoría, Falta elegir la categoría.",
+      ]);
+      expect(
+        screen.queryByRole("header", { name: "Revisa y confirma" }),
+      ).not.toBeOnTheScreen();
+      expect(
+        screen.queryByText("Encontramos más de un movimiento"),
+      ).not.toBeOnTheScreen();
+      // Con la categoría elegida, el paso abre con el aviso de varios movimientos y guarda la que ella eligió.
+      await elegir("Otros gastos");
+      await tocar("Revisar y guardar");
+      await screen.findByRole("header", { name: "Revisa y confirma" });
+      expect(
+        screen.getByText("Encontramos más de un movimiento"),
+      ).toBeOnTheScreen();
+      await tocar("Confirmar y guardar");
+      await waitFor(() => expect(guardados(pedidos)).toHaveLength(1));
+      expect(JSON.parse(guardados(pedidos)[0]!.cuerpo!)).toMatchObject({
+        categoria_id: 16,
+        monto_centavos: 4500000,
+        fecha: "2026-10-25",
+      });
     });
 
     it("sin varios movimientos no hay aviso", async () => {

@@ -232,6 +232,10 @@ func TestBorrarConHogarYMenoresDePuntaAPunta(t *testing.T) {
 	sql(`INSERT INTO movimiento (persona_id, hogar_id, tipo, monto, fecha, medio, descripcion, categoria_id) VALUES ($1::uuid, $2::uuid, 'gasto', 5, current_date, 'efectivo', 'secreto de Camilo', 4)`, camilo, hogar)
 	sql(`INSERT INTO movimiento (persona_id, tipo, monto, fecha, medio, descripcion, categoria_id) VALUES ($1::uuid, 'gasto', 6, current_date, 'efectivo', 'secreto de Sofía', 1)`, sofia)
 	sql(`INSERT INTO movimiento (persona_id, tipo, monto, fecha, medio, descripcion, categoria_id) VALUES ($1::uuid, 'ingreso', 150000, current_date, 'transferencia', 'sueldo de Laura', 17)`, laura)
+	sql(`INSERT INTO presupuesto (persona_id, categoria_id, periodo, monto_asignado) VALUES ($1::uuid, 8, '2026-10-01', 4000000)`, laura)
+	sql(`INSERT INTO presupuesto_en_cero (persona_id, periodo) VALUES ($1::uuid, '2026-09-01')`, laura)
+	sql(`INSERT INTO presupuesto (persona_id, hogar_id, categoria_id, periodo, monto_asignado) VALUES ($1::uuid, $2::uuid, 3, '2026-10-01', 7)`, camilo, hogar)
+	sql(`INSERT INTO presupuesto_en_cero (persona_id, periodo) VALUES ($1::uuid, '2026-08-01')`, camilo)
 	if err := tx.Commit(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -263,13 +267,17 @@ func TestBorrarConHogarYMenoresDePuntaAPunta(t *testing.T) {
 				t.Errorf("movimientos.csv: %d líneas, se esperaban el encabezado y 2 movimientos de Laura:\n%s", n, crudo)
 			}
 		}
+		// El presupuesto de Laura y el mes que dejó en cero (L6 (5) de la US-77); nada de Camilo.
+		if quiere := "\xEF\xBB\xBFperiodo,categoria,monto_asignado_en_pesos\n2026-09,,0.00\n2026-10,Transporte,40000.00\n"; f.Name == "presupuestos.csv" && string(crudo) != quiere {
+			t.Errorf("presupuestos.csv:\n%q\nse esperaba\n%q", crudo, quiere)
+		}
 	}
 	for _, quiere := range []string{"arriendo de enero", "sueldo de Laura", "1500.00", "Salario", "800.00"} {
 		if !strings.Contains(todo, quiere) {
 			t.Errorf("la descarga no trae %q:\n%s", quiere, todo)
 		}
 	}
-	for _, ajeno := range []string{"secreto", "Camilo", "Sofía", "Mateo", camilo, sofia, mateo, hogar, laura} {
+	for _, ajeno := range []string{"secreto", "Camilo", "Sofía", "Mateo", camilo, sofia, mateo, hogar, laura, "Ropa y calzado", "2026-08"} {
 		if strings.Contains(todo, ajeno) {
 			t.Errorf("la descarga lleva %q", ajeno)
 		}

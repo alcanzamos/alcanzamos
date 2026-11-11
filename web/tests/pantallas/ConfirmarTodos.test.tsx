@@ -154,6 +154,52 @@ describe("«Confirmar todos» (E14-PRR 4.8, D-093)", () => {
     expect(guardar("Guardar 3 movimientos")).toBeVisible();
   });
 
+  it("ACC-004 (bug 231): tres filas iguales salvo el monto se distinguen en la casilla y en «Más»", () => {
+    const otros = (id: string, centavos: string): Pendiente => ({
+      recurrente_id: id,
+      fecha: "2026-11-05",
+      tipo: "gasto",
+      categoria_id: 16,
+      medio: "efectivo",
+      monto_habitual_centavos: centavos,
+      periodicidad: "mensual",
+    });
+    abrir({
+      pendientes: [
+        otros("r-a", "5500000"),
+        otros("r-b", "3000000"),
+        otros("r-c", "1250050"),
+      ],
+      resumen: { total: 3, ingresos: 0, gastos: 3 },
+    });
+    expect(
+      screen
+        .getAllByRole("checkbox")
+        .map((c) => (c as HTMLInputElement).labels?.[0]?.textContent),
+    ).toEqual([
+      "Otros gastosGasto · 5 de noviembre de 2026$55.000",
+      "Otros gastosGasto · 5 de noviembre de 2026$30.000",
+      "Otros gastosGasto · 5 de noviembre de 2026$12.500,50",
+    ]);
+    expect(
+      screen
+        .getAllByRole("button", { name: /^Más opciones de Otros gastos/ })
+        .map((b) => b.getAttribute("aria-label")),
+    ).toEqual([
+      "Más opciones de Otros gastos de $55.000 del 5 de noviembre de 2026",
+      "Más opciones de Otros gastos de $30.000 del 5 de noviembre de 2026",
+      "Más opciones de Otros gastos de $12.500,50 del 5 de noviembre de 2026",
+    ]);
+  });
+
+  it("ACC-004 (bug 231): «Más» dice el monto cambiado de su fila", () => {
+    abrir();
+    cambiarMonto("Salario", "1.100.000");
+    expect(mas("Salario")).toHaveAccessibleName(
+      "Más opciones de Salario de $1.100.000 del 1 de diciembre de 2026",
+    );
+  });
+
   it("un monto igual al habitual no cuenta como cambiado; uno inválido muestra el error de E14-PPN 3.1", () => {
     abrir();
     cambiarMonto("Salario", "1.200.000");
