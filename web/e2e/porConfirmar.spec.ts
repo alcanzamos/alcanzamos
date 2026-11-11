@@ -216,7 +216,7 @@ test.describe("PN-01 · «Por confirmar» (US-60)", () => {
     ).toBeVisible();
     await expect(
       con.getByRole("button", {
-        name: "Confirmar Salario del 1 de diciembre de 2026",
+        name: "Confirmar Salario de $1.200.000 del 1 de diciembre de 2026",
       }),
     ).toBeVisible();
     await sinViolaciones(con);
@@ -231,7 +231,7 @@ test.describe("PN-01 · «Por confirmar» (US-60)", () => {
     await page.goto("/movimientos");
     await page
       .getByRole("button", {
-        name: "Confirmar Salario del 1 de diciembre de 2026",
+        name: "Confirmar Salario de $1.200.000 del 1 de diciembre de 2026",
       })
       .click();
 
@@ -273,7 +273,7 @@ test.describe("PN-01 · «Por confirmar» (US-60)", () => {
     const { pedidos } = await api(page, [salario, arriendo]);
     await page.goto("/movimientos");
     const mas = page.getByRole("button", {
-      name: "Más opciones de Salario del 1 de diciembre de 2026",
+      name: "Más opciones de Salario de $1.200.000 del 1 de diciembre de 2026",
     });
     await mas.click();
     const hoja = page.getByRole("dialog", {
@@ -322,7 +322,7 @@ test.describe("PN-01 · «Por confirmar» (US-60)", () => {
     await page.goto("/movimientos");
     await page
       .getByRole("button", {
-        name: "Más opciones de Comunicaciones del 12 de noviembre de 2026",
+        name: "Más opciones de Comunicaciones de $60.000 del 12 de noviembre de 2026",
       })
       .click();
     await page
@@ -363,7 +363,7 @@ test.describe("PN-01 · «Por confirmar» (US-60)", () => {
     await page.goto("/movimientos");
     await page
       .getByRole("button", {
-        name: "Confirmar Salario del 1 de diciembre de 2026",
+        name: "Confirmar Salario de $1.200.000 del 1 de diciembre de 2026",
       })
       .click();
     const aviso = page
@@ -373,7 +373,7 @@ test.describe("PN-01 · «Por confirmar» (US-60)", () => {
     await expect(aviso).toBeFocused();
     await expect(
       page.getByRole("button", {
-        name: "Confirmar Salario del 1 de diciembre de 2026",
+        name: "Confirmar Salario de $1.200.000 del 1 de diciembre de 2026",
       }),
     ).toBeVisible();
     await sinViolaciones(page);
@@ -476,7 +476,7 @@ test.describe("«Confirmar todos» (US-60, E14-PRR 4.8)", () => {
     await expect(panel(page)).toHaveCount(0);
     await expect(
       page.getByRole("button", {
-        name: "Confirmar Servicios públicos del 5 de noviembre de 2026",
+        name: "Confirmar Servicios públicos de $120.000 del 5 de noviembre de 2026",
       }),
     ).toBeVisible();
     await expect(page.getByRole("link", { name: /^Salario/ })).toContainText(

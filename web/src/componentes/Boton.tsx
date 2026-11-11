@@ -17,7 +17,7 @@ export function Boton({
   children,
 }: {
   id?: string;
-  /** El nombre accesible cuando el texto visible no basta («Confirmar Salario del 16 de noviembre de 2026»). */
+  /** El nombre accesible cuando el texto visible no basta («Confirmar Salario de $1.200.000 del 16 de noviembre de 2026»). */
   nombre?: string;
   variante?: Variante;
   tipo?: "button" | "submit";

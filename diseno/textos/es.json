@@ -397,7 +397,7 @@
       },
       "cerrar": {
         "texto": "Cerrar",
-        "e14": "E14-PRR 4.1 (PN-01), hojas «Más», «No pasó» y «Cambiar el monto»; E14-SDD 5.12"
+        "e14": "E14-SDD 5.12 (el ícono Cerrar de toda Hoja inferior, también «Ver todas» y «Otro mes»); E14-PRR 4.1 (PN-01), hojas «Más», «No pasó» y «Cambiar el monto»; E14-PRR 4.2 (PN-02), hoja de borrar, fila 6"
       },
       "apoyoConMedio": {
         "texto": "{tipo} · {medio} · {fecha}",
@@ -408,12 +408,12 @@
         "e14": "E14-PRR 4.8 (PN-72, «Confirmar todos»), fila 4: «Gasto · 5 de noviembre de 2026»"
       },
       "nombreDeConfirmar": {
-        "texto": "Confirmar {nombre} del {fecha}",
-        "e14": "E14-PRR 4.1 (PN-01), fila «Confirmar»: «Confirmar Salario del 16 de noviembre de 2026»"
+        "texto": "Confirmar {nombre} de {monto} del {fecha}",
+        "e14": "Aprobado por el dueño el 2026-11-10 (US-71, bug 231 de Azure Boards, ACC-004), un solo texto para la web y Android; va a E14-PRR 4.1 en la T4 de la US-71: el nombre accesible de E14-PRR 4.1 (PN-01), fila «Confirmar» («Confirmar Salario del 16 de noviembre de 2026»), con el monto, para que dos fechas de la misma categoría y día no se anuncien igual. Android dice el monto con `montoHablado` (D-187): «Confirmar Salario de 1200000 pesos del 16 de noviembre de 2026»; la web, con `formatearPesos`: «Confirmar Salario de $1.200.000 del 16 de noviembre de 2026»"
       },
       "nombreDeMas": {
-        "texto": "Más opciones de {nombre} del {fecha}",
-        "e14": "E14-PRR 4.1 (PN-01), fila «Más»: «Más opciones de Salario del 16 de noviembre de 2026»"
+        "texto": "Más opciones de {nombre} de {monto} del {fecha}",
+        "e14": "Aprobado por el dueño el 2026-11-10 (US-71, bug 231 de Azure Boards, ACC-004), un solo texto para la web y Android; va a E14-PRR 4.1 y 4.8 en la T4 de la US-71: el nombre accesible de E14-PRR 4.1 (PN-01), fila «Más» («Más opciones de Salario del 16 de noviembre de 2026»), y de «Más» en E14-PRR 4.8 (PN-72, «Confirmar todos»), fila 4, con el monto que muestra la fila (el cambiado, si lo hay). Android dice el monto con `montoHablado` (D-187): «Más opciones de Salario de 1200000 pesos del 16 de noviembre de 2026»; la web, con `formatearPesos`: «Más opciones de Salario de $1.200.000 del 16 de noviembre de 2026»"
       },
       "hoja": {
         "titulo": {

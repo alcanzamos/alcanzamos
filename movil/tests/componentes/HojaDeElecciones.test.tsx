@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { HojaDeElecciones } from '../../src/componentes/HojaDeElecciones';
+import { tokens } from '../../src/tokens/tokens.generated';
 
 const opciones = [
   { valor: 'a', etiqueta: 'Primera' },
@@ -18,6 +19,17 @@ describe('HojaDeElecciones (Hoja inferior con una lista de elección única)', (
     await render(<HojaDeElecciones visible alCerrar={jest.fn()} opciones={opciones} valor={null} alElegir={alElegir} />);
     await fireEvent.press(screen.getByRole('radio', { name: 'Primera' }));
     expect(alElegir).toHaveBeenCalledWith('a');
+  });
+
+  it('ACC-004 (bug 228): trae el ícono «Cerrar» de 48 dp, que la cierra sin elegir nada', async () => {
+    const alCerrar = jest.fn();
+    const alElegir = jest.fn();
+    await render(<HojaDeElecciones visible alCerrar={alCerrar} opciones={opciones} valor="b" alElegir={alElegir} />);
+    const cerrar = screen.getByRole('button', { name: 'Cerrar' });
+    expect(cerrar).toHaveStyle({ minWidth: tokens.tamano['tactil-minimo'], minHeight: tokens.tamano['tactil-minimo'] });
+    await fireEvent.press(cerrar);
+    expect(alCerrar).toHaveBeenCalledTimes(1);
+    expect(alElegir).not.toHaveBeenCalled();
   });
 
   it('oculta no muestra nada y el Atrás la cierra', async () => {
