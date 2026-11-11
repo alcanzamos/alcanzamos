@@ -78,7 +78,7 @@ Toda ruta de `/api/` se registra con `Enrutador.Registrar(nivel, patron, manejad
 |---|---|---|
 | `publica` | nada | pedir la verificación del correo (crear la cuenta), reenviar el correo, completar la cuenta con el enlace (PN-74), iniciar sesión y recuperar el acceso (pedir el enlace y elegir la contraseña con él) |
 | `sin_autorizacion` | cuenta con el correo **verificado**, aunque no haya autorizado lo necesario | cerrar sesión y las acciones de PN-64: ver las finalidades, autorizar y «No autorizo» ([Autorización](#autorización-us-50)) |
-| `requiere_autorizacion` | cuenta verificada y con las finalidades necesarias de su etapa **autorizadas** (`ReglaDeFinalidades`) | el ingreso anterior de PN-71, el cambio de contraseña de PN-73, las categorías, guardar, consultar, corregir y borrar movimientos ([Registro](#registro-de-movimientos-us-51) y [Movimientos](#movimientos-lista-detalle-corregir-y-borrar-us-52)) y todo lo demás |
+| `requiere_autorizacion` | cuenta verificada y con las finalidades necesarias de su etapa **autorizadas** (`ReglaDeFinalidades`) | el ingreso anterior de PN-71, el cambio de contraseña de PN-73, las categorías, guardar, consultar, corregir y borrar movimientos ([Registro](#registro-de-movimientos-us-51) y [Movimientos](#movimientos-lista-detalle-corregir-y-borrar-us-52)), el presupuesto y los ingresos del periodo ([Presupuesto](#presupuesto-del-periodo-us-77-srcpresupuesto)) y todo lo demás |
 
 | Sujeto → | sin sesión | con sesión y sin correo verificado (solo un menor, hasta I11) | verificada sin autorizar | autorizada |
 |---|---|---|---|---|
@@ -667,6 +667,98 @@ Todo pedido que no es GET (POST, PUT y DELETE: todo pedido que cambia algo, D-19
 
 Pruebas: `test/fechas/confirmar_test.go` (FP-17 a FP-23 por nombre, más montos, desbordes y casos vacíos); `test/registro/pendientes_test.go` (contrato, errores y CSRF con un repositorio falso); `test/registro/pendientes_integracion_test.go` (de punta a punta contra PostgreSQL, en web y Android: la lista, D-094 en la lista de noviembre y diciembre, «No pasó», todo o nada, carreras con 8 pedidos a la vez, lotes en orden contrario a la vez (36 pares, sin 500), 40P01 y 40001 como `conflicto_concurrente`, lo ajeno, hogar, `detenido_en`, categoría oculta, 401/403 y CSRF); `test/pg/repeticiones_integracion_test.go`; `test/servidor/csrf_test.go`; `test/app/repeticiones_integracion_test.go` (`verificacion_pendiente` en las cuatro rutas y el cableado de producción: `URL_PUBLICA` llega a la defensa CSRF). `test/app/rutas_test.go` lleva el inventario de rutas.
 
+## Presupuesto del periodo (US-77, `src/presupuesto`)
+
+PN-06 (presupuesto por categorías), PN-07 (la misma pantalla con un ingreso bajo o nulo) y PN-08 (los ingresos del periodo de varias fuentes) de E14-PPA usan estas rutas, todas `requiere_autorizacion` (sin sesión `401`, sin autorizar `403 autorizacion_pendiente`, antes de leer nada), iguales en web (cookie) y Android (Bearer). Código en `src/presupuesto` (`Servicio`, `Handler`; E12 §5.4) y `pg.Presupuestos`. **Las reglas viven aquí** (E17-ECO 4.7): modo de la pantalla, sumas, estados y orden; la app solo pone los textos de E14. Como el resto del API, **no manda textos**: ids, claves del catálogo, montos en centavos y códigos. Solo lee lo propio (`persona_id` de la sesión). **E12 y E17 no fijan las rutas HTTP: estas son una propuesta.**
+
+| Ruta | Qué hace |
+|---|---|
+| `GET /api/v1/presupuestos?periodo=AAAA-MM` | PN-06 y PN-07: el resumen del periodo y «Por categoría» |
+| `GET /api/v1/ingresos?periodo=AAAA-MM` | PN-08: los ingresos del periodo por fuente, registrados, esperados y por confirmar |
+
+`periodo` es opcional en las dos: por defecto el mes de hoy **en Colombia** (`registro.LeerPeriodo`, la misma lectura de `GET /api/v1/movimientos`); `422 {"error":"datos_invalidos","campos":{"periodo":"periodo_invalido"}}` si no es `AAAA-MM` o es anterior a 1900. Las dos responden `200` con `Cache-Control: no-store`. **Montos en centavos enteros y sumas exactas** (RNF-002, D-082): toda suma se hace con enteros grandes (`math/big`) y sale como número JSON entero, también si no cabe en `int64`; lo gastado por categoría es `sum(monto)` de la base (`numeric`, exacto).
+
+### PN-06 y PN-07: `GET /api/v1/presupuestos`
+
+```json
+{
+  "periodo_actual": "2026-11",
+  "periodo": "2026-11",
+  "editable": true,
+  "resumen": {
+    "modo": "normal",
+    "ingreso_registrado_centavos": 120000000,
+    "asignado_centavos": 4000000,
+    "sin_asignar_centavos": 116000000,
+    "asignado_supera_por_centavos": null,
+    "llega_despues_centavos": 120000000
+  },
+  "llega_despues": [
+    { "recurrente_id": "0192f3c4-…", "fecha": "2026-11-16", "categoria_id": 17, "monto_centavos": 120000000, "marca": "esperado" }
+  ],
+  "categorias": [
+    { "categoria_id": 8, "nombre": "Transporte", "oculta": false, "presupuesto": { "id": "…", "monto_centavos": 4000000 },
+      "gastado_centavos": 4000000, "estado": "usado_todo", "quedan_centavos": null },
+    { "categoria_id": 4, "nombre": "Arriendo o cuota de vivienda", "oculta": false, "presupuesto": null,
+      "gastado_centavos": 65000000, "estado": null, "quedan_centavos": null }
+  ]
+}
+```
+
+Es Laura el 2 de noviembre de 2026 (E14-PPA 2.2, caso F): «Ingreso registrado $1.200.000», «Asignado $40.000», «Sin asignar $1.160.000» y «Llega después: $1.200.000 (esperado)».
+
+| Campo | Qué es |
+|---|---|
+| `periodo_actual`, `periodo` | El mes de hoy en Colombia y el que se muestra |
+| `editable` | `periodo` es el mes en curso: solo entonces se pone, corrige y quita un presupuesto (D-094, SC-E21-13) |
+| `resumen.modo` | Qué tarjeta muestra la app (D-094, P-3): `normal` (PN-06) si hay ingreso registrado y lo asignado no lo supera; `ingreso_bajo` (PN-07) si lo asignado supera el ingreso registrado; `ingreso_nulo` (PN-07) si el ingreso registrado es cero, haya o no algo asignado |
+| `ingreso_registrado_centavos` | La suma de los movimientos de **ingreso** del periodo (RF-007: nunca supone un salario). Un retiro de una meta no es un ingreso (RN-013) |
+| `asignado_centavos` | La suma de los presupuestos **propios** del periodo (`hogar_id` nulo, como la escritura y la descarga; L12 (2) de la US-77): uno compartido con el hogar no suma ni es fila de `categorias` |
+| `sin_asignar_centavos` | Registrado menos asignado, **solo en `normal`** (≥ 0); `null` en los otros dos modos |
+| `asignado_supera_por_centavos` | Asignado menos registrado, **solo en `ingreso_bajo`** (> 0): «Lo asignado supera por $10.000 lo que registraste.» El API da el hecho y la app lo dice sin signo menos (RNF-017); `null` en los otros modos. Con `ingreso_nulo` no hay diferencia (E14-PPA 4.2) |
+| `llega_despues_centavos` y `llega_despues` | Las fechas pendientes de las repeticiones de **ingreso** del periodo: `esperado` si todavía no llegan y `por_confirmar` si ya llegaron. **No cuentan en «Sin asignar»** (D-094, P-1) hasta que se confirman. Cada una trae `recurrente_id` y `fecha`, los de las rutas de confirmar y omitir de la US-60. Sin pendientes, `0` y `[]`: la fila «Llega después» no se ve |
+| `categorias` | «Por categoría»: las categorías de gasto con presupuesto en el periodo, **también las ocultas** (`oculta: true`, RN-011, CU-55 2c), y las demás categorías de gasto con gasto en el periodo que la persona **no** ocultó. Primero las que tienen presupuesto y después las demás, cada grupo de mayor a menor `gastado_centavos` y, si empatan, **por nombre** (E14-PPA 4.1, PN-06 fila 4; L6 (6) de la US-77). El nombre del catálogo se compara en Go con la intercalación del español de Unicode (CLDR, `golang.org/x/text/collate` con `language.Spanish`, la versión de `go.mod`), no con la de la base, que depende de cómo se creó: las tildes y las mayúsculas no cambian el orden de las letras (`Educación` antes que `Transporte`, `Árbol` antes que `Bebida`), la «ñ» va entre la «n» y la «o» y, con las mismas letras, sin tilde va antes. Dos nombres iguales quedan por `categoria_id`. Solo gasto: ni ingresos ni aportes (RN-013). `[]` sin nada |
+| `presupuesto` | `{id, monto_centavos}` o `null` («Poner presupuesto») |
+| `gastado_centavos` | La suma de los gastos del periodo en esa categoría (`0` sin gastos) |
+| `estado` | Solo con presupuesto: `quedan` («Quedan $X por gastar.», con `quedan_centavos` = presupuesto − gastado), `usado_todo` («Ya usaste todo lo presupuestado.») o `superado` («Gastado $X de $Y presupuestados.»). Describe sin calificar |
+
+**Reglas.**
+
+- **Lo pendiente es E15 5.2** (`fechas.Pendientes`, la misma regla de «Por confirmar» de la US-60): sin las fechas confirmadas, las omitidas («No pasó», D-092), las anteriores a la creación de la repetición ni las de `detenido_en` en adelante. Es por confirmar si `fecha ≤ hoy` (Colombia). Solo las repeticiones de la persona (`persona_id`).
+- **Lo registrado y lo pendiente salen de la misma lectura** (`REPEATABLE READ`, solo lectura): una fecha que se confirma a la vez no cuenta dos veces.
+- **Solo una persona adulta presupuesta** (E12 §6, RF-007): una persona menor recibe `403 {"error":"solo_personas_adultas"}`. Hoy un menor no llega a ninguna ruta con sesión (I11); la base lo asegura también (`presupuesto.persona_id` apunta a `perfil_adulto`).
+- **«Dejar el presupuesto en cero»** (PN-07, CU-10 2a) no escribe nada: con ingreso nulo y nada asignado el periodo ya está en cero, y la app solo muestra el aviso. E13 no tiene dónde guardar «definido en cero» y la historia no lo pide.
+
+### PN-08: `GET /api/v1/ingresos`
+
+```json
+{
+  "periodo_actual": "2026-11",
+  "periodo": "2026-11",
+  "meses": ["2026-11", "2026-10"],
+  "total": { "entran_centavos": 240000000, "registrado_centavos": 120000000, "esperado_centavos": 120000000, "por_confirmar": 0 },
+  "fuentes": [
+    { "categoria_id": 17, "nombre": "Salario", "oculta": false, "total_centavos": 240000000, "ingresos": [
+      { "fecha": "2026-11-01", "marca": "registrado", "monto_centavos": 120000000, "medio": "transferencia", "descripcion": null,
+        "movimiento_id": "…", "recurrente_id": null },
+      { "fecha": "2026-11-16", "marca": "esperado", "monto_centavos": 120000000, "medio": "transferencia", "descripcion": null,
+        "movimiento_id": null, "recurrente_id": "0192f3c4-…" }
+    ] }
+  ]
+}
+```
+
+| Campo | Qué es |
+|---|---|
+| `meses` | Los meses con ingresos registrados, del más reciente al más antiguo: la lista de «Otro mes». Los chips del mes anterior, el actual y el siguiente los arma la app con `periodo_actual` |
+| `total` | «Entran este mes»: `entran_centavos` = `registrado_centavos` + `esperado_centavos`, el «ingresos del mes» de la simulación (E14-PPN 9.3). **Lo esperado incluye lo por confirmar** (D-091, E15 5.5: lo pendiente no es registrado aunque su fecha haya llegado). `por_confirmar` cuenta las fechas por confirmar del periodo: con dos o más la app ofrece «Confirmar todos» (D-093). Si el periodo ya terminó, la app dice «Entraron este mes» comparando `periodo` con `periodo_actual` |
+| `fuentes` | Una por categoría de ingreso con algo en el periodo (RF-009), de mayor a menor `total_centavos` y, si empatan, por `categoria_id`; también una categoría oculta (`oculta: true`): un movimiento conserva su categoría. `[]` sin ingresos («Todavía no registras ingresos este mes.») |
+| `ingresos` | Por fecha y, con la misma fecha, primero lo registrado. `marca`: `registrado` (con `movimiento_id`, el de PN-02), `esperado` o `por_confirmar` (con `recurrente_id`: «Confirmar» es `POST /api/v1/repeticiones/{recurrente_id}/confirmacion` con `fecha`, y «No pasó», `/omision`, de la US-60; el monto es el habitual y el medio, el de la repetición). La marca va siempre en texto, nunca solo en color |
+
+PN-08 no comprueba la etapa: muestra ingresos propios, que una persona menor también registra.
+
+Pruebas: `test/presupuesto/presupuesto_test.go` (contrato con un repositorio falso: Laura en noviembre, el caso P de octubre, los modos de D-094 P-3, los estados, las ocultas, el empate por nombre en español (tildes, «ñ», mayúsculas y nombres iguales), lo omitido y lo detenido, un mes pasado, el periodo de Colombia, sumas al centavo por encima de `int64` y los errores) y `test/presupuesto/integracion_test.go` (de punta a punta contra PostgreSQL, en web y Android: E14-PPA 2.2 con lo de otra persona, sumas exactas de la base, aportes y retiros fuera, categorías ocultas, el empate por nombre con el catálogo de la base, PN-08 con la confirmación de la US-60, una persona menor y una cuenta borrada contra el repositorio, 401 y 403). `test/app/rutas_test.go` lleva el inventario de rutas.
+
 ## Interpretación (US-62, `src/interpretacion`)
 
 Convierte un texto escrito en español en una interpretación **con reglas y sin IA** (opción D, D-075, D-191). Es el puerto `Interpretador` de ADR-005 §5.1 y E12 §5.2 con su motor. La ruta HTTP que lo usa es [`POST /api/v1/movimientos/interpretacion`](#interpretar-un-texto-post-apiv1movimientosinterpretacion).
@@ -771,7 +863,7 @@ docker compose -f ../infra/local/compose.yaml --env-file ../infra/local/.env.exa
 
 Las pruebas viven en `test/` y miden `src/` con `-coverpkg=./src/...`. Las dos listas de paquetes son explícitas (E17-ECO 5.5) y se comparan por ruta completa relativa a `src/` (`cmd/api` es ese paquete; `cmd` solo no lo es). El pipeline `api` (`.azure-pipelines/api.yml`) falla si:
 
-- el grupo **núcleo y seguridad** (`nucleo` cuando exista, `seguridad`, `argon2id`, `sesion`, `servidor`, `autenticacion`, `cuenta`, D-151, `autorizacion`, US-50, y `fechas` y `registro`, US-51) queda bajo **90 %**;
+- el grupo **núcleo y seguridad** (`nucleo` cuando exista, `seguridad`, `argon2id`, `sesion`, `servidor`, `autenticacion`, `cuenta`, D-151, `autorizacion`, US-50, `fechas` y `registro`, US-51, `interpretacion`, US-62, y `presupuesto`, US-77) queda bajo **90 %**;
 - el grupo **resto del API** (`app`, `bd`, `cmd/api`, `config`, `correo`, `pg`, `reloj`, `tareas` y `web`) queda bajo **75 %**;
 - algún grupo queda bajo la base de `test/cobertura-base.json` (sin bajar respecto de `main`). Un PR que sube la cobertura puede subir la base (valores con un decimal, redondeados hacia abajo); **nunca bajarla**;
 - aparece un paquete de `src/` que **no está en ninguna de las dos listas**. Se busca en el perfil de cobertura y también en un recorrido de las carpetas de `src/` con archivos `.go` (tercer argumento de `medir`), así que un paquete sin pruebas tampoco pasa. Hay que clasificarlo en E17-ECO 5.5 y en `cobertura.py`. Un paquete nuevo de seguridad no cae al 75 % sin que nadie lo note. `nucleo` puede no existir todavía: su ausencia no falla.
