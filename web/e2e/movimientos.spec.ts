@@ -294,7 +294,10 @@ test.describe("PN-01 · Movimientos: lista y filtros (US-52)", () => {
     await expect(
       page.getByRole("link", { name: "Registrar un movimiento" }),
     ).toHaveCount(0);
-    await page.getByRole("link", { name: "Movimientos" }).click();
+    await page
+      .getByRole("main")
+      .getByRole("link", { name: "Movimientos" })
+      .click();
     await expect(page).toHaveURL(/\/movimientos$/);
     await page.getByRole("link", { name: "Registrar", exact: true }).click();
     await expect(page).toHaveURL(/\/registrar$/);

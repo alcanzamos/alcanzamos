@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import { reiniciarBorrador } from '../../src/borradorDeRegistro';
 import type { Movimiento } from '../../src/api/movimientos';
 import { Navegacion } from '../../src/navegacion/Navegacion';
+import { tokens } from '../../src/tokens/tokens.generated';
 import { atras, instalarAtras } from '../ayudas/atras';
 import { esperarAnuncio } from '../ayudas/anuncios';
 import { respuestaJson } from '../ayudas/fetchFalso';
@@ -144,6 +145,20 @@ describe('PN-02 · Detalle de un movimiento, Android (E14-PRR 4.2)', () => {
       await fireEvent.press(screen.getByRole('button', { name: 'Ahora no' }));
       await waitFor(() => expect(screen.queryByText('¿Borrar este movimiento?')).not.toBeOnTheScreen());
       expect(de(pedidos, 'DELETE')).toEqual([]);
+    });
+
+    it('ACC-004 (bug 228): el ícono «Cerrar» de 48 dp cierra la hoja sin borrar nada y no sale del detalle', async () => {
+      const pedidos = apiFalsa(respuestaJson, { lista: listado({ movimientos: [gastoDeAyer] }) });
+      await abrirDetalle();
+      await abrirLaHoja();
+      expect(await screen.findByRole('header', { name: '¿Borrar este movimiento?' })).toBeOnTheScreen();
+      const cerrar = screen.getByRole('button', { name: 'Cerrar' });
+      expect(cerrar).toHaveStyle({ minWidth: tokens.tamano['tactil-minimo'], minHeight: tokens.tamano['tactil-minimo'] });
+      await fireEvent.press(cerrar);
+      await waitFor(() => expect(screen.queryByText('¿Borrar este movimiento?')).not.toBeOnTheScreen());
+      expect(de(pedidos, 'DELETE')).toEqual([]);
+      expect(screen.getByRole('button', { name: 'Corregir' })).toBeOnTheScreen();
+      expect(screen.getByRole('button', { name: 'Borrar este movimiento' })).toBeOnTheScreen();
     });
 
     it('el Atrás de Android cierra la hoja (onRequestClose) y no sale del detalle', async () => {

@@ -1,0 +1,88 @@
+# Trabajo de web/.
+# Lo usan web.yml (el pipeline por carpeta) y la etapa web del control único (control.yml, D-177): los pasos
+# viven una sola vez. Qué hace cada paso y cuándo corre el pipeline: en web.yml y en el README de esta carpeta.
+jobs:
+  - job: web
+    pool:
+      vmImage: ubuntu-24.04
+    steps:
+      - checkout: self
+        fetchDepth: 1
+
+      # Node y npm fijados con sus sumas: las versiones viven en plantillas/pasos/node.yml, que también usan movil y la
+      # revisión diaria.
+      - template: pasos/node.yml
+
+      # D-158: npm ci no aplica min-release-age a lo que ya está en el lockfile. Antes de instalar, cada versión de
+      # web/package-lock.json se compara con su fecha de publicación en el registro; falla con una versión más joven que
+      # min-release-age sin excepción vigente en web/antiguedad-excepciones.json, con una fecha que no se pueda obtener
+      # y con una excepción vencida. No usa dependencias: corre sin node_modules.
+      - script: npm run antiguedad
+        workingDirectory: web
+        displayName: Antigüedad mínima de las versiones del lockfile (antes de npm ci)
+
+      - script: npm ci
+        workingDirectory: web
+        displayName: Dependencias fijadas (npm ci, con web/.npmrc)
+
+      # Comprueba la firma del registro y las atestaciones de procedencia de cada paquete instalado.
+      - script: npm audit signatures
+        workingDirectory: web
+        displayName: Firmas del registro (npm audit signatures)
+
+      # ADR-003, condición 4: vulnerabilidades altas o críticas en producción y licencias compatibles con AGPLv3.
+      # revision-diaria.yml corre el mismo `npm run auditoria` cada día sobre main.
+      - script: npm run auditoria
+        workingDirectory: web
+        displayName: Vulnerabilidades (npm audit, producción, altas o críticas)
+
+      - script: npm run licencias
+        workingDirectory: web
+        displayName: Licencias de producción compatibles con AGPLv3
+
+      - script: npm run typecheck
+        workingDirectory: web
+        displayName: Tipos (tsc --noEmit)
+
+      - script: npm run lint
+        workingDirectory: web
+        displayName: ESLint
+
+      - script: npm run format:check
+        workingDirectory: web
+        displayName: Prettier
+
+      # E17-ECO 4.4: regenerar los tokens no debe cambiar nada.
+      - script: |
+          set -eu
+          npm run tokens
+          # El paso corre en web/: las rutas van relativas a esa carpeta y después de «--».
+          git diff --exit-code -- ../diseno ../web ../movil
+        workingDirectory: web
+        displayName: Los tokens regenerados no cambian nada
+
+      # E17-ECO 4.13 (D-160): los textos salen de diseno/textos/es.json; regenerar el módulo no debe cambiar nada.
+      - script: |
+          set -eu
+          npm run textos
+          git diff --exit-code -- ../diseno ../web ../movil
+        workingDirectory: web
+        displayName: Los textos regenerados no cambian nada
+
+      - script: npm run test:coverage
+        workingDirectory: web
+        displayName: Pruebas unitarias con cobertura (mínimo 60 % de líneas)
+
+      - script: npm run build
+        workingDirectory: web
+        displayName: Compilación (vite build)
+
+      - script: npx playwright install --with-deps chromium
+        workingDirectory: web
+        displayName: Navegador de Playwright (Chromium)
+
+      - script: npm run e2e
+        workingDirectory: web
+        displayName: Playwright con axe-core sobre la app compilada
+        env:
+          CI: 'true'

@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { Pagina } from "../../src/componentes/Pagina";
 
 describe("Pagina", () => {
@@ -27,5 +27,24 @@ describe("Pagina", () => {
       </Pagina>,
     );
     expect(screen.getByRole("img", { name: "Alcanzamos" })).toBeInTheDocument();
+  });
+
+  it("Atrás con una dirección es un enlace; con una acción, un botón que la hace sin salir de la página", () => {
+    const { rerender } = render(<Pagina titulo="Hola" atras="/movimientos" />);
+    expect(screen.getByRole("link", { name: "Atrás" })).toHaveAttribute(
+      "href",
+      "/movimientos",
+    );
+    const volver = vi.fn();
+    rerender(<Pagina titulo="Hola" atras={volver} />);
+    expect(
+      screen.queryByRole("link", { name: "Atrás" }),
+    ).not.toBeInTheDocument();
+    const boton = screen.getByRole("button", { name: "Atrás" });
+    expect(boton).toHaveAttribute("type", "button");
+    expect(boton).toHaveClass("barra__atras");
+    fireEvent.click(boton);
+    expect(volver).toHaveBeenCalledTimes(1);
+    expect(window.location.pathname).toBe("/");
   });
 });

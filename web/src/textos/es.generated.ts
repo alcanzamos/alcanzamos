@@ -254,16 +254,16 @@ export const textos = {
     mas: "Más",
     // E14-PRR 4.1 (PN-01), fila 2a; E14-PRR 4.8, fila 1
     confirmarTodos: "Confirmar todos",
-    // E14-PRR 4.1 (PN-01), hojas «Más», «No pasó» y «Cambiar el monto»; E14-SDD 5.12
+    // E14-SDD 5.12 (el ícono Cerrar de toda Hoja inferior, también «Ver todas» y «Otro mes»); E14-PRR 4.1 (PN-01), hojas «Más», «No pasó» y «Cambiar el monto»; E14-PRR 4.2 (PN-02), hoja de borrar, fila 6
     cerrar: "Cerrar",
     // E14-PRR 4.1 (PN-01), fila «Texto de apoyo»: «Ingreso · Transferencia · 16 de noviembre de 2026»
     apoyoConMedio: "{tipo} · {medio} · {fecha}",
     // E14-PRR 4.8 (PN-72, «Confirmar todos»), fila 4: «Gasto · 5 de noviembre de 2026»
     apoyoSinMedio: "{tipo} · {fecha}",
-    // E14-PRR 4.1 (PN-01), fila «Confirmar»: «Confirmar Salario del 16 de noviembre de 2026»
-    nombreDeConfirmar: "Confirmar {nombre} del {fecha}",
-    // E14-PRR 4.1 (PN-01), fila «Más»: «Más opciones de Salario del 16 de noviembre de 2026»
-    nombreDeMas: "Más opciones de {nombre} del {fecha}",
+    // Aprobado por el dueño el 2026-11-10 (US-71, bug 231 de Azure Boards, ACC-004), un solo texto para la web y Android; va a E14-PRR 4.1 en la T4 de la US-71: el nombre accesible de E14-PRR 4.1 (PN-01), fila «Confirmar» («Confirmar Salario del 16 de noviembre de 2026»), con el monto, para que dos fechas de la misma categoría y día no se anuncien igual. Android dice el monto con `montoHablado` (D-187): «Confirmar Salario de 1200000 pesos del 16 de noviembre de 2026»; la web, con `formatearPesos`: «Confirmar Salario de $1.200.000 del 16 de noviembre de 2026»
+    nombreDeConfirmar: "Confirmar {nombre} de {monto} del {fecha}",
+    // Aprobado por el dueño el 2026-11-10 (US-71, bug 231 de Azure Boards, ACC-004), un solo texto para la web y Android; va a E14-PRR 4.1 y 4.8 en la T4 de la US-71: el nombre accesible de E14-PRR 4.1 (PN-01), fila «Más» («Más opciones de Salario del 16 de noviembre de 2026»), y de «Más» en E14-PRR 4.8 (PN-72, «Confirmar todos»), fila 4, con el monto que muestra la fila (el cambiado, si lo hay). Android dice el monto con `montoHablado` (D-187): «Más opciones de Salario de 1200000 pesos del 16 de noviembre de 2026»; la web, con `formatearPesos`: «Más opciones de Salario de $1.200.000 del 16 de noviembre de 2026»
+    nombreDeMas: "Más opciones de {nombre} de {monto} del {fecha}",
     hoja: {
       // E14-PRR 4.1 (PN-01), «Hoja «Más»»: «Salario · 16 de noviembre de 2026»
       titulo: "{nombre} · {fecha}",
@@ -749,8 +749,8 @@ export const textos = {
     cuadro: {
       // E14-PPN 3.1, fila 3
       etiqueta: "Escribe el gasto o el ingreso",
-      // E14-PPN 3.1, fila 3
-      ayuda: "Por ejemplo: mercado 45 mil ayer.",
+      // E14-PPN 3.1, fila 3, con «Un movimiento a la vez.» antes del ejemplo (nota provisional de D-196, versión 1.14)
+      ayuda: "Un movimiento a la vez. Por ejemplo: mercado 45 mil ayer.",
       // E14-PPN 3.1, fila 4 (NM-12)
       privacidad: "No escribas datos de salud, religión ni de otras personas.",
       // E14-PPN 3.1, fila 5
