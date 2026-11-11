@@ -1,0 +1,41 @@
+# Pasos que instalan Go desde el tarball oficial, con su SHA-256 verificado antes de descomprimirlo.
+# Los usan plantillas/api.yml (el pipeline api y la etapa api del control único) y revision-diaria.yml (la revisión
+# diaria): la versión y su suma viven una sola vez. govulncheck revisa la biblioteca estándar de la versión de Go con la
+# que corre, así que el PR y la revisión diaria deben usar la misma.
+# Los parámetros no se pasan desde quien usa la plantilla: su valor por defecto es la versión fijada.
+parameters:
+  # Cambiar la versión obliga a cambiar también la suma, api/Dockerfile y api/go.mod.
+  - name: version
+    type: string
+    default: 1.27.4
+  # SHA-256 fijado a mano desde https://go.dev/dl/?mode=json (consultado el 2026-11-11). 1.27.4 corrige GO-2026-6859
+  # (net/http) y GO-2026-6848 a GO-2026-6858 (toolchain); entra el día en que la imagen cumple 7 días (D-201).
+  - name: sha256
+    type: string
+    default: 7226736c2339719cda28fbf3a54d71aa63bcefe376e98cef00034268dab24840
+
+steps:
+  # Se descarga el tarball oficial y se verifica antes de descomprimirlo.
+  - script: |
+      set -eu
+      tar_go="go${{ parameters.version }}.linux-amd64.tar.gz"
+      destino="$(Agent.TempDirectory)/go"
+      mkdir -p "$destino"
+      curl -fsSL "https://go.dev/dl/$tar_go" -o "$destino/$tar_go"
+      (cd "$destino" && echo "${{ parameters.sha256 }}  $tar_go" | sha256sum --check --strict -)
+      tar -C "$destino" -xzf "$destino/$tar_go"
+      echo "##vso[task.prependpath]$destino/go/bin"
+      # GOTOOLCHAIN=local para el resto del trabajo: si un PR sube la línea `go` de go.mod, Go no descarga otro
+      # compilador por su cuenta (saltándose esta versión, su SHA-256 y la regla de los 7 días, D-201): falla.
+      echo "##vso[task.setvariable variable=GOTOOLCHAIN]local"
+    displayName: Instalar Go ${{ parameters.version }} (SHA-256 verificado)
+
+  - script: |
+      set -eu
+      go version
+      if [ "$(go env GOTOOLCHAIN)" != "local" ]; then
+        echo "##vso[task.logissue type=error]GOTOOLCHAIN es «$(go env GOTOOLCHAIN)» y debe ser local"
+        exit 1
+      fi
+      test "$(go env GOVERSION)" = "go${{ parameters.version }}"
+    displayName: Versión de Go (GOTOOLCHAIN local)

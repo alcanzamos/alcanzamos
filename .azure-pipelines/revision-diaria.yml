@@ -1,0 +1,110 @@
+# Revisión diaria de vulnerabilidades sobre main (D-201).
+# Cada mañana corre govulncheck en api/ y `npm audit` de producción en web/ y movil/, con las mismas versiones fijadas
+# (plantillas/pasos/) y los mismos comandos que los PR. Una vulnerabilidad se publica aunque el código no cambie: el PR
+# solo la ve si alguien abre uno; esta corrida la ve al día siguiente.
+#
+# Resultado de la corrida, que es lo que dispara el correo (README, «Revisión diaria»):
+# - Failed: una revisión falla (lo mismo que haría fallar un PR: cualquier vulnerabilidad alta o crítica de npm, o una
+#   que el código de api/ alcanza con un arreglo de 7 días o más, sin arreglo o sin fecha), o un paso de instalación falla.
+# - Partially succeeded: una revisión solo advierte. Un paso que imprime `##vso[task.logissue type=warning]…` y sale con 0
+#   termina con `##vso[task.complete result=SucceededWithIssues;]`. Pasa, por ejemplo, con una vulnerabilidad que el código
+#   alcanza y cuyo arreglo tiene menos de 7 días (pruebas/vulnerabilidades.py, D-201).
+# - Succeeded: sin hallazgos; no llega correo.
+# Lo que ya está aceptado no avisa: una vulnerabilidad solo de módulo que el código no llama (govulncheck la informa y
+# sale con 0) y una excepción vigente de movil/auditoria-excepciones.json. Una excepción vencida sí falla.
+#
+# No usa secretos ni conexiones de servicio. Gasta unos 1 a 1,6 minutos por corrida (README, «Minutos»).
+trigger: none
+# Sin `pr`, Azure corre un pipeline de GitHub en todo PR. Este no corre en ninguno.
+pr: none
+schedules:
+  # Azure lee el cron en UTC: 10:00 UTC son las 5:00 a. m. en Colombia (UTC-5, sin horario de verano).
+  - cron: "0 10 * * *"
+    displayName: Diaria, 5:00 a. m. de Colombia
+    branches:
+      include:
+        - main
+    # Sin always: true, Azure solo corre la programación si hubo cambios desde la última corrida programada exitosa
+    # («whether to always run the pipeline or only if there have been source code or pipeline settings changes since the
+    # last successful scheduled run. The default is false»,
+    # https://learn.microsoft.com/en-us/azure/devops/pipelines/process/scheduled-triggers). Los avisos nuevos llegan sin
+    # cambios en main: por eso corre todos los días.
+    always: true
+
+# TODO(US-79): cuando haya producción, revisar además la etiqueta desplegada (`v*`). Plan, sin implementar:
+# - El pipeline de despliegue de la US-79 despliega una etiqueta `v*`; la desplegada es la de su última corrida exitosa
+#   hacia producción (`Build.SourceBranch` = refs/tags/v…), que se lee con la API de Azure DevOps y $(System.AccessToken),
+#   sin secretos en el repositorio.
+# - Cada trabajo de abajo pasa a una plantilla con un parámetro `ref` y corre dos veces: con `main` y con esa etiqueta
+#   (`git fetch --depth 1 origin tag <etiqueta>` y `git worktree add` en $(Agent.TempDirectory), o un `checkout` de un
+#   recurso de repositorio con `ref: refs/tags/<etiqueta>`).
+# - Con la etiqueta desplegada, la regla es la del despliegue (D-201): falla con cualquier vulnerabilidad que el código
+#   alcance y tenga arreglo, aunque tenga menos de 7 días, salvo una excepción registrada por el dueño.
+# - Gasta lo mismo otra vez (unos 1 a 1,6 minutos más por día).
+
+jobs:
+  - job: api
+    displayName: govulncheck (api/)
+    timeoutInMinutes: 10
+    pool:
+      vmImage: ubuntu-24.04
+    steps:
+      - checkout: self
+        fetchDepth: 1
+
+      # El mismo Go que el PR (plantillas/pasos/go.yml): govulncheck revisa la biblioteca estándar de esa versión.
+      - template: plantillas/pasos/go.yml
+
+      # La misma barrera que el PR (plantillas/api.yml): el script se prueba a sí mismo, govulncheck escribe su JSON y el
+      # script aplica la regla de los 7 días (D-201). Con -format json govulncheck sale siempre con 0: el script es la
+      # única barrera. Con avisoEnElResultado, un arreglo de menos de 7 días (sale con 0 y avisa) deja la corrida en
+      # Partially succeeded; todo lo demás sale con un código distinto de 0 y la deja en Failed.
+      - template: plantillas/pasos/vulnerabilidades.yml
+        parameters:
+          avisoEnElResultado: true
+
+  - job: web
+    displayName: npm audit (web/)
+    timeoutInMinutes: 10
+    pool:
+      vmImage: ubuntu-24.04
+    steps:
+      - checkout: self
+        fetchDepth: 1
+
+      - template: plantillas/pasos/node.yml
+
+      # El mismo `npm run auditoria` que plantillas/web.yml (producción, altas o críticas). Sin `npm ci`: npm audit lee
+      # web/package-lock.json, así que no instala nada ni corre scripts de instalación.
+      - script: |
+          set -eu -o pipefail
+          salida="$(Agent.TempDirectory)/auditoria-web.txt"
+          npm run auditoria | tee "$salida"
+          if grep -q '^##vso\[task\.logissue type=warning' "$salida"; then
+            echo "##vso[task.complete result=SucceededWithIssues;]Hay avisos que solo advierten: ver el registro de este paso"
+          fi
+        workingDirectory: web
+        displayName: Vulnerabilidades de web (npm audit, producción, altas o críticas)
+
+  - job: movil
+    displayName: npm audit (movil/)
+    timeoutInMinutes: 10
+    pool:
+      vmImage: ubuntu-24.04
+    steps:
+      - checkout: self
+        fetchDepth: 1
+
+      - template: plantillas/pasos/node.yml
+
+      # El mismo `npm run auditoria` que plantillas/movil.yml (producción, altas o críticas, con las excepciones de
+      # movil/auditoria-excepciones.json). Sin `npm ci`: npm audit lee movil/package-lock.json.
+      - script: |
+          set -eu -o pipefail
+          salida="$(Agent.TempDirectory)/auditoria-movil.txt"
+          npm run auditoria | tee "$salida"
+          if grep -q '^##vso\[task\.logissue type=warning' "$salida"; then
+            echo "##vso[task.complete result=SucceededWithIssues;]Hay avisos que solo advierten: ver el registro de este paso"
+          fi
+        workingDirectory: movil
+        displayName: Vulnerabilidades de movil (npm audit, producción, altas o críticas, con excepciones documentadas)
