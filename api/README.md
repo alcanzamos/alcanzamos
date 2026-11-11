@@ -223,10 +223,11 @@ E12 no nombra la ruta (`CuentaServicio.BorrarCuenta(s, contrasena, confirmaMenor
   2. Si administra el hogar y queda otra persona adulta, el papel pasa a la de `miembro_hogar.desde` más antigua (RN-007). Si era la única adulta, el hogar se disuelve: todo lo de ese `hogar_id` se borra con ella.
   3. Se borra lo **propio** (`hogar_id` nulo) de `movimiento`, `movimiento_recurrente`, `meta`, `presupuesto` y `deuda`. Hay que hacerlo antes: el `SET NULL` de `persona_id` dejaría la fila sin dueño y violaría `ck_*_persona_o_hogar`. Lo compartido de un hogar que sigue queda en el hogar con `persona_id` nulo (D-053).
   4. `autorizacion` no tiene llave a la persona: sus filas quedan retiradas y con `conservar_hasta` a 3 años (E13 §7, provisional).
-  5. `DELETE FROM persona` y el `CASCADE` se lleva perfiles, credencial, **todas las sesiones** y tokens de dispositivo, enlaces, avisos, pertenencia al hogar, tutorías y propuestas pendientes.
-- **Descargar mis datos.** Cuatro CSV en UTF-8 con marca de orden de bytes (para que Excel lea las tildes), la primera fila con los nombres de las columnas, montos en pesos con dos decimales y punto (`45000.00`; en la base van en centavos) y fechas `AAAA-MM-DD`. Sin ningún id. Solo la librería estándar (`archive/zip`, `encoding/csv`).
+  5. `DELETE FROM persona` y el `CASCADE` se lleva perfiles, credencial, **todas las sesiones** y tokens de dispositivo, enlaces, avisos, pertenencia al hogar, tutorías y propuestas pendientes, y con el perfil de adulta lo que cuelga de él sin hogar, como las marcas de `presupuesto_en_cero` (`0004`; `TestBorrarSinHogarNoDejaNadaDeLaPersonaYNoTocaAOtra` las siembra y comprueba que no queda ninguna de la persona y que las de otra siguen).
+- **Descargar mis datos.** Cuatro CSV en UTF-8 con marca de orden de bytes (para que Excel lea las tildes), la primera fila con los nombres de las columnas, montos en pesos con dos decimales y punto (`45000.00`; en la base van en centavos), fechas `AAAA-MM-DD` y meses `AAAA-MM`. Sin ningún id. Solo la librería estándar (`archive/zip`, `encoding/csv`).
   - `movimientos.csv`: `fecha, tipo, monto_en_pesos, categoria, medio_de_pago, descripcion, meta, sentido, compartido_con_el_hogar`. Son los movimientos con `persona_id` de la persona (los que ella registró, también los que compartió con el hogar, marcados «sí»); nada de lo que registró otra persona ni las filas compartidas sin dueño. `meta` solo es el nombre de una meta suya (un aporte); `sentido` es `entrada` o `salida`.
-  - `metas.csv` (`nombre, monto_objetivo_en_pesos, fecha_objetivo, creada_el`), `deudas.csv` (`nombre, monto_en_pesos, total_a_pagar_en_pesos, cuotas, inicio, vence, origen`) y `presupuestos.csv` (`periodo, categoria, monto_asignado_en_pesos`): solo la fila de nombres hasta que existan esos temas (D-180). Los nombres de columnas los propuse con los de E13; los confirma el dueño al llenarlos.
+  - `presupuestos.csv` (`periodo, categoria, monto_asignado_en_pesos`, las columnas de D-180; se llena desde la US-77): una fila por **presupuesto propio** (`persona_id` suyo y `hogar_id` nulo), con el mes `AAAA-MM`, el nombre de la categoría y el monto (`2026-11,Transporte,40000.00`), y una fila por **mes dejado en cero** (`presupuesto_en_cero`), con la categoría vacía y el monto en cero (`2026-09,,0.00`). Por periodo y, en cada mes, la marca primero y después las categorías por id (el orden del catálogo, que no depende de la intercalación de la base). Nada de otra persona ni lo compartido con el hogar.
+  - `metas.csv` (`nombre, monto_objetivo_en_pesos, fecha_objetivo, creada_el`) y `deudas.csv` (`nombre, monto_en_pesos, total_a_pagar_en_pesos, cuotas, inicio, vence, origen`): solo la fila de nombres hasta que existan esos temas (D-180). Los nombres de columnas los propuse con los de E13; los confirma el dueño al llenarlos.
   - Un texto que empieza con `= + - @` o un control lleva antes una comilla simple, para que la hoja de cálculo no lo ejecute como fórmula.
 - **Segunda llamada.** Con la misma sesión es `401 sin_sesion`: la primera ya la borró. Con una carrera (las dos pasaron el control de acceso a la vez), la segunda encuentra la cuenta ya borrada y también responde `401`; las pruebas de `test/pg` y `test/app` lo recorren con PostgreSQL.
 - **Registro.** Nada de lo borrado ni la contraseña quedan en el registro: ni correos, ni nombres, ni ids de menores. El id interno de la cuenta solo aparece en el evento `inicio_sesion_fallido` de una contraseña mal escrita (E17-ECO 3.13).
@@ -675,6 +676,10 @@ PN-06 (presupuesto por categorías), PN-07 (la misma pantalla con un ingreso baj
 |---|---|
 | `GET /api/v1/presupuestos?periodo=AAAA-MM` | PN-06 y PN-07: el resumen del periodo y «Por categoría» |
 | `GET /api/v1/ingresos?periodo=AAAA-MM` | PN-08: los ingresos del periodo por fuente, registrados, esperados y por confirmar |
+| `POST /api/v1/presupuestos` | «Poner presupuesto» a una categoría en el mes en curso (CU-09 3); si ya tiene, lo corrige |
+| `PUT /api/v1/presupuestos/{id}` | «Corregir» el monto de un presupuesto del mes en curso (CU-09 3a) |
+| `DELETE /api/v1/presupuestos/{id}` | «Quitar presupuesto» del mes en curso (CU-09 3b); ningún gasto cambia |
+| `POST /api/v1/presupuestos/en-cero` | «Dejar el presupuesto en cero» del mes en curso (PN-07, CU-10 2a): guarda la marca del mes |
 
 `periodo` es opcional en las dos: por defecto el mes de hoy **en Colombia** (`registro.LeerPeriodo`, la misma lectura de `GET /api/v1/movimientos`); `422 {"error":"datos_invalidos","campos":{"periodo":"periodo_invalido"}}` si no es `AAAA-MM` o es anterior a 1900. Las dos responden `200` con `Cache-Control: no-store`. **Montos en centavos enteros y sumas exactas** (RNF-002, D-082): toda suma se hace con enteros grandes (`math/big`) y sale como número JSON entero, también si no cabe en `int64`; lo gastado por categoría es `sum(monto)` de la base (`numeric`, exacto).
 
@@ -687,11 +692,13 @@ PN-06 (presupuesto por categorías), PN-07 (la misma pantalla con un ingreso baj
   "editable": true,
   "resumen": {
     "modo": "normal",
+    "en_cero": false,
     "ingreso_registrado_centavos": 120000000,
     "asignado_centavos": 4000000,
     "sin_asignar_centavos": 116000000,
     "asignado_supera_por_centavos": null,
-    "llega_despues_centavos": 120000000
+    "llega_despues_centavos": 120000000,
+    "por_confirmar_centavos": 0
   },
   "llega_despues": [
     { "recurrente_id": "0192f3c4-…", "fecha": "2026-11-16", "categoria_id": 17, "monto_centavos": 120000000, "marca": "esperado" }
@@ -712,11 +719,14 @@ Es Laura el 2 de noviembre de 2026 (E14-PPA 2.2, caso F): «Ingreso registrado $
 | `periodo_actual`, `periodo` | El mes de hoy en Colombia y el que se muestra |
 | `editable` | `periodo` es el mes en curso: solo entonces se pone, corrige y quita un presupuesto (D-094, SC-E21-13) |
 | `resumen.modo` | Qué tarjeta muestra la app (D-094, P-3): `normal` (PN-06) si hay ingreso registrado y lo asignado no lo supera; `ingreso_bajo` (PN-07) si lo asignado supera el ingreso registrado; `ingreso_nulo` (PN-07) si el ingreso registrado es cero, haya o no algo asignado |
+| `resumen.en_cero` | La persona dejó el periodo en cero («Dejar el presupuesto en cero», `POST /api/v1/presupuestos/en-cero`) **y sigue en cero**: sin ingreso registrado y sin nada asignado. Con `true` la app muestra que el mes quedó en cero y no vuelve a ofrecer el botón. Ver «Dejar el presupuesto en cero» abajo |
 | `ingreso_registrado_centavos` | La suma de los movimientos de **ingreso** del periodo (RF-007: nunca supone un salario). Un retiro de una meta no es un ingreso (RN-013) |
 | `asignado_centavos` | La suma de los presupuestos **propios** del periodo (`hogar_id` nulo, como la escritura y la descarga; L12 (2) de la US-77): uno compartido con el hogar no suma ni es fila de `categorias` |
 | `sin_asignar_centavos` | Registrado menos asignado, **solo en `normal`** (≥ 0); `null` en los otros dos modos |
 | `asignado_supera_por_centavos` | Asignado menos registrado, **solo en `ingreso_bajo`** (> 0): «Lo asignado supera por $10.000 lo que registraste.» El API da el hecho y la app lo dice sin signo menos (RNF-017); `null` en los otros modos. Con `ingreso_nulo` no hay diferencia (E14-PPA 4.2) |
-| `llega_despues_centavos` y `llega_despues` | Las fechas pendientes de las repeticiones de **ingreso** del periodo: `esperado` si todavía no llegan y `por_confirmar` si ya llegaron. **No cuentan en «Sin asignar»** (D-094, P-1) hasta que se confirman. Cada una trae `recurrente_id` y `fecha`, los de las rutas de confirmar y omitir de la US-60. Sin pendientes, `0` y `[]`: la fila «Llega después» no se ve |
+| `llega_despues` | «Llega después» (E14-PPA 4.1; L14 (1) de la US-77): las fechas pendientes de las repeticiones de **ingreso** del periodo, por fecha y, con la misma fecha, por `recurrente_id`. Cada una con su `marca`: `esperado` si todavía no llega (`fecha` > hoy en Colombia) y `por_confirmar` si ya llegó (`fecha` ≤ hoy). Cada una trae `recurrente_id` y `fecha`, los de las rutas de confirmar y omitir de la US-60, `categoria_id` y `monto_centavos` (el habitual). Sin pendientes, `[]` |
+| `llega_despues_centavos` | La suma de las fechas `esperado` de `llega_despues`: la línea «Llega después: $X (esperado)». `0` sin esperadas: la línea no se ve |
+| `por_confirmar_centavos` | La suma de las fechas `por_confirmar` de `llega_despues`: la línea «Por confirmar: $Y». `0` sin fechas por confirmar: la línea no se ve |
 | `categorias` | «Por categoría»: las categorías de gasto con presupuesto en el periodo, **también las ocultas** (`oculta: true`, RN-011, CU-55 2c), y las demás categorías de gasto con gasto en el periodo que la persona **no** ocultó. Primero las que tienen presupuesto y después las demás, cada grupo de mayor a menor `gastado_centavos` y, si empatan, **por nombre** (E14-PPA 4.1, PN-06 fila 4; L6 (6) de la US-77). El nombre del catálogo se compara en Go con la intercalación del español de Unicode (CLDR, `golang.org/x/text/collate` con `language.Spanish`, la versión de `go.mod`), no con la de la base, que depende de cómo se creó: las tildes y las mayúsculas no cambian el orden de las letras (`Educación` antes que `Transporte`, `Árbol` antes que `Bebida`), la «ñ» va entre la «n» y la «o» y, con las mismas letras, sin tilde va antes. Dos nombres iguales quedan por `categoria_id`. Solo gasto: ni ingresos ni aportes (RN-013). `[]` sin nada |
 | `presupuesto` | `{id, monto_centavos}` o `null` («Poner presupuesto») |
 | `gastado_centavos` | La suma de los gastos del periodo en esa categoría (`0` sin gastos) |
@@ -724,10 +734,11 @@ Es Laura el 2 de noviembre de 2026 (E14-PPA 2.2, caso F): «Ingreso registrado $
 
 **Reglas.**
 
-- **Lo pendiente es E15 5.2** (`fechas.Pendientes`, la misma regla de «Por confirmar» de la US-60): sin las fechas confirmadas, las omitidas («No pasó», D-092), las anteriores a la creación de la repetición ni las de `detenido_en` en adelante. Es por confirmar si `fecha ≤ hoy` (Colombia). Solo las repeticiones de la persona (`persona_id`).
+- **Lo pendiente es E15 5.2** (`fechas.Pendientes`, la misma regla de «Por confirmar» de la US-60): sin las fechas confirmadas, las omitidas («No pasó», D-092), las anteriores a la creación de la repetición ni las de `detenido_en` en adelante. Es por confirmar si `fecha ≤ hoy` (Colombia). Solo las repeticiones de la persona (`persona_id`). Así, en un mes **terminado** toda fecha pendiente está por confirmar (`llega_despues_centavos` es `0`) y en un mes que no ha empezado, esperada (`por_confirmar_centavos` es `0`).
+- **Lo esperado y lo por confirmar no cuentan en «Sin asignar» ni deciden el modo** (D-094, P-1 y P-3) hasta que se confirman: el modo sale solo de lo registrado y lo asignado. Una persona con el salario vencido sin confirmar y nada registrado en el mes ve `modo: ingreso_nulo` (PN-07) con el salario en `por_confirmar_centavos` y en `llega_despues`; al confirmarlo pasa a `ingreso_registrado_centavos` y sale de la lista.
 - **Lo registrado y lo pendiente salen de la misma lectura** (`REPEATABLE READ`, solo lectura): una fecha que se confirma a la vez no cuenta dos veces.
-- **Solo una persona adulta presupuesta** (E12 §6, RF-007): una persona menor recibe `403 {"error":"solo_personas_adultas"}`. Hoy un menor no llega a ninguna ruta con sesión (I11); la base lo asegura también (`presupuesto.persona_id` apunta a `perfil_adulto`).
-- **«Dejar el presupuesto en cero»** (PN-07, CU-10 2a) no escribe nada: con ingreso nulo y nada asignado el periodo ya está en cero, y la app solo muestra el aviso. E13 no tiene dónde guardar «definido en cero» y la historia no lo pide.
+- **Solo una persona adulta presupuesta** (E12 §6, RF-007): una persona menor recibe `403 {"error":"solo_personas_adultas"}`, también al poner. Hoy un menor no llega a ninguna ruta con sesión (I11); la base lo asegura también (`presupuesto.persona_id` apunta a `perfil_adulto`).
+- **«Dejar el presupuesto en cero»** (PN-07, CU-10 2a) se guarda (L6 (5) de la US-77): ver abajo.
 
 ### PN-08: `GET /api/v1/ingresos`
 
@@ -757,7 +768,56 @@ Es Laura el 2 de noviembre de 2026 (E14-PPA 2.2, caso F): «Ingreso registrado $
 
 PN-08 no comprueba la etapa: muestra ingresos propios, que una persona menor también registra.
 
-Pruebas: `test/presupuesto/presupuesto_test.go` (contrato con un repositorio falso: Laura en noviembre, el caso P de octubre, los modos de D-094 P-3, los estados, las ocultas, el empate por nombre en español (tildes, «ñ», mayúsculas y nombres iguales), lo omitido y lo detenido, un mes pasado, el periodo de Colombia, sumas al centavo por encima de `int64` y los errores) y `test/presupuesto/integracion_test.go` (de punta a punta contra PostgreSQL, en web y Android: E14-PPA 2.2 con lo de otra persona, sumas exactas de la base, aportes y retiros fuera, categorías ocultas, el empate por nombre con el catálogo de la base, PN-08 con la confirmación de la US-60, una persona menor y una cuenta borrada contra el repositorio, 401 y 403). `test/app/rutas_test.go` lleva el inventario de rutas.
+### Poner, corregir y quitar
+
+**Solo el mes en curso** (D-094, SC-E21-13; E12 `ErrPeriodoNoEditable`): el de hoy **en Colombia** (el `Reloj` en Bogotá). A las 23:59 del 30 de noviembre en Colombia (04:59 UTC del 1 de diciembre) noviembre sigue en curso. Presupuestar otros meses es de E21. Todo presupuesto es **propio**: `persona_id` de la sesión y `hogar_id` nulo (L3 de la US-77: el campo de E13 ya está y el hogar llega en I08 sin migración); un campo fuera del contrato (`persona_id`, `hogar_id`…) da `400 solicitud_invalida`. La escritura, como la lectura y la descarga, **solo toca lo propio** (L14 de la US-77): uno compartido con el hogar, aunque sea de la misma persona, no se corrige ni se quita (`404 no_encontrado`), no cuenta como presupuesto que la categoría ya tiene al poner (una oculta que solo tiene uno compartido es `422 categoria_invalida`), no se pisa al poner (`409 presupuesto_compartido`, abajo) ni suma en lo asignado al dejar el mes en cero.
+
+`POST /api/v1/presupuestos`:
+
+```json
+{ "periodo": "2026-11", "categoria_id": 5, "monto_centavos": 40000000 }
+```
+
+`periodo` va explícito para que un formulario abierto el último día del mes no guarde en el siguiente sin saberlo. `201` con el presupuesto creado, o `200` si la categoría ya tenía presupuesto en ese mes y se corrigió (E13: único por persona, periodo y categoría; dos «Guardar» a la vez dejan una sola fila). La categoría tiene que ser **de gasto** y que la persona **la vea** (la misma regla del catálogo); una que ocultó vale solo si ya tiene presupuesto en el mes (RN-011: sigue en la lista con «Corregir»). La general («Otros gastos») vale.
+
+**Con un presupuesto compartido con el hogar en la misma categoría y mes: `409 presupuesto_compartido`** (D-201, opción A de L16 de la US-77). La clave única de E13 (persona, periodo, categoría) no lleva `hogar_id`, así que el presupuesto propio chocaría con esa fila compartida, y antes `ON CONFLICT … DO UPDATE` le cambiaba el monto. Ahora **nunca toca una fila compartida**: el `DO UPDATE … WHERE presupuesto.hogar_id IS NULL` lo decide la base en la misma sentencia, sobre la fila con la que chocó ya bloqueada y en su última versión, sin una lectura previa que una fila compartida recién confirmada pueda adelantar; si no vuelve ninguna fila, el repositorio da `ErrPresupuestoCompartido`. Se eligió `409` y no `422`: el cuerpo es válido y es un conflicto con lo guardado, como `periodo_no_editable`. La app muestra su error genérico de guardar. Pruebas: `TestIntegracionPonerConUnPresupuestoCompartidoEs409` (HTTP y repositorio, la fila compartida igual, lo propio de otra categoría y otro mes sigue creando y corrigiendo) y `TestIntegracionPonerNoPisaUnCompartidoQueLlegaALaVez` (la fila compartida se siembra en una transacción sin confirmar, «Poner» queda esperando en el índice único y, al confirmar, responde `ErrPresupuestoCompartido` sin pisarla).
+
+```json
+{ "id": "0192f3c4-…", "categoria_id": 5, "periodo": "2026-11", "monto_centavos": 40000000 }
+```
+
+`PUT /api/v1/presupuestos/{id}` con `{"monto_centavos": 4000000}`: `200` con el presupuesto (la misma forma). `DELETE /api/v1/presupuestos/{id}`: `204` sin cuerpo; lo gastado no cambia y la fila vuelve a «Sin presupuesto». Las tres con `Cache-Control: no-store`. El repositorio corrige y quita con el periodo en la condición: si el mes cambió o la fila desapareció entre leer y escribir, no toca nada (`404`).
+
+### Dejar el presupuesto en cero
+
+E14-PPA 4.2 y CU-10 2a dicen que el periodo queda definido en cero; antes no se guardaba y el botón volvía al recargar. Ahora se guarda una **marca por persona adulta y mes** en `presupuesto_en_cero` (migración `0004`), propia (sin hogar), como `valoracion_mensual`: la llave apunta a `perfil_adulto` y se borra con la cuenta.
+
+`POST /api/v1/presupuestos/en-cero` con `{"periodo": "2026-11"}`: `204` sin cuerpo y `Cache-Control: no-store`. **Es idempotente**: otra vez es `204` y la marca sigue siendo una (`ON CONFLICT DO NOTHING`). Solo el **mes en curso** de Colombia, como poner un presupuesto, y solo si el mes **sigue en cero**: la suma de los ingresos registrados del mes y la de lo asignado propio son cero (las mismas sumas de `resumen`; uno compartido con el hogar no cuenta; un gasto no cuenta, y lo esperado o por confirmar de una repetición tampoco, porque no es registrado). Es cuando la app ofrece el botón (`modo: ingreso_nulo` y `asignado_centavos: 0`).
+
+**Qué pasa con la marca después (decisión de esta historia).** La marca **se conserva** como historia (también en «Descargar mis datos»); no se borra al llegar un ingreso ni al asignar algo. La lectura la muestra (`resumen.en_cero`) **solo mientras el mes siga en cero**: con un ingreso registrado o algo asignado `en_cero` es `false` y la pantalla vuelve a su modo de siempre («Cuando llegue un ingreso, puedes repartirlo.»); si después el mes vuelve a quedar en cero (se borra el ingreso o se quita el presupuesto), vuelve a ser `true`, porque la persona ya lo había definido en cero. Así ninguna otra ruta (registrar, confirmar, poner) tiene que tocar la marca, y una carrera entre dejarlo en cero y registrar un ingreso no deja nada incoherente: la comprobación y la escritura no se bloquean, y si la marca se cuela, la lectura no la muestra. Un mes pasado conserva su `en_cero` en la lectura.
+
+Los errores son los de la tabla que sigue; el orden es forma (`422` o `400`), mes en curso (`409 periodo_no_editable`) y lo que la base rechaza (`409 periodo_con_ingreso_o_presupuesto`, `403 solo_personas_adultas`, `401 sin_sesion`).
+
+### Errores y registro de las rutas que escriben
+
+**Errores.** El orden es forma (`422`), dueña (`404`) y estado (`409`), como en la US-60.
+
+| Código | Cuándo | Rutas |
+|---|---|---|
+| `422 datos_invalidos` con `campos` (todos a la vez) | `periodo` (también al dejar en cero): `periodo_requerido`, `periodo_invalido`. `categoria_id`: `categoria_requerida`, `categoria_invalida` (fuera de 1 a 32767, no existe, no es de gasto u oculta sin presupuesto en el mes). `monto_centavos`: `monto_requerido` («Falta el monto.»), `monto_invalido` (no es un entero de centavos que quepa en `int64`; la app muestra «El monto puede tener hasta dos decimales.» antes de mandarlo), `monto_no_positivo` («El monto debe ser mayor que $0.») | POST; PUT solo `monto_centavos` |
+| `404 no_encontrado` | El presupuesto no existe, es de otra persona, es uno compartido con el hogar o el id está mal formado (el mismo código: no revela que existe) | PUT, DELETE |
+| `409 periodo_no_editable` | El periodo no es el mes en curso | POST, PUT, DELETE |
+| `409 periodo_con_ingreso_o_presupuesto` | El mes ya tiene ingreso registrado o algo asignado: no se deja en cero (E14-PPA 4.2) | `POST /api/v1/presupuestos/en-cero` |
+| `409 presupuesto_compartido` | La categoría ya tiene en el mes un presupuesto compartido con el hogar de la persona: no se toca ni cambia nada (la clave única de E13 no lleva `hogar_id`). La app muestra su error genérico de guardar | `POST /api/v1/presupuestos` |
+| `403 solo_personas_adultas` | Una persona menor (hoy no llega a ninguna ruta con sesión; la base lo asegura con la llave a `perfil_adulto`) | todas menos `GET /api/v1/ingresos` |
+| `400 solicitud_invalida` | Cuerpo que no es un JSON de un objeto o con un campo fuera del contrato | POST, PUT |
+| `403 solicitud_no_permitida` · `415 tipo_de_contenido_no_permitido` | La defensa contra CSRF del `Enrutador` (E17 3.15, D-194) | POST, PUT, DELETE |
+| `401 sin_sesion` · `403 autorizacion_pendiente` · `403 verificacion_pendiente` | El guard de `requiere_autorizacion`; `401` también si la cuenta se borró mientras tanto | todas |
+| `500 error_interno` | Fallo de la base o datos incoherentes | todas |
+
+**Registro (SEG-006).** «presupuesto guardado» (con `creado`), «presupuesto corregido», «presupuesto quitado» y «presupuesto dejado en cero», con el id de la petición: nunca el monto, la categoría, el id del presupuesto, el periodo ni la persona.
+
+Pruebas: `test/presupuesto/presupuesto_test.go` (contrato con un repositorio falso: Laura en noviembre, el caso P de octubre, los modos de D-094 P-3, «Llega después» con lo esperado y lo por confirmar y un total para cada uno (en curso, terminado y por empezar), los estados, las ocultas, el empate por nombre en español (tildes, «ñ», mayúsculas y nombres iguales), lo omitido y lo detenido, un mes pasado, el periodo de Colombia, sumas al centavo por encima de `int64` y los errores), `test/presupuesto/escritura_test.go` (poner, corregir, quitar y dejar en cero con un repositorio falso: cada código, el orden de los errores, el mes en curso de Colombia, la idempotencia y el registro sin montos), `test/presupuesto/integracion_test.go`, `test/presupuesto/escritura_integracion_test.go` y `test/presupuesto/en_cero_integracion_test.go` (de punta a punta contra PostgreSQL, en web y Android: E14-PPA 2.2 con lo de otra persona, sumas exactas de la base, aportes y retiros fuera, categorías ocultas, el empate por nombre con el catálogo de la base, PN-08 con la confirmación de la US-60, «Llega después» con una fecha esperada y dos por confirmar, solo por confirmar y en un mes terminado, poner, corregir y quitar con la fila propia y sin hogar, lo compartido con el hogar que no se lee, corrige, quita ni cuenta al poner o al dejar en cero, el `409 presupuesto_compartido` al poner sobre uno compartido (también cuando llega a la vez, sin confirmar), qué categorías se presupuestan, otro mes y lo ajeno sin cambiar nada, ocho «Guardar» a la vez, dejar en cero (la marca de cada persona, idempotente, `en_cero` con un ingreso o un presupuesto y otra vez en cero, otro mes), la defensa contra CSRF, una persona menor y una cuenta borrada contra el repositorio, 401 y 403). `test/app/seg006_integracion_test.go` suma poner, corregir, quitar y dejar en cero a SEG-006, `test/app/csrf_integracion_test.go` pasa todo POST del inventario (también el de dejar en cero) por SEG-016, `test/app/csrf_put_delete_integracion_test.go` suma el `PUT` y el `DELETE` a SEG-016 y `test/app/rutas_test.go` lleva el inventario de rutas.
 
 ## Interpretación (US-62, `src/interpretacion`)
 
@@ -840,15 +900,30 @@ Cuerpo: `{"texto": "gasté 15 mil en almuerzo ayer"}`. Hasta **280 caracteres** 
 - `pgx` v5 (`pgxpool`) conecta con PostgreSQL. La URL sale de `BASE_DE_DATOS_URL`. Toda conexión del pool fija `TimeZone=UTC` (`bd.Conectar`; E17 3.9), aunque la URL o `PGTZ` pidan otra zona (A-05).
 - `goose` v3 se usa como biblioteca. Las migraciones van embebidas en el binario (`embed`).
 - `api migrar` aplica las migraciones pendientes y termina.
-- `0001_esquema_inicial.sql`, `0002_catalogo.sql` y `0003_ingreso_anterior.sql` (la columna `credencial.ingreso_anterior`, D-134) son copia idéntica de las de E13 (D-122). No se editan aquí. Si hay que cambiar algo, el cambio vuelve primero a E13, con nota fechada y versión nueva.
+- `0001_esquema_inicial.sql`, `0002_catalogo.sql`, `0003_ingreso_anterior.sql` (la columna `credencial.ingreso_anterior`, D-134) y `0004_presupuesto_en_cero.sql` (la tabla `presupuesto_en_cero`, la marca de «Dejar el presupuesto en cero», US-77) son copia idéntica de las de E13 (D-122). No se editan aquí. Si hay que cambiar algo, el cambio vuelve primero a E13, con nota fechada y versión nueva. **`0004` nace aquí** (decisión del dueño en la US-77, L6 (5)): su copia y su nota en E13 (v1.18) van en un PR de documentos en borrador, con este mismo SHA-256.
 
 | Archivo | SHA-256 (igual en E13 y aquí) |
 |---|---|
 | `migraciones/0001_esquema_inicial.sql` | `1244bc98f8218c202851a2a7cc18ae212b0c5a316d9238220e55ff48f351ab30` |
 | `migraciones/0002_catalogo.sql` | `f95c1a03e3a956cec11b448d913ebb79df5c96c72f1e475b446a35566c36de3b` |
 | `migraciones/0003_ingreso_anterior.sql` | `005fb34328e7ab1a2bc2842ffa722b7b2f3fb3382e4adbdc216ed6a7c0ff87c5` |
+| `migraciones/0004_presupuesto_en_cero.sql` | `f6dc137db7f1e67d9bcbb1f535d571b9da76b1a1ec8bb0ee4b55b14cf6ca4a24` |
 
-`test/migraciones/migraciones_test.go` compara el SHA-256 de cada archivo embebido con el de esta tabla. `TestMigracion0003AgregaYQuitaIngresoAnterior` comprueba que la columna (`timestamptz`) existe tras subir y no existe tras bajar solo esa migración.
+`test/migraciones/migraciones_test.go` compara el SHA-256 de cada archivo embebido con el de esta tabla. `TestMigracion0003AgregaYQuitaIngresoAnterior` comprueba que la columna (`timestamptz`) existe tras subir y no existe tras bajar solo esa migración (baja antes la `0004`, que va después). `TestMigracion0004CreaYQuitaPresupuestoEnCero` comprueba las columnas y las restricciones de `presupuesto_en_cero` (día 1, una por persona y mes, solo con perfil de adulta y el `CASCADE` al borrar la cuenta), que bajar solo esa migración la quita sin tocar `presupuesto` ni el catálogo, y que vuelve a subir.
+
+`0004_presupuesto_en_cero.sql`:
+
+```sql
+CREATE TABLE presupuesto_en_cero (
+    persona_id uuid NOT NULL,
+    periodo date NOT NULL,
+    creado_en timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT pk_presupuesto_en_cero PRIMARY KEY (persona_id, periodo),
+    CONSTRAINT ck_presupuesto_en_cero_periodo CHECK (EXTRACT(day FROM periodo) = 1),
+    CONSTRAINT fk_presupuesto_en_cero_persona_id FOREIGN KEY (persona_id) REFERENCES perfil_adulto (persona_id) ON DELETE CASCADE
+);
+-- Down: DROP TABLE IF EXISTS presupuesto_en_cero;
+```
 
 Prueba de integración (PostgreSQL 18 del compose local; deja la base sin tablas):
 
