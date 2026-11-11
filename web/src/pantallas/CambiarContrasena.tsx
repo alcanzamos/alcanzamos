@@ -69,7 +69,11 @@ export function CambiarContrasena() {
   }
 
   return (
-    <Pagina titulo={textos.cambiarContrasena.titulo} atras="/cuenta/seguridad">
+    <Pagina
+      titulo={textos.cambiarContrasena.titulo}
+      atras="/cuenta/seguridad"
+      lateral={{ registrarSecundario: true }}
+    >
       <p>{textos.cambiarContrasena.intro}</p>
       <form className="formulario" noValidate onSubmit={enviar}>
         {aviso && <Aviso {...aviso} />}

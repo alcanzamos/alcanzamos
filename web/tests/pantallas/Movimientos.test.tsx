@@ -145,10 +145,15 @@ describe("PN-01 · Movimientos: lista y filtros (E14-PRR 4.1)", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "Movimientos" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Registrar" })).toHaveAttribute(
-      "href",
-      "/registrar",
-    );
+    // El de la lista; desde 768 px lo reemplaza el de la Navegación lateral, con «Movimientos» activo.
+    expect(
+      within(screen.getByRole("main")).getByRole("link", { name: "Registrar" }),
+    ).toHaveAttribute("href", "/registrar");
+    expect(
+      within(screen.getByRole("navigation")).getByRole("link", {
+        name: "Movimientos",
+      }),
+    ).toHaveAttribute("aria-current", "page");
     const dias = screen
       .getAllByRole("heading", { level: 2 })
       .map((h) => h.textContent);
@@ -367,7 +372,9 @@ describe("PN-01 · Movimientos: lista y filtros (E14-PRR 4.1)", () => {
     expect(
       screen.getByText("Registra el primero y aquí lo verás."),
     ).toBeVisible();
-    expect(screen.getByRole("link", { name: "Registrar" })).toBeVisible();
+    expect(
+      within(screen.getByRole("main")).getByRole("link", { name: "Registrar" }),
+    ).toBeVisible();
   });
 
   it("un error de carga dice «No pudimos cargar tus movimientos.» y «Intentar de nuevo» lo vuelve a pedir", async () => {
@@ -379,7 +386,9 @@ describe("PN-01 · Movimientos: lista y filtros (E14-PRR 4.1)", () => {
     expect(
       screen.getByText("Tus datos están a salvo. Intenta de nuevo."),
     ).toBeVisible();
-    expect(screen.getByRole("link", { name: "Registrar" })).toBeVisible();
+    expect(
+      within(screen.getByRole("main")).getByRole("link", { name: "Registrar" }),
+    ).toBeVisible();
     alListar = () => json(200, lista(deNoviembre));
     fireEvent.click(screen.getByRole("button", { name: "Intentar de nuevo" }));
     await screen.findByText(porTexto("4 movimientos"));

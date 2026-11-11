@@ -672,7 +672,12 @@ export function FormularioDeMovimiento({
 
 // El formulario de registro: se llega desde «Registrar» de PN-01 y vuelve a PN-01 al guardar (D-164).
 export const Registrar = () => (
-  <Pagina titulo={r.titulo} atras="/movimientos" registro>
+  <Pagina
+    titulo={r.titulo}
+    atras="/movimientos"
+    registro
+    lateral={{ activo: "registrar", registrarSecundario: true }}
+  >
     <FormularioDeMovimiento />
   </Pagina>
 );
