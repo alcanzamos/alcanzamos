@@ -111,10 +111,7 @@ export function DetalleDeMovimiento({ navigation, route }: NativeStackScreenProp
           <Boton variante="secundario" alTocar={() => setVerBorrar(true)}>
             {d.borrar}
           </Boton>
-          <HojaInferior visible={verBorrar} alCerrar={() => setVerBorrar(false)}>
-            <Text accessibilityRole="header" style={estilos.tituloDeHoja}>
-              {b.titulo}
-            </Text>
+          <HojaInferior visible={verBorrar} titulo={b.titulo} alCerrar={() => setVerBorrar(false)}>
             {aviso && <Aviso {...aviso} />}
             <View style={estilos.tarjeta}>
               <Texto etiqueta={queSeBorraHablado(m, hoy)}>{queSeBorra(m, hoy)}</Texto>
@@ -155,5 +152,4 @@ const estilos = StyleSheet.create({
   monto: { ...estiloDeTipografia('cifra-grande'), color: tokens.color.texto.principal },
   dato: { gap: tokens.espacio['1'], minHeight: tokens.tamano['tactil-minimo'] },
   etiqueta: { ...estiloDeTipografia('pequeno'), color: tokens.color.texto.secundario },
-  tituloDeHoja: { ...estiloDeTipografia('titulo-3'), color: tokens.color.texto.principal },
 });

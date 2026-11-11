@@ -118,6 +118,8 @@
 /* Campo de texto (5.3) y de contraseña (5.18) */
 .campo {
   display: grid;
+  /* El campo mide lo que su columna, aunque el textarea pida más (sus 20 columnas por omisión). */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--espacio-1);
 }
 
@@ -312,12 +314,100 @@
   flex: none;
   width: var(--tamano-tactil-minimo);
   height: var(--tamano-tactil-minimo);
+  padding: 0;
+  border: 0;
   border-radius: var(--radio-pequeno);
+  background: transparent;
   color: var(--color-texto-principal);
+  cursor: pointer;
 }
 
 .barra__atras:active {
   background: var(--color-accion-secundaria-fondo-presionado);
+}
+
+/* Navegación lateral web (E14-SDD 5.13), solo en las pantallas con sesión. Por debajo de 768 px no se ve: la web usa
+   el diseño de Android. Desde ahí, una barra de 240 px (3/7 de la columna de lectura: no hay token propio) a alto
+   completo que no se desplaza con el contenido, con «Registrar» arriba de los destinos (medidas del componente de
+   Penpot: 24 px arriba, 16 a los lados, 8 entre las filas). El destino activo lleva las tres señales de 5.9: color,
+   píldora tras el ícono y seminegrita. El corte va en ch, como el de PN-01. */
+.navegacion-lateral {
+  display: none;
+}
+
+.navegacion-lateral .boton {
+  gap: var(--espacio-2);
+}
+
+.navegacion-lateral__destinos {
+  display: grid;
+  gap: var(--espacio-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.navegacion-lateral__destino {
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-3);
+  min-height: var(--tamano-tactil-minimo);
+  padding: 0 var(--espacio-1);
+  border-radius: var(--radio-pequeno);
+  color: var(--color-navegacion-inactivo);
+  font-family: var(--tipografia-etiqueta-font-family), sans-serif;
+  font-weight: var(--peso-regular);
+  font-size: var(--tipografia-etiqueta-font-size);
+  line-height: var(--tipografia-etiqueta-line-height);
+  text-decoration: none;
+}
+
+.navegacion-lateral__destino:active {
+  background: var(--color-accion-secundaria-fondo-presionado);
+}
+
+.navegacion-lateral__pildora {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--tamano-tactil-minimo);
+  height: var(--espacio-8);
+  border-radius: var(--radio-total);
+}
+
+.navegacion-lateral__destino[aria-current="page"] {
+  color: var(--color-navegacion-activo);
+  font-weight: var(--tipografia-etiqueta-font-weight);
+}
+
+.navegacion-lateral__destino[aria-current="page"] .navegacion-lateral__pildora {
+  background: var(--color-navegacion-indicador);
+}
+
+@media (min-width: 96ch) {
+  .con-navegacion {
+    display: grid;
+    grid-template-columns: calc(var(--tamano-columna-contenido) * 3 / 7) minmax(
+        0,
+        1fr
+      );
+    align-items: start;
+  }
+
+  .navegacion-lateral {
+    position: sticky;
+    top: 0;
+    box-sizing: border-box;
+    display: grid;
+    align-content: start;
+    gap: var(--espacio-2);
+    height: 100vh;
+    overflow-y: auto;
+    padding: var(--espacio-6) var(--espacio-4);
+    border-right: var(--ancho-borde-fino) solid var(--color-borde-decorativo);
+    background: var(--color-fondo-superficie);
+  }
 }
 
 /* Tarjeta (E14-SDD 5.7) */
@@ -548,8 +638,12 @@
 
 .movimientos__lista,
 .movimientos__detalle,
+.movimientos__registrar,
 .detalle {
   display: grid;
+  /* La columna no crece con lo de adentro: con la Navegación lateral, a 768 px la lista mide menos de 200 px y la fila
+     de chips del periodo se desplaza dentro de ella en vez de encimarse sobre el detalle. */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--espacio-4);
   align-content: start;
   min-width: 0;
@@ -605,7 +699,10 @@
   font-size: var(--tipografia-pequeno-font-size);
 }
 
-@media (max-width: 95.9ch) {
+/* Las dos columnas empiezan cuando caben junto a la Navegación lateral: 768 px de contenido más los 240 de la barra
+   (126ch). Entre 768 y 1008 px va la barra y una pantalla a la vez, como por debajo de 768: a 768 px la lista de 5/12
+   medía menos de 200 px y las filas se salían de la tarjeta. */
+@media (max-width: 125.9ch) {
   .movimientos--abierto .movimientos__lista,
   .movimientos:not(.movimientos--abierto) .movimientos__detalle {
     display: none;
@@ -613,6 +710,13 @@
 }
 
 @media (min-width: 96ch) {
+  /* «Registrar» vive en la Navegación lateral (E14-PRR 4.1, variante web); el de la lista es el de Android. */
+  .movimientos__registrar {
+    display: none;
+  }
+}
+
+@media (min-width: 126ch) {
   .movimientos {
     grid-template-columns: 5fr 7fr;
   }
@@ -763,9 +867,20 @@
 .registro__cuadro,
 .registro__formulario {
   display: grid;
+  /* Como en PN-01: con la Navegación lateral, a 768 px el cuadro mide menos de 200 px y no debe crecer más que su columna. */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--espacio-4);
   align-content: start;
   min-width: 0;
+}
+
+/* Bug 266: en la columna de Android, «Revisa y confirma» reemplaza todo el formulario, también el cuadro (E14-PPN 3.1,
+   fila 1). `display: none` lo saca de la vista, del orden del teclado y del árbol de accesibilidad, y el cuadro sigue
+   montado con su texto y sus avisos para cuando se vuelve al formulario. */
+@media (max-width: 95.9ch) {
+  .registro--en-paso .registro__cuadro {
+    display: none;
+  }
 }
 
 @media (min-width: 96ch) {
