@@ -21,7 +21,7 @@ import (
 // inserta, averigua por qué.
 //
 // Esa clave no lleva `hogar_id`: la fila con la que choca puede ser un presupuesto compartido con el hogar de la misma
-// persona. Esa nunca se toca (S7 de siete-dias-vulnerabilidades): el `DO UPDATE … WHERE presupuesto.hogar_id IS NULL` lo
+// persona. Esa nunca se toca (D-201): el `DO UPDATE … WHERE presupuesto.hogar_id IS NULL` lo
 // decide la base sobre la fila con la que chocó, ya bloqueada y en su última versión, dentro de la misma sentencia; no hay
 // una lectura antes que una fila compartida recién confirmada pueda adelantar. Si la candidata existía (`candidata`) y no
 // volvió ninguna fila, es que chocó con una compartida: ErrPresupuestoCompartido.

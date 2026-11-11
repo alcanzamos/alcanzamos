@@ -203,7 +203,7 @@ func TestIntegracionLaEscrituraNoTocaLosPresupuestosCompartidos(t *testing.T) {
 	}
 }
 
-// S7 de siete-dias-vulnerabilidades (opción A de L16 de la US-77): la clave única de E13 (persona, periodo, categoría) no
+// D-201 (opción A de L16 de la US-77): la clave única de E13 (persona, periodo, categoría) no
 // lleva `hogar_id`, así que «Poner» en una categoría que en el mes ya tiene un presupuesto compartido con el hogar de la
 // misma persona chocaría con esa fila. No la toca: `409 presupuesto_compartido`, por HTTP y en el repositorio
 // (ErrPresupuestoCompartido), y nada cambia. Lo propio sigue igual: otra categoría del mes se crea (201) y se corrige

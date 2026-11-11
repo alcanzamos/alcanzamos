@@ -194,8 +194,7 @@ func TestPonerEnOtroMesEs409(t *testing.T) {
 }
 
 // Lo que el repositorio rechaza: una categoría que no es de gasto, no existe o la persona ocultó (422), una persona menor
-// (403), la cuenta borrada (401), una categoría con un presupuesto compartido con el hogar en el mes (409, S7 de
-// siete-dias-vulnerabilidades) y un fallo (500).
+// (403), la cuenta borrada (401), una categoría con un presupuesto compartido con el hogar en el mes (409, D-201) y un fallo (500).
 func TestPonerTraduceLoQueElRepositorioRechaza(t *testing.T) {
 	casos := []struct {
 		err    error
