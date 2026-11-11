@@ -19,30 +19,49 @@ import (
 // y si la categoría es de gasto y la persona la ve (regla `visible`), salvo que ya tenga presupuesto propio en el periodo
 // (una oculta con presupuesto se sigue corrigiendo, RN-011; uno compartido con el hogar no cuenta, L14 de la US-77). Si no
 // inserta, averigua por qué.
+//
+// Esa clave no lleva `hogar_id`: la fila con la que choca puede ser un presupuesto compartido con el hogar de la misma
+// persona. Esa nunca se toca (D-201): el `DO UPDATE … WHERE presupuesto.hogar_id IS NULL` lo
+// decide la base sobre la fila con la que chocó, ya bloqueada y en su última versión, dentro de la misma sentencia; no hay
+// una lectura antes que una fila compartida recién confirmada pueda adelantar. Si la candidata existía (`candidata`) y no
+// volvió ninguna fila, es que chocó con una compartida: ErrPresupuestoCompartido.
 func (p *Presupuestos) Poner(ctx context.Context, persona string, categoria int, periodo time.Time, monto int64) (presupuesto.Guardado, bool, error) {
 	g := presupuesto.Guardado{CategoriaID: categoria, Periodo: periodo, Monto: monto}
-	var creado bool
+	var (
+		valida bool
+		id     *string
+		creado *bool
+	)
 	err := p.pool.QueryRow(ctx,
-		`INSERT INTO presupuesto (persona_id, categoria_id, periodo, monto_asignado)
-		 SELECT a.persona_id, c.id, $3, $4
-		 FROM perfil_adulto a JOIN persona p ON p.id = a.persona_id JOIN categoria c ON c.id = $2 AND c.tipo = 'gasto'
-		 WHERE a.persona_id = $1::uuid AND p.etapa = 'adulta'
-		   AND ((`+visible+`)
-		        OR EXISTS (SELECT 1 FROM presupuesto x WHERE x.persona_id = p.id AND x.hogar_id IS NULL AND x.periodo = $3 AND x.categoria_id = c.id))
-		 ON CONFLICT ON CONSTRAINT uq_presupuesto_persona_periodo_categoria DO UPDATE SET monto_asignado = EXCLUDED.monto_asignado
-		 RETURNING id::text, xmax = 0`,
-		persona, categoria, periodo, monto).Scan(&g.ID, &creado)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return presupuesto.Guardado{}, false, p.porQueNoSePuso(ctx, persona)
-	}
+		`WITH candidata AS (
+		   SELECT a.persona_id, c.id AS categoria_id
+		   FROM perfil_adulto a JOIN persona p ON p.id = a.persona_id JOIN categoria c ON c.id = $2 AND c.tipo = 'gasto'
+		   WHERE a.persona_id = $1::uuid AND p.etapa = 'adulta'
+		     AND ((`+visible+`)
+		          OR EXISTS (SELECT 1 FROM presupuesto x WHERE x.persona_id = p.id AND x.hogar_id IS NULL AND x.periodo = $3 AND x.categoria_id = c.id))
+		 ), puesto AS (
+		   INSERT INTO presupuesto (persona_id, categoria_id, periodo, monto_asignado)
+		   SELECT persona_id, categoria_id, $3, $4 FROM candidata
+		   ON CONFLICT ON CONSTRAINT uq_presupuesto_persona_periodo_categoria DO UPDATE SET monto_asignado = EXCLUDED.monto_asignado
+		     WHERE presupuesto.hogar_id IS NULL
+		   RETURNING id::text AS id, xmax = 0 AS creado
+		 )
+		 SELECT EXISTS (SELECT 1 FROM candidata), puesto.id, puesto.creado FROM (VALUES (1)) AS una LEFT JOIN puesto ON true`,
+		persona, categoria, periodo, monto).Scan(&valida, &id, &creado)
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23503" && pgErr.ConstraintName == "fk_presupuesto_persona_id" {
 		return presupuesto.Guardado{}, false, registro.ErrSinCuenta // la cuenta se borró mientras se guardaba
 	}
-	if err != nil {
+	switch {
+	case err != nil:
 		return presupuesto.Guardado{}, false, fmt.Errorf("guardar el presupuesto: %w", err)
+	case !valida:
+		return presupuesto.Guardado{}, false, p.porQueNoSePuso(ctx, persona)
+	case id == nil:
+		return presupuesto.Guardado{}, false, presupuesto.ErrPresupuestoCompartido
 	}
-	return g, creado, nil
+	g.ID = *id
+	return g, *creado, nil
 }
 
 // porQueNoSePuso distingue, cuando Poner no insertó nada, una cuenta que ya no existe, una persona que no es adulta y una

@@ -15,11 +15,20 @@ const tipoEnPalabras = {
   ingreso: textos.registro.tipo.ingreso,
 };
 
-/** Las líneas de una fila «Por confirmar»; la repetición no tiene nombre: la fila se titula con su categoría. */
-export function textosDeFilaPorConfirmar(fila: FechaPorConfirmar) {
+/**
+ * Las líneas de una fila «Por confirmar»; la repetición no tiene nombre: la fila se titula con su categoría. ACC-004
+ * (bug 231): dos fechas de la misma categoría y día solo se distinguen por el monto, así que los nombres de
+ * «Confirmar» y «Más» lo dicen, con `formatearPesos` como se ve en la fila. `centavos` es el monto que muestra la fila:
+ * el habitual o el que la persona cambió en «Confirmar todos». PN-08 la usa con una fecha de ingreso, sin periodicidad.
+ */
+export function textosDeFilaPorConfirmar(
+  fila: FechaPorConfirmar,
+  centavos = BigInt(fila.monto_habitual_centavos),
+) {
   const principal = nombresDeCategoria[`c${fila.categoria_id}`] ?? "";
   const fecha = diaEnPalabras(fila.fecha) ?? fila.fecha;
   const tipo = tipoEnPalabras[fila.tipo];
+  const monto = formatearPesos(centavos);
   return {
     principal,
     fecha,
@@ -31,9 +40,10 @@ export function textosDeFilaPorConfirmar(fila: FechaPorConfirmar) {
     apoyoSinMedio: formatear(p.apoyoSinMedio, { tipo, fecha }),
     nombreDeConfirmar: formatear(p.nombreDeConfirmar, {
       nombre: principal,
+      monto,
       fecha,
     }),
-    nombreDeMas: formatear(p.nombreDeMas, { nombre: principal, fecha }),
+    nombreDeMas: formatear(p.nombreDeMas, { nombre: principal, monto, fecha }),
     tituloDeLaHoja: formatear(p.hoja.titulo, { nombre: principal, fecha }),
     tituloDelMonto:
       fila.tipo === "ingreso" ? p.hoja.tituloDeIngreso : p.hoja.tituloDeGasto,

@@ -1,0 +1,33 @@
+# Pasos que instalan Go desde el tarball oficial, con su SHA-256 verificado antes de descomprimirlo.
+# Los usan plantillas/api.yml (el pipeline api y la etapa api del control único) y revision-diaria.yml (la revisión
+# diaria): la versión y su suma viven una sola vez. govulncheck revisa la biblioteca estándar de la versión de Go con la
+# que corre, así que el PR y la revisión diaria deben usar la misma.
+# Los parámetros no se pasan desde quien usa la plantilla: su valor por defecto es la versión fijada.
+parameters:
+  # Cambiar la versión obliga a cambiar también la suma, api/Dockerfile y api/go.mod.
+  - name: version
+    type: string
+    default: 1.27.3
+  # SHA-256 fijado a mano desde https://go.dev/dl/?mode=json (consultado el 2026-10-22).
+  - name: sha256
+    type: string
+    default: 65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40
+
+steps:
+  # Se descarga el tarball oficial y se verifica antes de descomprimirlo.
+  - script: |
+      set -eu
+      tar_go="go${{ parameters.version }}.linux-amd64.tar.gz"
+      destino="$(Agent.TempDirectory)/go"
+      mkdir -p "$destino"
+      curl -fsSL "https://go.dev/dl/$tar_go" -o "$destino/$tar_go"
+      (cd "$destino" && echo "${{ parameters.sha256 }}  $tar_go" | sha256sum --check --strict -)
+      tar -C "$destino" -xzf "$destino/$tar_go"
+      echo "##vso[task.prependpath]$destino/go/bin"
+    displayName: Instalar Go ${{ parameters.version }} (SHA-256 verificado)
+
+  - script: |
+      set -eu
+      go version
+      test "$(go env GOTOOLCHAIN)" = "local" || echo "##vso[task.logissue type=warning]GOTOOLCHAIN no es local"
+    displayName: Versión de Go

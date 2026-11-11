@@ -35,8 +35,8 @@ func (h *Handler) Registrar(e *servidor.Enrutador) {
 }
 
 // responder escribe los errores comunes: `422 datos_invalidos`, `404 no_encontrado`, `409 periodo_no_editable`, `409
-// periodo_con_ingreso_o_presupuesto`, `403 solo_personas_adultas`, `401 sin_sesion` (la cuenta se borró mientras tanto) o
-// un fallo. Devuelve true si ya respondió.
+// periodo_con_ingreso_o_presupuesto`, `409 presupuesto_compartido`, `403 solo_personas_adultas`, `401 sin_sesion` (la
+// cuenta se borró mientras tanto) o un fallo. Devuelve true si ya respondió.
 func (h *Handler) responder(w http.ResponseWriter, r *http.Request, que string, err error) bool {
 	var invalido *registro.ErrValidacion
 	switch {
@@ -50,6 +50,8 @@ func (h *Handler) responder(w http.ResponseWriter, r *http.Request, que string, 
 		servidor.EscribirError(w, http.StatusConflict, "periodo_no_editable")
 	case errors.Is(err, ErrPeriodoConIngresoOPresupuesto):
 		servidor.EscribirError(w, http.StatusConflict, "periodo_con_ingreso_o_presupuesto")
+	case errors.Is(err, ErrPresupuestoCompartido):
+		servidor.EscribirError(w, http.StatusConflict, "presupuesto_compartido")
 	case errors.Is(err, ErrSoloAdultos):
 		servidor.EscribirError(w, http.StatusForbidden, CodigoSoloAdultos)
 	case errors.Is(err, registro.ErrSinCuenta):
@@ -87,7 +89,8 @@ func (h *Handler) ingresos(w http.ResponseWriter, r *http.Request) {
 
 // poner atiende POST /api/v1/presupuestos con `{"periodo":"AAAA-MM","categoria_id":<id>,"monto_centavos":<centavos>}`
 // («Poner presupuesto»): `201` con el `Presupuesto`, o `200` si la categoría ya tenía presupuesto en el mes y se corrigió.
-// `422 datos_invalidos` con todos los campos inválidos a la vez; `409 periodo_no_editable` si no es el mes en curso; `400
+// `422 datos_invalidos` con todos los campos inválidos a la vez; `409 periodo_no_editable` si no es el mes en curso; `409
+// presupuesto_compartido` si la categoría ya tiene en el mes un presupuesto compartido con el hogar, que no se toca; `400
 // solicitud_invalida` con un campo fuera del contrato (`persona_id`, `hogar_id`…).
 func (h *Handler) poner(w http.ResponseWriter, r *http.Request) {
 	var sol SolicitudDePresupuesto

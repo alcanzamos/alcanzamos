@@ -23,8 +23,20 @@ const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crear
 
 const PN71 = 'Este es tu primer ingreso.';
 const salario = pendiente();
-const CONFIRMAR_SALARIO = 'Confirmar Salario del 16 de noviembre de 2026';
-const MAS_SALARIO = 'Más opciones de Salario del 16 de noviembre de 2026';
+const CONFIRMAR_SALARIO = 'Confirmar Salario de 1200000 pesos del 16 de noviembre de 2026';
+const MAS_SALARIO = 'Más opciones de Salario de 1200000 pesos del 16 de noviembre de 2026';
+// La sesión 3 del celular (bug 231): tres fechas de «Otros gastos» del mismo día que solo cambian en el monto.
+const otros = (id: string, centavos: string) =>
+  pendiente({
+    recurrente_id: id,
+    fecha: '2026-11-05',
+    tipo: 'gasto',
+    categoria_id: 16,
+    medio: 'efectivo',
+    monto_habitual_centavos: centavos,
+  });
+const tresOtros = [otros('r-a', '5500000'), otros('r-b', '3000000'), otros('r-c', '1250050')];
+const MONTOS_HABLADOS = ['55000 pesos', '30000 pesos', '12500 pesos con 50 centavos'];
 const TEXTO_UNA =
   'Esta fecha de un movimiento que se repite ya llegó. Confírmala con un toque, o toca «Más» si no pasó o cambió el monto.';
 const TEXTO_VARIAS =
@@ -90,12 +102,50 @@ describe('PN-01 · «Por confirmar», Android (E14-PRR 4.1, US-60)', () => {
       expect(screen.getByText('3 por confirmar: 1 ingreso y 2 gastos')).toBeOnTheScreen();
       expect(screen.getByRole('button', { name: 'Confirmar todos' })).toBeOnTheScreen();
       expect(
-        screen.getAllByRole('button', { name: /^Confirmar (Servicios públicos|Salario|Comunicaciones) del/ }),
+        screen.getAllByRole('button', { name: /^Confirmar (Servicios públicos|Salario|Comunicaciones) de \d+ pesos del/ }),
       ).toHaveLength(3);
       expect(
-        screen.getByRole('button', { name: 'Más opciones de Servicios públicos del 5 de noviembre de 2026' }),
+        screen.getByRole('button', { name: 'Más opciones de Servicios públicos de 120000 pesos del 5 de noviembre de 2026' }),
       ).toBeOnTheScreen();
       expect(screen.getByText('Gasto · Efectivo · 5 de noviembre de 2026')).toBeOnTheScreen();
+    });
+
+    it('ACC-004 (bug 231): cada fila se lee como una unidad, con un solo nombre que trae el monto en pesos', async () => {
+      apiFalsa(respuestaJson, { pendientes: pendientes(salario) });
+      await abrirLista();
+      const fila = await screen.findByLabelText(
+        'Salario, Ingreso · Transferencia · 16 de noviembre de 2026, Por confirmar, 1200000 pesos',
+      );
+      expect(fila.props.accessible).toBe(true);
+      // La unidad es la fila entera: sus textos y sus dos botones están dentro.
+      expect(within(fila).getByText('Salario')).toBeOnTheScreen();
+      expect(within(fila).getByText('$1.200.000')).toBeOnTheScreen();
+      expect(within(fila).getByRole('button', { name: CONFIRMAR_SALARIO })).toBeOnTheScreen();
+      expect(within(fila).getByRole('button', { name: MAS_SALARIO })).toBeOnTheScreen();
+    });
+
+    it('ACC-004 (bug 231): tres filas iguales salvo el monto se distinguen en la fila y en sus botones', async () => {
+      apiFalsa(respuestaJson, { pendientes: pendientes(...tresOtros) });
+      await abrirLista();
+      const confirmar = await screen.findAllByRole('button', { name: /^Confirmar Otros gastos/ });
+      const mas = screen.getAllByRole('button', { name: /^Más opciones de Otros gastos/ });
+      const nombres = [...confirmar, ...mas].map((b) => b.props.accessibilityLabel as string);
+      expect(nombres).toEqual([
+        'Confirmar Otros gastos de 55000 pesos del 5 de noviembre de 2026',
+        'Confirmar Otros gastos de 30000 pesos del 5 de noviembre de 2026',
+        'Confirmar Otros gastos de 12500 pesos con 50 centavos del 5 de noviembre de 2026',
+        'Más opciones de Otros gastos de 55000 pesos del 5 de noviembre de 2026',
+        'Más opciones de Otros gastos de 30000 pesos del 5 de noviembre de 2026',
+        'Más opciones de Otros gastos de 12500 pesos con 50 centavos del 5 de noviembre de 2026',
+      ]);
+      expect(new Set(nombres).size).toBe(6);
+      const filas = MONTOS_HABLADOS.map((monto) =>
+        screen.getByLabelText(`Otros gastos, Gasto · Efectivo · 5 de noviembre de 2026, Por confirmar, ${monto}`),
+      );
+      filas.forEach((fila) => expect(fila.props.accessible).toBe(true));
+      expect(new Set(filas.map((f) => f.props.accessibilityLabel)).size).toBe(3);
+      // Nada dice «$»: TalkBack lo lee como dólares (bug 224).
+      expect(screen.queryByLabelText(/\$/)).not.toBeOnTheScreen();
     });
 
     it('con una categoría elegida no se muestra', async () => {

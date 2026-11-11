@@ -84,9 +84,15 @@ test.describe("PN-06 · Presupuesto del periodo por categorías", () => {
         hijos.map((h) => h.querySelector("h2, button")?.textContent),
       );
     expect(derechaLleva).toEqual(["Por categoría", "Agregar otra categoría"]);
+    // Desde 768 px, «Registrar» es el de la Navegación lateral (bug 233), como en PN-01: uno solo a la vista.
+    const registrar = page
+      .getByRole("link", { name: "Registrar", exact: true })
+      .filter({ visible: true });
+    await expect(registrar).toHaveCount(1);
+    await expect(page.getByRole("navigation")).toContainText("Registrar");
     await expect(
       columnas.nth(0).getByRole("link", { name: "Registrar", exact: true }),
-    ).toBeVisible();
+    ).toBeHidden();
   });
 
   test("a 360 px: una sola columna, el resumen arriba y «Por categoría» debajo, como Android", async ({
@@ -102,6 +108,13 @@ test.describe("PN-06 · Presupuesto del periodo por categorías", () => {
     const categorias = await tarjeta(page, "Por categoría").boundingBox();
     expect(categorias!.y).toBeGreaterThan(resumen!.y + resumen!.height);
     expect(Math.abs(categorias!.x - resumen!.x)).toBeLessThan(1);
+    // Sin la Navegación lateral: «Registrar» es el de arriba del resumen, como en Android.
+    await expect(page.getByRole("navigation")).toBeHidden();
+    await expect(
+      page
+        .getByRole("main")
+        .getByRole("link", { name: "Registrar", exact: true }),
+    ).toBeVisible();
     await sinViolaciones(page);
   });
 

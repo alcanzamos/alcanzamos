@@ -19,8 +19,12 @@ beforeEach(() => {
 
 const URL_DE_PROXIMAS = "/api/v1/repeticiones/proximas";
 const opcion = (nombre: string) => screen.getByRole("radio", { name: nombre });
+// Las fechas se buscan en el contenido: los destinos de la Navegación lateral también son una lista.
+const contenido = () => within(screen.getByRole("main"));
 const fechas = () =>
-  screen.queryAllByRole("listitem").map((f) => f.textContent);
+  contenido()
+    .queryAllByRole("listitem")
+    .map((f) => f.textContent);
 const listo = () =>
   fireEvent.click(screen.getByRole("button", { name: "Listo" }));
 
@@ -99,7 +103,7 @@ describe("PN-03 · Se repite (E14-PRR 4.3)", () => {
         "El monto es el mismo en cada fecha. Al confirmar una fecha puedes escribir otro monto, sin cambiar las demás.",
       ),
     ).toBeInTheDocument();
-    expect(await screen.findAllByRole("listitem")).toHaveLength(1);
+    expect(await contenido().findAllByRole("listitem")).toHaveLength(1);
   });
 
   it("«Empieza el» es la fecha del formulario, en palabras, y esa fecha va al API con la periodicidad", async () => {
@@ -180,7 +184,7 @@ describe("PN-03 · Se repite (E14-PRR 4.3)", () => {
       .closest("section");
     expect(tarjeta).toHaveAttribute("aria-busy", "true");
     expect(screen.queryByText("No hay fechas próximas.")).toBeNull();
-    expect(screen.queryByRole("listitem")).toBeNull();
+    expect(contenido().queryByRole("listitem")).toBeNull();
     contestar(json(200, { proximas: ["2026-11-26"] }));
     await screen.findByText(porTexto("26 de noviembre de 2026"));
     expect(tarjeta).toHaveAttribute("aria-busy", "false");
@@ -230,7 +234,7 @@ describe("PN-03 · Se repite (E14-PRR 4.3)", () => {
           "Sin conexión. Intenta de nuevo cuando vuelvas a tener internet.",
         ),
       ).toBeInTheDocument();
-      expect(screen.queryByRole("listitem")).toBeNull();
+      expect(contenido().queryByRole("listitem")).toBeNull();
       expect(screen.getByRole("button", { name: "Listo" })).not.toHaveAttribute(
         "aria-disabled",
       );

@@ -194,7 +194,7 @@ func TestPonerEnOtroMesEs409(t *testing.T) {
 }
 
 // Lo que el repositorio rechaza: una categoría que no es de gasto, no existe o la persona ocultó (422), una persona menor
-// (403), la cuenta borrada (401) y un fallo (500).
+// (403), la cuenta borrada (401), una categoría con un presupuesto compartido con el hogar en el mes (409, D-201) y un fallo (500).
 func TestPonerTraduceLoQueElRepositorioRechaza(t *testing.T) {
 	casos := []struct {
 		err    error
@@ -204,6 +204,7 @@ func TestPonerTraduceLoQueElRepositorioRechaza(t *testing.T) {
 		{registro.ErrCategoriaInvalida, 422, `{"campos":{"categoria_id":"categoria_invalida"},"error":"datos_invalidos"}`},
 		{presupuesto.ErrSoloAdultos, 403, `{"error":"solo_personas_adultas"}`},
 		{registro.ErrSinCuenta, 401, `{"error":"sin_sesion"}`},
+		{presupuesto.ErrPresupuestoCompartido, 409, `{"error":"presupuesto_compartido"}`},
 		{errors.New("la base se cayó"), 500, `{"error":"error_interno"}`},
 	}
 	for _, c := range casos {

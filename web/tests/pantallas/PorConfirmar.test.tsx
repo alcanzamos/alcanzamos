@@ -59,10 +59,11 @@ function abrir(datos: Pendientes = dos) {
   );
   return { alEmpezar, alTerminar, refrescar };
 }
-const nombreSalario = "Confirmar Salario del 16 de noviembre de 2026";
+const nombreSalario =
+  "Confirmar Salario de $1.200.000 del 16 de noviembre de 2026";
 const masSalario = () =>
   screen.getByRole("button", {
-    name: "Más opciones de Salario del 16 de noviembre de 2026",
+    name: "Más opciones de Salario de $1.200.000 del 16 de noviembre de 2026",
   });
 
 describe("«Por confirmar» en PN-01 (E14-PRR 4.1)", () => {
@@ -148,13 +149,60 @@ describe("«Por confirmar» en PN-01 (E14-PRR 4.1)", () => {
     fireEvent.click(boton);
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Confirmar Arriendo o cuota de vivienda del 1 de diciembre de 2026",
+        name: "Confirmar Arriendo o cuota de vivienda de $650.000 del 1 de diciembre de 2026",
       }),
     );
     expect(boton).toHaveAttribute("aria-disabled", "true");
     expect(pedidos).toHaveLength(1);
     terminar(json(201, movimientoConfirmado));
     await waitFor(() => expect(alTerminar).toHaveBeenCalledOnce());
+  });
+
+  it("ACC-004 (bug 231): tres fechas de la misma categoría y día que solo cambian en el monto tienen seis botones con nombres distintos", () => {
+    // La sesión 3 del celular: tres fechas de «Otros gastos» del 5 de noviembre de 2026 que solo cambian en el monto.
+    const otros = (id: string, centavos: string): Pendiente => ({
+      recurrente_id: id,
+      fecha: "2026-11-05",
+      tipo: "gasto",
+      categoria_id: 16,
+      medio: "efectivo",
+      monto_habitual_centavos: centavos,
+      periodicidad: "mensual",
+    });
+    abrir({
+      pendientes: [
+        otros("r-a", "5500000"),
+        otros("r-b", "3000000"),
+        otros("r-c", "1250050"),
+      ],
+      resumen: { total: 3, ingresos: 0, gastos: 3 },
+    });
+    const nombres = [
+      "Confirmar Otros gastos de $55.000 del 5 de noviembre de 2026",
+      "Confirmar Otros gastos de $30.000 del 5 de noviembre de 2026",
+      "Confirmar Otros gastos de $12.500,50 del 5 de noviembre de 2026",
+      "Más opciones de Otros gastos de $55.000 del 5 de noviembre de 2026",
+      "Más opciones de Otros gastos de $30.000 del 5 de noviembre de 2026",
+      "Más opciones de Otros gastos de $12.500,50 del 5 de noviembre de 2026",
+    ];
+    expect(
+      screen
+        .getAllByRole("button", { name: /Otros gastos/ })
+        .map((b) => b.getAttribute("aria-label")),
+    ).toEqual([
+      nombres[0],
+      nombres[3],
+      nombres[1],
+      nombres[4],
+      nombres[2],
+      nombres[5],
+    ]);
+    // getByRole falla si dos botones tienen el mismo nombre: cada uno es único.
+    nombres.forEach((nombre, i) =>
+      expect(screen.getByRole("button", { name: nombre })).toHaveTextContent(
+        i < 3 ? "Confirmar" : "Más",
+      ),
+    );
   });
 
   it("«Más» abre la hoja con el nombre y la fecha, «Cambiar el monto» y «No pasó»; «Cerrar» devuelve el foco a «Más»", () => {
@@ -227,7 +275,7 @@ describe("«Por confirmar» en PN-01 (E14-PRR 4.1)", () => {
     abrir();
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Más opciones de Arriendo o cuota de vivienda del 1 de diciembre de 2026",
+        name: "Más opciones de Arriendo o cuota de vivienda de $650.000 del 1 de diciembre de 2026",
       }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Cambiar el monto" }));

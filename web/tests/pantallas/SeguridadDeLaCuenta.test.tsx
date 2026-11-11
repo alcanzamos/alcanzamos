@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { irConAviso, irConMensaje } from "../../src/llegada";
 import { SeguridadDeLaCuenta } from "../../src/pantallas/SeguridadDeLaCuenta";
@@ -31,16 +37,22 @@ describe("PN-71 · Seguridad de la cuenta", () => {
   });
 
   // D-164: el botón provisional «Registrar un movimiento» se quitó; PN-01 es la entrada al formulario y PN-71 solo lleva
-  // a PN-01 (el destino «Movimientos» de la navegación, E14-SDD 5.9).
+  // a PN-01 (el destino «Movimientos» de la navegación, E14-SDD 5.9). «Registrar» solo está en la Navegación lateral.
   it("ya no trae «Registrar un movimiento»: solo el enlace a PN-01, que lleva a /movimientos", async () => {
     simularApi(() => json(200, { ingreso_anterior: null }));
     render(<SeguridadDeLaCuenta />);
     await screen.findByText("Este es tu primer ingreso.");
+    const contenido = within(screen.getByRole("main"));
     expect(
       screen.queryByRole("link", { name: "Registrar un movimiento" }),
     ).toBeNull();
-    expect(screen.queryByRole("link", { name: "Registrar" })).toBeNull();
-    const enlace = screen.getByRole("link", { name: "Movimientos" });
+    expect(contenido.queryByRole("link", { name: "Registrar" })).toBeNull();
+    expect(
+      within(screen.getByRole("navigation")).getByRole("link", {
+        name: "Registrar",
+      }),
+    ).toHaveAttribute("href", "/registrar");
+    const enlace = contenido.getByRole("link", { name: "Movimientos" });
     expect(enlace).toHaveAttribute("href", "/movimientos");
     fireEvent.click(enlace);
     expect(window.location.pathname).toBe("/movimientos");
@@ -117,8 +129,11 @@ describe("PN-71 · Seguridad de la cuenta", () => {
     await screen.findByText("Este es tu primer ingreso.");
     const enlace = screen.getByRole("link", { name: "Presupuesto" });
     expect(enlace).toHaveAttribute("href", "/presupuesto");
+    // El de PN-71, no el destino de la Navegación lateral.
     expect(enlace).toHaveClass(
-      screen.getByRole("link", { name: "Movimientos" }).className,
+      within(screen.getByRole("main")).getByRole("link", {
+        name: "Movimientos",
+      }).className,
     );
     fireEvent.click(enlace);
     expect(window.location.pathname).toBe("/presupuesto");

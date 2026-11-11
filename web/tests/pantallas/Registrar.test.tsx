@@ -181,7 +181,8 @@ describe("PN-01 · Formulario de registro (E14-PPN 3.1, D-164)", () => {
     expect(ver).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(ver);
     expect(ver).toHaveAttribute("aria-expanded", "true");
-    const lista = screen.getByRole("list");
+    const contenido = within(screen.getByRole("main"));
+    const lista = contenido.getByRole("list");
     expect(within(lista).getAllByRole("button")).toHaveLength(4);
     expect(
       within(lista).getByRole("button", { name: "Otros gastos" }),
@@ -189,13 +190,13 @@ describe("PN-01 · Formulario de registro (E14-PPN 3.1, D-164)", () => {
     fireEvent.click(
       within(lista).getByRole("button", { name: "Ayuda a la familia" }),
     );
-    expect(screen.queryByRole("list")).not.toBeInTheDocument();
+    expect(contenido.queryByRole("list")).not.toBeInTheDocument();
     expect(
       screen.getByRole("radio", { name: "Ayuda a la familia" }),
     ).toBeChecked();
     fireEvent.click(ver);
     fireEvent.click(ver);
-    expect(screen.queryByRole("list")).not.toBeInTheDocument();
+    expect(contenido.queryByRole("list")).not.toBeInTheDocument();
   });
 
   it("muestra la fecha en palabras, y «Hoy» si es hoy", async () => {

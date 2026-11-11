@@ -73,7 +73,11 @@ export function SeguridadDeLaCuenta() {
       : null;
 
   return (
-    <Pagina titulo={textos.seguridadDeLaCuenta.titulo} estado={llegada}>
+    <Pagina
+      titulo={textos.seguridadDeLaCuenta.titulo}
+      estado={llegada}
+      lateral={{}}
+    >
       {sinConexion && <Aviso {...avisos.sinConexion} />}
       {estado.fase === "error" && (
         <>
