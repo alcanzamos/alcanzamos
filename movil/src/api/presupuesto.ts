@@ -1,13 +1,13 @@
-import { pedir } from './cliente';
-import type { Medio } from './registro';
-import type { FechaPorConfirmar } from './repeticiones';
+import { pedir } from "./cliente";
+import type { Medio } from "./registro";
+import type { FechaPorConfirmar } from "./repeticiones";
 
 // Rutas de PN-06, PN-07 y PN-08 (api/README.md, «Presupuesto del periodo»). Las reglas viven en el API (E17-ECO 4.7): el modo
 // de la pantalla, las sumas, los estados y el orden. El API no manda textos: ids, claves y códigos. Los montos llegan
 // como texto (enteros de 64 bits, D-082) y se mandan armando el JSON a mano, sin pasar por `number`.
 
 /** Qué tarjeta de resumen se muestra (D-094, P-3): PN-06 con `normal`; PN-07 con los otros dos. */
-export type ModoDelPresupuesto = 'normal' | 'ingreso_bajo' | 'ingreso_nulo';
+export type ModoDelPresupuesto = "normal" | "ingreso_bajo" | "ingreso_nulo";
 
 export type CategoriaDelPresupuesto = {
   categoria_id: number;
@@ -16,17 +16,20 @@ export type CategoriaDelPresupuesto = {
   presupuesto: { id: string; monto_centavos: string } | null;
   gastado_centavos: string;
   /** Solo con presupuesto. */
-  estado: 'quedan' | 'usado_todo' | 'superado' | null;
+  estado: "quedan" | "usado_todo" | "superado" | null;
   quedan_centavos: string | null;
 };
 
-/** Una fecha pendiente de una repetición de ingreso: no cuenta en «Sin asignar» (D-094, P-1). */
+/**
+ * Una fecha esperada de una repetición de ingreso: todavía no llega y no cuenta en «Sin asignar» (D-094, P-1).
+ * Lo por confirmar no viene aquí: sigue en Movimientos y en PN-08 (L12 (1) de la US-77).
+ */
 export type FechaQueLlegaDespues = {
   recurrente_id: string;
   fecha: string;
   categoria_id: number;
   monto_centavos: string;
-  marca: 'esperado' | 'por_confirmar';
+  marca: "esperado";
 };
 
 export type PresupuestoDelPeriodo = {
@@ -42,6 +45,7 @@ export type PresupuestoDelPeriodo = {
     asignado_centavos: string;
     sin_asignar_centavos: string | null;
     asignado_supera_por_centavos: string | null;
+    /** Solo lo esperado; un mes que ya terminó da "0" y `llega_despues` vacío. */
     llega_despues_centavos: string;
   };
   llega_despues: FechaQueLlegaDespues[];
@@ -49,7 +53,7 @@ export type PresupuestoDelPeriodo = {
   categorias: CategoriaDelPresupuesto[];
 };
 
-export type MarcaDeIngreso = 'registrado' | 'esperado' | 'por_confirmar';
+export type MarcaDeIngreso = "registrado" | "esperado" | "por_confirmar";
 
 export type IngresoDelPeriodo = {
   fecha: string;
@@ -86,39 +90,58 @@ export type IngresosDelPeriodo = {
   fuentes: FuenteDeIngreso[];
 };
 
-const PRESUPUESTOS = '/api/v1/presupuestos';
+const PRESUPUESTOS = "/api/v1/presupuestos";
 
 /** PN-06 y PN-07 muestran el mes en curso (D-094): el API lo elige. */
-export const leerPresupuesto = () => pedir<PresupuestoDelPeriodo>('GET', PRESUPUESTOS);
+export const leerPresupuesto = () =>
+  pedir<PresupuestoDelPeriodo>("GET", PRESUPUESTOS);
 
 /** «Poner presupuesto» del mes en curso; si la categoría ya tenía, el API lo corrige. */
-export const ponerPresupuesto = (periodo: string, categoriaId: number, montoCentavos: bigint) =>
+export const ponerPresupuesto = (
+  periodo: string,
+  categoriaId: number,
+  montoCentavos: bigint,
+) =>
   pedir(
-    'POST',
+    "POST",
     PRESUPUESTOS,
     `{"periodo":${JSON.stringify(periodo)},"categoria_id":${categoriaId},"monto_centavos":${montoCentavos}}`,
   );
 
 export const corregirPresupuesto = (id: string, montoCentavos: bigint) =>
-  pedir('PUT', `${PRESUPUESTOS}/${encodeURIComponent(id)}`, `{"monto_centavos":${montoCentavos}}`);
+  pedir(
+    "PUT",
+    `${PRESUPUESTOS}/${encodeURIComponent(id)}`,
+    `{"monto_centavos":${montoCentavos}}`,
+  );
 
 /** «Quitar presupuesto»: ningún gasto cambia. */
-export const quitarPresupuesto = (id: string) => pedir('DELETE', `${PRESUPUESTOS}/${encodeURIComponent(id)}`);
+export const quitarPresupuesto = (id: string) =>
+  pedir("DELETE", `${PRESUPUESTOS}/${encodeURIComponent(id)}`);
 
 /** «Dejar el presupuesto en cero» (CU-10 2a): guarda la marca del mes. */
-export const dejarEnCero = (periodo: string) => pedir('POST', `${PRESUPUESTOS}/en-cero`, { periodo });
+export const dejarEnCero = (periodo: string) =>
+  pedir("POST", `${PRESUPUESTOS}/en-cero`, { periodo });
 
 /** PN-08: sin periodo, el mes en curso. Sin `URLSearchParams`: en React Native no implementa `set`. */
 export const listarIngresos = (periodo: string | null) =>
-  pedir<IngresosDelPeriodo>('GET', periodo ? `/api/v1/ingresos?periodo=${encodeURIComponent(periodo)}` : '/api/v1/ingresos');
+  pedir<IngresosDelPeriodo>(
+    "GET",
+    periodo
+      ? `/api/v1/ingresos?periodo=${encodeURIComponent(periodo)}`
+      : "/api/v1/ingresos",
+  );
 
 /** Una fecha por confirmar de PN-08 con lo que piden «Confirmar», «Más» y «Confirmar todos» de la US-60. */
-export const porConfirmarDe = (fuente: FuenteDeIngreso, ingreso: IngresoDelPeriodo): FechaPorConfirmar | null =>
-  ingreso.marca === 'por_confirmar' && ingreso.recurrente_id
+export const porConfirmarDe = (
+  fuente: FuenteDeIngreso,
+  ingreso: IngresoDelPeriodo,
+): FechaPorConfirmar | null =>
+  ingreso.marca === "por_confirmar" && ingreso.recurrente_id
     ? {
         recurrente_id: ingreso.recurrente_id,
         fecha: ingreso.fecha,
-        tipo: 'ingreso',
+        tipo: "ingreso",
         categoria_id: fuente.categoria_id,
         medio: ingreso.medio,
         monto_habitual_centavos: ingreso.monto_centavos,
@@ -126,5 +149,9 @@ export const porConfirmarDe = (fuente: FuenteDeIngreso, ingreso: IngresoDelPerio
     : null;
 
 /** Las fechas por confirmar del periodo, en el orden de la pantalla. */
-export const fechasPorConfirmar = (datos: IngresosDelPeriodo): FechaPorConfirmar[] =>
-  datos.fuentes.flatMap((f) => f.ingresos.flatMap((i) => porConfirmarDe(f, i) ?? []));
+export const fechasPorConfirmar = (
+  datos: IngresosDelPeriodo,
+): FechaPorConfirmar[] =>
+  datos.fuentes.flatMap((f) =>
+    f.ingresos.flatMap((i) => porConfirmarDe(f, i) ?? []),
+  );
