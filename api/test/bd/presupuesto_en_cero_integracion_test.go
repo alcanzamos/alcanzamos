@@ -110,7 +110,10 @@ func TestMigracion0004CreaYQuitaPresupuestoEnCero(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r, err := p.Down(ctx) // revierte solo la última
+	if r, err := p.Down(ctx); err != nil || r.Source.Path != "0005_transmision_a_encargados.sql" { // la que va después
+		t.Fatalf("Down: %+v, %v", r, err)
+	}
+	r, err := p.Down(ctx) // revierte la 0004
 	if err != nil || r.Source.Path != "0004_presupuesto_en_cero.sql" {
 		t.Fatalf("Down: %+v, %v", r, err)
 	}

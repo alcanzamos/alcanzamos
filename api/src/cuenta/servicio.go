@@ -125,7 +125,7 @@ type Repositorio interface {
 	// `creadasHasta` que no confirmaron el correo o no tienen vigente cada una de las `necesarias` otorgadas por la
 	// propia persona (D-135, D-139), y devuelve cuántas. Las autorizaciones que tuvieran quedan retiradas en `ahora`
 	// y se conservan hasta `conservarHasta`.
-	BorrarSinConfirmar(ctx context.Context, creadasHasta, ahora, conservarHasta time.Time, necesarias []string) (int, error)
+	BorrarSinConfirmar(ctx context.Context, creadasHasta, ahora, conservarHasta time.Time) (int, error)
 }
 
 // Hasheador calcula el hash de una contraseña (src/argon2id).
@@ -305,12 +305,13 @@ func (s *Servicio) VerificarYElegirContrasena(ctx context.Context, token, contra
 }
 
 // BorrarCuentasSinConfirmar borra, con todo lo que tengan, las cuentas de 7 días o más que no confirmaron el correo o
-// no autorizaron lo necesario (D-135). Lo necesario sale de ReglaDeFinalidades para una persona adulta (D-139). No
-// envía correo: la dirección no está confirmada y puede ser de otra persona. Es idempotente: una cuenta ya borrada no
-// vuelve a aparecer. Devuelve cuántas borró.
+// que nunca autorizaron nada como titulares (D-135). Una cuenta que ya autorizó algo antes no se borra aunque le falte
+// una finalidad necesaria nueva, como `transmision_a_encargados`: queda en `sin_autorizacion` hasta que la acepte
+// (SC-E21-25 sección 5, D-202), así que esta tarea ya no consulta ReglaDeFinalidades. No envía correo: la dirección no
+// está confirmada y puede ser de otra persona. Es idempotente: una cuenta ya borrada no vuelve a aparecer. Devuelve
+// cuántas borró.
 func (s *Servicio) BorrarCuentasSinConfirmar(ctx context.Context, ahora time.Time) (int, error) {
-	return s.d.Repo.BorrarSinConfirmar(ctx, ahora.Add(-PlazoParaConfirmar), ahora,
-		ahora.AddDate(AniosDeLaPruebaDeAutorizacion, 0, 0), ReglaDeFinalidades{}.Codigos(EtapaAdulta))
+	return s.d.Repo.BorrarSinConfirmar(ctx, ahora.Add(-PlazoParaConfirmar), ahora, ahora.AddDate(AniosDeLaPruebaDeAutorizacion, 0, 0))
 }
 
 // enviar manda el correo dentro del trabajo en segundo plano, que ya pasó el límite de la dirección y el cupo. Nunca

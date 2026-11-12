@@ -36,8 +36,10 @@ func (h *Handler) fallar(w http.ResponseWriter, r *http.Request, que string, err
 	servidor.EscribirError(w, http.StatusInternalServerError, "error_interno")
 }
 
-// listar atiende GET /api/v1/autorizaciones (PN-64): la versión vigente del texto y las finalidades que la persona
-// puede autorizar, cada una con `codigo`, `tipo` (`necesaria` o `accesoria`) y `otorgada`.
+// listar atiende GET /api/v1/autorizaciones (PN-64): la versión vigente del texto, el `modo` y las finalidades que la
+// persona puede autorizar, cada una con `codigo`, `tipo` (`necesaria` o `accesoria`) y `otorgada`. El `modo` es `completo`
+// (todas las que se ofrecen) o `falta_una_aceptacion`: la cuenta ya autorizó algo antes y le falta alguna necesaria, y
+// `finalidades` trae solo esas, con `otorgada` en falso (SC-E21-25, sección 5).
 func (h *Handler) listar(w http.ResponseWriter, r *http.Request) {
 	sujeto, _ := servidor.SujetoDe(r.Context())
 	lista, err := h.servicio.Listar(r.Context(), sujeto.Persona)
@@ -46,12 +48,13 @@ func (h *Handler) listar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	servidor.EscribirJSON(w, http.StatusOK, map[string]any{"version": VersionActual, "finalidades": lista})
+	servidor.EscribirJSON(w, http.StatusOK, map[string]any{"version": VersionActual, "modo": lista.Modo, "finalidades": lista.Finalidades})
 }
 
 // otorgar atiende POST /api/v1/autorizaciones (PN-64, «Autorizar y continuar»): `{finalidades, version}`.
 // `200 {"estado":"autorizada"}`; repetirla da lo mismo. `409 version_desactualizada` si `version` no es la vigente;
-// `422 finalidad_invalida` con un código que no se ofrece; `422 faltan_necesarias` sin las dos necesarias.
+// `422 finalidad_invalida` con un código que no se ofrece; `422 faltan_necesarias` sin todas las necesarias que la
+// persona aún no tiene (en el modo `falta_una_aceptacion`, solo la que le falta) y sin guardar nada.
 func (h *Handler) otorgar(w http.ResponseWriter, r *http.Request) {
 	var cuerpo struct {
 		Finalidades []string `json:"finalidades"`
@@ -84,8 +87,11 @@ func (h *Handler) otorgar(w http.ResponseWriter, r *http.Request) {
 
 // rechazar atiende POST /api/v1/autorizaciones/rechazo (PN-64, «No autorizo»; RF-031, D-089): borra en una
 // transacción la cuenta recién creada, con sus sesiones y enlaces, y cierra la sesión. `204`, con la cookie vencida.
-// Solo sirve a la sesión de nivel exactamente `sin_autorizacion`: con lo necesario ya autorizado responde
-// `403 ya_autorizada` y evento `acceso_denegado`, y no borra nada. Quien ya autorizó borra su cuenta por PN-69.
+// Solo sirve a la sesión de nivel exactamente `sin_autorizacion` y de una cuenta que nunca autorizó nada: con lo
+// necesario ya autorizado responde `403 ya_autorizada`, y con alguna autorización de antes (la cuenta a la que le falta
+// una aceptación nueva, SC-E21-25 sección 5) `403 cuenta_con_historial`, las dos con evento `acceso_denegado` y sin
+// borrar nada. Esa cuenta decide en la hoja de «No autorizo»: descarga sus datos (`GET /api/v1/cuenta/datos`) y borra
+// la cuenta con su contraseña (`POST /api/v1/cuenta/borrado`, PN-69), que son `sin_autorizacion`.
 func (h *Handler) rechazar(w http.ResponseWriter, r *http.Request) {
 	sujeto, _ := servidor.SujetoDe(r.Context())
 	err := error(ErrYaAutorizada)
@@ -96,6 +102,9 @@ func (h *Handler) rechazar(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, ErrYaAutorizada):
 		h.eventos.Registrar(r.Context(), seguridad.AccesoDenegado, sujeto.Persona, r.Pattern, http.StatusForbidden)
 		servidor.EscribirError(w, http.StatusForbidden, "ya_autorizada")
+	case errors.Is(err, ErrConHistorial):
+		h.eventos.Registrar(r.Context(), seguridad.AccesoDenegado, sujeto.Persona, r.Pattern, http.StatusForbidden)
+		servidor.EscribirError(w, http.StatusForbidden, "cuenta_con_historial")
 	case errors.Is(err, ErrSinCuenta):
 		servidor.EscribirError(w, http.StatusUnauthorized, servidor.CodigoSinSesion)
 	case err != nil:

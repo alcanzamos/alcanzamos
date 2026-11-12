@@ -135,6 +135,7 @@ func TestElIngresoAnteriorSeMueveEnLaMismaTransaccionQueLaSesion(t *testing.T) {
 	verificar(t, e.pool, persona)
 	otorgar(t, e.pool, persona, persona, "cuenta_y_acceso")
 	otorgar(t, e.pool, persona, persona, "funciones_financieras")
+	otorgar(t, e.pool, persona, persona, "transmision_a_encargados")
 
 	if a, u := ingresos(t, e, persona); a != nil || u != nil {
 		t.Fatalf("antes del primer ingreso: %v %v", a, u)

@@ -237,7 +237,7 @@ func TestSEG_006LosEventosDeSeguridadNoLlevanContrasenasTokensMontosNiTextos(t *
 
 	// Sin autorizar, una ruta que la pide: acceso_denegado. Después autoriza (PN-64).
 	debe("categorías sin autorizar", pedir("GET", "/api/v1/categorias", "", "2", conCookie(sesion)), 403)
-	debe("autorizar", pedir("POST", "/api/v1/autorizaciones", `{"finalidades":["cuenta_y_acceso","funciones_financieras"],"version":"1.0"}`, "2", conCookie(sesion)), 200)
+	debe("autorizar", pedir("POST", "/api/v1/autorizaciones", `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados"],"version":"1.1"}`, "2", conCookie(sesion)), 200)
 
 	// Registrar, corregir e interpretar: montos y textos libres en el cuerpo.
 	rr = pedir("GET", "/api/v1/categorias", "", "2", conCookie(sesion))

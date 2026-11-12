@@ -37,7 +37,6 @@ type repoFalso struct {
 
 	// BorrarSinConfirmar
 	hasta, conservar time.Time
-	necesarias       []string
 }
 
 func (r *repoFalso) SolicitarVerificacion(_ context.Context, v cuenta.NuevaVerificacion) error {
@@ -100,8 +99,8 @@ func (r *repoFalso) CompletarCuenta(_ context.Context, c cuenta.CuentaElegida) e
 	return nil
 }
 
-func (r *repoFalso) BorrarSinConfirmar(_ context.Context, hasta, _, conservar time.Time, necesarias []string) (int, error) {
-	r.hasta, r.conservar, r.necesarias = hasta, conservar, necesarias
+func (r *repoFalso) BorrarSinConfirmar(_ context.Context, hasta, _, conservar time.Time) (int, error) {
+	r.hasta, r.conservar = hasta, conservar
 	return 3, nil
 }
 
@@ -538,7 +537,7 @@ func TestVerificarYElegirContrasenaFallosInternosNoDanSesion(t *testing.T) {
 	}
 }
 
-func TestBorrarCuentasSinConfirmarUsaLaReglaDeFinalidades(t *testing.T) {
+func TestBorrarCuentasSinConfirmarPideLosPlazos(t *testing.T) {
 	e := nuevoEntorno()
 	n, err := e.svc.BorrarCuentasSinConfirmar(context.Background(), ahoraDePrueba)
 	if err != nil || n != 3 {
@@ -546,9 +545,6 @@ func TestBorrarCuentasSinConfirmarUsaLaReglaDeFinalidades(t *testing.T) {
 	}
 	if !e.repo.hasta.Equal(ahoraDePrueba.Add(-7*24*time.Hour)) || e.repo.conservar.Format("2006-01-02") != "2029-10-22" {
 		t.Errorf("plazos: %v %v", e.repo.hasta, e.repo.conservar)
-	}
-	if strings.Join(e.repo.necesarias, ",") != "cuenta_y_acceso,funciones_financieras" {
-		t.Errorf("las necesarias salen de ReglaDeFinalidades para un adulto: %v", e.repo.necesarias)
 	}
 }
 

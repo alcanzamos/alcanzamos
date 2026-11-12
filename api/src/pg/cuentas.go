@@ -205,31 +205,56 @@ func invalidarEnlaces(ctx context.Context, tx pgx.Tx, persona string) error {
 }
 
 // BorrarSinConfirmar borra la persona (ON DELETE CASCADE se lleva perfil, credencial, sesiones, enlaces y datos) de las
-// cuentas adultas creadas hasta creadasHasta que no confirmaron el correo o no tienen vigente cada finalidad de
-// `necesarias` otorgada por la propia persona (D-135, D-139). Las necesarias las entrega ReglaDeFinalidades: esta
-// consulta no repite la lista. Sin llave a la persona, `autorizacion` no se borra en cascada: las que hubiera quedan
-// retiradas en `ahora` y conservadas hasta `conservarHasta` (E13 §7). Todo en una sola sentencia.
+// cuentas adultas creadas hasta creadasHasta que no confirmaron el correo o que **nunca autorizaron nada**: sin ninguna
+// fila en `autorizacion` como titular, vigente o retirada (D-135, SC-E21-25 sección 5, D-202). Una cuenta que ya autorizó
+// algo y a la que le falta una finalidad necesaria nueva no se borra: queda en `sin_autorizacion`, sin plazo, hasta que
+// acepte (`ReglaDeFinalidades.Faltantes`); por eso esta consulta ya no mira las necesarias. Sin llave a la persona,
+// `autorizacion` no se borra en cascada: las que hubiera (solo las de una cuenta sin confirmar) quedan retiradas en
+// `ahora` y conservadas hasta `conservarHasta` (E13 §7).
+//
+// **Dos sentencias en una transacción, porque una sola no es correcta.** Otorgar (y retirar, y registrar un token) toman
+// la fila de la persona con `FOR UPDATE` y después escriben en `autorizacion`, que no tiene llave a la persona. En READ
+// COMMITTED, una sentencia única que decidiera los candidatos con `NOT EXISTS (… autorizacion …)` los decide con la foto
+// del inicio: si un otorgamiento tiene la fila, la sentencia espera el bloqueo y, al soltarse, relee solo la fila de
+// `persona` (la tabla bloqueada), nunca el `NOT EXISTS` de otra tabla, y borra a una persona que ya autorizó, dejando
+// autorizaciones vigentes huérfanas. Por eso: (1) se eligen los candidatos y se **bloquean** sus filas (`FOR UPDATE`, en
+// orden de id); con el bloqueo tomado, ningún otorgamiento puede estar a medias, y (2) una sentencia nueva, con foto
+// nueva que ya ve lo confirmado, **vuelve a evaluar la condición** sobre las filas bloqueadas y solo entonces retira y
+// borra. Quien llegó después de (2) espera el bloqueo y encuentra la cuenta borrada (`ErrSinCuenta`).
 //
 // Quedan fuera: las cuentas que pasaron de menor a adulta (fecha_de_paso), que tienen historia con su tutor y
 // no pasan por la verificación de este correo, y las de menores.
-func (r *Cuentas) BorrarSinConfirmar(ctx context.Context, creadasHasta, ahora, conservarHasta time.Time, necesarias []string) (int, error) {
-	res, err := r.pool.Exec(ctx,
+func (r *Cuentas) BorrarSinConfirmar(ctx context.Context, creadasHasta, ahora, conservarHasta time.Time) (int, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("abrir la transacción: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	filas, err := tx.Query(ctx,
 		`WITH candidatas AS (
 		     SELECT p.id
 		     FROM persona p
 		     JOIN perfil_adulto pa ON pa.persona_id = p.id
-		     WHERE p.etapa = 'adulta'
-		       AND pa.fecha_de_paso IS NULL
-		       AND p.creada_en <= $1
-		       AND (
-		           NOT pa.correo_verificado
-		           OR EXISTS (
-		               SELECT 1 FROM unnest($4::text[]) AS n(codigo)
-		               WHERE NOT EXISTS (
-		                   SELECT 1 FROM autorizacion a
-		                   WHERE a.titular_id = p.id AND a.otorgante_id = p.id AND a.finalidad = n.codigo AND a.retirada_en IS NULL)
-		           )
-		       )
+		     WHERE `+condicionDeLaPurga+`
+		 )
+		 SELECT p.id::text FROM persona p JOIN candidatas c ON c.id = p.id ORDER BY p.id FOR UPDATE OF p`,
+		creadasHasta)
+	if err != nil {
+		return 0, fmt.Errorf("bloquear las cuentas sin confirmar: %w", err)
+	}
+	bloqueadas, err := pgx.CollectRows(filas, pgx.RowTo[string])
+	if err != nil {
+		return 0, fmt.Errorf("leer las cuentas sin confirmar: %w", err)
+	}
+	if len(bloqueadas) == 0 {
+		return 0, nil
+	}
+	res, err := tx.Exec(ctx,
+		`WITH candidatas AS (
+		     SELECT p.id
+		     FROM persona p
+		     JOIN perfil_adulto pa ON pa.persona_id = p.id
+		     WHERE p.id = ANY($4::uuid[]) AND `+condicionDeLaPurga+`
 		 ), retiradas AS (
 		     UPDATE autorizacion a
 		        SET retirada_en = GREATEST(a.otorgada_en, $2), conservar_hasta = $3::date
@@ -238,9 +263,22 @@ func (r *Cuentas) BorrarSinConfirmar(ctx context.Context, creadasHasta, ahora, c
 		     RETURNING a.id
 		 )
 		 DELETE FROM persona p USING candidatas c WHERE p.id = c.id`,
-		creadasHasta, ahora, conservarHasta, necesarias)
+		creadasHasta, ahora, conservarHasta, bloqueadas)
 	if err != nil {
 		return 0, fmt.Errorf("borrar las cuentas sin confirmar: %w", err)
 	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, fmt.Errorf("confirmar la transacción: %w", err)
+	}
 	return int(res.RowsAffected()), nil
 }
+
+// condicionDeLaPurga es la condición de BorrarSinConfirmar (sobre `p` y `pa`, con `$1` = creadasHasta): se evalúa dos veces,
+// al elegir y al confirmar con las filas ya bloqueadas.
+const condicionDeLaPurga = `p.etapa = 'adulta'
+		       AND pa.fecha_de_paso IS NULL
+		       AND p.creada_en <= $1
+		       AND (
+		           NOT pa.correo_verificado
+		           OR NOT EXISTS (SELECT 1 FROM autorizacion a WHERE a.titular_id = p.id)
+		       )`

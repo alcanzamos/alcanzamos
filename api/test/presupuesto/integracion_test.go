@@ -89,7 +89,7 @@ func (s *servidorDePrueba) nuevaPersona(correo string, android, autorizada bool)
 		s.t.Fatal(err)
 	}
 	if autorizada {
-		for _, f := range []string{"cuenta_y_acceso", "funciones_financieras"} {
+		for _, f := range []string{"cuenta_y_acceso", "funciones_financieras", "transmision_a_encargados"} {
 			s.ejecutar(`INSERT INTO autorizacion (titular_id, otorgante_id, finalidad, version_del_texto, otorgada_en) VALUES ($1::uuid, $1::uuid, $2, '1.0', $3)`, id, f, s.reloj.T)
 		}
 	}

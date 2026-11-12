@@ -690,8 +690,13 @@ func TestReverCuentaRealSinAutorizar(t *testing.T) {
 			{"sesión deslizada sin autorizar", tokVieja, "403 autorizacion_pendiente"},
 			{"token desconocido", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "401 sin_sesion"},
 		} {
-			if got := vRes(e.pedir(c.tok, "GET", ruta, "")); got != c.quiere {
-				t.Errorf("%s %s: %s, se esperaba %s", c.nombre, ruta, got, c.quiere)
+			quiere := c.quiere
+			if ruta == "/api/v1/cuenta/datos" && strings.HasPrefix(quiere, "403 autorizacion_pendiente") {
+				// SC-E21-25, criterio 3: «Descargar mis datos» es `sin_autorizacion`, para la hoja de «No autorizo».
+				quiere = "200 zip"
+			}
+			if got := vRes(e.pedir(c.tok, "GET", ruta, "")); got != quiere {
+				t.Errorf("%s %s: %s, se esperaba %s", c.nombre, ruta, got, quiere)
 			}
 		}
 	}

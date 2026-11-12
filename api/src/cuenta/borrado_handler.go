@@ -23,12 +23,14 @@ func NuevoHandlerDeBorrado(s *Borrado, eventos *seguridad.Registro, log *slog.Lo
 	return &HandlerDeBorrado{servicio: s, eventos: eventos, log: log}
 }
 
-// Registrar añade las rutas del borrado. Las dos son `requiere_autorizacion`, el nivel por defecto (SEG-010): quien
-// aún no autoriza lo necesario borra su cuenta con «No autorizo» (PN-64), que ya existe. Es POST y no DELETE porque
-// pide un cuerpo con la contraseña, y así cae en la defensa contra CSRF de los POST (E17-ECO 3.15) cuando llegue.
+// Registrar añade las rutas del borrado. Las dos son `sin_autorizacion` (SC-E21-25, criterio 3 y sección 5, paso 3): la
+// cuenta a la que le falta una aceptación nueva decide en la hoja de «No autorizo» (D-102) y debe poder borrarse con su
+// contraseña, sin aceptar antes. Una cuenta nueva sigue borrándose con «No autorizo» (PN-64, D-089). No hay riesgo de
+// borrar sin querer: pide la contraseña. Es POST y no DELETE porque pide un cuerpo con la contraseña, y así cae en la
+// defensa contra CSRF de los POST (E17-ECO 3.15).
 func (h *HandlerDeBorrado) Registrar(e *servidor.Enrutador) {
-	e.Registrar(seguridad.RequiereAutorizacion, "GET /api/v1/cuenta/borrado", http.HandlerFunc(h.resumen))
-	e.Registrar(seguridad.RequiereAutorizacion, "POST /api/v1/cuenta/borrado", http.HandlerFunc(h.borrar))
+	e.Registrar(seguridad.SinAutorizacion, "GET /api/v1/cuenta/borrado", http.HandlerFunc(h.resumen))
+	e.Registrar(seguridad.SinAutorizacion, "POST /api/v1/cuenta/borrado", http.HandlerFunc(h.borrar))
 }
 
 func (h *HandlerDeBorrado) fallar(w http.ResponseWriter, r *http.Request, que string, err error) {

@@ -47,7 +47,7 @@ func TestConLaBaseCaidaCadaOperacionFallaConUnErrorDeInfraestructura(t *testing.
 				HuellaDeSesion: []byte("otra"), Ahora: ahora})
 		}},
 		{"cuentas.BorrarSinConfirmar", func() error {
-			_, err := cuentas.BorrarSinConfirmar(ctx, ahora, ahora, ahora, []string{"cuenta_y_acceso"})
+			_, err := cuentas.BorrarSinConfirmar(ctx, ahora, ahora, ahora)
 			return err
 		}},
 		{"autenticacion.CredencialPorCorreo", func() error { _, err := autenticaciones.CredencialPorCorreo(ctx, "a@ejemplo.test"); return err }},
@@ -77,6 +77,9 @@ func TestConLaBaseCaidaCadaOperacionFallaConUnErrorDeInfraestructura(t *testing.
 		{"autorizaciones.Rechazar", func() error {
 			return autorizaciones.Rechazar(ctx, persona, []string{"cuenta_y_acceso"}, ahora, ahora)
 		}},
+		{"autorizaciones.ConHistorial", func() error { _, err := autorizaciones.ConHistorial(ctx, persona); return err }},
+		{"autorizaciones.Retirar", func() error { return autorizaciones.Retirar(ctx, persona, "avisos", ahora) }},
+		{"tokens.Registrar", func() error { return pg.NuevoTokens(pool).Registrar(ctx, persona, "instalacion-1", "token", ahora) }},
 		{"borrado.CredencialDe", func() error { _, err := pg.NuevoBorrado(pool).CredencialDe(ctx, persona); return err }},
 		{"borrado.Resumen", func() error { _, err := pg.NuevoBorrado(pool).Resumen(ctx, persona); return err }},
 		{"borrado.MovimientosDe", func() error { _, err := pg.NuevoBorrado(pool).MovimientosDe(ctx, persona); return err }},
@@ -92,7 +95,7 @@ func TestConLaBaseCaidaCadaOperacionFallaConUnErrorDeInfraestructura(t *testing.
 			if err == nil {
 				t.Fatal("se esperaba un error")
 			}
-			for _, deNegocio := range []error{autenticacion.ErrNoExiste, seguridad.ErrSinSesion, cuenta.ErrEnlaceInvalido, cuenta.ErrCorreoYaRegistrado, autorizacion.ErrSinCuenta, autorizacion.ErrYaAutorizada, cuenta.ErrNoExiste} {
+			for _, deNegocio := range []error{autenticacion.ErrNoExiste, seguridad.ErrSinSesion, cuenta.ErrEnlaceInvalido, cuenta.ErrCorreoYaRegistrado, autorizacion.ErrSinCuenta, autorizacion.ErrYaAutorizada, autorizacion.ErrConHistorial, autorizacion.ErrSinAutorizacionDeAvisos, cuenta.ErrNoExiste} {
 				if errors.Is(err, deNegocio) {
 					t.Fatalf("una base caída se confundió con una respuesta de negocio (%v): %v", deNegocio, err)
 				}
@@ -186,7 +189,7 @@ func TestIniciarSesionQueFallaNoMejoraElHash(t *testing.T) {
 // ninguna autorización a medias.
 func TestAutorizacionesQueFallanALaMitadNoCambianNada(t *testing.T) {
 	ctx := context.Background()
-	necesarias := []string{"cuenta_y_acceso", "funciones_financieras"}
+	necesarias := []string{"cuenta_y_acceso", "funciones_financieras", "transmision_a_encargados"}
 	for _, c := range []struct{ nombre, preparar string }{
 		{"falla el borrado de la persona", `CREATE FUNCTION falla() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'falla de prueba'; END $$;
 			CREATE TRIGGER t BEFORE DELETE ON persona FOR EACH STATEMENT EXECUTE FUNCTION falla()`},
