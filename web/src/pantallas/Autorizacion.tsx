@@ -287,7 +287,11 @@ export function Autorizacion() {
               <Casilla
                 id="transmision"
                 texto={textos.autorizacion.dondeGuardamos.casilla}
-                ayuda={textos.autorizacion.dondeGuardamos.nota}
+                ayuda={
+                  completo
+                    ? textos.autorizacion.dondeGuardamos.nota
+                    : textos.autorizacion.dondeGuardamos.notaFaltaUnaAceptacion
+                }
                 marcada={transmision}
                 alCambiar={(marcada) => {
                   setTransmision(marcada);

@@ -242,7 +242,7 @@ test.describe("PN-64 · Autorización de datos", () => {
     const casilla = page.getByLabel(TRANSMISION);
     await expect(casilla).toBeFocused();
     await expect(casilla).toHaveAccessibleDescription(
-      /^Falta que aceptes dónde guardamos tus datos\. Sin esta aceptación no podemos darte la cuenta/,
+      "Falta que aceptes dónde guardamos tus datos. Sin esta aceptación no podemos darte la cuenta, porque la app guarda tus datos en esos servicios.",
     );
     await sinViolaciones(page);
     await expect(page.getByLabel(AVISOS)).toHaveAccessibleDescription(
@@ -324,6 +324,11 @@ test.describe("PN-64 · modo «falta una aceptación»", () => {
     ]);
     await expect(page.getByRole("checkbox")).toHaveCount(1);
     await expect(page.getByLabel(TRANSMISION)).not.toBeChecked();
+    // Aprobado por el dueño (2026-11-12, E14-PCP 4.7): la nota de este modo no dice que la cuenta se crea.
+    await expect(page.getByLabel(TRANSMISION)).toHaveAccessibleDescription(
+      "Sin esta aceptación no puedes seguir usando la app, porque guarda tus datos en esos servicios.",
+    );
+    await expect(page.getByText("no podemos darte la cuenta")).toHaveCount(0);
     await expect(page.getByText("Lo necesario para usar la app")).toHaveCount(
       0,
     );
@@ -332,6 +337,9 @@ test.describe("PN-64 · modo «falta una aceptación»", () => {
     await expect(
       page.getByText("Falta que aceptes dónde guardamos tus datos."),
     ).toBeVisible();
+    await expect(page.getByLabel(TRANSMISION)).toHaveAccessibleDescription(
+      "Falta que aceptes dónde guardamos tus datos. Sin esta aceptación no puedes seguir usando la app, porque guarda tus datos en esos servicios.",
+    );
     await sinViolaciones(page);
     expect(pedidos).toHaveLength(1);
     await page.getByLabel(TRANSMISION).check();

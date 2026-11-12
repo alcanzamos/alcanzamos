@@ -831,11 +831,16 @@ describe("PN-64 · Autorización de datos", () => {
         "transmision",
       ]);
       expect(casillas[0]).not.toBeChecked();
+      // Aprobado por el dueño (2026-11-12, E14-PCP 4.7): en este modo la nota es la de la cuenta que ya existe, no la de la cuenta que se crea.
+      const nota =
+        "Sin esta aceptación no puedes seguir usando la app, porque guarda tus datos en esos servicios.";
+      expect(screen.getByText(nota)).toHaveClass("ayuda");
       expect(
-        screen.getByText(
-          "Sin esta aceptación no podemos darte la cuenta, porque la app guarda tus datos en esos servicios.",
-        ),
-      ).toBeInTheDocument();
+        screen.getByRole("checkbox", { name: TRANSMISION }),
+      ).toHaveAccessibleDescription(nota);
+      expect(
+        screen.queryByText(/no podemos darte la cuenta/),
+      ).not.toBeInTheDocument();
       expect(
         screen.getByText(
           porTexto("Texto versión 1.1 del 12 de noviembre de 2026."),
@@ -878,6 +883,11 @@ describe("PN-64 · Autorización de datos", () => {
       tocar("Autorizar y continuar");
       expect(screen.getByRole("checkbox", { name: TRANSMISION })).toBeInvalid();
       expect(screen.getByText(ERROR_TRANSMISION)).toBeInTheDocument();
+      expect(
+        screen.getByRole("checkbox", { name: TRANSMISION }),
+      ).toHaveAccessibleDescription(
+        `${ERROR_TRANSMISION} Sin esta aceptación no puedes seguir usando la app, porque guarda tus datos en esos servicios.`,
+      );
       expect(screen.getByRole("checkbox", { name: TRANSMISION })).toHaveFocus();
       expect(pedidos).toHaveLength(1);
       expect(window.location.pathname).toBe("/");

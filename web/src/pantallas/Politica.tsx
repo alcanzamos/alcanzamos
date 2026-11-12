@@ -127,6 +127,7 @@ export function Politica() {
           {Object.entries(t.dondeGuardamos.items).map(([clave, texto]) => (
             <li key={clave}>{texto}</li>
           ))}
+          <li>{textos.autorizacion.fraseDeAvisos}</li>
         </ul>
       </section>
       <section className="tarjeta" aria-labelledby="titulo-consultas">

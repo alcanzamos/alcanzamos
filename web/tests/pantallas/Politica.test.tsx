@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Politica } from "../../src/pantallas/Politica";
 import { enlaceALaPolitica, type Origen } from "../../src/politica";
+import { textos } from "../../src/textos/es.generated";
 import { json, porTexto, simularApi } from "../ayudas";
 
 // PN-68 · Política de tratamiento (E14-PCP 4.11, RF-059, RF-060): informa, sin formulario y sin sesión. Los textos son
@@ -118,7 +119,7 @@ describe("PN-68 · lo que dice", () => {
   });
 
   // SC-E21-25 3.8, criterio 7 (RF-059): cada encargado con su país o con la indicación de que no lo informa.
-  it("«Dónde guardamos tus datos» nombra a cada encargado con su país y termina con la viñeta de los avisos de E14", () => {
+  it("«Dónde guardamos tus datos» nombra a cada encargado con su país y termina con la frase de los avisos, que dice que esas empresas no informan el suyo", () => {
     render(<Politica />);
     const items = within(tarjeta("Dónde guardamos tus datos"))
       .getAllByRole("listitem")
@@ -128,11 +129,13 @@ describe("PN-68 · lo que dice", () => {
       "El correo que te enviamos (verificar tu cuenta, recuperar el acceso, avisos a quien tiene una tutoría) sale por Azure Communication Services, que guarda sus datos en Francia.",
       "Lo que escribes a privacidad@alcanzamos.co queda en Zoho Mail, en Estados Unidos.",
       "Estas empresas son encargadas: tratan los datos por cuenta de Alcanzamos, que es el responsable, y solo para lo que les pedimos.",
-      "Para los avisos con la app cerrada, tu teléfono o tu navegador nos da un código. En Android lo maneja Firebase Cloud Messaging, de Google; en la web, el servicio de avisos de tu navegador (Web Push). Todavía no confirmamos en qué país guardan ese código.",
+      "Si activas los avisos con la app cerrada, el código de tu teléfono o de tu navegador y un aviso que solo dice «Tienes un aviso en Alcanzamos.» pasan por el servicio de notificaciones de Google (Firebase Cloud Messaging) en Android, o por el de la empresa que hace tu navegador en la web. Esas empresas no dicen en qué país los procesan.",
     ]);
-    // La frase de los avisos va bajo la casilla de PN-64, no en PN-68.
+    expect(items).toHaveLength(5);
+    expect(items.at(-1)).toBe(textos.autorizacion.fraseDeAvisos);
+    // La viñeta vieja de E14 ya no va: la frase aprobada cumple el criterio 7.
     expect(items.join(" ")).not.toContain(
-      "Si activas los avisos con la app cerrada",
+      "Todavía no confirmamos en qué país guardan ese código.",
     );
   });
 
