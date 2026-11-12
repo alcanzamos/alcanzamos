@@ -928,3 +928,76 @@
   justify-content: space-between;
   gap: var(--espacio-2);
 }
+
+/* PN-06, PN-07 y PN-08 en la web (E14-PPA 4.1 a 4.3): en el contenedor de 960 px del formulario de registro, dos
+   columnas, la izquierda de 5/12 y la derecha de 7/12; por debajo de 768 px, la columna de Android. En PN-08 «Confirmar
+   todos» ocupa la columna derecha y, por debajo de 768 px, queda solo, como en PN-01. El corte va en ch, como el de PN-01. */
+.presupuesto {
+  display: grid;
+  gap: var(--espacio-6);
+}
+
+.presupuesto__columna,
+.presupuesto__registrar {
+  display: grid;
+  gap: var(--espacio-4);
+  align-content: start;
+  min-width: 0;
+}
+
+@media (min-width: 96ch) {
+  .presupuesto {
+    grid-template-columns: 5fr 7fr;
+    gap: var(--espacio-8);
+  }
+
+  /* «Registrar» vive en la Navegación lateral, como en PN-01; el de arriba del resumen es el de Android. */
+  .presupuesto__registrar {
+    display: none;
+  }
+}
+
+@media (max-width: 95.9ch) {
+  .presupuesto--abierto > .presupuesto__columna:not(.presupuesto__detalle) {
+    display: none;
+  }
+}
+
+/* Fila de lista con su valor a la derecha (5.15): «Ingreso registrado $1.200.000», una fecha esperada de PN-08 */
+.fila-con-valor {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espacio-3);
+  margin: 0;
+}
+
+.fila-con-valor .fila {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Monto · Grande · Neutro con su etiqueta encima («Sin asignar», «Ingreso registrado» en PN-07) */
+.cifra-grande {
+  display: grid;
+  gap: var(--espacio-1);
+}
+
+/* Texto `tipografia.pequeno` sin el color secundario: el estado de una categoría y la marca de una fecha */
+.pequeno {
+  font-size: var(--tipografia-pequeno-font-size);
+  line-height: var(--tipografia-pequeno-line-height);
+}
+
+/* Fila de «Por categoría»: nombre, cifras y estado, y debajo los Botones de texto de 48 px; la hoja sale justo debajo */
+.fila-de-presupuesto {
+  display: grid;
+  gap: var(--espacio-1);
+  padding: var(--espacio-2) 0;
+}
+
+.fila-de-presupuesto__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espacio-2);
+}

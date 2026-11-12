@@ -1,5 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 import { responder, simularApi, sinPendientes } from "./ayudas";
+import { apiDeIngresos, apiDePresupuesto, casos } from "./datosDePresupuesto";
 
 // Todas las pantallas de la web, cada una con su API simulado: las recorren la prueba sin desplazamiento horizontal
 // (S13) y la de la Navegación lateral (bug 233).
@@ -140,7 +141,7 @@ const encabezado = (page: Page, nombre: string) =>
 /** Lo que la Navegación lateral web (E14-SDD 5.13) muestra en una pantalla con sesión. */
 export type Lateral = {
   /** El enlace con `aria-current="page"`; `null` cuando la pantalla no es un destino (E14-PTU 4.0). */
-  activo: "Movimientos" | "Registrar" | null;
+  activo: "Movimientos" | "Presupuesto" | "Registrar" | null;
   /** Secundario donde la pantalla ya tiene su Primario: un solo Primario por pantalla (E14-SDD 5.13). */
   registrar: "primario" | "secundario";
 };
@@ -379,6 +380,92 @@ export const pantallas: Pantalla[] = [
       await expect(encabezado(page, "Se repite")).toBeVisible();
       await page.getByRole("radio", { name: "Cada mes" }).check();
       await expect(page.getByRole("radio", { name: "Cada mes" })).toBeChecked();
+    },
+  },
+  // PN-06 y PN-07 son el destino «Presupuesto» (E14-PPA 4.1, variante web); PN-08 no es un destino (E14-PPA 1): lleva
+  // Barra superior con Atrás y la barra sin destino activo, como PN-03.
+  {
+    nombre: "PN-06 /presupuesto",
+    lateral: { activo: "Presupuesto", registrar: "primario" },
+    preparar: (page) => apiDePresupuesto(page, casos.laura()),
+    abrir: async (page) => {
+      await abrirConTitulo("/presupuesto", "Presupuesto de noviembre")(page);
+      await expect(
+        page.getByRole("button", { name: "Agregar otra categoría" }),
+      ).toBeVisible();
+    },
+  },
+  {
+    nombre: "PN-06 /presupuesto con la hoja «Poner presupuesto» abierta",
+    lateral: { activo: "Presupuesto", registrar: "primario" },
+    preparar: (page) => apiDePresupuesto(page, casos.laura()),
+    abrir: async (page) => {
+      await abrirConTitulo("/presupuesto", "Presupuesto de noviembre")(page);
+      await page
+        .getByRole("button", {
+          name: "Poner presupuesto a Arriendo o cuota de vivienda",
+        })
+        .click();
+      await page.getByRole("button", { name: "Guardar" }).click();
+      await expect(page.getByText("Falta el monto.")).toBeVisible();
+    },
+  },
+  {
+    nombre: "PN-07 /presupuesto con ingreso nulo",
+    lateral: { activo: "Presupuesto", registrar: "primario" },
+    preparar: (page) => apiDePresupuesto(page, casos.nulo()),
+    abrir: async (page) => {
+      await abrirConTitulo("/presupuesto", "Presupuesto de noviembre")(page);
+      await expect(
+        page.getByRole("button", { name: "Dejar el presupuesto en cero" }),
+      ).toBeVisible();
+    },
+  },
+  {
+    nombre: "PN-07 /presupuesto con ingreso bajo",
+    lateral: { activo: "Presupuesto", registrar: "primario" },
+    preparar: (page) => apiDePresupuesto(page, casos.bajo()),
+    abrir: async (page) => {
+      await abrirConTitulo("/presupuesto", "Presupuesto de noviembre")(page);
+      await expect(page.getByText(/Lo asignado supera por/)).toBeVisible();
+    },
+  },
+  {
+    nombre: "PN-08 /ingresos con una fecha por confirmar",
+    lateral: { activo: null, registrar: "primario" },
+    preparar: (page) => apiDeIngresos(page, 1),
+    abrir: async (page) => {
+      await abrirConTitulo("/ingresos", "Ingresos")(page);
+      await expect(
+        page.getByRole("button", {
+          name: "Confirmar Salario de $1.200.000 del 16 de noviembre de 2026",
+        }),
+      ).toBeVisible();
+    },
+  },
+  {
+    nombre: "PN-08 /ingresos?periodo=2026-10 (caso P, varias fuentes)",
+    lateral: { activo: null, registrar: "primario" },
+    preparar: (page) => apiDeIngresos(page),
+    abrir: async (page) => {
+      await abrirConTitulo("/ingresos?periodo=2026-10", "Ingresos")(page);
+      await expect(
+        page.getByRole("heading", {
+          level: 2,
+          name: "Trabajo independiente o ventas",
+        }),
+      ).toBeVisible();
+    },
+  },
+  {
+    nombre: "PN-08 «Confirmar todos» /ingresos?confirmar=todos",
+    lateral: { activo: null, registrar: "primario" },
+    preparar: (page) => apiDeIngresos(page, 2),
+    abrir: async (page) => {
+      await page.goto("/ingresos?confirmar=todos");
+      await expect(
+        page.getByRole("region", { name: "Confirmar todos" }),
+      ).toBeVisible();
     },
   },
   {
