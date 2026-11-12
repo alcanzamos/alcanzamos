@@ -1,9 +1,5 @@
 import { useEffect, useState, type SyntheticEvent } from "react";
-import {
-  borrarLaCuenta,
-  descargarMisDatos,
-  resumenDeBorrado,
-} from "../api/cuentas";
+import { borrarLaCuenta, resumenDeBorrado } from "../api/cuentas";
 import type { ResumenDeBorrado } from "../api/cuentas";
 import { seguirPorAccesoNegado } from "../accesoNegado";
 import { Aviso } from "../componentes/Aviso";
@@ -12,6 +8,7 @@ import { Casilla } from "../componentes/Casilla";
 import { CampoDeContrasena } from "../componentes/CampoDeContrasena";
 import { IconoHogar } from "../componentes/Iconos";
 import { Pagina } from "../componentes/Pagina";
+import { useDescargaDeDatos } from "../descargaDeDatos";
 import { useFocoPendiente } from "../enfoque";
 import { irConAviso } from "../llegada";
 import {
@@ -54,11 +51,7 @@ export function BorrarCuenta() {
   const [errores, setErrores] = useState<Record<string, string>>({});
   const [aviso, setAviso] = useState<DatosDeAviso | null>(null);
   const [enviando, setEnviando] = useState(false);
-  const [descarga, setDescarga] = useState<
-    | { fase: "libre" }
-    | { fase: "preparando" }
-    | { fase: "aviso"; aviso: DatosDeAviso }
-  >({ fase: "libre" });
+  const { descarga, descargar } = useDescargaDeDatos();
   const pedirFoco = useFocoPendiente();
 
   useEffect(() => {
@@ -79,28 +72,6 @@ export function BorrarCuenta() {
 
   const menores = estado.fase === "listo" ? estado.resumen.menores : [];
   const nombres = nombresEnFrase(menores.map((m) => m.nombre));
-
-  // «Descargar mis datos» (D-102): opcional, no retrasa el borrado ni lo condiciona, y no abre otra pantalla.
-  async function descargar() {
-    if (descarga.fase === "preparando") return;
-    setDescarga({ fase: "preparando" });
-    const respuesta = await descargarMisDatos();
-    if (!respuesta.ok) {
-      if (seguirPorAccesoNegado(respuesta)) return;
-      setDescarga({
-        fase: "aviso",
-        aviso: avisoDeFallo(respuesta, avisos.errorAlDescargar),
-      });
-      return;
-    }
-    const direccion = URL.createObjectURL(respuesta.cuerpo);
-    const enlace = document.createElement("a");
-    enlace.href = direccion;
-    enlace.download = respuesta.nombre;
-    enlace.click();
-    URL.revokeObjectURL(direccion);
-    setDescarga({ fase: "aviso", aviso: avisos.descargaLista });
-  }
 
   async function enviar(evento: SyntheticEvent) {
     evento.preventDefault();

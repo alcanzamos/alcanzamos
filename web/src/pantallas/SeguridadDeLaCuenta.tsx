@@ -11,6 +11,7 @@ import { useFocoPendiente } from "../enfoque";
 import { navegar } from "../enrutador";
 import { fechaEnPalabras } from "../fechas";
 import { avisoDeLlegada } from "../llegada";
+import { enlaceALaPolitica } from "../politica";
 import { avisoDeFallo, avisos, type DatosDeAviso } from "../textos";
 import { formatear, textos } from "../textos/es.generated";
 
@@ -26,8 +27,8 @@ type Estado =
 // «Cerrar sesión» y «Borrar mi cuenta» (filas 7 y 8 de PN-66, que todavía no existe) viven aquí hasta que haya un
 // Perfil: el borrado abre PN-69.
 // Arriba de «Cerrar sesión», la entrada provisional «Cómo cuidamos tus datos» abre PN-63 desde el menú (4.14, nota del
-// 2026-11-08, bug 260, y 4.16 T2 ter); «Borrar mi cuenta» queda última, como en PN-66. La de PN-68 («Política de
-// tratamiento y consultas») espera a que exista la pantalla.
+// 2026-11-08, bug 260, y 4.16 T2 ter), y a su lado la de PN-68 («Política de tratamiento y consultas», D-195);
+// «Borrar mi cuenta» queda última, como en PN-66.
 export function SeguridadDeLaCuenta() {
   const [estado, setEstado] = useState<Estado>({ fase: "cargando" });
   const [intento, setIntento] = useState(0);
@@ -132,6 +133,12 @@ export function SeguridadDeLaCuenta() {
       </BotonEnlace>
       <BotonEnlace href="/cuenta/privacidad" variante="texto">
         {textos.privacidad.titulo}
+      </BotonEnlace>
+      <BotonEnlace
+        href={enlaceALaPolitica("/cuenta/seguridad")}
+        variante="texto"
+      >
+        {textos.politica.entradas.yConsultas}
       </BotonEnlace>
       <Boton variante="texto" alTocar={() => void salir()}>
         {textos.acciones.cerrarSesion}

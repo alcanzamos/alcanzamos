@@ -1001,3 +1001,28 @@
   flex-wrap: wrap;
   gap: var(--espacio-2);
 }
+
+/* PN-68 · Política de tratamiento (E14-PCP 4.11): viñetas dentro de la tarjeta y las finalidades en dos grupos */
+.vinetas {
+  display: grid;
+  gap: var(--espacio-1);
+  margin: 0;
+  padding-inline-start: var(--espacio-6);
+}
+
+.finalidades {
+  display: grid;
+  gap: var(--espacio-2);
+}
+
+.finalidades h3 {
+  margin: 0;
+}
+
+.finalidades ul {
+  display: grid;
+  gap: var(--espacio-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
