@@ -32,7 +32,7 @@ test.describe("PN-68 · la pantalla", () => {
     expect(pedidos).toEqual([]);
   });
 
-  test("dice quién responde, la frase de D-200 y nombra a cada encargado con su país (SC-E21-25, criterio 7)", async ({
+  test("dice quién responde, la frase de D-200, nombra a cada encargado con su país (SC-E21-25, criterio 7) y la frase de 12 a 17 años", async ({
     page,
   }) => {
     await page.goto("/politica");
@@ -52,8 +52,17 @@ test.describe("PN-68 · la pantalla", () => {
       "Azure Communication Services, que guarda sus datos en Francia",
     );
     await expect(donde).toContainText("Zoho Mail, en Estados Unidos");
-    await expect(donde).toContainText(
-      "Esas empresas no dicen en qué país los procesan.",
+    await expect(donde.getByRole("listitem").last()).toHaveText(
+      "Para los avisos con la app cerrada, tu teléfono o tu navegador nos da un código. En Android lo maneja Firebase Cloud Messaging, de Google; en la web, el servicio de avisos de tu navegador (Web Push). Todavía no confirmamos en qué país guardan ese código.",
+    );
+    await expect(donde).not.toContainText(
+      "Si activas los avisos con la app cerrada",
+    );
+    const consultas = page.getByRole("region", {
+      name: "Cómo hacer una consulta o un reclamo",
+    });
+    await expect(consultas.locator("> :last-child")).toHaveText(
+      "Si tienes entre 12 y 17 años, puedes escribirnos tú o pedirle a quien te acompaña que escriba por ti.",
     );
   });
 

@@ -556,7 +556,7 @@ export const textos = {
       // Aprobado por el dueño (2026-11-11, D-202): SC-E21-25 3.6, texto de PN-64 (E14-PCP 4.7; error bajo la casilla de la tarjeta «Dónde guardamos tus datos», con «Autorizar y continuar» sin marcarla; SC-E21-25 3.8, criterio 1). PN-54 usa el mismo texto (SC-E21-25 3.7)
       error: "Falta que aceptes dónde guardamos tus datos.",
     },
-    // Aprobado por el dueño (2026-11-11, D-202): SC-E21-25 3.6, «La frase de los avisos con la app cerrada». Va bajo la casilla opcional «Autorizo los avisos con la app cerrada.» de PN-64 (fila 7, antes de «Horas de vida») y, con el mismo texto, en PN-54 (fila 8 de E14-PME), en PN-67 (fila 4) y en la viñeta de los avisos de PN-68 (fila 5 b, SC-E21-25 sección 4)
+    // Aprobado por el dueño (2026-11-11, D-202): SC-E21-25 3.6, «La frase de los avisos con la app cerrada». Va bajo la casilla opcional «Autorizo los avisos con la app cerrada.» de PN-64 (fila 7, antes de «Horas de vida») y, con el mismo texto, en PN-54 (fila 8 de E14-PME), en PN-67 (fila 4); en PN-68 la viñeta de los avisos es la de E14-PCP 4.11, fila 5 b (politica.dondeGuardamos.items.avisos), por decisión del dueño del 2026-11-12
     fraseDeAvisos: "Si activas los avisos con la app cerrada, el código de tu teléfono o de tu navegador y un aviso que solo dice «Tienes un aviso en Alcanzamos.» pasan por el servicio de notificaciones de Google (Firebase Cloud Messaging) en Android, o por el de la empresa que hace tu navegador en la web. Esas empresas no dicen en qué país los procesan.",
     hojaNoAutorizo: {
       // E14-PME 4.11 (PN-54), estado «No autorizo» (D-102, D-103); SC-E21-25 sección 5, paso 3: la cuenta a la que le falta una aceptación usa la misma hoja
@@ -1149,7 +1149,7 @@ export const textos = {
     responsable: {
       // E14-PCP 4.11 (PN-68), fila 3
       titulo: "Quién responde por tus datos",
-      // Propuesto en la US-67, pendiente de aprobación del dueño: E14 no tiene el texto. La respuesta 8 del abogado y D-200 (2) piden «Alcanzamos, proyecto de Andrés Jiménez» en los textos legales y en la política mientras el proyecto siga siendo de una persona natural; dónde y con qué frase va no está decidido. E14-PCP 4.11 (PN-68), fila 3, queda como estaba en las dos frases siguientes
+      // Aprobado por el dueño (2026-11-12), decidido en D-200 (2) a partir de la respuesta 8 del abogado: va bajo el título de «Quién responde por tus datos», antes de las dos frases de E14-PCP 4.11 (PN-68), fila 3
       proyecto: "Alcanzamos, proyecto de Andrés Jiménez.",
       // E14-PCP 4.11 (PN-68), fila 3
       nombre: "Andrés Jiménez, dueño de Alcanzamos.",
@@ -1210,6 +1210,8 @@ export const textos = {
         zoho: "Lo que escribes a privacidad@alcanzamos.co queda en Zoho Mail, en Estados Unidos.",
         // E14-PCP 4.11 (PN-68), texto de «Dónde guardamos tus datos» (fila 5 b, D-126; en E14 «encargadas» va en negrita); encargados confirmados por el abogado (respuesta 8, D-200)
         encargadas: "Estas empresas son encargadas: tratan los datos por cuenta de Alcanzamos, que es el responsable, y solo para lo que les pedimos.",
+        // E14-PCP 4.11 (PN-68), texto de «Dónde guardamos tus datos» (fila 5 b), quinta viñeta; cumple el criterio 7 de SC-E21-25 (RF-059)
+        avisos: "Para los avisos con la app cerrada, tu teléfono o tu navegador nos da un código. En Android lo maneja Firebase Cloud Messaging, de Google; en la web, el servicio de avisos de tu navegador (Web Push). Todavía no confirmamos en qué país guardan ese código.",
       },
     },
     consultas: {
@@ -1237,6 +1239,8 @@ export const textos = {
         // E14-PCP 4.11 (PN-68), texto de «Cómo hacer una consulta o un reclamo» (fila 6) y nota del 2026-10-22 (D-126); frase aprobada por el abogado (respuesta 9) y por el dueño (D-200 (2))
         incompleto: "Si tu reclamo llega incompleto, te lo decimos en los 5 días siguientes para que lo completes. Si pasan 2 meses sin que lo completes, entendemos que ya no lo necesitas.",
       },
+      // Aprobado por el dueño (2026-11-12, D-200 (2)): va al final de «Cómo hacer una consulta o un reclamo», E14-PCP 4.11 (PN-68), fila 6
+      adolescentes: "Si tienes entre 12 y 17 años, puedes escribirnos tú o pedirle a quien te acompaña que escriba por ti.",
     },
     escribir: {
       // E14-PCP 4.11 (PN-68), fila 7 (abre el correo del dispositivo con la dirección escrita)
@@ -1289,18 +1293,18 @@ export const textos = {
   },
   crearCuentaDelMenor: {
     dondeGuardamos: {
-      // Aprobado por el dueño (2026-11-11, P-3 de SC-E21-25): SC-E21-25 3.7, PN-36 (E14-PTU), título de la tarjeta, entre la casilla necesaria (fila 6) y lo accesorio (fila 7); {nombre} es el «{nombre del menor}» de la SC (un marcador no admite espacios); la pantalla se construye en I11 y hereda los criterios 4, 5 y 10 de SC-E21-25 (S2 de la US-67); hasta entonces el análisis de usos no exige que alguien lo use (diseno/textos/usos.mjs)
+      // Aprobado por el dueño (2026-11-11, P-3 de SC-E21-25): SC-E21-25 3.7, PN-36 (E14-PTU), título de la tarjeta, entre la casilla necesaria (fila 6) y lo accesorio (fila 7); {nombre} reemplaza a «{nombre del menor}» de P-3 porque el generador de textos no admite espacios dentro de un marcador (aprobado por el dueño, 2026-11-12); la pantalla se construye en I11 y hereda los criterios 4, 5 y 10 de SC-E21-25 (S2 de la US-67); hasta entonces el análisis de usos no exige que alguien lo use (diseno/textos/usos.mjs)
       titulo: "Dónde guardamos los datos de {nombre}",
-      // Aprobado por el dueño (2026-11-11, P-3 de SC-E21-25): SC-E21-25 3.7, PN-36 (E14-PTU), explicación de la tarjeta; {nombre} es el «{nombre del menor}» de la SC (un marcador no admite espacios); la pantalla se construye en I11 y hereda los criterios 4, 5 y 10 de SC-E21-25 (S2 de la US-67); hasta entonces el análisis de usos no exige que alguien lo use (diseno/textos/usos.mjs)
+      // Aprobado por el dueño (2026-11-11, P-3 de SC-E21-25): SC-E21-25 3.7, PN-36 (E14-PTU), explicación de la tarjeta; {nombre} reemplaza a «{nombre del menor}» de P-3 porque el generador de textos no admite espacios dentro de un marcador (aprobado por el dueño, 2026-11-12); la pantalla se construye en I11 y hereda los criterios 4, 5 y 10 de SC-E21-25 (S2 de la US-67); hasta entonces el análisis de usos no exige que alguien lo use (diseno/textos/usos.mjs)
       explicacion: "Para que la app funcione, los datos de {nombre} se guardan y se procesan en la nube de otras empresas, que los tratan por cuenta de Alcanzamos y solo para lo que les pedimos: Microsoft Azure, en México, guarda su cuenta y lo que registra; Azure Communication Services, en Francia, envía los correos de la app; y Zoho Mail, en Estados Unidos, recibe lo que se escribe a privacidad@alcanzamos.co. Los detalles están en la política.",
-      // Aprobado por el dueño (2026-11-11, P-3 de SC-E21-25): SC-E21-25 3.7, PN-36 (E14-PTU), casilla sin marcar; la otorga el tutor y se guarda con el menor como titular, como `cuenta_del_menor` (D-139); {nombre} es el «{nombre del menor}» de la SC (un marcador no admite espacios); la pantalla se construye en I11 y hereda los criterios 4, 5 y 10 de SC-E21-25 (S2 de la US-67); hasta entonces el análisis de usos no exige que alguien lo use (diseno/textos/usos.mjs)
+      // Aprobado por el dueño (2026-11-11, P-3 de SC-E21-25): SC-E21-25 3.7, PN-36 (E14-PTU), casilla sin marcar; la otorga el tutor y se guarda con el menor como titular, como `cuenta_del_menor` (D-139); {nombre} reemplaza a «{nombre del menor}» de P-3 porque el generador de textos no admite espacios dentro de un marcador (aprobado por el dueño, 2026-11-12); la pantalla se construye en I11 y hereda los criterios 4, 5 y 10 de SC-E21-25 (S2 de la US-67); hasta entonces el análisis de usos no exige que alguien lo use (diseno/textos/usos.mjs)
       casilla: "Acepto que los datos de {nombre} se envíen a estos servicios en México, Francia y Estados Unidos para guardarlos y procesarlos como se explica arriba.",
-      // Aprobado por el dueño (2026-11-11, P-3 de SC-E21-25): SC-E21-25 3.7, PN-36 (E14-PTU), nota de la tarjeta; {nombre} es el «{nombre del menor}» de la SC (un marcador no admite espacios); la pantalla se construye en I11 y hereda los criterios 4, 5 y 10 de SC-E21-25 (S2 de la US-67); hasta entonces el análisis de usos no exige que alguien lo use (diseno/textos/usos.mjs)
+      // Aprobado por el dueño (2026-11-11, P-3 de SC-E21-25): SC-E21-25 3.7, PN-36 (E14-PTU), nota de la tarjeta; {nombre} reemplaza a «{nombre del menor}» de P-3 porque el generador de textos no admite espacios dentro de un marcador (aprobado por el dueño, 2026-11-12); la pantalla se construye en I11 y hereda los criterios 4, 5 y 10 de SC-E21-25 (S2 de la US-67); hasta entonces el análisis de usos no exige que alguien lo use (diseno/textos/usos.mjs)
       nota: "Sin esta aceptación no podemos crear la cuenta de {nombre}, porque la app guarda sus datos en esos servicios.",
-      // Aprobado por el dueño (2026-11-11, P-3 de SC-E21-25): SC-E21-25 3.7, PN-36 (E14-PTU), error de la casilla con «Seguir» sin marcarla; {nombre} es el «{nombre del menor}» de la SC (un marcador no admite espacios); la pantalla se construye en I11 y hereda los criterios 4, 5 y 10 de SC-E21-25 (S2 de la US-67); hasta entonces el análisis de usos no exige que alguien lo use (diseno/textos/usos.mjs)
+      // Aprobado por el dueño (2026-11-11, P-3 de SC-E21-25): SC-E21-25 3.7, PN-36 (E14-PTU), error de la casilla con «Seguir» sin marcarla; {nombre} reemplaza a «{nombre del menor}» de P-3 porque el generador de textos no admite espacios dentro de un marcador (aprobado por el dueño, 2026-11-12); la pantalla se construye en I11 y hereda los criterios 4, 5 y 10 de SC-E21-25 (S2 de la US-67); hasta entonces el análisis de usos no exige que alguien lo use (diseno/textos/usos.mjs)
       error: "Falta que aceptes dónde guardamos los datos de {nombre}.",
     },
-    // Aprobado por el dueño (2026-11-11, P-3 de SC-E21-25): SC-E21-25 3.7, PN-36 (E14-PTU), frase de los avisos adaptada, bajo «Autorizo avisos con la app cerrada en el teléfono de {nombre}.» (fila 8 de E14-PTU); la cuenta de un menor es solo de Android (D-087), así que no nombra el navegador; {nombre} es el «{nombre del menor}» de la SC (un marcador no admite espacios); la pantalla se construye en I11 y hereda los criterios 4, 5 y 10 de SC-E21-25 (S2 de la US-67); hasta entonces el análisis de usos no exige que alguien lo use (diseno/textos/usos.mjs)
+    // Aprobado por el dueño (2026-11-11, P-3 de SC-E21-25): SC-E21-25 3.7, PN-36 (E14-PTU), frase de los avisos adaptada, bajo «Autorizo avisos con la app cerrada en el teléfono de {nombre}.» (fila 8 de E14-PTU); la cuenta de un menor es solo de Android (D-087), así que no nombra el navegador; {nombre} reemplaza a «{nombre del menor}» de P-3 porque el generador de textos no admite espacios dentro de un marcador (aprobado por el dueño, 2026-11-12); la pantalla se construye en I11 y hereda los criterios 4, 5 y 10 de SC-E21-25 (S2 de la US-67); hasta entonces el análisis de usos no exige que alguien lo use (diseno/textos/usos.mjs)
     avisos: "Si activas los avisos con la app cerrada, el código del teléfono de {nombre} y un aviso que solo dice «Tienes un aviso en Alcanzamos.» pasan por el servicio de notificaciones de Google (Firebase Cloud Messaging). Google no dice en qué país los procesa.",
   },
 } as const;

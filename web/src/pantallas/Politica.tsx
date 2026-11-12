@@ -127,7 +127,6 @@ export function Politica() {
           {Object.entries(t.dondeGuardamos.items).map(([clave, texto]) => (
             <li key={clave}>{texto}</li>
           ))}
-          <li>{textos.autorizacion.fraseDeAvisos}</li>
         </ul>
       </section>
       <section className="tarjeta" aria-labelledby="titulo-consultas">
@@ -143,6 +142,7 @@ export function Politica() {
           <li>{t.consultas.tiempos.reclamo}</li>
           <li>{t.consultas.tiempos.incompleto}</li>
         </ul>
+        <p>{t.consultas.adolescentes}</p>
       </section>
       <a
         className="boton boton--secundario"
