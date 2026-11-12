@@ -271,6 +271,7 @@ test.describe("PN-06 · Presupuesto del periodo por categorías", () => {
       "Movimientos",
       "Presupuesto",
       "Cómo cuidamos tus datos",
+      "Política de tratamiento y consultas",
       "Cerrar sesión",
       "Borrar mi cuenta",
     ]);

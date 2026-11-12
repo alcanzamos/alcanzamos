@@ -73,6 +73,23 @@ describe("PN-58 · Crear la cuenta", () => {
     ).toHaveAttribute("href", "/entrar");
   });
 
+  // E14-PCP 4.1, fila 7: botón de texto, después de «Ya tengo una cuenta» y antes del aviso de lo que sigue.
+  it("«Política de tratamiento de datos» abre PN-68 desde PN-58", () => {
+    render(<CrearCuenta />);
+    const enlace = screen.getByRole("link", {
+      name: "Política de tratamiento de datos",
+    });
+    expect(enlace).toHaveAttribute("href", "/politica?desde=%2Fcrear-cuenta");
+    expect(enlace).toHaveClass("boton--texto");
+    expect(
+      screen
+        .getByRole("link", { name: "Ya tengo una cuenta" })
+        .compareDocumentPosition(enlace) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    fireEvent.click(enlace);
+    expect(window.location.pathname).toBe("/politica");
+  });
+
   it("el campo lleva su autocompletar", () => {
     render(<CrearCuenta />);
     expect(screen.getByLabelText("Correo electrónico")).toHaveAttribute(

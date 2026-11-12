@@ -1,4 +1,6 @@
 export function archivosDe(carpeta: string): string[];
+/** Los grupos de textos ya aprobados cuya pantalla todavía no se construye: no cuentan como «sin uso». */
+export const RESERVADOS: string[][];
 export function comparar(
   hojas: string[][],
   usos: string[][],

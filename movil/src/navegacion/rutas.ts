@@ -24,8 +24,17 @@ export type Rutas = {
    * sobre PN-71 desde su entrada provisional «Cómo cuidamos tus datos» (bug 260) y su Atrás vuelve a PN-71.
    */
   InformacionDePrivacidad: { llegada?: Llegada; desdeElMenu?: true } | undefined;
-  /** PN-64: solo se abre desde «Continuar» de PN-63; su Atrás vuelve a PN-63. */
+  /**
+   * PN-64: se abre desde «Continuar» de PN-63 (su Atrás vuelve a PN-63) o, para la cuenta de antes del cambio a la que solo
+   * le falta una aceptación, directo desde el acceso negado (SC-E21-25, sección 5), como única pantalla de la pila.
+   */
   AutorizacionDeDatos: undefined;
+  /**
+   * PN-68 · Política de tratamiento (E14-PCP 4.11): pública, sin sesión. Se apila sobre la pantalla que la abre (PN-60,
+   * PN-58, PN-63 en el primer uso y desde el menú, PN-64 y PN-71) y su Atrás vuelve ahí, así PN-58 y PN-64 conservan lo
+   * escrito y lo marcado.
+   */
+  Politica: undefined;
   /**
    * PN-71, la pantalla de inicio provisional de quien entra con autorización. `aviso` es el mensaje de estado que lleva
    * datos de la persona («Listo, registramos tu gasto de $45.000.»): solo vive en la memoria, nunca se guarda.

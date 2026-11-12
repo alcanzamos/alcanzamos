@@ -1,5 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 import { responder, simularApi, sinPendientes } from "./ayudas";
+import { catalogoCompleto, catalogoLimitado } from "./datosDeAutorizacion";
 import { apiDeIngresos, apiDePresupuesto, casos } from "./datosDePresupuesto";
 
 // Todas las pantallas de la web, cada una con su API simulado: las recorren la prueba sin desplazamiento horizontal
@@ -231,21 +232,56 @@ export const pantallas: Pantalla[] = [
     nombre: "PN-64 /autorizacion",
     preparar: (page) =>
       simularApi(page, {
-        "GET /api/v1/autorizaciones": responder(200, {
-          version: { numero: "1.0", fecha: "2026-10-30" },
-          finalidades: [
-            { codigo: "cuenta_y_acceso", tipo: "necesaria", otorgada: false },
-            {
-              codigo: "funciones_financieras",
-              tipo: "necesaria",
-              otorgada: false,
-            },
-            { codigo: "avisos", tipo: "accesoria", otorgada: false },
-            { codigo: "horas_de_vida", tipo: "accesoria", otorgada: false },
-          ],
-        }),
+        "GET /api/v1/autorizaciones": responder(200, catalogoCompleto),
       }),
     abrir: abrirConTitulo("/autorizacion", "Tu autorización"),
+  },
+  {
+    nombre: "PN-64 /autorizacion en el modo «falta una aceptación»",
+    preparar: (page) =>
+      simularApi(page, {
+        "GET /api/v1/autorizaciones": responder(200, catalogoLimitado),
+      }),
+    abrir: abrirConTitulo("/autorizacion", "Tu autorización"),
+  },
+  {
+    nombre: "PN-64 /autorizacion con la hoja «¿No autorizas?» abierta",
+    preparar: (page) =>
+      simularApi(page, {
+        "GET /api/v1/autorizaciones": responder(200, catalogoLimitado),
+        "GET /api/v1/cuenta/borrado": responder(200, {
+          hogar: null,
+          menores: [{ id: "id-mateo", nombre: "Mateo" }],
+        }),
+      }),
+    abrir: async (page) => {
+      await page.goto("/autorizacion");
+      await page.getByRole("button", { name: "No autorizo" }).click();
+      await expect(
+        page.getByRole("dialog", { name: "¿No autorizas?" }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Borrar mi cuenta" }),
+      ).toBeVisible();
+    },
+  },
+  // PN-68 es pública: sin sesión, sin barra lateral. Con `?desde=` de una pantalla con sesión, la lleva (E14-PCP 4.11).
+  {
+    nombre: "PN-68 /politica (sin sesión)",
+    preparar: sinApi,
+    abrir: abrirConTitulo(
+      "/politica?desde=%2Fentrar",
+      "Política de tratamiento",
+    ),
+  },
+  {
+    nombre: "PN-68 /politica abierta desde PN-71 (con sesión)",
+    lateral: { activo: null, registrar: "primario" },
+    preparar: sinApi,
+    abrir: abrirConTitulo(
+      "/politica?desde=%2Fcuenta%2Fseguridad",
+      "Política de tratamiento",
+    ),
   },
   {
     nombre: "PN-69 /cuenta/borrar",

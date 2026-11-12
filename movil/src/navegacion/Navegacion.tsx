@@ -13,6 +13,7 @@ import { Entrar } from '../pantallas/Entrar';
 import { InformacionDePrivacidad } from '../pantallas/InformacionDePrivacidad';
 import { Ingresos } from '../pantallas/Ingresos';
 import { Movimientos } from '../pantallas/Movimientos';
+import { Politica } from '../pantallas/Politica';
 import { Presupuesto } from '../pantallas/Presupuesto';
 import { RecuperarAcceso } from '../pantallas/RecuperarAcceso';
 import { CorregirMovimiento, Registrar } from '../pantallas/Registrar';
@@ -48,7 +49,10 @@ async function pantallaInicial(): Promise<keyof Rutas> {
 // cerrar sesión a PN-60 se cambia con `reemplazarPila`, para que Atrás no vuelva al formulario ni a una sesión cerrada. PN-63 es la primera de su pila (sin Atrás: el del
 // sistema sale de la app); PN-64 se apila sobre PN-63 (su Atrás vuelve a PN-63), y de PN-64 a PN-71 («Autorizar y continuar»)
 // y a PN-60 («No autorizo») se cambia con `reemplazarPila`: Atrás no vuelve a PN-64 ni a una cuenta borrada. PN-63 desde
-// el menú (con barra y sin «Continuar») se apila sobre PN-71 y su Atrás vuelve a PN-71 (bug 260). PN-61 se apila sobre PN-60. PN-62 no está: el
+// el menú (con barra y sin «Continuar») se apila sobre PN-71 y su Atrás vuelve a PN-71 (bug 260). PN-68 (política) es pública y se apila sobre la
+// pantalla que la abre (PN-60, PN-58, PN-63, PN-64 o PN-71): su Atrás vuelve ahí y PN-58 y PN-64 conservan lo escrito y lo
+// marcado (D-195). La cuenta de antes de la aceptación de la transmisión llega a PN-64 como única pantalla de la pila
+// (SC-E21-25, sección 5). PN-61 se apila sobre PN-60. PN-62 no está: el
 // enlace del correo abre la web (D-155) y la app no recibe enlaces hasta los App Links de I08. PN-01 («Movimientos») se apila
 // sobre PN-71 (su Atrás vuelve a PN-71) y «Registrar» sobre PN-01 (su Atrás vuelve a PN-01 sin guardar); PN-03 se apila
 // sobre «Registrar» (su Atrás vuelve al formulario). PN-02 se apila sobre PN-01 (su Atrás vuelve a PN-01) y «Corregir»
@@ -88,6 +92,7 @@ export function Navegacion() {
           component={AutorizacionDeDatos}
           options={conBarra(textos.autorizacion.titulo)}
         />
+        <Pila.Screen name="Politica" component={Politica} options={conBarra(textos.politica.titulo)} />
         <Pila.Screen
           name="SeguridadDeLaCuenta"
           component={SeguridadDeLaCuenta}

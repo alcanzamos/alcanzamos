@@ -38,11 +38,22 @@ describe('PN-63 · Información de privacidad en el primer uso (E14-PCP 4.6)', (
     expect(screen.getByText(/^En Azure, en México\./)).toBeOnTheScreen();
   });
 
-  it('solo informa: no hay casillas ni «Leer la política completa» (PN-68 no existe)', async () => {
+  it('solo informa: no hay casillas; los botones son «Leer la política completa» y «Continuar»', async () => {
     await mostrar();
     expect(screen.queryByRole('checkbox')).not.toBeOnTheScreen();
-    expect(screen.queryByText('Leer la política completa')).not.toBeOnTheScreen();
-    expect(screen.getAllByRole('button')).toHaveLength(1);
+    expect(screen.getAllByRole('button')).toHaveLength(2);
+  });
+
+  // D-195 (E14-PCP 4.6, fila 10): «Leer la política completa» es un botón Secundario, antes de «Continuar».
+  it('«Leer la política completa» abre PN-68, va antes de «Continuar» y no cambia de pantalla por sí sola', async () => {
+    const navegacion = await mostrar();
+    const botones = screen.getAllByRole('button');
+    const politica = screen.getByRole('button', { name: 'Leer la política completa' });
+    expect(botones).toEqual([politica, screen.getByRole('button', { name: 'Continuar' })]);
+    await fireEvent.press(politica);
+    expect(navegacion.navigate).toHaveBeenCalledTimes(1);
+    expect(navegacion.navigate).toHaveBeenCalledWith('Politica');
+    expect(navegacion.dispatch).not.toHaveBeenCalled();
   });
 
   it('«Continuar» abre PN-64', async () => {
@@ -84,10 +95,12 @@ describe('PN-63 · Información de privacidad desde el menú (E14-PCP 4.6)', () 
     ]);
   });
 
-  it('no lleva «Continuar» ni otro botón, y no lleva a PN-64', async () => {
+  it('no lleva «Continuar» y no lleva a PN-64; su único botón es «Leer la política completa», que abre PN-68', async () => {
     const navegacion = await mostrarDesdeElMenu();
-    expect(screen.queryByRole('button')).not.toBeOnTheScreen();
+    expect(screen.getAllByRole('button')).toEqual([screen.getByRole('button', { name: 'Leer la política completa' })]);
     expect(screen.queryByText('Continuar')).not.toBeOnTheScreen();
     expect(navegacion.navigate).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByRole('button', { name: 'Leer la política completa' }));
+    expect(navegacion.navigate).toHaveBeenCalledWith('Politica');
   });
 });
