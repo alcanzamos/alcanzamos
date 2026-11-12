@@ -87,3 +87,9 @@ export function mesAnterior(periodo: string): string {
   const [anio = 0, mes = 1] = periodo.split('-').map(Number);
   return mes === 1 ? `${anio - 1}-12` : `${anio}-${String(mes - 1).padStart(2, '0')}`;
 }
+
+/** El mes siguiente a «AAAA-MM» (el chip «Diciembre» de PN-08 cuando el mes de hoy es noviembre). */
+export function mesSiguiente(periodo: string): string {
+  const [anio = 0, mes = 1] = periodo.split('-').map(Number);
+  return mes === 12 ? `${anio + 1}-01` : `${anio}-${String(mes + 1).padStart(2, '0')}`;
+}

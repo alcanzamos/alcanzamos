@@ -16,6 +16,9 @@ export type Pendiente = {
   periodicidad: Periodicidad;
 };
 
+/** Lo que usa una fila «Por confirmar» y sus hojas; PN-08 la arma con una fecha de ingreso, que no trae la periodicidad. */
+export type FechaPorConfirmar = Omit<Pendiente, 'periodicidad'>;
+
 export type Pendientes = {
   pendientes: Pendiente[];
   resumen: { total: number; ingresos: number; gastos: number };

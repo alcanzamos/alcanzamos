@@ -76,3 +76,19 @@ export function useAvisarErrores() {
     if (campo) setPedido({ campo });
   }, []);
 }
+
+/**
+ * El foco de TalkBack al cerrar una hoja (L17 de la US-77, punto 3, como la web): devuelve `llevarFoco(vista)`, que lo
+ * lleva a esa vista con `sendAccessibilityEvent(vista, 'focus')` después de que la pantalla dibuja lo nuevo (la hoja ya
+ * cerrada, el aviso que aparece). Al cancelar, al botón que abrió la hoja; después de guardar, al título; con un aviso
+ * que la persona tiene que leer, al aviso. Si la vista ya no está (el botón se fue al recargar), el foco no se mueve.
+ */
+export function useLlevarFoco() {
+  const [pedido, setPedido] = useState<{ vista: RefObject<HostInstance | null> }>();
+  useEffect(() => {
+    const vista = pedido?.vista.current;
+    if (vista) AccessibilityInfo.sendAccessibilityEvent(vista, 'focus');
+  }, [pedido]);
+  // Un objeto nuevo en cada pedido: el efecto corre otra vez aunque la vista sea la misma.
+  return useCallback((vista: RefObject<HostInstance | null>) => setPedido({ vista }), []);
+}

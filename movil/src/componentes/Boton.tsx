@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { useState, type Ref } from 'react';
+import { Pressable, StyleSheet, Text, type HostInstance } from 'react-native';
 import { estiloDeTipografia } from '../fuentes';
 import { tokens } from '../tokens/tokens.generated';
 
@@ -8,13 +8,15 @@ type Variante = 'primario' | 'secundario' | 'texto' | 'destructivo';
 // Botón de E14-SDD 5.2 y botón de texto de 48 dp (tipografía.etiqueta). Alto mínimo `tamano.tactil-minimo`.
 // Deshabilitado sigue siendo tocable para el lector de pantalla (`accessibilityState.disabled`) y no hace nada.
 // `pista` es la `accessibilityHint`: qué pasa al tocarlo, solo cuando E14 lo dice. `nombre` es el nombre accesible
-// cuando E14 da uno distinto del texto («Confirmar Salario de 1200000 pesos del 16 de noviembre de 2026»).
+// cuando E14 da uno distinto del texto («Confirmar Salario de 1200000 pesos del 16 de noviembre de 2026»). `ref` es para
+// devolverle el foco de TalkBack cuando se cierra la hoja que abrió (`useLlevarFoco`, L17 de la US-77, punto 3).
 export function Boton({
   variante = 'primario',
   deshabilitado = false,
   nombre,
   pista,
   alTocar,
+  ref,
   children,
 }: {
   variante?: Variante;
@@ -22,12 +24,14 @@ export function Boton({
   nombre?: string;
   pista?: string;
   alTocar?: () => void;
+  ref?: Ref<HostInstance>;
   children: string;
 }) {
   const [enFoco, setEnFoco] = useState(false);
   const colores = coloresDe(variante, deshabilitado);
   return (
     <Pressable
+      ref={ref}
       accessibilityRole="button"
       accessibilityState={{ disabled: deshabilitado }}
       accessibilityLabel={nombre}

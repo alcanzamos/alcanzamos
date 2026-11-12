@@ -1,6 +1,7 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
+import { hoyEnColombia } from '../fechas';
 import { AutorizacionDeDatos } from '../pantallas/AutorizacionDeDatos';
 import { BorrarCuenta } from '../pantallas/BorrarCuenta';
 import { CambiarContrasena } from '../pantallas/CambiarContrasena';
@@ -10,14 +11,17 @@ import { DetalleDeMovimiento } from '../pantallas/DetalleDeMovimiento';
 import { Edad } from '../pantallas/Edad';
 import { Entrar } from '../pantallas/Entrar';
 import { InformacionDePrivacidad } from '../pantallas/InformacionDePrivacidad';
+import { Ingresos } from '../pantallas/Ingresos';
 import { Movimientos } from '../pantallas/Movimientos';
+import { Presupuesto } from '../pantallas/Presupuesto';
 import { RecuperarAcceso } from '../pantallas/RecuperarAcceso';
 import { CorregirMovimiento, Registrar } from '../pantallas/Registrar';
 import { RevisaTuCorreo } from '../pantallas/RevisaTuCorreo';
 import { SeRepite } from '../pantallas/SeRepite';
 import { SeguridadDeLaCuenta } from '../pantallas/SeguridadDeLaCuenta';
 import { leerToken } from '../sesion/token';
-import { textos } from '../textos/es.generated';
+import { mesEnMinuscula } from '../textosDePresupuesto';
+import { formatear, textos } from '../textos/es.generated';
 import { tokens } from '../tokens/tokens.generated';
 import { conBarra } from './barra';
 import type { Rutas } from './rutas';
@@ -50,7 +54,11 @@ async function pantallaInicial(): Promise<keyof Rutas> {
 // sobre «Registrar» (su Atrás vuelve al formulario). PN-02 se apila sobre PN-01 (su Atrás vuelve a PN-01) y «Corregir»
 // sobre PN-02 (su Atrás vuelve a PN-02 sin guardar). «Confirmar todos» se apila sobre PN-01 (su Atrás vuelve a PN-01 sin
 // guardar nada). Tras guardar, corregir o borrar se vuelve a PN-01 con `popTo` y el aviso como mensaje de estado: el
-// formulario, PN-02 y «Confirmar todos» salen de la pila y el Atrás no vuelve a ellos.
+// formulario, PN-02 y «Confirmar todos» salen de la pila y el Atrás no vuelve a ellos. PN-06 («Presupuesto», que es
+// también PN-07) se apila sobre PN-71 (su Atrás vuelve a PN-71) y «Registrar» sobre PN-06; al guardar, el formulario
+// deja PN-01 en su lugar (D-164) y el Atrás de PN-01 vuelve a PN-06. PN-08 («Ingresos») se apila sobre PN-06 (su Atrás
+// vuelve a PN-06); su «Confirmar todos» es el de PN-01 y vuelve a PN-08 con `popTo`, y una fecha registrada abre PN-01
+// del periodo con su PN-02 encima.
 export function Navegacion() {
   const [inicial, setInicial] = useState<keyof Rutas | null>(null);
   useEffect(() => {
@@ -112,6 +120,13 @@ export function Navegacion() {
           component={ConfirmarTodos}
           options={conBarra(textos.porConfirmar.confirmarTodos)}
         />
+        <Pila.Screen
+          name="PresupuestoDelMes"
+          component={Presupuesto}
+          // El mes de hoy en Colombia hasta que el API manda el suyo (la pantalla lo pone en la barra).
+          options={() => conBarra(formatear(textos.presupuesto.titulo, { mes: mesEnMinuscula(hoyEnColombia().slice(0, 7)) }))}
+        />
+        <Pila.Screen name="IngresosDelPeriodo" component={Ingresos} options={conBarra(textos.ingresos.titulo)} />
         <Pila.Screen name="FormularioDeRegistro" component={Registrar} options={conBarra(textos.registro.titulo)} />
         <Pila.Screen name="SeRepite" component={SeRepite} options={conBarra(textos.periodicidad.titulo)} />
       </Pila.Navigator>
