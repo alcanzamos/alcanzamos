@@ -72,11 +72,12 @@ async function enlaceDelCorreo(correoDeLaCuenta) {
 }
 
 // Lo que hace el navegador en PN-74 (D-172): sin la cabecera de la app y sin la sesión de la app, manda el token del
-// enlace con la contraseña y el nombre; la sesión empieza en el navegador, no en la app.
+// enlace con la contraseña y el nombre; la sesión empieza en el navegador, no en la app. Como el navegador, manda
+// `Sec-Fetch-Site: same-origin`: sin ella la defensa contra CSRF del API (E17-ECO 3.15) responde 403.
 const completarEnElNavegador = (token, contrasena, nombre) =>
   fetch(`${URL_API}/api/v1/cuentas/verificacion`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Sec-Fetch-Site': 'same-origin' },
     body: JSON.stringify({ token, contrasena, nombre }),
   });
 
