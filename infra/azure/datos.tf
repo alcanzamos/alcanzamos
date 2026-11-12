@@ -1,12 +1,12 @@
-# PostgreSQL flexible 18, B1ms y 32 GiB (ADR-006 §5.2). Solo autenticación de Entra ID:
+# PostgreSQL flexible 18; en producción, B1ms y 32 GiB (ADR-006 §5.2). Solo autenticación de Entra ID:
 # el API entra con su identidad administrada, sin contraseñas.
 resource "azurerm_postgresql_flexible_server" "datos" {
   name                          = "psql-${local.sufijo}"
   location                      = data.azurerm_resource_group.principal.location
   resource_group_name           = data.azurerm_resource_group.principal.name
   version                       = "18"
-  sku_name                      = "B_Standard_B1ms"
-  storage_mb                    = 32768
+  sku_name                      = var.postgres_sku
+  storage_mb                    = var.postgres_almacenamiento_mb
   backup_retention_days         = 7
   public_network_access_enabled = true
   zone                          = "1"

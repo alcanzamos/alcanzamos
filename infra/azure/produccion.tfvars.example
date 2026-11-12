@@ -1,0 +1,13 @@
+# Producción, en la suscripción de pago por uso (D-200 (7)). Copia como produccion.tfvars; nunca se sube al repositorio.
+# Uso: tofu plan -var-file=produccion.tfvars (el estado y el backend, en el README).
+ambiente                 = "produccion"
+subscription_id          = "00000000-0000-0000-0000-000000000000"
+dominio_de_correo        = "avisos.alcanzamos.co"
+admin_postgres_object_id = "00000000-0000-0000-0000-000000000000"
+admin_postgres_nombre    = "andres@alcanzamos.co"
+imagen_api               = "ghcr.io/alcanzamos/alcanzamos-api@sha256:<digest>" # solo por digest: el probado en UAT; la pasa el pipeline
+ghcr_usuario             = "<usuario de GitHub dueño del token read:packages>"
+# ghcr_nombre_del_secreto = "ghcr-lectura" (por defecto): el secreto del Key Vault con ese token (README).
+# alerta_umbral, alerta_ventana y alerta_correo tienen los valores de O-5 (D-120).
+# Los tamaños (postgres_sku, postgres_almacenamiento_mb, registros_dias_de_retencion, secretos_dias_de_retencion,
+# api_replicas_minimas, contenedor_cpu y contenedor_memoria) tienen por defecto los de producción (ADR-006 §5.2).

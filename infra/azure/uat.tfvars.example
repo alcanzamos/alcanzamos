@@ -1,0 +1,17 @@
+# UAT, en la suscripción de Azure for Students (D-200 (8)): datos financieros inventados y solo las cuentas y los
+# buzones del dueño. Copia como uat.tfvars; nunca se sube al repositorio.
+# Uso: tofu plan -var-file=uat.tfvars (el estado y el backend, en el README).
+ambiente                 = "uat"
+subscription_id          = "00000000-0000-0000-0000-000000000000"
+dominio_de_correo        = "avisos-uat.alcanzamos.co"
+admin_postgres_object_id = "00000000-0000-0000-0000-000000000000"
+admin_postgres_nombre    = "andres@alcanzamos.co"
+imagen_api               = "ghcr.io/alcanzamos/alcanzamos-api@sha256:<digest>" # solo por digest; la pasa el pipeline
+ghcr_usuario             = "<usuario de GitHub dueño del token read:packages>"
+# ghcr_nombre_del_secreto = "ghcr-lectura" (por defecto): el secreto del Key Vault con ese token (README).
+# Mismos tamaños que producción, para que el paso a producción sea transparente. Lo que cambia lo decidió el
+# dueño (D-200 (8), S11): el API se apaga sin tráfico, los registros duran 30 días y el Key Vault eliminado se
+# puede recuperar 7 días, con la misma protección contra el borrado que producción.
+api_replicas_minimas        = 0
+registros_dias_de_retencion = 30
+secretos_dias_de_retencion  = 7

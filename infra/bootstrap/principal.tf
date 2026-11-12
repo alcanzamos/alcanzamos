@@ -1,8 +1,18 @@
+# Un bootstrap por ambiente, cada uno en su suscripción (D-200 (8)): mismos nombres que infra/azure.
 locals {
-  sufijo = "alcanzamos-prod-mxc"
+  abreviatura = {
+    uat        = "uat"
+    produccion = "prod"
+  }
+  sufijo = "alcanzamos-${local.abreviatura[var.ambiente]}-mxc"
+  # Cuenta del estado: única en todo Azure, de 3 a 24 letras minúsculas y números. Producción conserva la aprobada.
+  cuenta_de_estado = {
+    uat        = "stalcanzamostfuatmxc"
+    produccion = "stalcanzamostfmxc"
+  }
   etiquetas = {
     proyecto = "alcanzamos"
-    ambiente = "produccion"
+    ambiente = var.ambiente
     origen   = "opentofu"
   }
   # Proveedores aprobados por el dueño (O-14, D-076).
@@ -31,7 +41,7 @@ resource "azurerm_resource_group" "principal" {
 
 # Estado remoto de OpenTofu, sin acceso por clave compartida.
 resource "azurerm_storage_account" "estado" {
-  name                            = "stalcanzamostfmxc"
+  name                            = local.cuenta_de_estado[var.ambiente]
   resource_group_name             = azurerm_resource_group.principal.name
   location                        = azurerm_resource_group.principal.location
   account_tier                    = "Standard"
