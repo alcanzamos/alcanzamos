@@ -75,4 +75,29 @@ describe('Casilla de verificación (E14-SDD 5.17)', () => {
     // El error se ve, pero no es una región viva: Android la aplana y no se oiría. Lo dice la casilla al recibir el foco.
     expect(JSON.stringify(screen.toJSON())).not.toContain('"accessibilityLiveRegion":"polite"');
   });
+
+  // SC-E21-25 3.6: la frase de los avisos con la app cerrada va bajo su casilla y la describe. En Android la ayuda se ve
+  // (`tipografia.pequeno`, `color.texto.secundario`) y es la pista de accesibilidad de la casilla, como la ayuda de un campo.
+  it('con `ayuda` la muestra debajo y es la pista de accesibilidad de la casilla; el nombre no cambia', async () => {
+    await render(<Casilla texto="Autorizo los avisos." ayuda="Pasan por Google." marcada={false} alCambiar={jest.fn()} />);
+    expect(screen.getByText('Pasan por Google.')).toBeOnTheScreen();
+    const casilla = screen.getByRole('checkbox', { name: 'Autorizo los avisos.' });
+    expect(casilla.props.accessibilityHint).toBe('Pasan por Google.');
+    expect(screen.getByText('Pasan por Google.')).toHaveStyle({ color: tokens.color.texto.secundario });
+  });
+
+  it('con `ayuda` y error, el error sigue siendo parte del nombre y la ayuda, la pista', async () => {
+    await render(
+      <Casilla texto="Acepto" ayuda="Explicación." marcada={false} alCambiar={jest.fn()} error="Falta tu autorización." />,
+    );
+    const casilla = screen.getByRole('checkbox', { name: 'Acepto, Falta tu autorización.' });
+    expect(casilla.props.accessibilityHint).toBe('Explicación.');
+  });
+
+  it('tocar la ayuda no cambia la casilla (solo la fila de la casilla la cambia)', async () => {
+    const alCambiar = jest.fn();
+    await render(<Casilla texto="Autorizo." ayuda="Explicación." marcada={false} alCambiar={alCambiar} />);
+    await fireEvent.press(screen.getByText('Explicación.'));
+    expect(alCambiar).not.toHaveBeenCalled();
+  });
 });

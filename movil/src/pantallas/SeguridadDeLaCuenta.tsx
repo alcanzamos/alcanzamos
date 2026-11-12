@@ -25,8 +25,8 @@ type Estado = { fase: 'cargando' } | { fase: 'error'; aviso: DatosDeAviso } | { 
 // «Presupuesto» es la entrada provisional a PN-06, justo después (L3 de la US-77, punto 3), hasta la navegación (ítem 290).
 // «Cerrar sesión» y «Borrar mi cuenta» (filas 7 y 8 de PN-66, que todavía no existe) viven aquí hasta que haya un Perfil:
 // el borrado abre PN-69. Arriba de «Cerrar sesión», la entrada provisional «Cómo cuidamos tus datos» abre PN-63 desde el
-// menú (4.14, nota del 2026-11-08, bug 260, y 4.16 T2 ter); «Borrar mi cuenta» queda última, como en PN-66. La de PN-68
-// («Política de tratamiento y consultas») espera a que exista la pantalla.
+// menú (4.14, nota del 2026-11-08, bug 260, y 4.16 T2 ter), y a su lado la de PN-68 («Política de tratamiento y
+// consultas», D-195); «Borrar mi cuenta» queda última, como en PN-66.
 export function SeguridadDeLaCuenta({ navigation, route }: NativeStackScreenProps<Rutas, 'SeguridadDeLaCuenta'>) {
   const [estado, setEstado] = useState<Estado>({ fase: 'cargando' });
   const [intento, setIntento] = useState(0);
@@ -113,6 +113,7 @@ export function SeguridadDeLaCuenta({ navigation, route }: NativeStackScreenProp
       <BotonDeTexto alTocar={() => navigation.navigate('InformacionDePrivacidad', { desdeElMenu: true })}>
         {textos.privacidad.titulo}
       </BotonDeTexto>
+      <BotonDeTexto alTocar={() => navigation.navigate('Politica')}>{textos.politica.entradas.yConsultas}</BotonDeTexto>
       <BotonDeTexto alTocar={() => void salir()}>{textos.acciones.cerrarSesion}</BotonDeTexto>
       <BotonDeTexto alTocar={() => navigation.navigate('BorrarCuenta')}>{textos.borrarCuenta.borrarMiCuenta}</BotonDeTexto>
     </Pantalla>

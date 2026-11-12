@@ -12,9 +12,12 @@ import { IconoAtencion, IconoCheck } from './Iconos';
 // cuando la pantalla le lleva el foco al guardar (`avisarErrores` y `ref`, ACC-004, bug 226); el texto visible del error
 // no se lee aparte. En la sesión del celular se oyó la casilla con su error. `deshabilitada` (la fila «No pasó» de
 // «Confirmar todos», E14-PRR 4.8) no cambia al tocarla; `contenido` reemplaza el texto visible cuando la fila lleva más
-// (nombre, apoyo y monto), y `texto` sigue siendo el nombre.
+// (nombre, apoyo y monto), y `texto` sigue siendo el nombre. `ayuda` es la nota que explica la casilla (la frase de los
+// avisos con la app cerrada de PN-64, SC-E21-25 3.6): se ve debajo (`tipografia.pequeno`, `color.texto.secundario`) y es la
+// pista de accesibilidad de la casilla, como la ayuda de un campo de texto: TalkBack la dice después del nombre y el estado.
 export function Casilla({
   texto,
+  ayuda,
   marcada,
   deshabilitada = false,
   contenido,
@@ -23,6 +26,7 @@ export function Casilla({
   ref,
 }: {
   texto: string;
+  ayuda?: string;
   marcada: boolean;
   deshabilitada?: boolean;
   contenido?: ReactNode;
@@ -38,7 +42,7 @@ export function Casilla({
         accessibilityRole="checkbox"
         accessibilityState={{ checked: marcada, disabled: deshabilitada }}
         accessibilityLabel={nombreConError(texto, error)}
-        accessibilityHint={undefined}
+        accessibilityHint={ayuda}
         onPress={() => {
           if (!deshabilitada) alCambiar(!marcada);
         }}
@@ -59,6 +63,7 @@ export function Casilla({
           </Text>
         </View>
       )}
+      {ayuda && <Text style={estilos.ayuda}>{cifras(ayuda)}</Text>}
     </View>
   );
 }
@@ -91,4 +96,5 @@ const estilos = StyleSheet.create({
   texto: { ...estiloDeTipografia('cuerpo'), flex: 1, color: tokens.color.texto.principal },
   error: { flexDirection: 'row', alignItems: 'flex-start', gap: tokens.espacio['2'] },
   textoDeError: { ...estiloDeTipografia('pequeno'), flex: 1, color: tokens.color.estado.atencion.texto },
+  ayuda: { ...estiloDeTipografia('pequeno'), color: tokens.color.texto.secundario },
 });

@@ -80,6 +80,17 @@ describe('PN-58 · Crear la cuenta, Android (E14-PCP 4.1)', () => {
     expect(navegacion.navigate).toHaveBeenCalledWith('Entrar');
   });
 
+  // D-195 (E14-PCP 4.1, fila 7): «Política de tratamiento de datos» abre PN-68 antes de crear la cuenta.
+  it('«Política de tratamiento de datos» es un botón de texto, después de «Ya tengo una cuenta», que abre PN-68', async () => {
+    const navegacion = await mostrar();
+    const politica = screen.getByRole('button', { name: 'Política de tratamiento de datos' });
+    const botones = screen.getAllByRole('button');
+    expect(botones.indexOf(politica)).toBe(botones.indexOf(screen.getByRole('button', { name: 'Ya tengo una cuenta' })) + 1);
+    expect(politica).toHaveStyle({ alignSelf: 'flex-start' });
+    await fireEvent.press(politica);
+    expect(navegacion.navigate).toHaveBeenCalledWith('Politica');
+  });
+
   describe('sin la edad comprobada en PN-65', () => {
     it('no se puede usar: vuelve a PN-60 y no hace ningún pedido', async () => {
       const { fetchFalso } = instalarFetchFalso();

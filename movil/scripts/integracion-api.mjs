@@ -168,22 +168,24 @@ paso(
 // (S2, dueño 2026-10-24): autorizar no vuelve a iniciar sesión ni cambia el token.
 const catalogo = await autorizaciones.obtenerCatalogo();
 paso(
-  'catálogo: 200, versión 1.0 del 2026-10-30 y las cuatro finalidades de una persona adulta, ninguna otorgada',
+  'catálogo: 200, versión 1.1 del 2026-11-12, modo completo y las cinco finalidades de una persona adulta, ninguna otorgada',
   catalogo.ok &&
-    catalogo.cuerpo.version?.numero === '1.0' &&
-    catalogo.cuerpo.version?.fecha === '2026-10-30' &&
+    catalogo.cuerpo.version?.numero === '1.1' &&
+    catalogo.cuerpo.version?.fecha === '2026-11-12' &&
+    catalogo.cuerpo.modo === 'completo' &&
     catalogo.cuerpo.finalidades?.map((f) => `${f.codigo}:${f.tipo}`).join() ===
-      'cuenta_y_acceso:necesaria,funciones_financieras:necesaria,avisos:accesoria,horas_de_vida:accesoria' &&
+      'cuenta_y_acceso:necesaria,funciones_financieras:necesaria,transmision_a_encargados:necesaria,avisos:accesoria,horas_de_vida:accesoria' &&
     catalogo.cuerpo.finalidades.every((f) => f.otorgada === false),
   JSON.stringify(catalogo.cuerpo),
 );
-const necesarias = ['cuenta_y_acceso', 'funciones_financieras'];
+// SC-E21-25: la aceptación expresa de la transmisión a los encargados es la tercera necesaria (versión 1.1).
+const necesarias = ['cuenta_y_acceso', 'funciones_financieras', 'transmision_a_encargados'];
 const versionVieja = await autorizaciones.autorizar(necesarias, '0.9');
 paso(
   'autorizar con una versión vieja: 409 version_desactualizada',
   !versionVieja.ok && versionVieja.estado === 409 && versionVieja.codigo === 'version_desactualizada',
 );
-const sinNecesarias = await autorizaciones.autorizar(['avisos'], '1.0');
+const sinNecesarias = await autorizaciones.autorizar(['avisos'], catalogo.cuerpo.version.numero);
 paso(
   'autorizar sin las necesarias: 422 faltan_necesarias',
   !sinNecesarias.ok && sinNecesarias.estado === 422 && sinNecesarias.codigo === 'faltan_necesarias',
@@ -198,10 +200,10 @@ paso(
 );
 const otorgadas = await autorizaciones.obtenerCatalogo();
 paso(
-  'el catálogo marca como otorgadas las tres autorizadas y no horas_de_vida',
+  'el catálogo marca como otorgadas las cuatro autorizadas y no horas_de_vida',
   otorgadas.ok &&
     otorgadas.cuerpo.finalidades.filter((f) => f.otorgada).map((f) => f.codigo).join() ===
-      'cuenta_y_acceso,funciones_financieras,avisos',
+      'cuenta_y_acceso,funciones_financieras,transmision_a_encargados,avisos',
 );
 // S2: la misma sesión, sin volver a entrar, ya ve PN-71 y es su primer ingreso.
 const seguridad = await acceso.ingresoAnterior();

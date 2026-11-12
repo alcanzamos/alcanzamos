@@ -941,6 +941,54 @@
       "noAutorizo": {
         "texto": "No autorizo",
         "e14": "E14-PCP 4.7 (PN-64), fila 12"
+      },
+      "dondeGuardamos": {
+        "titulo": {
+          "texto": "Dónde guardamos tus datos",
+          "e14": "Aprobado por el dueño (2026-11-11, D-202): SC-E21-25 3.6, texto de PN-64 (E14-PCP 4.7; tarjeta «Dónde guardamos tus datos», entre la nota de lo necesario, fila 5, y «Lo que puedes elegir», fila 6). PN-54 usa el mismo texto (SC-E21-25 3.7, E14-PME)"
+        },
+        "explicacion": {
+          "texto": "Para que la app funcione, tus datos se guardan y se procesan en la nube de otras empresas, que los tratan por cuenta de Alcanzamos y solo para lo que les pedimos: Microsoft Azure, en México, guarda tu cuenta y lo que registras; Azure Communication Services, en Francia, envía los correos de la app; y Zoho Mail, en Estados Unidos, recibe lo que escribes a privacidad@alcanzamos.co. Los detalles están en la política.",
+          "e14": "Aprobado por el dueño (2026-11-11, D-202): SC-E21-25 3.6, texto de PN-64 (E14-PCP 4.7; explicación de la tarjeta «Dónde guardamos tus datos»; solo Azure, Azure Communication Services y Zoho: los avisos con la app cerrada no van en esta tarjeta). PN-54 usa el mismo texto (SC-E21-25 3.7)"
+        },
+        "casilla": {
+          "texto": "Acepto que mis datos se envíen a estos servicios en México, Francia y Estados Unidos para guardarlos y procesarlos como se explica arriba.",
+          "e14": "Aprobado por el dueño (2026-11-11, D-202): SC-E21-25 3.6, texto de PN-64 (E14-PCP 4.7; casilla de la tarjeta «Dónde guardamos tus datos», sin marcar; finalidad `transmision_a_encargados`, necesaria). PN-54 usa el mismo texto (SC-E21-25 3.7)"
+        },
+        "nota": {
+          "texto": "Sin esta aceptación no podemos darte la cuenta, porque la app guarda tus datos en esos servicios.",
+          "e14": "Aprobado por el dueño (2026-11-11, D-202): SC-E21-25 3.6, texto de PN-64 (E14-PCP 4.7; nota de la tarjeta «Dónde guardamos tus datos»). PN-54 usa el mismo texto (SC-E21-25 3.7)"
+        },
+        "error": {
+          "texto": "Falta que aceptes dónde guardamos tus datos.",
+          "e14": "Aprobado por el dueño (2026-11-11, D-202): SC-E21-25 3.6, texto de PN-64 (E14-PCP 4.7; error bajo la casilla de la tarjeta «Dónde guardamos tus datos», con «Autorizar y continuar» sin marcarla; SC-E21-25 3.8, criterio 1). PN-54 usa el mismo texto (SC-E21-25 3.7)"
+        }
+      },
+      "fraseDeAvisos": {
+        "texto": "Si activas los avisos con la app cerrada, el código de tu teléfono o de tu navegador y un aviso que solo dice «Tienes un aviso en Alcanzamos.» pasan por el servicio de notificaciones de Google (Firebase Cloud Messaging) en Android, o por el de la empresa que hace tu navegador en la web. Esas empresas no dicen en qué país los procesan.",
+        "e14": "Aprobado por el dueño (2026-11-11, D-202): SC-E21-25 3.6, «La frase de los avisos con la app cerrada». Va bajo la casilla opcional «Autorizo los avisos con la app cerrada.» de PN-64 (fila 7, antes de «Horas de vida») y, con el mismo texto, en PN-54 (fila 8 de E14-PME), en PN-67 (fila 4) y en la viñeta de los avisos de PN-68 (fila 5 b, SC-E21-25 sección 4)"
+      },
+      "hojaNoAutorizo": {
+        "titulo": {
+          "texto": "¿No autorizas?",
+          "e14": "E14-PME 4.11 (PN-54), estado «No autorizo» (D-102, D-103); SC-E21-25 sección 5, paso 3: la cuenta a la que le falta una aceptación usa la misma hoja"
+        },
+        "explicacion": {
+          "texto": "Si no autorizas, borramos tu cuenta y tu historial.",
+          "e14": "E14-PME 4.11 (PN-54), estado «No autorizo» (D-102, D-103); SC-E21-25 sección 5, paso 3"
+        },
+        "antesDescarga": {
+          "texto": "Antes puedes descargar tus datos.",
+          "e14": "E14-PME 4.11 (PN-54), estado «No autorizo» (D-102, D-103); SC-E21-25 sección 5, paso 3"
+        },
+        "volver": {
+          "texto": "Volver y decidir",
+          "e14": "E14-PME 4.11 (PN-54), estado «No autorizo» (Primario de la hoja); SC-E21-25 sección 5, paso 3"
+        },
+        "errorContrasena": {
+          "texto": "Falta tu contraseña para borrar la cuenta.",
+          "e14": "E14-PME 4.11 (PN-54), estado «No autorizo»: «sin la contraseña muestra…» (D-103); SC-E21-25 sección 5, paso 3"
+        }
       }
     },
     "finalidades": {
@@ -1979,166 +2027,6 @@
           }
         }
       }
-    }
-  },
-  "solo_web": {
-    "erroresDeCampo": {
-      "crearCuenta": {
-        "mayor_de_edad_requerido": {
-          "texto": "Falta marcar que eres mayor de edad.",
-          "e14": "E14-PCP 4.1 (PN-58)"
-        },
-        "contrasena_vacia": {
-          "texto": "Falta la contraseña.",
-          "e14": "E14-PCP 4.2 ter (PN-74), errores de campo (antes de PN-58)"
-        },
-        "nombre_vacio": {
-          "texto": "Falta el nombre para mostrar.",
-          "e14": "E14-PCP 4.2 ter (PN-74), errores de campo (antes de PN-58)"
-        },
-        "nombre_largo": {
-          "texto": "Escribe un nombre de hasta 60 caracteres.",
-          "e14": "E14-PCP 4.16 T5 (D-153)"
-        }
-      }
-    },
-    "pagina": {
-      "atras": {
-        "texto": "Atrás",
-        "e14": "E14-PCP 4.4 (PN-61); E14-PCP 4.6 (PN-63); E14-PCP 4.7 (PN-64); E14-PCP 4.9 (PN-66); E14-PCP 4.10 (PN-67); E14-PCP 4.11 (PN-68); E14-PCP 4.12 (PN-69); E14-PCP 4.13 (PN-70); E14-PCP 4.14 (PN-71); E14-PCP 4.15 (PN-73); E14-PCP 4.16"
-      },
-      "titulo_del_documento": {
-        "texto": "{titulo} · Alcanzamos",
-        "e14": "E14-PCP 1.19 (título de la pestaña del navegador, aprobado en D-163)"
-      }
-    },
-    "campos": {
-      "contrasenaNueva": {
-        "etiqueta": {
-          "texto": "Contraseña nueva",
-          "e14": "E14-PCP 4.5 (PN-62); E14-PCP 4.15 (PN-73)"
-        },
-        "repeticion": {
-          "texto": "Repite la contraseña nueva",
-          "e14": "E14-PCP 4.5 (PN-62)"
-        }
-      },
-      "mayorDeEdad": {
-        "etiqueta": {
-          "texto": "Soy mayor de edad",
-          "e14": "E14-PCP 4.1 (PN-58); E14-PCP 4.8 (PN-65); E14-PCP 4.16"
-        }
-      },
-      "nombre": {
-        "etiqueta": {
-          "texto": "Nombre para mostrar",
-          "e14": "E14-PCP 4.1 (PN-58)"
-        },
-        "ayuda": {
-          "texto": "Es el nombre que verás en la app. Puede ser un apodo.",
-          "e14": "E14-PCP 4.1 (PN-58)"
-        }
-      }
-    },
-    "recuperar": {
-      "titulo": {
-        "texto": "Elige tu contraseña nueva",
-        "e14": "E14-PCP 4.5 (PN-62)"
-      },
-      "pedirOtro": {
-        "texto": "Pedir otro enlace",
-        "e14": "E14-PCP 4.5 (PN-62)"
-      }
-    },
-    "textosDeRepeticion": {
-      "vacia": {
-        "texto": "Falta repetir la contraseña.",
-        "e14": "E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62"
-      },
-      "distinta": {
-        "texto": "Falta que las dos contraseñas sean iguales.",
-        "e14": "E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62"
-      }
-    },
-    "periodicidad": {
-      "errores": {
-        "sinFecha": {
-          "texto": "Falta la fecha en que empieza.",
-          "e14": "E14-PRR 4.3 (PN-03), errores de campo"
-        }
-      }
-    },
-    "movimientos": {
-      "vacio": {
-        "elegir": {
-          "texto": "Elige un movimiento para verlo.",
-          "e14": "E14-PRR 4.1 (PN-01), variante web"
-        }
-      }
-    },
-    "eligeTuContrasena": {
-      "titulo": {
-        "texto": "Elige tu contraseña",
-        "e14": "E14-PCP 4.2 ter (PN-74), fila 1, aprobado (D-176)"
-      },
-      "intro": {
-        "texto": "Un último paso para crear tu cuenta. Elige tu contraseña y dinos cómo quieres que te llamemos.",
-        "e14": "E14-PCP 4.2 ter (PN-74), fila 2, aprobado (D-176)"
-      },
-      "pedirOtro": {
-        "texto": "Pedir otro enlace",
-        "e14": "E14-PCP 4.2 ter (PN-74), estado «Enlace vencido o ya usado» (D-192); mismo botón que PN-62 (4.5), con otro destino"
-      }
-    },
-    "autorizacion": {
-      "dondeGuardamos": {
-        "titulo": {
-          "texto": "Dónde guardamos tus datos",
-          "e14": "Aprobado por el dueño (2026-11-11, D-202): SC-E21-25 3.6, texto de PN-64 (E14-PCP 4.7; tarjeta «Dónde guardamos tus datos», entre la nota de lo necesario, fila 5, y «Lo que puedes elegir», fila 6). PN-54 usa el mismo texto (SC-E21-25 3.7, E14-PME)"
-        },
-        "explicacion": {
-          "texto": "Para que la app funcione, tus datos se guardan y se procesan en la nube de otras empresas, que los tratan por cuenta de Alcanzamos y solo para lo que les pedimos: Microsoft Azure, en México, guarda tu cuenta y lo que registras; Azure Communication Services, en Francia, envía los correos de la app; y Zoho Mail, en Estados Unidos, recibe lo que escribes a privacidad@alcanzamos.co. Los detalles están en la política.",
-          "e14": "Aprobado por el dueño (2026-11-11, D-202): SC-E21-25 3.6, texto de PN-64 (E14-PCP 4.7; explicación de la tarjeta «Dónde guardamos tus datos»; solo Azure, Azure Communication Services y Zoho: los avisos con la app cerrada no van en esta tarjeta). PN-54 usa el mismo texto (SC-E21-25 3.7)"
-        },
-        "casilla": {
-          "texto": "Acepto que mis datos se envíen a estos servicios en México, Francia y Estados Unidos para guardarlos y procesarlos como se explica arriba.",
-          "e14": "Aprobado por el dueño (2026-11-11, D-202): SC-E21-25 3.6, texto de PN-64 (E14-PCP 4.7; casilla de la tarjeta «Dónde guardamos tus datos», sin marcar; finalidad `transmision_a_encargados`, necesaria). PN-54 usa el mismo texto (SC-E21-25 3.7)"
-        },
-        "nota": {
-          "texto": "Sin esta aceptación no podemos darte la cuenta, porque la app guarda tus datos en esos servicios.",
-          "e14": "Aprobado por el dueño (2026-11-11, D-202): SC-E21-25 3.6, texto de PN-64 (E14-PCP 4.7; nota de la tarjeta «Dónde guardamos tus datos»). PN-54 usa el mismo texto (SC-E21-25 3.7)"
-        },
-        "error": {
-          "texto": "Falta que aceptes dónde guardamos tus datos.",
-          "e14": "Aprobado por el dueño (2026-11-11, D-202): SC-E21-25 3.6, texto de PN-64 (E14-PCP 4.7; error bajo la casilla de la tarjeta «Dónde guardamos tus datos», con «Autorizar y continuar» sin marcarla; SC-E21-25 3.8, criterio 1). PN-54 usa el mismo texto (SC-E21-25 3.7)"
-        }
-      },
-      "fraseDeAvisos": {
-        "texto": "Si activas los avisos con la app cerrada, el código de tu teléfono o de tu navegador y un aviso que solo dice «Tienes un aviso en Alcanzamos.» pasan por el servicio de notificaciones de Google (Firebase Cloud Messaging) en Android, o por el de la empresa que hace tu navegador en la web. Esas empresas no dicen en qué país los procesan.",
-        "e14": "Aprobado por el dueño (2026-11-11, D-202): SC-E21-25 3.6, «La frase de los avisos con la app cerrada». Va bajo la casilla opcional «Autorizo los avisos con la app cerrada.» de PN-64 (fila 7, antes de «Horas de vida») y, con el mismo texto, en PN-54 (fila 8 de E14-PME), en PN-67 (fila 4) y en la viñeta de los avisos de PN-68 (fila 5 b, SC-E21-25 sección 4)"
-      },
-      "hojaNoAutorizo": {
-        "titulo": {
-          "texto": "¿No autorizas?",
-          "e14": "E14-PME 4.11 (PN-54), estado «No autorizo» (D-102, D-103); SC-E21-25 sección 5, paso 3: la cuenta a la que le falta una aceptación usa la misma hoja"
-        },
-        "explicacion": {
-          "texto": "Si no autorizas, borramos tu cuenta y tu historial.",
-          "e14": "E14-PME 4.11 (PN-54), estado «No autorizo» (D-102, D-103); SC-E21-25 sección 5, paso 3"
-        },
-        "antesDescarga": {
-          "texto": "Antes puedes descargar tus datos.",
-          "e14": "E14-PME 4.11 (PN-54), estado «No autorizo» (D-102, D-103); SC-E21-25 sección 5, paso 3"
-        },
-        "volver": {
-          "texto": "Volver y decidir",
-          "e14": "E14-PME 4.11 (PN-54), estado «No autorizo» (Primario de la hoja); SC-E21-25 sección 5, paso 3"
-        },
-        "errorContrasena": {
-          "texto": "Falta tu contraseña para borrar la cuenta.",
-          "e14": "E14-PME 4.11 (PN-54), estado «No autorizo»: «sin la contraseña muestra…» (D-103); SC-E21-25 sección 5, paso 3"
-        }
-      }
     },
     "politica": {
       "titulo": {
@@ -2334,6 +2222,116 @@
           "texto": "Política de tratamiento y consultas",
           "e14": "E14-PCP 4.3 (PN-60), fila 9 (abre PN-68); E14-PCP 4.14 (PN-71) y 4.16 T2 ter, entrada provisional (bug 260, D-195)"
         }
+      }
+    }
+  },
+  "solo_web": {
+    "erroresDeCampo": {
+      "crearCuenta": {
+        "mayor_de_edad_requerido": {
+          "texto": "Falta marcar que eres mayor de edad.",
+          "e14": "E14-PCP 4.1 (PN-58)"
+        },
+        "contrasena_vacia": {
+          "texto": "Falta la contraseña.",
+          "e14": "E14-PCP 4.2 ter (PN-74), errores de campo (antes de PN-58)"
+        },
+        "nombre_vacio": {
+          "texto": "Falta el nombre para mostrar.",
+          "e14": "E14-PCP 4.2 ter (PN-74), errores de campo (antes de PN-58)"
+        },
+        "nombre_largo": {
+          "texto": "Escribe un nombre de hasta 60 caracteres.",
+          "e14": "E14-PCP 4.16 T5 (D-153)"
+        }
+      }
+    },
+    "pagina": {
+      "atras": {
+        "texto": "Atrás",
+        "e14": "E14-PCP 4.4 (PN-61); E14-PCP 4.6 (PN-63); E14-PCP 4.7 (PN-64); E14-PCP 4.9 (PN-66); E14-PCP 4.10 (PN-67); E14-PCP 4.11 (PN-68); E14-PCP 4.12 (PN-69); E14-PCP 4.13 (PN-70); E14-PCP 4.14 (PN-71); E14-PCP 4.15 (PN-73); E14-PCP 4.16"
+      },
+      "titulo_del_documento": {
+        "texto": "{titulo} · Alcanzamos",
+        "e14": "E14-PCP 1.19 (título de la pestaña del navegador, aprobado en D-163)"
+      }
+    },
+    "campos": {
+      "contrasenaNueva": {
+        "etiqueta": {
+          "texto": "Contraseña nueva",
+          "e14": "E14-PCP 4.5 (PN-62); E14-PCP 4.15 (PN-73)"
+        },
+        "repeticion": {
+          "texto": "Repite la contraseña nueva",
+          "e14": "E14-PCP 4.5 (PN-62)"
+        }
+      },
+      "mayorDeEdad": {
+        "etiqueta": {
+          "texto": "Soy mayor de edad",
+          "e14": "E14-PCP 4.1 (PN-58); E14-PCP 4.8 (PN-65); E14-PCP 4.16"
+        }
+      },
+      "nombre": {
+        "etiqueta": {
+          "texto": "Nombre para mostrar",
+          "e14": "E14-PCP 4.1 (PN-58)"
+        },
+        "ayuda": {
+          "texto": "Es el nombre que verás en la app. Puede ser un apodo.",
+          "e14": "E14-PCP 4.1 (PN-58)"
+        }
+      }
+    },
+    "recuperar": {
+      "titulo": {
+        "texto": "Elige tu contraseña nueva",
+        "e14": "E14-PCP 4.5 (PN-62)"
+      },
+      "pedirOtro": {
+        "texto": "Pedir otro enlace",
+        "e14": "E14-PCP 4.5 (PN-62)"
+      }
+    },
+    "textosDeRepeticion": {
+      "vacia": {
+        "texto": "Falta repetir la contraseña.",
+        "e14": "E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62"
+      },
+      "distinta": {
+        "texto": "Falta que las dos contraseñas sean iguales.",
+        "e14": "E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62"
+      }
+    },
+    "periodicidad": {
+      "errores": {
+        "sinFecha": {
+          "texto": "Falta la fecha en que empieza.",
+          "e14": "E14-PRR 4.3 (PN-03), errores de campo"
+        }
+      }
+    },
+    "movimientos": {
+      "vacio": {
+        "elegir": {
+          "texto": "Elige un movimiento para verlo.",
+          "e14": "E14-PRR 4.1 (PN-01), variante web"
+        }
+      }
+    },
+    "eligeTuContrasena": {
+      "titulo": {
+        "texto": "Elige tu contraseña",
+        "e14": "E14-PCP 4.2 ter (PN-74), fila 1, aprobado (D-176)"
+      },
+      "intro": {
+        "texto": "Un último paso para crear tu cuenta. Elige tu contraseña y dinos cómo quieres que te llamemos.",
+        "e14": "E14-PCP 4.2 ter (PN-74), fila 2, aprobado (D-176)"
+      },
+      "pedirOtro": {
+        "texto": "Pedir otro enlace",
+        "e14": "E14-PCP 4.2 ter (PN-74), estado «Enlace vencido o ya usado» (D-192); mismo botón que PN-62 (4.5), con otro destino"
       }
     }
   },
