@@ -151,10 +151,10 @@ describe('PN-64 · Autorización de datos (E14-PCP 4.7)', () => {
       expect(screen.getAllByText(/Firebase/)).toHaveLength(1);
     });
 
-    it('la frase de los avisos va bajo su casilla, es su pista de accesibilidad y no está bajo «Horas de vida»', async () => {
+    it('la frase de los avisos va bajo su casilla como texto normal, sin pista de accesibilidad, y no está bajo «Horas de vida»', async () => {
       await mostrar();
       const avisos = screen.getByRole('checkbox', { name: AVISOS });
-      expect(avisos.props.accessibilityHint).toBe(FRASE_DE_AVISOS);
+      expect(avisos.props.accessibilityHint).toBeUndefined();
       expect(screen.getByText(FRASE_DE_AVISOS)).toBeOnTheScreen();
       // En el orden de la pantalla: la casilla de avisos, su frase y después la casilla de horas de vida.
       const orden = textosEnOrden(screen.toJSON());

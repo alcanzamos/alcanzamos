@@ -76,22 +76,24 @@ describe('Casilla de verificación (E14-SDD 5.17)', () => {
     expect(JSON.stringify(screen.toJSON())).not.toContain('"accessibilityLiveRegion":"polite"');
   });
 
-  // SC-E21-25 3.6: la frase de los avisos con la app cerrada va bajo su casilla y la describe. En Android la ayuda se ve
-  // (`tipografia.pequeno`, `color.texto.secundario`) y es la pista de accesibilidad de la casilla, como la ayuda de un campo.
-  it('con `ayuda` la muestra debajo y es la pista de accesibilidad de la casilla; el nombre no cambia', async () => {
+  // SC-E21-25 3.6: la frase de los avisos con la app cerrada va bajo su casilla como texto normal
+  // (`tipografia.pequeno`, `color.texto.secundario`), sin pista de accesibilidad: TalkBack la lee una sola vez, al llegar
+  // al texto (decisión del dueño del 2026-11-12).
+  it('con `ayuda` la muestra debajo como texto normal, sin pista de accesibilidad; el nombre no cambia', async () => {
     await render(<Casilla texto="Autorizo los avisos." ayuda="Pasan por Google." marcada={false} alCambiar={jest.fn()} />);
     expect(screen.getByText('Pasan por Google.')).toBeOnTheScreen();
     const casilla = screen.getByRole('checkbox', { name: 'Autorizo los avisos.' });
-    expect(casilla.props.accessibilityHint).toBe('Pasan por Google.');
+    expect(casilla.props.accessibilityHint).toBeUndefined();
     expect(screen.getByText('Pasan por Google.')).toHaveStyle({ color: tokens.color.texto.secundario });
   });
 
-  it('con `ayuda` y error, el error sigue siendo parte del nombre y la ayuda, la pista', async () => {
+  it('con `ayuda` y error, el error sigue siendo parte del nombre y la ayuda no es pista', async () => {
     await render(
       <Casilla texto="Acepto" ayuda="Explicación." marcada={false} alCambiar={jest.fn()} error="Falta tu autorización." />,
     );
     const casilla = screen.getByRole('checkbox', { name: 'Acepto, Falta tu autorización.' });
-    expect(casilla.props.accessibilityHint).toBe('Explicación.');
+    expect(casilla.props.accessibilityHint).toBeUndefined();
+    expect(screen.getByText('Explicación.')).toBeOnTheScreen();
   });
 
   it('tocar la ayuda no cambia la casilla (solo la fila de la casilla la cambia)', async () => {

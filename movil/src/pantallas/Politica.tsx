@@ -80,7 +80,7 @@ export function Politica() {
         <Vinetas items={Object.values(t.derechos.items)} />
       </Tarjeta>
       <Tarjeta titulo={t.dondeGuardamos.titulo}>
-        <Vinetas items={[...Object.values(t.dondeGuardamos.items), textos.autorizacion.fraseDeAvisos]} />
+        <Vinetas items={Object.values(t.dondeGuardamos.items)} />
       </Tarjeta>
       <Tarjeta titulo={t.consultas.titulo}>
         <Texto>{t.consultas.intro}</Texto>
@@ -88,6 +88,7 @@ export function Politica() {
         <Texto>{t.consultas.menor}</Texto>
         <Text style={estilos.grupo}>{t.consultas.tiempos.titulo}</Text>
         <Vinetas items={[t.consultas.tiempos.consulta, t.consultas.tiempos.reclamo, t.consultas.tiempos.incompleto]} />
+        <Texto>{t.consultas.adolescentes}</Texto>
       </Tarjeta>
       <Boton
         variante="secundario"

@@ -113,10 +113,11 @@ describe('PN-68 · lo que dice', () => {
       'El correo que te enviamos (verificar tu cuenta, recuperar el acceso, avisos a quien tiene una tutoría) sale por Azure Communication Services, que guarda sus datos en Francia.',
       'Lo que escribes a privacidad@alcanzamos.co queda en Zoho Mail, en Estados Unidos.',
       'Estas empresas son encargadas: tratan los datos por cuenta de Alcanzamos, que es el responsable, y solo para lo que les pedimos.',
-      'Si activas los avisos con la app cerrada, el código de tu teléfono o de tu navegador y un aviso que solo dice «Tienes un aviso en Alcanzamos.» pasan por el servicio de notificaciones de Google (Firebase Cloud Messaging) en Android, o por el de la empresa que hace tu navegador en la web. Esas empresas no dicen en qué país los procesan.',
+      'Para los avisos con la app cerrada, tu teléfono o tu navegador nos da un código. En Android lo maneja Firebase Cloud Messaging, de Google; en la web, el servicio de avisos de tu navegador (Web Push). Todavía no confirmamos en qué país guardan ese código.',
     ])
       expect(within(lista).getByText(texto)).toBeOnTheScreen();
-    expect(screen.queryByText(/Todavía no confirmamos en qué país guardan ese código/)).not.toBeOnTheScreen();
+    // La frase de los avisos va bajo la casilla de PN-64, no en PN-68.
+    expect(screen.queryByText(/Si activas los avisos con la app cerrada/)).not.toBeOnTheScreen();
   });
 
   it('«Cómo hacer una consulta o un reclamo»: qué traer, el menor, y los plazos de E14', async () => {
@@ -139,6 +140,21 @@ describe('PN-68 · lo que dice', () => {
       'Si tu reclamo llega incompleto, te lo decimos en los 5 días siguientes para que lo completes. Si pasan 2 meses sin que lo completes, entendemos que ya no lo necesitas.',
     ];
     frases.forEach((frase, i) => expect(textoDe(tiempos!.children[i] as never)).toBe(frase));
+  });
+
+  // D-200 (2): las personas de 12 a 17 años, al final de «Cómo hacer una consulta o un reclamo», después de los plazos.
+  it('«Cómo hacer una consulta o un reclamo» termina con la frase para quien tiene entre 12 y 17 años', async () => {
+    await mostrar();
+    const tiempos = listas()[3]!;
+    // La tarjeta es la vista que contiene la lista de los plazos; su título es el de la tarjeta de las consultas.
+    const tarjeta = tiempos.parent as unknown as { children: { children: unknown[] }[] };
+    expect(textoDe(tarjeta.children[0]!)).toBe('Cómo hacer una consulta o un reclamo');
+    const hijos = tarjeta.children;
+    // Los plazos van antes y la frase es lo último de la tarjeta (el botón «Escribir al correo» queda fuera de ella).
+    expect(hijos.indexOf(tiempos as never)).toBe(hijos.length - 2);
+    expect(textoDe(hijos[hijos.length - 1]!)).toBe(
+      'Si tienes entre 12 y 17 años, puedes escribirnos tú o pedirle a quien te acompaña que escriba por ti.',
+    );
   });
 
   it('las listas son listas para TalkBack: derechos, dónde guardamos, qué traer y cuánto tardamos', async () => {

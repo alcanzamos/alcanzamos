@@ -13,8 +13,8 @@ import { IconoAtencion, IconoCheck } from './Iconos';
 // no se lee aparte. En la sesión del celular se oyó la casilla con su error. `deshabilitada` (la fila «No pasó» de
 // «Confirmar todos», E14-PRR 4.8) no cambia al tocarla; `contenido` reemplaza el texto visible cuando la fila lleva más
 // (nombre, apoyo y monto), y `texto` sigue siendo el nombre. `ayuda` es la nota que explica la casilla (la frase de los
-// avisos con la app cerrada de PN-64, SC-E21-25 3.6): se ve debajo (`tipografia.pequeno`, `color.texto.secundario`) y es la
-// pista de accesibilidad de la casilla, como la ayuda de un campo de texto: TalkBack la dice después del nombre y el estado.
+// avisos con la app cerrada de PN-64, SC-E21-25 3.6): se ve debajo (`tipografia.pequeno`, `color.texto.secundario`) como
+// texto normal, sin pista de accesibilidad, para que TalkBack la lea una sola vez, al llegar a ella.
 export function Casilla({
   texto,
   ayuda,
@@ -42,7 +42,7 @@ export function Casilla({
         accessibilityRole="checkbox"
         accessibilityState={{ checked: marcada, disabled: deshabilitada }}
         accessibilityLabel={nombreConError(texto, error)}
-        accessibilityHint={ayuda}
+        accessibilityHint={undefined}
         onPress={() => {
           if (!deshabilitada) alCambiar(!marcada);
         }}
