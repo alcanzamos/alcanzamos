@@ -156,13 +156,15 @@ describe("PN-08 · Ingresos del periodo de varias fuentes (E14-PPA 4.3)", () => 
     expect(screen.queryByText(/Prima, cesantías o intereses/)).toBeNull();
   });
 
-  it("lleva la Navegación lateral (bug 233), con «Registrar» primario y sin destino activo mientras falte «Presupuesto»", async () => {
+  // PN-08 no es un destino (E14-PPA 1, «Barra superior»): lleva la barra, con «Presupuesto», pero sin destino activo.
+  it("lleva la Navegación lateral (bug 233), con «Registrar» primario, «Presupuesto» y ningún destino activo", async () => {
     api(() => lauraNoviembre);
     await abrir();
     const barra = within(screen.getByRole("navigation"));
     expect(barra.getAllByRole("link").map((e) => e.textContent)).toEqual([
       "Registrar",
       "Movimientos",
+      "Presupuesto",
     ]);
     expect(barra.getByRole("link", { name: "Registrar" })).toHaveClass(
       "boton--primario",

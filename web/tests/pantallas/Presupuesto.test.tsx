@@ -181,10 +181,20 @@ const filasDeCategoria = () =>
     .map((f) => f.textContent);
 const boton = (nombre: string) => screen.getByRole("button", { name: nombre });
 const hoja = (nombre: string) => screen.getByRole("dialog", { name: nombre });
-const escribirMonto = (valor: string) =>
-  fireEvent.change(screen.getByLabelText("Monto para noviembre"), {
+const escribirMonto = (valor: string, mes = "noviembre") =>
+  fireEvent.change(screen.getByLabelText(`Monto para ${mes}`), {
     target: { value: valor },
   });
+/** El aviso de error que queda en la pantalla, fuera de toda hoja. */
+const avisoEnLaPantalla = () => {
+  const aviso = screen
+    .getByText("No pudimos guardar el presupuesto.")
+    .closest(".aviso");
+  expect(aviso).not.toBeNull();
+  expect(aviso!.closest("[role='dialog']")).toBeNull();
+  expect(screen.getByRole("main")).toContainElement(aviso as HTMLElement);
+  return aviso;
+};
 
 describe("PN-06 · Presupuesto del periodo por categorías (E14-PPA 4.1)", () => {
   it("Laura en noviembre: título, resumen con «Llega después», «Ver mis ingresos» y «Registrar»", async () => {
@@ -220,19 +230,26 @@ describe("PN-06 · Presupuesto del periodo por categorías (E14-PPA 4.1)", () =>
     expect(screen.queryByText("Dejar el presupuesto en cero")).toBeNull();
   });
 
-  it("lleva la Navegación lateral (bug 233), con «Registrar» primario y sin destino activo mientras falte «Presupuesto»", async () => {
+  it("lleva la Navegación lateral (bug 233), con «Registrar» primario y «Presupuesto» activo (E14-PPA 4.1, variante web; L17 de la US-77, punto 2)", async () => {
     api([laura]);
     await abrir();
     const barra = within(screen.getByRole("navigation"));
     expect(barra.getAllByRole("link").map((e) => e.textContent)).toEqual([
       "Registrar",
       "Movimientos",
+      "Presupuesto",
     ]);
     expect(barra.getByRole("link", { name: "Registrar" })).toHaveClass(
       "boton--primario",
     );
-    for (const enlace of barra.getAllByRole("link"))
-      expect(enlace).not.toHaveAttribute("aria-current");
+    expect(barra.getByRole("link", { name: "Presupuesto" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    for (const nombre of ["Registrar", "Movimientos"])
+      expect(barra.getByRole("link", { name: nombre })).not.toHaveAttribute(
+        "aria-current",
+      );
   });
 
   it("los números van en Figtree (D-123) y la cifra grande es «Sin asignar»", async () => {
@@ -502,7 +519,7 @@ describe("PN-07 · Presupuesto con ingreso bajo o nulo (E14-PPA 4.2)", () => {
     sinReproche();
   });
 
-  it("con ingreso nulo y el salario por confirmar: la línea «Por confirmar» lo muestra (L14 de la US-77)", async () => {
+  it("con ingreso nulo y el salario por confirmar: la línea «Por confirmar» y, debajo, la frase de la fecha (L14 y L17 de la US-77)", async () => {
     api([
       {
         ...nulo(),
@@ -512,10 +529,87 @@ describe("PN-07 · Presupuesto con ingreso bajo o nulo (E14-PPA 4.2)", () => {
     ]);
     await abrir();
     expect(tarjeta("Tu presupuesto este mes")).toHaveTextContent(
-      "Tu presupuesto este mesIngreso registrado$0Por confirmar: $1.200.000Puedes repartir lo que llegue o dejar el presupuesto en cero.Ver mis ingresos",
+      "Tu presupuesto este mesIngreso registrado$0Por confirmar: $1.200.000Salario del 1 de noviembre de 2026 se suma cuando lo confirmes.Puedes repartir lo que llegue o dejar el presupuesto en cero.Ver mis ingresos",
     );
     expect(screen.queryByText(/Llega después/)).toBeNull();
     sinReproche();
+  });
+
+  // L17 de la US-77, punto 4: la frase de una sola fecha también en PN-07, bajo «Llega después» o «Por confirmar».
+  it("con ingreso bajo y una fecha esperada: «Llega después» y, debajo, «… se suma cuando llegue.»", async () => {
+    api([
+      {
+        ...bajo,
+        resumen: { ...bajo.resumen, llega_despues_centavos: 120000000 },
+        llega_despues: [salarioEsperado],
+      },
+    ]);
+    await abrir();
+    expect(tarjeta("Tu presupuesto este mes")).toHaveTextContent(
+      [
+        "Tu presupuesto este mes",
+        "Ingreso registrado$150.000",
+        "Asignado$160.000",
+        "Llega después: $1.200.000 (esperado)",
+        "Salario del 16 de noviembre de 2026 se suma cuando llegue.",
+        "Lo asignado supera por $10.000 lo que registraste. Se actualiza cuando registres más ingresos.",
+        "Ver mis ingresos",
+      ].join(""),
+    );
+    sinReproche();
+  });
+
+  it("con ingreso nulo, una fecha esperada y dos por confirmar: solo la frase de la esperada", async () => {
+    api([
+      {
+        ...nulo(),
+        resumen: {
+          ...nulo().resumen,
+          llega_despues_centavos: 120000000,
+          por_confirmar_centavos: 60000000,
+        },
+        llega_despues: [
+          salarioEsperado,
+          { ...salarioPorConfirmar, monto_centavos: 30000000 },
+          {
+            ...salarioPorConfirmar,
+            fecha: "2026-11-02",
+            monto_centavos: 30000000,
+          },
+        ],
+      },
+    ]);
+    await abrir();
+    expect(tarjeta("Tu presupuesto este mes")).toHaveTextContent(
+      [
+        "Ingreso registrado$0",
+        "Llega después: $1.200.000 (esperado)",
+        "Por confirmar: $600.000",
+        "Salario del 16 de noviembre de 2026 se suma cuando llegue.",
+        "Puedes repartir lo que llegue o dejar el presupuesto en cero.",
+      ].join(""),
+    );
+    expect(screen.queryByText(/cuando lo confirmes/)).toBeNull();
+    sinReproche();
+  });
+
+  it("en PN-07 los números de la frase van en Figtree (D-123)", async () => {
+    api([
+      {
+        ...nulo(),
+        resumen: { ...nulo().resumen, por_confirmar_centavos: 120000000 },
+        llega_despues: [salarioPorConfirmar],
+      },
+    ]);
+    await abrir();
+    const frase = screen.getByText(
+      porTexto(
+        "Salario del 1 de noviembre de 2026 se suma cuando lo confirmes.",
+      ),
+    );
+    expect(
+      Array.from(frase.querySelectorAll(".cifra"), (c) => c.textContent),
+    ).toEqual(["1", "2026"]);
   });
 
   it("con ingreso bajo: las dos filas y la frase de E14, sin «Dejar el presupuesto en cero»", async () => {
@@ -576,6 +670,25 @@ describe("PN-07 · Presupuesto con ingreso bajo o nulo (E14-PPA 4.2)", () => {
       expect(screen.queryByText("Dejar el presupuesto en cero")).toBeNull(),
     );
     expect(document.activeElement).toHaveAttribute("id", "titulo-de-pagina");
+    sinReproche();
+  });
+
+  // Ya era así antes de L17: sin hoja, el aviso queda en la pantalla, con el foco, y un 409 vuelve a pedir la pantalla.
+  it("con un 409 al dejar en cero vuelve a pedir la pantalla y avisa en la pantalla, con el foco en el aviso", async () => {
+    const pedidos = api([nulo(), bajo], () =>
+      json(409, { error: "periodo_con_ingreso_o_presupuesto" }),
+    );
+    await abrir();
+    fireEvent.click(boton("Dejar el presupuesto en cero"));
+    const aviso = (
+      await screen.findByText("No pudimos guardar el presupuesto.")
+    ).closest(".aviso")!;
+    expect(aviso).toHaveFocus();
+    await waitFor(() => expect(lecturasDelPresupuesto(pedidos)).toBe(2));
+    await waitFor(() =>
+      expect(screen.queryByText("Dejar el presupuesto en cero")).toBeNull(),
+    );
+    expect(escrituras(pedidos)).toHaveLength(1);
     sinReproche();
   });
 
@@ -814,11 +927,205 @@ describe("Hojas «Poner presupuesto», «Corregir» y «Quitar» (E14-PPA 4.1)",
     ]);
   });
 
+  it("«Poner presupuesto» desde «Agregar otra categoría»: un 409 también cierra la hoja y avisa en la pantalla", async () => {
+    const pedidos = api([laura], () =>
+      json(409, { error: "presupuesto_compartido" }),
+    );
+    await abrir();
+    fireEvent.click(boton("Agregar otra categoría"));
+    fireEvent.click(boton("Servicios públicos"));
+    const h = hoja("Presupuesto de Servicios públicos");
+    fireEvent.change(within(h).getByLabelText("Monto para noviembre"), {
+      target: { value: "400.000" },
+    });
+    fireEvent.click(within(h).getByRole("button", { name: "Guardar" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(avisoEnLaPantalla()).toHaveFocus();
+    await waitFor(() => expect(lecturasDelPresupuesto(pedidos)).toBe(2));
+  });
+
   it("un mes que no es el en curso (`editable` falso) no ofrece poner, corregir, quitar ni agregar", async () => {
     api([{ ...laura, editable: false }]);
     await abrir();
     expect(screen.queryByText("Corregir")).toBeNull();
     expect(screen.queryByText("Poner presupuesto")).toBeNull();
     expect(screen.queryByText("Agregar otra categoría")).toBeNull();
+  });
+});
+
+// L17 de la US-77, punto 1: un 404 o un 409 dice que la hoja tenía datos viejos (el presupuesto ya no existe, el mes
+// cambió o la categoría tiene uno compartido). La hoja se cierra, la pantalla se vuelve a pedir y el aviso de E14 queda
+// en la pantalla, con el foco, como el de «Más» de la US-60. Repetir el intento exige volver a abrir la hoja.
+describe("Hoja con datos viejos: un 404 o un 409 al poner, corregir o quitar (L17 de la US-77, punto 1)", () => {
+  const acciones = {
+    poner: {
+      abridor: "Poner presupuesto a Arriendo o cuota de vivienda",
+      hoja: "Presupuesto de Arriendo o cuota de vivienda",
+      monto: "650.000",
+      confirmar: "Guardar",
+      pedido: { metodo: "POST", ruta: "/api/v1/presupuestos" },
+    },
+    corregir: {
+      abridor: "Corregir el presupuesto de Transporte",
+      hoja: "Corregir el presupuesto de Transporte",
+      monto: "45.000",
+      confirmar: "Guardar",
+      pedido: { metodo: "PUT", ruta: "/api/v1/presupuestos/p8" },
+    },
+    quitar: {
+      abridor: "Quitar el presupuesto de Transporte",
+      hoja: "¿Quitar el presupuesto de Transporte?",
+      monto: null,
+      confirmar: "Quitar presupuesto",
+      pedido: { metodo: "DELETE", ruta: "/api/v1/presupuestos/p8" },
+    },
+  };
+  const fallos = [
+    [404, "no_encontrado"],
+    [409, "periodo_no_editable"],
+    [409, "presupuesto_compartido"],
+  ] as const;
+
+  describe.each(Object.entries(acciones))("«%s»", (_accion, a) => {
+    it.each(fallos)(
+      "con %i %s: cierra la hoja, vuelve a pedir la pantalla y deja el aviso en la pantalla con el foco",
+      async (estado, codigo) => {
+        const pedidos = api([laura], () => json(estado, { error: codigo }));
+        await abrir();
+        fireEvent.click(boton(a.abridor));
+        if (a.monto) escribirMonto(a.monto);
+        fireEvent.click(
+          within(hoja(a.hoja)).getByRole("button", { name: a.confirmar }),
+        );
+        await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+        const aviso = avisoEnLaPantalla();
+        expect(aviso).toHaveTextContent(
+          "No pudimos guardar el presupuesto.Tus datos están a salvo. Intenta de nuevo.",
+        );
+        expect(aviso).toHaveFocus();
+        await waitFor(() => expect(lecturasDelPresupuesto(pedidos)).toBe(2));
+        expect(
+          escrituras(pedidos).map(({ metodo, ruta }) => ({ metodo, ruta })),
+        ).toEqual([a.pedido]);
+        // No fue un éxito: ningún «Listo, …» por la región viva.
+        expect(screen.queryByText(/^Listo,/)).toBeNull();
+      },
+    );
+  });
+
+  it("el aviso se va con la siguiente escritura", async () => {
+    let respuesta = json(404, { error: "no_encontrado" });
+    api([laura], () => respuesta);
+    await abrir();
+    fireEvent.click(boton("Quitar el presupuesto de Transporte"));
+    fireEvent.click(boton("Quitar presupuesto"));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    avisoEnLaPantalla();
+    respuesta = json(201, {});
+    fireEvent.click(boton("Poner presupuesto a Arriendo o cuota de vivienda"));
+    escribirMonto("650.000");
+    fireEvent.click(boton("Guardar"));
+    await screen.findByText(
+      "Listo, guardamos tu presupuesto de Arriendo o cuota de vivienda.",
+    );
+    expect(screen.queryByText("No pudimos guardar el presupuesto.")).toBeNull();
+  });
+
+  // Diciembre empezó entre abrir la hoja y «Guardar»: el API responde 409 y la pantalla vuelve con diciembre.
+  const diciembre = {
+    ...datos(
+      {
+        ...laura.resumen,
+        ingreso_registrado_centavos: 0,
+        asignado_centavos: 0,
+        sin_asignar_centavos: 0,
+        llega_despues_centavos: 0,
+      },
+      [sinPresupuesto(4, 0)],
+    ),
+    periodo_actual: "2026-12",
+    periodo: "2026-12",
+  };
+
+  it("si cambió el mes, la pantalla muestra el mes nuevo y nada se guarda en él hasta que la persona vuelva a poner", async () => {
+    let n = 0;
+    const pedidos = api([laura, diciembre], () =>
+      n++ === 0 ? json(409, { error: "periodo_no_editable" }) : json(201, {}),
+    );
+    await abrir();
+    fireEvent.click(boton("Poner presupuesto a Arriendo o cuota de vivienda"));
+    escribirMonto("650.000");
+    fireEvent.click(boton("Guardar"));
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Presupuesto de diciembre",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(avisoEnLaPantalla()).toBeInTheDocument();
+    expect(escrituras(pedidos)).toHaveLength(1);
+    // La persona vuelve a poner: ahora sí, en diciembre.
+    fireEvent.click(boton("Poner presupuesto a Arriendo o cuota de vivienda"));
+    expect(screen.getByLabelText("Monto para diciembre")).toHaveValue("");
+    escribirMonto("650.000", "diciembre");
+    fireEvent.click(boton("Guardar"));
+    await screen.findByText(
+      "Listo, guardamos tu presupuesto de Arriendo o cuota de vivienda.",
+    );
+    expect(escrituras(pedidos).map((p) => p.cuerpo)).toEqual([
+      { periodo: "2026-11", categoria_id: 4, monto_centavos: 65000000 },
+      { periodo: "2026-12", categoria_id: 4, monto_centavos: 65000000 },
+    ]);
+  });
+
+  it("una hoja abierta antes de que llegue el mes nuevo sigue con su mes: «Guardar» no pone nada en el mes nuevo", async () => {
+    let lecturas = 0;
+    let soltar: (r: Response) => void = () => undefined;
+    const pedidos = simularApi((p) => {
+      if (p.ruta === "/api/v1/categorias") return json(200, catalogo);
+      if (p.metodo === "GET") {
+        lecturas++;
+        if (lecturas === 1) return json(200, laura);
+        if (lecturas === 2) return new Promise<Response>((r) => (soltar = r));
+        return json(200, diciembre);
+      }
+      return json(409, { error: "periodo_no_editable" });
+    });
+    await abrir();
+    fireEvent.click(boton("Poner presupuesto a Arriendo o cuota de vivienda"));
+    escribirMonto("650.000");
+    fireEvent.click(boton("Guardar"));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    // Con la pantalla de noviembre todavía a la vista, la persona abre otra vez la hoja; después llega diciembre.
+    fireEvent.click(boton("Poner presupuesto a Arriendo o cuota de vivienda"));
+    soltar(json(200, diciembre));
+    await screen.findByRole("heading", {
+      level: 1,
+      name: "Presupuesto de diciembre",
+    });
+    const h = hoja("Presupuesto de Arriendo o cuota de vivienda");
+    expect(
+      within(h).getByLabelText("Monto para noviembre"),
+    ).toBeInTheDocument();
+    escribirMonto("650.000");
+    fireEvent.click(within(h).getByRole("button", { name: "Guardar" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(
+      escrituras(pedidos).map((p) => (p.cuerpo as { periodo: string }).periodo),
+    ).toEqual(["2026-11", "2026-11"]);
+  });
+
+  it("otro fallo (500 o sin conexión) deja la hoja abierta con el aviso dentro, sin volver a pedir la pantalla", async () => {
+    const pedidos = api([laura], () => json(500, { error: "error_interno" }));
+    await abrir();
+    fireEvent.click(boton("Corregir el presupuesto de Transporte"));
+    fireEvent.click(boton("Guardar"));
+    const h = hoja("Corregir el presupuesto de Transporte");
+    const aviso = (
+      await within(h).findByText("No pudimos guardar el presupuesto.")
+    ).closest(".aviso");
+    expect(aviso).toHaveFocus();
+    expect(lecturasDelPresupuesto(pedidos)).toBe(1);
   });
 });

@@ -1,8 +1,9 @@
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState, type Ref, type RefObject } from 'react';
+import { StyleSheet, Text, View, type HostInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useLlevarFoco } from '../anuncios';
 import type { Respuesta } from '../api/cliente';
 import {
   corregirPresupuesto,
@@ -47,7 +48,18 @@ type Estado =
   | { fase: 'listo'; datos: PresupuestoDelPeriodo; gasto: CategoriaDelApi[] };
 
 /** La hoja abierta: la de una fila de «Por categoría» o la de una categoría de «Agregar otra categoría». */
-type HojaAbierta = { tipo: 'monto' | 'quitar'; categoriaId: number; presupuesto: CategoriaDelPresupuesto['presupuesto'] };
+type HojaAbierta = {
+  tipo: 'monto' | 'quitar';
+  /** El mes que se veía al abrirla: «Guardar» pone ahí, nunca en un mes que llegó después (L17 de la US-77, punto 1). */
+  periodo: string;
+  categoriaId: number;
+  presupuesto: CategoriaDelPresupuesto['presupuesto'];
+  /** El botón que la abrió: ahí vuelve el foco de TalkBack al cerrarla (L17 de la US-77, punto 3). */
+  abridor: RefObject<HostInstance | null>;
+};
+
+/** Lo que manda una fila o «Agregar otra categoría» al abrir una hoja; el mes lo pone la pantalla. */
+type PedidoDeHoja = Omit<HojaAbierta, 'periodo'>;
 
 type Fallo = Extract<Respuesta<unknown>, { ok: false }>;
 
@@ -81,8 +93,17 @@ export function FilaConValor({ etiqueta, centavos, grande = false }: { etiqueta:
 
 // La tarjeta «Tu presupuesto este mes»: la de PN-06 con `normal` y la de PN-07 con un ingreso bajo o nulo (D-094, P-3).
 // Describe sin calificar: sin Atención, sin rojo y sin signo menos (RNF-017). «Llega después» y «Por confirmar» son dos
-// líneas, cada una solo con su total mayor que cero y leída en pesos (L14 de la US-77, D-187).
-function Resumen({ datos, alVerIngresos }: { datos: PresupuestoDelPeriodo; alVerIngresos: () => void }) {
+// líneas, cada una solo con su total mayor que cero y leída en pesos (L14 de la US-77, D-187). `refDelTitulo` es para
+// llevar el foco de TalkBack a su título después de guardar (L17 de la US-77, punto 3).
+function Resumen({
+  datos,
+  refDelTitulo,
+  alVerIngresos,
+}: {
+  datos: PresupuestoDelPeriodo;
+  refDelTitulo: Ref<HostInstance>;
+  alVerIngresos: () => void;
+}) {
   const r = datos.resumen;
   const llegaDespues = BigInt(r.llega_despues_centavos) > 0n;
   const porConfirmar = BigInt(r.por_confirmar_centavos) > 0n;
@@ -90,7 +111,7 @@ function Resumen({ datos, alVerIngresos }: { datos: PresupuestoDelPeriodo; alVer
   const supera = r.asignado_supera_por_centavos;
   const cuenta = [t.resumen.cuentaLoRegistrado, frase].filter(Boolean).join(' ');
   return (
-    <Tarjeta titulo={t.resumen.titulo}>
+    <Tarjeta titulo={t.resumen.titulo} refDelTitulo={refDelTitulo}>
       <FilaConValor
         etiqueta={t.resumen.ingresoRegistrado}
         centavos={r.ingreso_registrado_centavos}
@@ -112,9 +133,9 @@ function Resumen({ datos, alVerIngresos }: { datos: PresupuestoDelPeriodo; alVer
           {formatear(t.resumen.porConfirmar, { monto: pesos(r.por_confirmar_centavos) })}
         </Texto>
       )}
-      {r.modo === 'normal' && (
-        <Texto variante="ayuda">{cuenta}</Texto>
-      )}
+      {/* En PN-07 la frase va sola, bajo «Llega después» o «Por confirmar» (L17 de la US-77, punto 4). */}
+      {r.modo !== 'normal' && frase && <Texto variante="ayuda">{frase}</Texto>}
+      {r.modo === 'normal' && <Texto variante="ayuda">{cuenta}</Texto>}
       {r.modo === 'ingreso_bajo' && supera && (
         <Texto etiqueta={formatear(t.resumen.bajo, { monto: pesosHablados(supera) })}>
           {formatear(t.resumen.bajo, { monto: pesos(supera) })}
@@ -136,9 +157,15 @@ export function Presupuesto({ navigation, route }: NativeStackScreenProps<Rutas,
   const [hoja, setHoja] = useState<HojaAbierta | null>(null);
   const [avisoDeHoja, setAvisoDeHoja] = useState<DatosDeAviso | null>(null);
   const [avisoDeEnCero, setAvisoDeEnCero] = useState<DatosDeAviso | null>(null);
+  const [avisoDePantalla, setAvisoDePantalla] = useState<DatosDeAviso | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [verOtras, setVerOtras] = useState(false);
   const margenes = useSafeAreaInsets();
+  // A dónde vuelve el foco de TalkBack al cerrar una hoja (L17 de la US-77, punto 3).
+  const llevarFoco = useLlevarFoco();
+  const tituloDelResumen = useRef<HostInstance>(null);
+  const agregarOtra = useRef<HostInstance>(null);
+  const refDelAvisoDePantalla = useRef<HostInstance>(null);
 
   // Cada pedido lleva su número: solo el último pinta.
   const ultimo = useRef(0);
@@ -159,7 +186,6 @@ export function Presupuesto({ navigation, route }: NativeStackScreenProps<Rutas,
 
   const datos = estado.fase === 'listo' ? estado.datos : null;
   const periodo = datos?.periodo;
-  const mes = mesEnMinuscula(periodo ?? '');
   // El título de la barra sale del mes que manda el API.
   useEffect(() => {
     if (periodo) navigation.setOptions({ title: formatear(t.titulo, { mes: mesEnMinuscula(periodo) }) });
@@ -168,27 +194,47 @@ export function Presupuesto({ navigation, route }: NativeStackScreenProps<Rutas,
   const empezar = () => {
     setAvisoDeHoja(null);
     setAvisoDeEnCero(null);
+    setAvisoDePantalla(null);
     navigation.setParams({ aviso: undefined });
     setEnviando(true);
   };
+  // Al cancelar (Ahora no, Cerrar, el velo o el Atrás), el foco vuelve al botón que abrió la hoja.
+  const cerrar = () => {
+    if (hoja) llevarFoco(hoja.abridor);
+    setHoja(null);
+  };
   // Después de guardar se cierra la hoja, el aviso queda arriba y se vuelve a pedir el presupuesto sin vaciar la pantalla.
+  // El foco va al título del resumen: el título de la barra es nativo y no recibe el foco desde la app.
   const terminar = (aviso: DatosDeAviso) => {
     setHoja(null);
     navigation.setParams({ aviso });
     cargar();
+    llevarFoco(tituloDelResumen);
   };
-  // El presupuesto ya no existe (404) o el mes cambió (409): se vuelve a pedir. La hoja sigue abierta con el aviso.
+  // Un 404 o un 409 dice que la hoja tenía datos viejos: el presupuesto ya no existe, el mes cambió o la categoría tiene
+  // uno compartido (L17 de la US-77, punto 1). La hoja se cierra, la pantalla se vuelve a pedir y el aviso queda en ella,
+  // arriba de «Por categoría», con el foco de TalkBack, como en la web: repetir exige abrir la hoja otra vez, con lo que
+  // entonces se ve. No se anuncia aparte (`viva={false}`): TalkBack lo lee al recibir el foco, como el error de la
+  // repetición en Registrar. Otro fallo (500, sin conexión) deja la hoja abierta con lo escrito y el aviso dentro, que
+  // se dice por la región viva de la hoja.
   const fallarEnLaHoja = (respuesta: Fallo) => {
-    if (respuesta.estado === 404 || respuesta.estado === 409) cargar();
-    setAvisoDeHoja(avisoDeFallo(respuesta, avisosDePresupuesto.errorAlGuardar()));
+    const aviso = avisoDeFallo(respuesta, avisosDePresupuesto.errorAlGuardar());
+    if (respuesta.estado === 404 || respuesta.estado === 409) {
+      setHoja(null);
+      setAvisoDePantalla(aviso);
+      cargar();
+      llevarFoco(refDelAvisoDePantalla);
+      return;
+    }
+    setAvisoDeHoja(aviso);
   };
 
   async function guardar(centavos: bigint): Promise<string | undefined> {
-    if (!hoja || !datos || enviando) return undefined;
+    if (!hoja || enviando) return undefined;
     empezar();
     const respuesta = hoja.presupuesto
       ? await corregirPresupuesto(hoja.presupuesto.id, centavos)
-      : await ponerPresupuesto(datos.periodo, hoja.categoriaId, centavos);
+      : await ponerPresupuesto(hoja.periodo, hoja.categoriaId, centavos);
     setEnviando(false);
     if (respuesta.ok) {
       terminar(avisosDePresupuesto.guardamos(nombreDeCategoria(hoja.categoriaId)));
@@ -221,9 +267,10 @@ export function Presupuesto({ navigation, route }: NativeStackScreenProps<Rutas,
     setAvisoDeEnCero(avisoDeFallo(respuesta, avisosDePresupuesto.errorAlGuardar()));
   }
 
-  const abrir = (nueva: HojaAbierta) => {
+  const abrir = (nueva: PedidoDeHoja) => {
+    if (!datos) return;
     setAvisoDeHoja(null);
-    setHoja(nueva);
+    setHoja({ ...nueva, periodo: datos.periodo });
   };
   // «Registrar» y «Registrar un ingreso» abren el formulario vacío (D-164); el segundo, con Tipo «Ingreso».
   const registrar = (ingreso: boolean) => {
@@ -257,7 +304,11 @@ export function Presupuesto({ navigation, route }: NativeStackScreenProps<Rutas,
         )}
         {datos && r && (
           <>
-            <Resumen datos={datos} alVerIngresos={() => navigation.navigate('IngresosDelPeriodo')} />
+            <Resumen
+              datos={datos}
+              refDelTitulo={tituloDelResumen}
+              alVerIngresos={() => navigation.navigate('IngresosDelPeriodo')}
+            />
             {r.modo !== 'normal' && (
               <Boton variante="secundario" alTocar={() => registrar(true)}>
                 {t.registrarUnIngreso}
@@ -269,9 +320,10 @@ export function Presupuesto({ navigation, route }: NativeStackScreenProps<Rutas,
                 {t.resumen.dejarEnCero}
               </BotonDeTexto>
             )}
+            {avisoDePantalla && <Aviso ref={refDelAvisoDePantalla} {...avisoDePantalla} viva={false} />}
             <PorCategoria datos={datos} alAbrir={abrir} />
             {datos.editable && (
-              <Boton variante="secundario" alTocar={() => setVerOtras(true)}>
+              <Boton ref={agregarOtra} variante="secundario" alTocar={() => setVerOtras(true)}>
                 {t.categorias.agregarOtra}
               </Boton>
             )}
@@ -285,23 +337,26 @@ export function Presupuesto({ navigation, route }: NativeStackScreenProps<Rutas,
           están en «Por categoría». Sin «Elegir cuáles ver»: PN-05 no está construida. */}
       <HojaDeElecciones
         visible={verOtras}
-        alCerrar={() => setVerOtras(false)}
+        alCerrar={() => {
+          setVerOtras(false);
+          llevarFoco(agregarOtra);
+        }}
         opciones={otras.map((c) => ({ valor: c.id, etiqueta: nombreDeCategoria(c.id) }))}
         valor={null}
         alElegir={(categoriaId) => {
           setVerOtras(false);
-          abrir({ tipo: 'monto', categoriaId, presupuesto: null });
+          abrir({ tipo: 'monto', categoriaId, presupuesto: null, abridor: agregarOtra });
         }}
       />
       {hoja?.tipo === 'monto' && (
         <HojaDeMontoDelPresupuesto
           titulo={formatear(hoja.presupuesto ? t.hoja.tituloCorregir : t.hoja.titulo, { categoria: categoriaDeLaHoja })}
-          mes={mes}
+          mes={mesEnMinuscula(hoja.periodo)}
           montoInicial={hoja.presupuesto ? formatearPesos(BigInt(hoja.presupuesto.monto_centavos)) : ''}
           aviso={avisoDeHoja}
           enviando={enviando}
           alGuardar={guardar}
-          alCerrar={() => setHoja(null)}
+          alCerrar={cerrar}
         />
       )}
       {hoja?.tipo === 'quitar' && (
@@ -310,7 +365,7 @@ export function Presupuesto({ navigation, route }: NativeStackScreenProps<Rutas,
           aviso={avisoDeHoja}
           enviando={enviando}
           alQuitar={() => void quitar()}
-          alCerrar={() => setHoja(null)}
+          alCerrar={cerrar}
         />
       )}
     </View>
@@ -318,7 +373,7 @@ export function Presupuesto({ navigation, route }: NativeStackScreenProps<Rutas,
 }
 
 // «Por categoría» (E14-PPA 4.1, fila 4): primero las que tienen presupuesto y después las demás, en el orden del API.
-function PorCategoria({ datos, alAbrir }: { datos: PresupuestoDelPeriodo; alAbrir: (hoja: HojaAbierta) => void }) {
+function PorCategoria({ datos, alAbrir }: { datos: PresupuestoDelPeriodo; alAbrir: (hoja: PedidoDeHoja) => void }) {
   const sinGastos = datos.resumen.modo === 'ingreso_nulo' && datos.categorias.length === 0;
   const sinPresupuestos = !datos.categorias.some((c) => c.presupuesto);
   return (
@@ -341,7 +396,8 @@ function PorCategoria({ datos, alAbrir }: { datos: PresupuestoDelPeriodo; alAbri
 }
 
 // Una fila de «Por categoría»: lo que dice es un solo elemento para TalkBack, con los montos en pesos, y sus botones de
-// texto de 48 dp van aparte, con el nombre de la categoría en su nombre accesible (D-094, SC-E21-13).
+// texto de 48 dp van aparte, con el nombre de la categoría en su nombre accesible (D-094, SC-E21-13). Cada botón guarda su
+// referencia: la hoja que abre le devuelve el foco al cerrarse (L17 de la US-77, punto 3).
 function FilaDeCategoria({
   categoria: c,
   editable,
@@ -349,11 +405,14 @@ function FilaDeCategoria({
 }: {
   categoria: CategoriaDelPresupuesto;
   editable: boolean;
-  alAbrir: (hoja: HojaAbierta) => void;
+  alAbrir: (hoja: PedidoDeHoja) => void;
 }) {
   const tx = textosDeCategoria(c);
-  const abrir = (tipo: HojaAbierta['tipo']) => () =>
-    alAbrir({ tipo, categoriaId: c.categoria_id, presupuesto: c.presupuesto });
+  const poner = useRef<HostInstance>(null);
+  const corregir = useRef<HostInstance>(null);
+  const quitar = useRef<HostInstance>(null);
+  const abrir = (tipo: HojaAbierta['tipo'], abridor: RefObject<HostInstance | null>) =>
+    alAbrir({ tipo, categoriaId: c.categoria_id, presupuesto: c.presupuesto, abridor });
   return (
     <View style={estilos.fila}>
       <View accessible accessibilityLabel={tx.etiqueta} accessibilityHint={undefined} style={estilos.columna}>
@@ -368,15 +427,15 @@ function FilaDeCategoria({
         <View style={estilos.acciones}>
           {c.presupuesto ? (
             <>
-              <BotonDeTexto nombre={tx.nombreDeCorregir} alTocar={abrir('monto')}>
+              <BotonDeTexto ref={corregir} nombre={tx.nombreDeCorregir} alTocar={() => abrir('monto', corregir)}>
                 {t.categorias.corregir}
               </BotonDeTexto>
-              <BotonDeTexto nombre={tx.nombreDeQuitar} alTocar={abrir('quitar')}>
+              <BotonDeTexto ref={quitar} nombre={tx.nombreDeQuitar} alTocar={() => abrir('quitar', quitar)}>
                 {t.categorias.quitar}
               </BotonDeTexto>
             </>
           ) : (
-            <BotonDeTexto nombre={tx.nombreDePoner} alTocar={abrir('monto')}>
+            <BotonDeTexto ref={poner} nombre={tx.nombreDePoner} alTocar={() => abrir('monto', poner)}>
               {t.categorias.poner}
             </BotonDeTexto>
           )}

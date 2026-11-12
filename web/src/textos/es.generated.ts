@@ -1013,7 +1013,7 @@ export const textos = {
       porConfirmar: "Por confirmar: {monto}",
       // E14-PPA 4.1 (PN-06), fila 3, texto `tipografia.pequeno` (primera frase)
       cuentaLoRegistrado: "Sin asignar cuenta lo que ya registraste.",
-      // Propuesto en la US-77 (T3, web), pendiente de aprobación del dueño: E14 no tiene el texto. Sale de E14-PPA 4.1 (PN-06), fila 3 («El salario del 16 de noviembre de 2026 se suma cuando llegue.»), con el nombre de la categoría tal cual; solo con una fecha esperada
+      // Propuesto en la US-77 (T3, web) y aprobado por el dueño (L14 de la US-77, punto 3, 2026-11-11): E14 no tiene el texto. Sale de E14-PPA 4.1 (PN-06), fila 3 («El salario del 16 de noviembre de 2026 se suma cuando llegue.»), con el nombre de la categoría tal cual; solo con una fecha esperada
       seSumaCuandoLlegue: "{nombre} del {fecha} se suma cuando llegue.",
       // Aprobado por el dueño (L14 de la US-77, punto 4, 2026-11-11): E14-PPA 4.1 (PN-06), fila 3, nota fechada del 2026-11-11; solo con una fecha por confirmar
       seSumaCuandoLoConfirmes: "{nombre} del {fecha} se suma cuando lo confirmes.",
@@ -1053,9 +1053,9 @@ export const textos = {
       corregir: "Corregir",
       // E14-PPA 4.1 (PN-06), «Cómo se arma cada fila», Acción con presupuesto (D-094)
       quitar: "Quitar",
-      // Propuesto en la US-77 (T3, web), pendiente de aprobación del dueño: E14 no tiene el texto. E14-PPA 4.1 (PN-06) pide el nombre de la categoría en el nombre accesible de «Poner presupuesto» (RNF-019, criterio 6)
+      // Propuesto en la US-77 (T3, web) y aprobado por el dueño (L17 de la US-77, 2026-11-11): E14 no tiene el texto. E14-PPA 4.1 (PN-06) pide el nombre de la categoría en el nombre accesible de «Poner presupuesto» (RNF-019, criterio 6)
       nombreDePoner: "Poner presupuesto a {categoria}",
-      // Propuesto en la US-77 (T3, web), pendiente de aprobación del dueño: E14 no tiene el texto. E14-PPA 4.1 (PN-06) pide el nombre de la categoría en el nombre accesible de «Quitar» (SC-E21-13); sale del título de la hoja «¿Quitar el presupuesto de Transporte?»
+      // Propuesto en la US-77 (T3, web) y aprobado por el dueño (L17 de la US-77, 2026-11-11): E14 no tiene el texto. E14-PPA 4.1 (PN-06) pide el nombre de la categoría en el nombre accesible de «Quitar» (SC-E21-13); sale del título de la hoja «¿Quitar el presupuesto de Transporte?»
       nombreDeQuitar: "Quitar el presupuesto de {categoria}",
       // E14-PPA 4.1 (PN-06), fila 5 (abre «Ver todas» de E14-PPN 3.1)
       agregarOtra: "Agregar otra categoría",

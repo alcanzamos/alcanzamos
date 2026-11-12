@@ -127,9 +127,11 @@ describe("PN-71 · Seguridad de la cuenta", () => {
     simularApi(() => json(200, { ingreso_anterior: null }));
     render(<SeguridadDeLaCuenta />);
     await screen.findByText("Este es tu primer ingreso.");
-    const enlace = screen.getByRole("link", { name: "Presupuesto" });
-    expect(enlace).toHaveAttribute("href", "/presupuesto");
     // El de PN-71, no el destino de la Navegación lateral.
+    const enlace = within(screen.getByRole("main")).getByRole("link", {
+      name: "Presupuesto",
+    });
+    expect(enlace).toHaveAttribute("href", "/presupuesto");
     expect(enlace).toHaveClass(
       within(screen.getByRole("main")).getByRole("link", {
         name: "Movimientos",

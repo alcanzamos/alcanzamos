@@ -177,13 +177,13 @@ type Contesta = () => Response | Promise<Response>;
 
 /**
  * PN-71, las categorías, el presupuesto, los ingresos y lo que piden PN-01 y el formulario. `presupuesto` es lo que contesta el GET
- * (una función, si cambia con cada pedido); `poner`, `corregir`, `quitar` y `enCero` contestan el POST, el PUT, el
+ * (una función, si cambia con cada pedido, que puede devolver una promesa para dejar el pedido en espera); `poner`, `corregir`, `quitar` y `enCero` contestan el POST, el PUT, el
  * DELETE y el POST de la marca (por defecto `201`, `200`, `204` y `204`). Devuelve los pedidos, en orden.
  */
 export function apiDelPresupuesto(
   respuestaJson: Respuesta,
   opciones: {
-    presupuesto?: PresupuestoDelPeriodo | (() => PresupuestoDelPeriodo | Response);
+    presupuesto?: PresupuestoDelPeriodo | (() => PresupuestoDelPeriodo | Response | Promise<Response>);
     /** Lo que contesta `GET /api/v1/ingresos`, según el periodo pedido (`null` sin periodo). */
     ingresos?: (periodo: string | null) => IngresosDelPeriodo | Response;
     /** Los `POST` de «Por confirmar» de la US-60 (por defecto `500`). */
@@ -214,7 +214,7 @@ export function apiDelPresupuesto(
       return opciones.publicar ? opciones.publicar(ruta, String(init.body)) : respuestaJson(500, { error: 'interno' });
     if (ruta === '/api/v1/presupuestos/en-cero') return opciones.enCero?.() ?? respuestaJson(204);
     if (ruta === '/api/v1/presupuestos' && metodo === 'GET') {
-      const actual = typeof presupuesto === 'function' ? presupuesto() : presupuesto;
+      const actual = await (typeof presupuesto === 'function' ? presupuesto() : presupuesto);
       return 'status' in actual ? actual : respuestaJson(200, actual);
     }
     if (metodo === 'POST') return opciones.poner?.() ?? respuestaJson(201, {});

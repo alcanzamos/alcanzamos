@@ -49,6 +49,8 @@ type Estado =
 /** La hoja abierta: la de una fila de «Por categoría» o la de una categoría de «Agregar otra categoría». */
 type HojaAbierta = {
   tipo: "monto" | "quitar";
+  /** El mes que se veía al abrirla: «Guardar» pone ahí, nunca en un mes que llegó después (L17 de la US-77, punto 1). */
+  periodo: string;
   categoriaId: number;
   presupuesto: CategoriaDelPresupuesto["presupuesto"];
   desdeOtra: boolean;
@@ -59,6 +61,8 @@ type HojaAbierta = {
 type Fallo = Extract<Respuesta<unknown>, { ok: false }>;
 
 const t = textos.presupuesto;
+
+const ID_DEL_AVISO_DE_LA_PANTALLA = "aviso-de-la-pantalla";
 
 /** Un `422` que solo señala el monto va al campo, con el texto de E14-PPN 3.1; lo demás es un aviso. */
 function errorDelMonto(respuesta: Fallo): string | undefined {
@@ -154,6 +158,8 @@ function Resumen({ datos }: { datos: PresupuestoDelPeriodo }) {
           )}
         </p>
       )}
+      {/* En PN-07 la frase va sola, bajo «Llega después» o «Por confirmar» (L17 de la US-77, punto 4). */}
+      {r.modo !== "normal" && frase && <p className="ayuda">{cifras(frase)}</p>}
       {r.modo === "normal" && (
         <p className="ayuda">
           {t.resumen.cuentaLoRegistrado}
@@ -180,8 +186,8 @@ function Resumen({ datos }: { datos: PresupuestoDelPeriodo }) {
 // PN-06 · Presupuesto del periodo por categorías y PN-07 con un ingreso bajo o nulo (E14-PPA 4.1 y 4.2): una sola ruta,
 // el destino «Presupuesto», que cambia la tarjeta de resumen según el modo del API. Siempre el mes en curso (D-094).
 // Variante web: dos columnas, el resumen (5/12) y «Por categoría» (7/12); por debajo de 768 px, la columna de Android.
-// Desde 768 px, «Registrar» es el de la Navegación lateral (E14-SDD 5.13), sin destino activo mientras falte
-// «Presupuesto»; por debajo, el botón de arriba del resumen. Sin «Para mirar con calma» (L3 de la US-77, punto 1).
+// Desde 768 px, «Registrar» es el de la Navegación lateral (E14-SDD 5.13), con «Presupuesto» activo (E14-PPA 4.1,
+// variante web); por debajo, el botón de arriba del resumen. Sin «Para mirar con calma» (L3 de la US-77, punto 1).
 export function Presupuesto() {
   const [estado, setEstado] = useState<Estado>({ fase: "cargando" });
   const [intento, setIntento] = useState(0);
@@ -191,6 +197,9 @@ export function Presupuesto() {
   const [errorDeMonto, setErrorDeMonto] = useState<string>();
   const [avisoDeHoja, setAvisoDeHoja] = useState<DatosDeAviso | null>(null);
   const [avisoDeEnCero, setAvisoDeEnCero] = useState<DatosDeAviso | null>(null);
+  const [avisoDePantalla, setAvisoDePantalla] = useState<DatosDeAviso | null>(
+    null,
+  );
   const [enviando, setEnviando] = useState(false);
   const [verOtras, setVerOtras] = useState(false);
   const pedirFoco = useFocoPendiente();
@@ -227,8 +236,9 @@ export function Presupuesto() {
   // Después de guardar se vuelve a pedir el presupuesto sin vaciar la pantalla.
   const refrescar = () => setIntento((n) => n + 1);
 
-  const abrir = (nueva: HojaAbierta) => {
-    setHoja(nueva);
+  const abrir = (nueva: Omit<HojaAbierta, "periodo">) => {
+    if (!datos) return;
+    setHoja({ ...nueva, periodo: datos.periodo });
     setMonto(
       nueva.presupuesto
         ? formatearPesos(BigInt(nueva.presupuesto.monto_centavos))
@@ -250,18 +260,29 @@ export function Presupuesto() {
   const empezar = () => {
     setAvisoDeHoja(null);
     setAvisoDeEnCero(null);
+    setAvisoDePantalla(null);
     setAviso(null);
     setEnviando(true);
   };
-  // El presupuesto ya no existe (404) o el mes cambió (409): se vuelve a pedir. La hoja sigue abierta con el aviso.
+  // Un 404 o un 409 dice que la hoja tenía datos viejos: el presupuesto ya no existe, el mes cambió o la categoría tiene
+  // uno compartido (L17 de la US-77, punto 1). La hoja se cierra, la pantalla se vuelve a pedir y el aviso queda en ella,
+  // con el foco, como el de «Más» de la US-60: repetir exige abrir la hoja otra vez, con lo que entonces se ve. Otro
+  // fallo (500, sin conexión) deja la hoja abierta con lo escrito y el aviso dentro.
   const fallarEnLaHoja = (respuesta: Fallo) => {
-    if (respuesta.estado === 404 || respuesta.estado === 409) refrescar();
-    setAvisoDeHoja(avisoDeFallo(respuesta, avisosDePresupuesto.errorAlGuardar));
+    const aviso = avisoDeFallo(respuesta, avisosDePresupuesto.errorAlGuardar);
+    if (respuesta.estado === 404 || respuesta.estado === 409) {
+      setHoja(null);
+      setAvisoDePantalla(aviso);
+      refrescar();
+      pedirFoco(ID_DEL_AVISO_DE_LA_PANTALLA);
+      return;
+    }
+    setAvisoDeHoja(aviso);
     pedirFoco(ID_DEL_AVISO_DE_LA_HOJA);
   };
 
   async function guardar() {
-    if (!hoja || !datos || enviando) return;
+    if (!hoja || enviando) return;
     const lectura = leerMonto(monto);
     if (!lectura.ok) {
       setErrorDeMonto(textoDelMonto(lectura));
@@ -273,7 +294,7 @@ export function Presupuesto() {
     const respuesta = hoja.presupuesto
       ? await corregirPresupuesto(hoja.presupuesto.id, lectura.centavos)
       : await ponerPresupuesto(
-          datos.periodo,
+          hoja.periodo,
           hoja.categoriaId,
           lectura.centavos,
         );
@@ -336,7 +357,7 @@ export function Presupuesto() {
           hoja.presupuesto ? t.hoja.tituloCorregir : t.hoja.titulo,
           { categoria },
         )}
-        mes={mes}
+        mes={mesEnMinuscula(hoja.periodo)}
         monto={monto}
         error={errorDeMonto}
         aviso={avisoDeHoja}
@@ -419,7 +440,7 @@ export function Presupuesto() {
       titulo={formatear(t.titulo, { mes })}
       estado={aviso}
       registro
-      lateral={{}}
+      lateral={{ activo: "presupuesto" }}
     >
       <div className="presupuesto">
         <div className="presupuesto__columna">
@@ -461,6 +482,9 @@ export function Presupuesto() {
         </div>
         {estado.fase === "listo" && (
           <div className="presupuesto__columna">
+            {avisoDePantalla && (
+              <Aviso id={ID_DEL_AVISO_DE_LA_PANTALLA} {...avisoDePantalla} />
+            )}
             <PorCategoria
               datos={estado.datos}
               filas={estado.datos.categorias.map((c) =>

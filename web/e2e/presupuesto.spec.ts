@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { sinViolaciones } from "./ayudas";
+import { responder, sinViolaciones } from "./ayudas";
 import {
   apiDePresupuesto,
   casos,
@@ -274,9 +274,48 @@ test.describe("PN-06 · Presupuesto del periodo por categorías", () => {
       "Cerrar sesión",
       "Borrar mi cuenta",
     ]);
-    await page.getByRole("link", { name: "Presupuesto" }).click();
+    // El de PN-71, no el destino de la Navegación lateral.
+    await page
+      .getByRole("main")
+      .getByRole("link", { name: "Presupuesto" })
+      .click();
     await expect(page).toHaveURL(/\/presupuesto$/);
     await expect(titulo(page)).toBeFocused();
+    await expect(
+      page.getByRole("navigation").getByRole("link", { name: "Presupuesto" }),
+    ).toHaveAttribute("aria-current", "page");
+  });
+
+  // L17 de la US-77, punto 1: otro dispositivo quitó el presupuesto de Transporte mientras esta pantalla lo mostraba.
+  test("hoja con datos viejos: un 404 al corregir cierra la hoja, vuelve a pedir la pantalla y deja el aviso en ella", async ({
+    page,
+  }) => {
+    const { caso, pedidos } = await apiDePresupuesto(page, casos.laura(), {
+      "PUT /api/v1/presupuestos/p8": responder(404, { error: "no_encontrado" }),
+    });
+    await abrir(page);
+    await page
+      .getByRole("button", { name: "Corregir el presupuesto de Transporte" })
+      .click();
+    const hoja = page.getByRole("dialog", {
+      name: "Corregir el presupuesto de Transporte",
+    });
+    await hoja.getByLabel("Monto para noviembre").fill("45.000");
+    delete caso.presupuestos[8];
+    await hoja.getByRole("button", { name: "Guardar" }).click();
+    await expect(hoja).toHaveCount(0);
+    const aviso = page.locator("main .aviso", {
+      hasText: "No pudimos guardar el presupuesto.",
+    });
+    await expect(aviso).toBeFocused();
+    await expect(aviso).toContainText(
+      "Tus datos están a salvo. Intenta de nuevo.",
+    );
+    await expect(filas(page).filter({ hasText: "Transporte" })).toHaveText(
+      "TransporteGastado $40.000 · Sin presupuestoPoner presupuesto",
+    );
+    expect(pedidos.filter((p) => p.metodo === "PUT")).toHaveLength(1);
+    await sinViolaciones(page);
   });
 });
 

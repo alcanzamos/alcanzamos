@@ -3,7 +3,7 @@ import type { PresupuestoDelPeriodo } from '../../src/api/presupuesto';
 import { reiniciarBorrador } from '../../src/borradorDeRegistro';
 import { Navegacion } from '../../src/navegacion/Navegacion';
 import { tokens } from '../../src/tokens/tokens.generated';
-import { esperarAnuncio, focoDeTalkBack, limpiarAnuncios, nombreDe } from '../ayudas/anuncios';
+import { esperarAnuncio, focoDeTalkBack, focosDeTalkBack, limpiarAnuncios, nombreDe } from '../ayudas/anuncios';
 import { atras, instalarAtras } from '../ayudas/atras';
 import { buscarCampo, campo, quizasCampo } from '../ayudas/campos';
 import { respuestaJson } from '../ayudas/fetchFalso';
@@ -15,6 +15,7 @@ import {
   fila,
   laura,
   nulo,
+  type Pedido,
   salarioEsperado,
   salarioPorConfirmar,
   sinPresupuesto,
@@ -41,6 +42,42 @@ async function abrirPresupuesto() {
 
 /** Lo que TalkBack lee de un elemento agrupado: su nombre accesible. */
 const leido = (texto: string | RegExp) => screen.getByLabelText(texto);
+
+/** El texto de los hijos de una vista (elementos de React), para nombrar la vista que recibió el foco. */
+const textoDeHijos = (hijos: unknown): string => {
+  if (typeof hijos === 'string' || typeof hijos === 'number') return String(hijos);
+  if (Array.isArray(hijos)) return hijos.map(textoDeHijos).join('');
+  if (hijos && typeof hijos === 'object' && 'props' in hijos)
+    return textoDeHijos((hijos as { props: { children?: unknown } }).props.children);
+  return '';
+};
+
+/** El rol y el nombre de la última vista a la que se llevó el foco de TalkBack (`sendAccessibilityEvent`). */
+const enfocada = () => {
+  const vista = focosDeTalkBack().at(-1);
+  return (
+    vista && {
+      rol: vista.props.accessibilityRole,
+      nombre: nombreDe(vista) ?? textoDeHijos(vista.props.children),
+    }
+  );
+};
+const AVISO_ENFOCADO = { rol: 'alert', nombre: 'No pudimos guardar el presupuesto.Tus datos están a salvo. Intenta de nuevo.' };
+
+/** El aviso de error que queda en la pantalla, con la hoja ya cerrada (L17 de la US-77, punto 1). */
+const avisoEnLaPantalla = () => {
+  expect(screen.queryByRole('button', { name: 'Ahora no' })).not.toBeOnTheScreen();
+  return screen.getByRole('alert', { name: /^No pudimos guardar el presupuesto\./ });
+};
+
+/** Los pedidos que escriben: poner, corregir, quitar o dejar en cero. */
+const escrituras = (pedidos: Pedido[]) => pedidos.filter((p) => p.metodo !== 'GET');
+const lecturasDelPresupuesto = (pedidos: Pedido[]) =>
+  pedidos.filter((p) => p.metodo === 'GET' && p.ruta === '/api/v1/presupuestos').length;
+
+/** La posición de un texto entre los textos de la pantalla, para comprobar el orden. */
+const posicion = (texto: string) =>
+  screen.container.queryAll((n) => n.type === 'Text').indexOf(screen.getByText(texto));
 
 describe('PN-06 y PN-07 · Presupuesto, Android (E14-PPA 4.1 y 4.2, US-77)', () => {
   beforeEach(() => {
@@ -338,7 +375,7 @@ describe('PN-06 y PN-07 · Presupuesto, Android (E14-PPA 4.1 y 4.2, US-77)', () 
 
     it('un 422 del monto va al campo con el texto de E14-PPN 3.1; otro fallo es un aviso en la hoja, que sigue abierta', async () => {
       let veces = 0;
-      apiDelPresupuesto(respuestaJson, {
+      const pedidos = apiDelPresupuesto(respuestaJson, {
         poner: () =>
           ++veces === 1
             ? respuestaJson(422, { error: 'datos_invalidos', campos: { monto_centavos: 'monto_no_positivo' } })
@@ -352,6 +389,9 @@ describe('PN-06 y PN-07 · Presupuesto, Android (E14-PPA 4.1 y 4.2, US-77)', () 
       await esperarAnuncio('No pudimos guardar el presupuesto. Tus datos están a salvo. Intenta de nuevo.');
       expect(screen.getByText('No pudimos guardar el presupuesto.')).toBeOnTheScreen();
       expect(campo(MONTO)).toBeOnTheScreen();
+      // Un 500 no dice que la hoja tenga datos viejos: sigue abierta, con lo escrito, y no se vuelve a pedir la pantalla.
+      expect(campo(MONTO).props.value).toBe('1');
+      expect(lecturasDelPresupuesto(pedidos)).toBe(1);
     });
 
     it('mientras guarda, «Guardar» queda deshabilitado y no se manda dos veces', async () => {
@@ -461,6 +501,55 @@ describe('PN-06 y PN-07 · Presupuesto, Android (E14-PPA 4.1 y 4.2, US-77)', () 
       expect(screen.queryByText(/Llega después/)).not.toBeOnTheScreen();
     });
 
+    // L17 de la US-77, punto 4: la frase de una sola fecha también en PN-07, sola, bajo «Llega después» o «Por confirmar».
+    it('ingreso nulo con el salario por confirmar: debajo de «Por confirmar», «… se suma cuando lo confirmes.»', async () => {
+      const conSalario = nulo();
+      apiDelPresupuesto(respuestaJson, {
+        presupuesto: {
+          ...conSalario,
+          resumen: { ...conSalario.resumen, por_confirmar_centavos: '120000000' },
+          llega_despues: [salarioPorConfirmar],
+        },
+      });
+      await abrirPresupuesto();
+      const frase = 'Salario del 1 de noviembre de 2026 se suma cuando lo confirmes.';
+      expect(screen.getByText(frase)).toBeOnTheScreen();
+      expect(posicion(frase)).toBeGreaterThan(posicion('Por confirmar: $1.200.000'));
+      expect(posicion(frase)).toBeLessThan(posicion(NULO));
+      expect(screen.queryByText(/Sin asignar cuenta/)).not.toBeOnTheScreen();
+    });
+
+    it('ingreso bajo con una fecha esperada: debajo de «Llega después», «… se suma cuando llegue.», sin reproche', async () => {
+      apiDelPresupuesto(respuestaJson, {
+        presupuesto: { ...bajo, resumen: { ...bajo.resumen, llega_despues_centavos: '120000000' }, llega_despues: [salarioEsperado] },
+      });
+      await abrirPresupuesto();
+      const frase = 'Salario del 16 de noviembre de 2026 se suma cuando llegue.';
+      expect(screen.getByText(frase)).toBeOnTheScreen();
+      expect(posicion(frase)).toBeGreaterThan(posicion('Llega después: $1.200.000 (esperado)'));
+      expect(posicion(frase)).toBeLessThan(posicion(BAJO));
+      expect(screen.queryByText(/Sin asignar cuenta/)).not.toBeOnTheScreen();
+    });
+
+    it('ingreso nulo con una fecha esperada y dos por confirmar: solo la frase de la esperada', async () => {
+      const caso = nulo();
+      apiDelPresupuesto(respuestaJson, {
+        presupuesto: {
+          ...caso,
+          resumen: { ...caso.resumen, llega_despues_centavos: '120000000', por_confirmar_centavos: '60000000' },
+          llega_despues: [
+            salarioEsperado,
+            { ...salarioPorConfirmar, monto_centavos: '30000000' },
+            { ...salarioPorConfirmar, fecha: '2026-11-02', monto_centavos: '30000000' },
+          ],
+        },
+      });
+      await abrirPresupuesto();
+      expect(screen.getByText('Salario del 16 de noviembre de 2026 se suma cuando llegue.')).toBeOnTheScreen();
+      expect(screen.getByText('Por confirmar: $600.000')).toBeOnTheScreen();
+      expect(screen.queryByText(/cuando lo confirmes/)).not.toBeOnTheScreen();
+    });
+
     it('«Dejar el presupuesto en cero» guarda la marca sin confirmar, dice el aviso y el botón ya no vuelve', async () => {
       let enCero = false;
       const pedidos = apiDelPresupuesto(respuestaJson, {
@@ -483,16 +572,27 @@ describe('PN-06 y PN-07 · Presupuesto, Android (E14-PPA 4.1 y 4.2, US-77)', () 
       expect(screen.getByText(NULO)).toBeOnTheScreen();
     });
 
-    it('con el mes ya en cero no ofrece el botón; un 409 dice el aviso y vuelve a pedir', async () => {
+    it('con el mes ya en cero (`en_cero: true`) no ofrece el botón y la tarjeta sigue igual (L17 de la US-77, punto 5)', async () => {
+      const pedidos = apiDelPresupuesto(respuestaJson, { presupuesto: nulo(true) });
+      await abrirPresupuesto();
+      expect(screen.getByText(NULO)).toBeOnTheScreen();
+      expect(screen.getByRole('button', { name: 'Registrar un ingreso' })).toBeOnTheScreen();
+      expect(screen.queryByRole('button', { name: 'Dejar el presupuesto en cero' })).not.toBeOnTheScreen();
+      expect(escrituras(pedidos)).toEqual([]);
+    });
+
+    it('un 409 al dejar en cero dice el aviso y vuelve a pedir; si el mes ya quedó en cero, el botón se va', async () => {
       let veces = 0;
       const pedidos = apiDelPresupuesto(respuestaJson, {
-        presupuesto: () => nulo(++veces > 2),
+        presupuesto: () => nulo(++veces > 1),
         enCero: () => respuestaJson(409, { error: 'periodo_con_ingreso_o_presupuesto' }),
       });
       await abrirPresupuesto();
       await fireEvent.press(screen.getByRole('button', { name: 'Dejar el presupuesto en cero' }));
       expect(await screen.findByText('No pudimos guardar el presupuesto.')).toBeOnTheScreen();
-      await waitFor(() => expect(pedidos.filter((p) => p.metodo === 'GET' && p.ruta === '/api/v1/presupuestos')).toHaveLength(2));
+      await waitFor(() => expect(lecturasDelPresupuesto(pedidos)).toBe(2));
+      await waitFor(() => expect(screen.queryByRole('button', { name: 'Dejar el presupuesto en cero' })).not.toBeOnTheScreen());
+      expect(escrituras(pedidos)).toHaveLength(1);
     });
 
     it('ingreso nulo con categorías con gasto: cada una con «Poner presupuesto»', async () => {
@@ -540,6 +640,227 @@ describe('PN-06 y PN-07 · Presupuesto, Android (E14-PPA 4.1 y 4.2, US-77)', () 
       expect(await screen.findByRole('radio', { name: 'Ingreso', checked: true })).toBeOnTheScreen();
       expect(await atras()).toBe(true);
       expect(await screen.findByRole('button', { name: 'Registrar un ingreso' })).toBeOnTheScreen();
+    });
+  });
+
+  // L17 de la US-77, punto 3: el foco de TalkBack al cerrar una hoja, como en la web. Al cancelar vuelve al botón que la
+  // abrió; después de guardar, al título; con datos viejos, al aviso de la pantalla (abajo).
+  describe('el foco de TalkBack al cerrar una hoja (L17 de la US-77, punto 3)', () => {
+    it.each([
+      ['Poner presupuesto a Arriendo o cuota de vivienda', 'Ahora no'],
+      ['Poner presupuesto a Arriendo o cuota de vivienda', 'Cerrar'],
+      ['Corregir el presupuesto de Transporte', 'Ahora no'],
+      ['Corregir el presupuesto de Transporte', 'Cerrar'],
+      ['Quitar el presupuesto de Transporte', 'Ahora no'],
+      ['Quitar el presupuesto de Transporte', 'Cerrar'],
+    ])('«%s» y después «%s»: el foco vuelve a ese botón, sin mandar nada', async (abridor, cierre) => {
+      const pedidos = apiDelPresupuesto(respuestaJson);
+      await abrirPresupuesto();
+      await fireEvent.press(screen.getByRole('button', { name: abridor }));
+      await fireEvent.press(await screen.findByRole('button', { name: cierre }));
+      await waitFor(() => expect(screen.queryByRole('button', { name: 'Ahora no' })).not.toBeOnTheScreen());
+      await waitFor(() => expect(enfocada()).toEqual({ rol: 'button', nombre: abridor }));
+      expect(escrituras(pedidos)).toEqual([]);
+    });
+
+    it('la hoja que se abrió desde «Agregar otra categoría» devuelve el foco a «Agregar otra categoría»', async () => {
+      apiDelPresupuesto(respuestaJson);
+      await abrirPresupuesto();
+      await fireEvent.press(screen.getByRole('button', { name: 'Agregar otra categoría' }));
+      await fireEvent.press(await screen.findByRole('radio', { name: 'Servicios públicos' }));
+      await fireEvent.press(await screen.findByRole('button', { name: 'Ahora no' }));
+      await waitFor(() => expect(screen.queryByRole('button', { name: 'Ahora no' })).not.toBeOnTheScreen());
+      await waitFor(() => expect(enfocada()).toEqual({ rol: 'button', nombre: 'Agregar otra categoría' }));
+    });
+
+    it('cerrar «Ver todas» sin elegir devuelve el foco a «Agregar otra categoría»', async () => {
+      apiDelPresupuesto(respuestaJson);
+      await abrirPresupuesto();
+      await fireEvent.press(screen.getByRole('button', { name: 'Agregar otra categoría' }));
+      await screen.findByRole('radio', { name: 'Servicios públicos' });
+      await fireEvent.press(screen.getByRole('button', { name: 'Cerrar' }));
+      await waitFor(() => expect(screen.queryByRole('radio')).not.toBeOnTheScreen());
+      await waitFor(() => expect(enfocada()).toEqual({ rol: 'button', nombre: 'Agregar otra categoría' }));
+    });
+
+    it.each([
+      ['Poner presupuesto a Arriendo o cuota de vivienda', '400.000', 'Guardar', 'Listo, guardamos tu presupuesto de Arriendo o cuota de vivienda.'],
+      ['Corregir el presupuesto de Transporte', null, 'Guardar', 'Listo, guardamos tu presupuesto de Transporte.'],
+      ['Quitar el presupuesto de Transporte', null, 'Quitar presupuesto', 'Listo, quitamos tu presupuesto de Transporte.'],
+    ])('«%s» bien guardado: el foco va al título y el aviso, por la región viva', async (abridor, monto, confirmar, aviso) => {
+      apiDelPresupuesto(respuestaJson);
+      await abrirPresupuesto();
+      await fireEvent.press(screen.getByRole('button', { name: abridor }));
+      if (monto) await fireEvent.changeText(await buscarCampo(MONTO), monto);
+      await fireEvent.press(await screen.findByRole('button', { name: confirmar }));
+      await esperarAnuncio(aviso);
+      expect(enfocada()).toEqual({ rol: 'header', nombre: 'Tu presupuesto este mes' });
+      expect(focosDeTalkBack()).toHaveLength(1);
+    });
+
+    it('«Dejar el presupuesto en cero» bien guardado: el foco va al título (el botón ya no está)', async () => {
+      let enCero = false;
+      apiDelPresupuesto(respuestaJson, {
+        presupuesto: () => nulo(enCero),
+        enCero: () => {
+          enCero = true;
+          return respuestaJson(204);
+        },
+      });
+      await abrirPresupuesto();
+      await fireEvent.press(screen.getByRole('button', { name: 'Dejar el presupuesto en cero' }));
+      await esperarAnuncio(EN_CERO);
+      expect(enfocada()).toEqual({ rol: 'header', nombre: 'Tu presupuesto este mes' });
+    });
+
+    it('un 500 deja la hoja abierta y el foco no sale de ella', async () => {
+      apiDelPresupuesto(respuestaJson, { quitar: () => respuestaJson(500, { error: 'error_interno' }) });
+      await abrirPresupuesto();
+      await fireEvent.press(screen.getByRole('button', { name: 'Quitar el presupuesto de Transporte' }));
+      await fireEvent.press(await screen.findByRole('button', { name: 'Quitar presupuesto' }));
+      await esperarAnuncio('No pudimos guardar el presupuesto. Tus datos están a salvo. Intenta de nuevo.');
+      expect(screen.getByRole('header', { name: '¿Quitar el presupuesto de Transporte?' })).toBeOnTheScreen();
+      expect(focosDeTalkBack()).toEqual([]);
+    });
+  });
+
+  // L17 de la US-77, punto 1: un 404 o un 409 dice que la hoja tenía datos viejos (el presupuesto ya no existe, el mes
+  // cambió o la categoría tiene uno compartido). La hoja se cierra, la pantalla se vuelve a pedir y el aviso de E14 queda
+  // en la pantalla, arriba de «Por categoría», con el foco de TalkBack, como en la web. Repetir exige volver a abrir la hoja.
+  describe('hoja con datos viejos: un 404 o un 409 al poner, corregir o quitar (L17 de la US-77, punto 1)', () => {
+    const acciones = {
+      poner: {
+        abridor: 'Poner presupuesto a Arriendo o cuota de vivienda',
+        hoja: 'Presupuesto de Arriendo o cuota de vivienda',
+        monto: '650.000',
+        confirmar: 'Guardar',
+        pedido: { metodo: 'POST', ruta: '/api/v1/presupuestos' },
+      },
+      corregir: {
+        abridor: 'Corregir el presupuesto de Transporte',
+        hoja: 'Corregir el presupuesto de Transporte',
+        monto: '45.000',
+        confirmar: 'Guardar',
+        pedido: { metodo: 'PUT', ruta: '/api/v1/presupuestos/p8' },
+      },
+      quitar: {
+        abridor: 'Quitar el presupuesto de Transporte',
+        hoja: '¿Quitar el presupuesto de Transporte?',
+        monto: null,
+        confirmar: 'Quitar presupuesto',
+        pedido: { metodo: 'DELETE', ruta: '/api/v1/presupuestos/p8' },
+      },
+    };
+    const fallos = [
+      [404, 'no_encontrado'],
+      [409, 'periodo_no_editable'],
+      [409, 'presupuesto_compartido'],
+    ] as const;
+
+    describe.each(Object.entries(acciones))('«%s»', (accion, a) => {
+      it.each(fallos)(
+        'con %i %s: cierra la hoja, vuelve a pedir la pantalla y deja el aviso en ella, con el foco',
+        async (estado, codigo) => {
+          const contesta = () => respuestaJson(estado, { error: codigo });
+          const pedidos = apiDelPresupuesto(respuestaJson, { [accion]: contesta });
+          await abrirPresupuesto();
+          await fireEvent.press(screen.getByRole('button', { name: a.abridor }));
+          if (a.monto) await fireEvent.changeText(await buscarCampo(MONTO), a.monto);
+          await fireEvent.press(await screen.findByRole('button', { name: a.confirmar }));
+          await waitFor(() => expect(screen.queryByRole('header', { name: a.hoja })).not.toBeOnTheScreen());
+          const aviso = avisoEnLaPantalla();
+          expect(within(aviso).getByText('Tus datos están a salvo. Intenta de nuevo.')).toBeOnTheScreen();
+          // Arriba de «Por categoría», fuera de la tarjeta de resumen.
+          expect(posicion('No pudimos guardar el presupuesto.')).toBeLessThan(posicion('Por categoría'));
+          await waitFor(() => expect(enfocada()).toEqual(AVISO_ENFOCADO));
+          await waitFor(() => expect(lecturasDelPresupuesto(pedidos)).toBe(2));
+          expect(escrituras(pedidos).map(({ metodo, ruta }) => ({ metodo, ruta }))).toEqual([a.pedido]);
+          // No fue un éxito: ningún «Listo, …».
+          expect(screen.queryByText(/^Listo,/)).not.toBeOnTheScreen();
+          // Repetir exige volver a abrir la hoja.
+          expect(screen.queryByRole('button', { name: a.confirmar })).not.toBeOnTheScreen();
+        },
+      );
+    });
+
+    it('el aviso se va con la siguiente escritura', async () => {
+      let respuesta = () => respuestaJson(404, { error: 'no_encontrado' });
+      apiDelPresupuesto(respuestaJson, { quitar: () => respuesta(), poner: () => respuesta() });
+      await abrirPresupuesto();
+      await fireEvent.press(screen.getByRole('button', { name: 'Quitar el presupuesto de Transporte' }));
+      await fireEvent.press(await screen.findByRole('button', { name: 'Quitar presupuesto' }));
+      await waitFor(() => expect(avisoEnLaPantalla()).toBeOnTheScreen());
+      respuesta = () => respuestaJson(201, {});
+      await fireEvent.press(screen.getByRole('button', { name: 'Poner presupuesto a Arriendo o cuota de vivienda' }));
+      await fireEvent.changeText(await buscarCampo(MONTO), '650.000');
+      await fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+      await screen.findByText('Listo, guardamos tu presupuesto de Arriendo o cuota de vivienda.');
+      expect(screen.queryByText('No pudimos guardar el presupuesto.')).not.toBeOnTheScreen();
+    });
+
+    // Diciembre empezó entre abrir la hoja y «Guardar»: el API responde 409 y la pantalla vuelve con diciembre.
+    const diciembre = { ...laura, periodo_actual: '2026-12', periodo: '2026-12' };
+    const titulo = (mes: string) => `"title":"Presupuesto de ${mes}"`;
+
+    it('si cambió el mes, la pantalla muestra el mes nuevo y nada se guarda en él hasta que la persona vuelva a poner', async () => {
+      let lecturas = 0;
+      let escrito = 0;
+      const pedidos = apiDelPresupuesto(respuestaJson, {
+        presupuesto: () => (++lecturas === 1 ? laura : diciembre),
+        poner: () => (++escrito === 1 ? respuestaJson(409, { error: 'periodo_no_editable' }) : respuestaJson(201, {})),
+      });
+      await abrirPresupuesto();
+      await fireEvent.press(screen.getByRole('button', { name: 'Poner presupuesto a Arriendo o cuota de vivienda' }));
+      await fireEvent.changeText(await buscarCampo(MONTO), '650.000');
+      await fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+      await waitFor(() => expect(JSON.stringify(screen.toJSON())).toContain(titulo('diciembre')));
+      expect(quizasCampo(MONTO)).not.toBeOnTheScreen();
+      expect(avisoEnLaPantalla()).toBeOnTheScreen();
+      expect(escrituras(pedidos)).toHaveLength(1);
+      // La persona vuelve a poner: ahora sí, en diciembre.
+      await fireEvent.press(screen.getByRole('button', { name: 'Poner presupuesto a Arriendo o cuota de vivienda' }));
+      const enDiciembre = await buscarCampo('Monto para diciembre en pesos');
+      expect(screen.getByText('Monto para diciembre')).toBeOnTheScreen();
+      expect(enDiciembre.props.value).toBe('');
+      await fireEvent.changeText(enDiciembre, '650.000');
+      await fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+      await screen.findByText('Listo, guardamos tu presupuesto de Arriendo o cuota de vivienda.');
+      expect(escrituras(pedidos).map((p) => p.cuerpo)).toEqual([
+        '{"periodo":"2026-11","categoria_id":4,"monto_centavos":65000000}',
+        '{"periodo":"2026-12","categoria_id":4,"monto_centavos":65000000}',
+      ]);
+    });
+
+    it('una hoja abierta antes de que llegue el mes nuevo sigue con su mes: «Guardar» no pone nada en el mes nuevo', async () => {
+      let lecturas = 0;
+      let soltar: (r: Response) => void = () => undefined;
+      const pedidos = apiDelPresupuesto(respuestaJson, {
+        presupuesto: () => {
+          lecturas++;
+          if (lecturas === 1) return laura;
+          if (lecturas === 2) return new Promise<Response>((r) => (soltar = r));
+          return diciembre;
+        },
+        poner: () => respuestaJson(409, { error: 'periodo_no_editable' }),
+      });
+      await abrirPresupuesto();
+      await fireEvent.press(screen.getByRole('button', { name: 'Poner presupuesto a Arriendo o cuota de vivienda' }));
+      await fireEvent.changeText(await buscarCampo(MONTO), '650.000');
+      await fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+      await waitFor(() => expect(quizasCampo(MONTO)).not.toBeOnTheScreen());
+      // Con noviembre todavía a la vista, la persona abre otra vez la hoja; después llega diciembre.
+      await fireEvent.press(screen.getByRole('button', { name: 'Poner presupuesto a Arriendo o cuota de vivienda' }));
+      const monto = await buscarCampo(MONTO);
+      soltar(respuestaJson(200, diciembre));
+      await waitFor(() => expect(JSON.stringify(screen.toJSON())).toContain(titulo('diciembre')));
+      expect(screen.getByText('Monto para noviembre')).toBeOnTheScreen();
+      await fireEvent.changeText(monto, '650.000');
+      await fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
+      await waitFor(() => expect(quizasCampo(MONTO)).not.toBeOnTheScreen());
+      expect(escrituras(pedidos).map((p) => (JSON.parse(p.cuerpo!) as { periodo: string }).periodo)).toEqual([
+        '2026-11',
+        '2026-11',
+      ]);
     });
   });
 });
