@@ -959,6 +959,10 @@
           "texto": "Sin esta aceptación no podemos darte la cuenta, porque la app guarda tus datos en esos servicios.",
           "e14": "Aprobado por el dueño (2026-11-11, D-202): SC-E21-25 3.6, texto de PN-64 (E14-PCP 4.7; nota de la tarjeta «Dónde guardamos tus datos»). PN-54 usa el mismo texto (SC-E21-25 3.7)"
         },
+        "notaFaltaUnaAceptacion": {
+          "texto": "Sin esta aceptación no puedes seguir usando la app, porque guarda tus datos en esos servicios.",
+          "e14": "Aprobado por el dueño (2026-11-12): E14-PCP 4.7, nota de la tarjeta «Dónde guardamos tus datos» en PN-64 en el modo «falta una aceptación» (la cuenta ya existe); en el modo completo va la nota de siempre (`nota`)"
+        },
         "error": {
           "texto": "Falta que aceptes dónde guardamos tus datos.",
           "e14": "Aprobado por el dueño (2026-11-11, D-202): SC-E21-25 3.6, texto de PN-64 (E14-PCP 4.7; error bajo la casilla de la tarjeta «Dónde guardamos tus datos», con «Autorizar y continuar» sin marcarla; SC-E21-25 3.8, criterio 1). PN-54 usa el mismo texto (SC-E21-25 3.7)"
@@ -966,7 +970,7 @@
       },
       "fraseDeAvisos": {
         "texto": "Si activas los avisos con la app cerrada, el código de tu teléfono o de tu navegador y un aviso que solo dice «Tienes un aviso en Alcanzamos.» pasan por el servicio de notificaciones de Google (Firebase Cloud Messaging) en Android, o por el de la empresa que hace tu navegador en la web. Esas empresas no dicen en qué país los procesan.",
-        "e14": "Aprobado por el dueño (2026-11-11, D-202): SC-E21-25 3.6, «La frase de los avisos con la app cerrada». Va bajo la casilla opcional «Autorizo los avisos con la app cerrada.» de PN-64 (fila 7, antes de «Horas de vida») y, con el mismo texto, en PN-54 (fila 8 de E14-PME), en PN-67 (fila 4); en PN-68 la viñeta de los avisos es la de E14-PCP 4.11, fila 5 b (politica.dondeGuardamos.items.avisos), por decisión del dueño del 2026-11-12"
+        "e14": "Aprobado por el dueño (2026-11-11, D-202): SC-E21-25 3.6, «La frase de los avisos con la app cerrada». Va bajo la casilla opcional «Autorizo los avisos con la app cerrada.» de PN-64 (fila 7, antes de «Horas de vida») y, con el mismo texto, en PN-54 (fila 8 de E14-PME), en PN-67 (fila 4) y en la viñeta de los avisos de PN-68 (fila 5 b, SC-E21-25 sección 4)"
       },
       "hojaNoAutorizo": {
         "titulo": {
@@ -2150,10 +2154,6 @@
           "encargadas": {
             "texto": "Estas empresas son encargadas: tratan los datos por cuenta de Alcanzamos, que es el responsable, y solo para lo que les pedimos.",
             "e14": "E14-PCP 4.11 (PN-68), texto de «Dónde guardamos tus datos» (fila 5 b, D-126; en E14 «encargadas» va en negrita); encargados confirmados por el abogado (respuesta 8, D-200)"
-          },
-          "avisos": {
-            "texto": "Para los avisos con la app cerrada, tu teléfono o tu navegador nos da un código. En Android lo maneja Firebase Cloud Messaging, de Google; en la web, el servicio de avisos de tu navegador (Web Push). Todavía no confirmamos en qué país guardan ese código.",
-            "e14": "E14-PCP 4.11 (PN-68), texto de «Dónde guardamos tus datos» (fila 5 b), quinta viñeta; cumple el criterio 7 de SC-E21-25 (RF-059)"
           }
         }
       },

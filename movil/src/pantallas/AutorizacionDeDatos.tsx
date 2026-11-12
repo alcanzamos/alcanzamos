@@ -239,7 +239,11 @@ export function AutorizacionDeDatos({ navigation }: NativeStackScreenProps<Rutas
                 }}
                 error={errores.transmision}
               />
-              <Texto variante="ayuda">{textos.autorizacion.dondeGuardamos.nota}</Texto>
+              <Texto variante="ayuda">
+                {catalogo.modo === 'falta_una_aceptacion'
+                  ? textos.autorizacion.dondeGuardamos.notaFaltaUnaAceptacion
+                  : textos.autorizacion.dondeGuardamos.nota}
+              </Texto>
             </>
           )}
           {catalogo.accesorias.length > 0 && (

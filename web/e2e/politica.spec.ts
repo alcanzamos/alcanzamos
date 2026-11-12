@@ -52,11 +52,12 @@ test.describe("PN-68 · la pantalla", () => {
       "Azure Communication Services, que guarda sus datos en Francia",
     );
     await expect(donde).toContainText("Zoho Mail, en Estados Unidos");
+    await expect(donde.getByRole("listitem")).toHaveCount(5);
     await expect(donde.getByRole("listitem").last()).toHaveText(
-      "Para los avisos con la app cerrada, tu teléfono o tu navegador nos da un código. En Android lo maneja Firebase Cloud Messaging, de Google; en la web, el servicio de avisos de tu navegador (Web Push). Todavía no confirmamos en qué país guardan ese código.",
+      "Si activas los avisos con la app cerrada, el código de tu teléfono o de tu navegador y un aviso que solo dice «Tienes un aviso en Alcanzamos.» pasan por el servicio de notificaciones de Google (Firebase Cloud Messaging) en Android, o por el de la empresa que hace tu navegador en la web. Esas empresas no dicen en qué país los procesan.",
     );
     await expect(donde).not.toContainText(
-      "Si activas los avisos con la app cerrada",
+      "Todavía no confirmamos en qué país guardan ese código.",
     );
     const consultas = page.getByRole("region", {
       name: "Cómo hacer una consulta o un reclamo",

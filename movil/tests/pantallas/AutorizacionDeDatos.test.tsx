@@ -53,6 +53,9 @@ const AVISOS = 'Autorizo los avisos con la app cerrada.';
 const HORAS = 'Autorizo mostrar el costo de un gasto en horas de vida.';
 const TRANSMISION =
   'Acepto que mis datos se envíen a estos servicios en México, Francia y Estados Unidos para guardarlos y procesarlos como se explica arriba.';
+const NOTA_COMPLETO = 'Sin esta aceptación no podemos darte la cuenta, porque la app guarda tus datos en esos servicios.';
+const NOTA_FALTA_UNA_ACEPTACION =
+  'Sin esta aceptación no puedes seguir usando la app, porque guarda tus datos en esos servicios.';
 const ERROR_NECESARIAS = 'Falta tu autorización para lo necesario.';
 const ERROR_TRANSMISION = 'Falta que aceptes dónde guardamos tus datos.';
 const FRASE_DE_AVISOS =
@@ -144,9 +147,8 @@ describe('PN-64 · Autorización de datos (E14-PCP 4.7)', () => {
         ),
       ).toBeOnTheScreen();
       expect(screen.getByRole('checkbox', { name: TRANSMISION })).toBeOnTheScreen();
-      expect(
-        screen.getByText('Sin esta aceptación no podemos darte la cuenta, porque la app guarda tus datos en esos servicios.'),
-      ).toBeOnTheScreen();
+      expect(screen.getByText(NOTA_COMPLETO)).toBeOnTheScreen();
+      expect(screen.queryByText(NOTA_FALTA_UNA_ACEPTACION)).not.toBeOnTheScreen();
       // Los avisos con la app cerrada no van en la tarjeta obligatoria (D-202): Firebase solo sale en la frase de su casilla.
       expect(screen.getAllByText(/Firebase/)).toHaveLength(1);
     });
@@ -502,9 +504,8 @@ describe('PN-64 · Autorización de datos (E14-PCP 4.7)', () => {
       const casillas = screen.getAllByRole('checkbox');
       expect(casillas.map((c) => c.props.accessibilityLabel)).toEqual([TRANSMISION]);
       expect(casillas[0]).toHaveProp('accessibilityState', { checked: false, disabled: false });
-      expect(
-        screen.getByText('Sin esta aceptación no podemos darte la cuenta, porque la app guarda tus datos en esos servicios.'),
-      ).toBeOnTheScreen();
+      expect(screen.getByText(NOTA_FALTA_UNA_ACEPTACION)).toBeOnTheScreen();
+      expect(screen.queryByText(NOTA_COMPLETO)).not.toBeOnTheScreen();
       expect(screen.getByText(/Texto versión/)).toHaveTextContent('Texto versión 1.1 del 12 de noviembre de 2026.', {
         exact: true,
       });

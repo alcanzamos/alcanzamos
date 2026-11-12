@@ -113,11 +113,11 @@ describe('PN-68 · lo que dice', () => {
       'El correo que te enviamos (verificar tu cuenta, recuperar el acceso, avisos a quien tiene una tutoría) sale por Azure Communication Services, que guarda sus datos en Francia.',
       'Lo que escribes a privacidad@alcanzamos.co queda en Zoho Mail, en Estados Unidos.',
       'Estas empresas son encargadas: tratan los datos por cuenta de Alcanzamos, que es el responsable, y solo para lo que les pedimos.',
-      'Para los avisos con la app cerrada, tu teléfono o tu navegador nos da un código. En Android lo maneja Firebase Cloud Messaging, de Google; en la web, el servicio de avisos de tu navegador (Web Push). Todavía no confirmamos en qué país guardan ese código.',
+      'Si activas los avisos con la app cerrada, el código de tu teléfono o de tu navegador y un aviso que solo dice «Tienes un aviso en Alcanzamos.» pasan por el servicio de notificaciones de Google (Firebase Cloud Messaging) en Android, o por el de la empresa que hace tu navegador en la web. Esas empresas no dicen en qué país los procesan.',
     ])
       expect(within(lista).getByText(texto)).toBeOnTheScreen();
-    // La frase de los avisos va bajo la casilla de PN-64, no en PN-68.
-    expect(screen.queryByText(/Si activas los avisos con la app cerrada/)).not.toBeOnTheScreen();
+    // La última viñeta es la frase aprobada de los avisos (SC-E21-25 sección 4), la misma de la casilla de PN-64.
+    expect(screen.queryByText('Todavía no confirmamos en qué país guardan ese código.')).not.toBeOnTheScreen();
   });
 
   it('«Cómo hacer una consulta o un reclamo»: qué traer, el menor, y los plazos de E14', async () => {

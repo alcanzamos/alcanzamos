@@ -80,7 +80,7 @@ export function Politica() {
         <Vinetas items={Object.values(t.derechos.items)} />
       </Tarjeta>
       <Tarjeta titulo={t.dondeGuardamos.titulo}>
-        <Vinetas items={Object.values(t.dondeGuardamos.items)} />
+        <Vinetas items={[...Object.values(t.dondeGuardamos.items), textos.autorizacion.fraseDeAvisos]} />
       </Tarjeta>
       <Tarjeta titulo={t.consultas.titulo}>
         <Texto>{t.consultas.intro}</Texto>
