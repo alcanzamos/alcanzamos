@@ -15,15 +15,19 @@ const suscripciones = new Set<(evento: never) => boolean | null | undefined>();
 const atras = (): boolean => [...suscripciones].reverse().some((alTocar) => alTocar(undefined as never));
 
 const catalogo = {
-  version: { numero: '1.0', fecha: '2026-10-30' },
+  version: { numero: '1.1', fecha: '2026-11-12' },
+  modo: 'completo',
   finalidades: [
     { codigo: 'cuenta_y_acceso', tipo: 'necesaria', otorgada: false },
     { codigo: 'funciones_financieras', tipo: 'necesaria', otorgada: false },
+    { codigo: 'transmision_a_encargados', tipo: 'necesaria', otorgada: false },
     { codigo: 'avisos', tipo: 'accesoria', otorgada: false },
     { codigo: 'horas_de_vida', tipo: 'accesoria', otorgada: false },
   ],
 };
 const NECESARIAS = 'Autorizo el uso de mis datos para estas finalidades necesarias.';
+const TRANSMISION =
+  'Acepto que mis datos se envíen a estos servicios en México, Francia y Estados Unidos para guardarlos y procesarlos como se explica arriba.';
 
 async function entrarSinAutorizacion() {
   await fireEvent.changeText(await buscarCampo('Correo electrónico'), 'laura@ejemplo.com');
@@ -51,7 +55,8 @@ describe('flujo de autorizar los datos en Android (PN-60 → PN-63 → PN-64 →
     const { pedidos } = instalarFetchFalso(
       respuestaJson(200, { estado: 'ok', token: 'tk-unico' }),
       respuestaJson(403, { error: 'autorizacion_pendiente' }),
-      respuestaJson(200, catalogo),
+      respuestaJson(200, catalogo), // el modo, para elegir entre PN-63 y PN-64
+      respuestaJson(200, catalogo), // el de PN-64
       respuestaJson(200, { estado: 'autorizada' }),
       respuestaJson(200, { ingreso_anterior: null }),
     );
@@ -60,6 +65,7 @@ describe('flujo de autorizar los datos en Android (PN-60 → PN-63 → PN-64 →
     await fireEvent.press(screen.getByRole('button', { name: 'Continuar' }));
     await screen.findByText('Necesitamos tu permiso para usar algunos datos. Lee con calma y decide.');
     await fireEvent.press(screen.getByLabelText(NECESARIAS));
+    await fireEvent.press(screen.getByLabelText(TRANSMISION));
     await fireEvent.press(screen.getByRole('button', { name: 'Autorizar y continuar' }));
     expect(await screen.findByText('Este es tu primer ingreso.')).toBeOnTheScreen();
 
@@ -69,12 +75,13 @@ describe('flujo de autorizar los datos en Android (PN-60 → PN-63 → PN-64 →
       'POST /api/v1/sesiones',
       'GET /api/v1/cuenta/seguridad',
       'GET /api/v1/autorizaciones',
+      'GET /api/v1/autorizaciones',
       'POST /api/v1/autorizaciones',
       'GET /api/v1/cuenta/seguridad',
     ]);
     // El pedido de autorizar y el de PN-71 llevan el mismo token que dio el inicio de sesión.
-    expect(bearer(pedidos[3])).toBe('Bearer tk-unico');
     expect(bearer(pedidos[4])).toBe('Bearer tk-unico');
+    expect(bearer(pedidos[5])).toBe('Bearer tk-unico');
     expect(almacen.guardado.get('sesion')).toBe('tk-unico');
   });
 
@@ -82,7 +89,8 @@ describe('flujo de autorizar los datos en Android (PN-60 → PN-63 → PN-64 →
     instalarFetchFalso(
       respuestaJson(200, { estado: 'ok', token: 'tk' }),
       respuestaJson(403, { error: 'autorizacion_pendiente' }),
-      respuestaJson(200, catalogo),
+      respuestaJson(200, catalogo), // el modo, para elegir entre PN-63 y PN-64
+      respuestaJson(200, catalogo), // el de PN-64
     );
     await render(<Navegacion />);
     await entrarSinAutorizacion();
@@ -104,7 +112,8 @@ describe('flujo de autorizar los datos en Android (PN-60 → PN-63 → PN-64 →
     instalarFetchFalso(
       respuestaJson(200, { estado: 'ok', token: 'tk' }),
       respuestaJson(403, { error: 'autorizacion_pendiente' }),
-      respuestaJson(200, catalogo),
+      respuestaJson(200, catalogo), // el modo, para elegir entre PN-63 y PN-64
+      respuestaJson(200, catalogo), // el de PN-64
       respuestaJson(200, { estado: 'autorizada' }),
       respuestaJson(200, { ingreso_anterior: null }),
     );
@@ -113,6 +122,7 @@ describe('flujo de autorizar los datos en Android (PN-60 → PN-63 → PN-64 →
     await fireEvent.press(screen.getByRole('button', { name: 'Continuar' }));
     await screen.findByText(NECESARIAS);
     await fireEvent.press(screen.getByLabelText(NECESARIAS));
+    await fireEvent.press(screen.getByLabelText(TRANSMISION));
     await fireEvent.press(screen.getByRole('button', { name: 'Autorizar y continuar' }));
     await screen.findByText('Este es tu primer ingreso.');
     expect(screen.queryByText(NECESARIAS)).not.toBeOnTheScreen();
@@ -125,7 +135,8 @@ describe('flujo de autorizar los datos en Android (PN-60 → PN-63 → PN-64 →
     const { pedidos } = instalarFetchFalso(
       respuestaJson(200, { estado: 'ok', token: 'tk' }),
       respuestaJson(403, { error: 'autorizacion_pendiente' }),
-      respuestaJson(200, catalogo),
+      respuestaJson(200, catalogo), // el modo, para elegir entre PN-63 y PN-64
+      respuestaJson(200, catalogo), // el de PN-64
       respuestaJson(204),
     );
     await render(<Navegacion />);

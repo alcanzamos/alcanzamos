@@ -18,7 +18,7 @@ type Campo = 'identificador' | 'contrasena';
 // PN-60 · Iniciar sesión, variante Android (E14-PCP 4.3): solo con correo, sin «Entro con mi nombre de usuario» (D-137: queda
 // para I11, con el botón «Ya tengo un usuario» de PN-65). Es la primera pantalla de la app. El API recibe un «identificador»
 // genérico; por ahora es el correo. Dicho de otra forma: aquí no se decide nada, el API responde y la pantalla muestra.
-// La fila «Política de tratamiento y consultas» (PN-68) llega con su pantalla.
+// «Política de tratamiento y consultas» (fila 9, botón de texto) abre PN-68, que no pide una cuenta (D-195).
 export function Entrar({ navigation, route }: NativeStackScreenProps<Rutas, 'Entrar'>) {
   // Con «Ya elegí mi contraseña» de PN-59 (D-184) el correo ya viene escrito.
   const [correo, setCorreo] = useState(route.params?.correo ?? '');
@@ -94,6 +94,7 @@ export function Entrar({ navigation, route }: NativeStackScreenProps<Rutas, 'Ent
       <Boton variante="secundario" alTocar={() => navigation.navigate('Edad')}>
         {textos.entrar.crearCuenta}
       </Boton>
+      <BotonDeTexto alTocar={() => navigation.navigate('Politica')}>{textos.politica.entradas.yConsultas}</BotonDeTexto>
     </Pantalla>
   );
 }

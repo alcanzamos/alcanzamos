@@ -72,4 +72,32 @@ describe('HojaInferior (Hoja inferior, E14-SDD 5.12)', () => {
     await fireEvent.press(cerrar);
     expect(alCerrar).toHaveBeenCalledTimes(1);
   });
+
+  // La hoja de «No autorizo» (E14-PME 4.11) trae más contenido que las de presupuesto: explicación, descarga, contraseña y
+  // dos botones. Con `desplazable` el contenido se desplaza dentro de la hoja, que no pasa de la altura de la ventana, y
+  // la región viva queda fuera de lo que se desplaza.
+  it('con `desplazable` el contenido va en un ScrollView que deja tocar los botones con el teclado abierto', async () => {
+    await render(
+      <HojaInferior visible desplazable titulo="¿No autorizas?" alCerrar={jest.fn()}>
+        <Text>Contenido</Text>
+      </HojaInferior>,
+    );
+    const dibujo = JSON.stringify(screen.toJSON());
+    expect(dibujo).toContain('"keyboardShouldPersistTaps":"handled"');
+    expect(screen.getByText('Contenido')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Cerrar' })).toBeOnTheScreen();
+    // La región viva de la hoja no se desplaza con el contenido: TalkBack la sigue encontrando.
+    const [desplazable] = screen.container.queryAll((vista) => vista.props.keyboardShouldPersistTaps === 'handled');
+    expect(desplazable?.queryAll((vista) => vista.props.accessibilityLiveRegion !== undefined)).toHaveLength(0);
+    expect(screen.container.queryAll((vista) => vista.props.accessibilityLiveRegion === 'polite')).toHaveLength(1);
+  });
+
+  it('sin `desplazable` no lleva ScrollView (las hojas de siempre no cambian)', async () => {
+    await render(
+      <HojaInferior visible alCerrar={jest.fn()}>
+        <Text>Contenido</Text>
+      </HojaInferior>,
+    );
+    expect(JSON.stringify(screen.toJSON())).not.toContain('keyboardShouldPersistTaps');
+  });
 });

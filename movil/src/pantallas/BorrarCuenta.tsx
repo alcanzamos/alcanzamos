@@ -2,7 +2,6 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useRef, useState } from 'react';
 import type { HostInstance, TextInputInstance } from 'react-native';
 import { borrarLaCuenta, resumenDeBorrado, type ResumenDeBorrado } from '../api/cuentas';
-import { descargarMisDatos } from '../api/descarga';
 import { useAvisarErrores } from '../anuncios';
 import { Aviso } from '../componentes/Aviso';
 import { Boton, BotonDeTexto } from '../componentes/Boton';
@@ -12,6 +11,7 @@ import { IconoHogar } from '../componentes/Iconos';
 import { Pantalla } from '../componentes/Pantalla';
 import { Tarjeta } from '../componentes/Tarjeta';
 import { Texto } from '../componentes/Texto';
+import { useDescargaDeDatos } from '../descargaDeDatos';
 import { seguirPorAccesoNegado } from '../navegacion/accesoNegado';
 import { reemplazarPila } from '../navegacion/llegada';
 import type { Rutas } from '../navegacion/rutas';
@@ -50,11 +50,7 @@ export function BorrarCuenta({ navigation }: NativeStackScreenProps<Rutas, 'Borr
   }>({});
   const [aviso, setAviso] = useState<DatosDeAviso | null>(null);
   const [enviando, setEnviando] = useState(false);
-  const [descarga, setDescarga] = useState<
-    { fase: 'libre' } | { fase: 'preparando' } | { fase: 'aviso'; aviso: DatosDeAviso }
-  >({
-    fase: 'libre',
-  });
+  const { descarga, descargar } = useDescargaDeDatos(navigation);
   const campoContrasena = useRef<TextInputInstance>(null);
   const casillaDeMenores = useRef<HostInstance>(null);
   const avisarErrores = useAvisarErrores();
@@ -77,20 +73,6 @@ export function BorrarCuenta({ navigation }: NativeStackScreenProps<Rutas, 'Borr
 
   const menores = estado.fase === 'listo' ? estado.resumen.menores : [];
   const nombres = nombresEnFrase(menores.map((m) => m.nombre));
-
-  // «Descargar mis datos» (D-102, D-180): opcional, no condiciona el borrado ni abre otra pantalla. El archivo se comparte
-  // desde la hoja de Android y no queda copia dentro de la app (descarga.ts).
-  async function descargar() {
-    if (descarga.fase === 'preparando') return;
-    setDescarga({ fase: 'preparando' });
-    const respuesta = await descargarMisDatos();
-    if (respuesta.ok) return setDescarga({ fase: 'aviso', aviso: avisos.descargaLista });
-    if (seguirPorAccesoNegado(navigation, respuesta)) return;
-    setDescarga({
-      fase: 'aviso',
-      aviso: avisoDeFallo(respuesta, avisos.errorAlDescargar),
-    });
-  }
 
   async function enviar() {
     if (enviando) return;

@@ -1163,26 +1163,6 @@ export const textos = {
       },
     },
   },
-  recuperar: {
-    // E14-PCP 4.5 (PN-62)
-    titulo: "Elige tu contraseña nueva",
-    // E14-PCP 4.5 (PN-62)
-    pedirOtro: "Pedir otro enlace",
-  },
-  textosDeRepeticion: {
-    // E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62
-    vacia: "Falta repetir la contraseña.",
-    // E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62
-    distinta: "Falta que las dos contraseñas sean iguales.",
-  },
-  eligeTuContrasena: {
-    // E14-PCP 4.2 ter (PN-74), fila 1, aprobado (D-176)
-    titulo: "Elige tu contraseña",
-    // E14-PCP 4.2 ter (PN-74), fila 2, aprobado (D-176)
-    intro: "Un último paso para crear tu cuenta. Elige tu contraseña y dinos cómo quieres que te llamemos.",
-    // E14-PCP 4.2 ter (PN-74), estado «Enlace vencido o ya usado» (D-192); mismo botón que PN-62 (4.5), con otro destino
-    pedirOtro: "Pedir otro enlace",
-  },
   politica: {
     // E14-PCP 4.11 (PN-68), fila 1 (título de la barra superior)
     titulo: "Política de tratamiento",
@@ -1296,6 +1276,26 @@ export const textos = {
       // E14-PCP 4.3 (PN-60), fila 9 (abre PN-68); E14-PCP 4.14 (PN-71) y 4.16 T2 ter, entrada provisional (bug 260, D-195)
       yConsultas: "Política de tratamiento y consultas",
     },
+  },
+  recuperar: {
+    // E14-PCP 4.5 (PN-62)
+    titulo: "Elige tu contraseña nueva",
+    // E14-PCP 4.5 (PN-62)
+    pedirOtro: "Pedir otro enlace",
+  },
+  textosDeRepeticion: {
+    // E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62
+    vacia: "Falta repetir la contraseña.",
+    // E14-PCP 4.5: la repetición solo existe en la pantalla de PN-62
+    distinta: "Falta que las dos contraseñas sean iguales.",
+  },
+  eligeTuContrasena: {
+    // E14-PCP 4.2 ter (PN-74), fila 1, aprobado (D-176)
+    titulo: "Elige tu contraseña",
+    // E14-PCP 4.2 ter (PN-74), fila 2, aprobado (D-176)
+    intro: "Un último paso para crear tu cuenta. Elige tu contraseña y dinos cómo quieres que te llamemos.",
+    // E14-PCP 4.2 ter (PN-74), estado «Enlace vencido o ya usado» (D-192); mismo botón que PN-62 (4.5), con otro destino
+    pedirOtro: "Pedir otro enlace",
   },
 } as const;
 

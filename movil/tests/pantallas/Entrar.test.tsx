@@ -67,6 +67,16 @@ describe('PN-60 · Iniciar sesión, Android (E14-PCP 4.3)', () => {
     expect(navegacion.navigate).toHaveBeenCalledWith('Edad');
   });
 
+  // D-195 (E14-PCP 4.3, fila 9): «Política de tratamiento y consultas» abre PN-68 sin necesidad de una cuenta.
+  it('«Política de tratamiento y consultas» es un botón de texto, después de «Crear una cuenta», que abre PN-68', async () => {
+    const navegacion = await mostrar();
+    const politica = screen.getByRole('button', { name: 'Política de tratamiento y consultas' });
+    expect(screen.getAllByRole('button').at(-1)).toBe(politica);
+    expect(politica).toHaveStyle({ alignSelf: 'flex-start' });
+    await fireEvent.press(politica);
+    expect(navegacion.navigate).toHaveBeenCalledWith('Politica');
+  });
+
   describe('con el correo que trae PN-59 («Ya elegí mi contraseña», D-184)', () => {
     it('el campo del correo viene escrito y la contraseña vacía', async () => {
       await mostrar(undefined, 'laura@ejemplo.com');
