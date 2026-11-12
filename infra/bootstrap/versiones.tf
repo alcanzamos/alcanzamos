@@ -1,5 +1,5 @@
-# Bootstrap (D-119, opción A): lo aplica una sola vez el dueño con su propia
-# cuenta, en el primer despliegue. No se aplica en la US-44.
+# Bootstrap (D-119, opción A): lo aplica una sola vez por ambiente el dueño con
+# su propia cuenta, antes del primer despliegue de ese ambiente.
 terraform {
   required_version = "= 1.13.2"
 
@@ -13,6 +13,10 @@ terraform {
       version = "= 3.10.0"
     }
   }
+
+  # Estado local, un archivo por ambiente (uat.tfstate, produccion.tfstate):
+  # tofu init -reconfigure -backend-config=path=<ambiente>.tfstate (ver README).
+  backend "local" {}
 }
 
 provider "azurerm" {
