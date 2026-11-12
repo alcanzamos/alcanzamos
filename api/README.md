@@ -889,11 +889,11 @@ Cuerpo: `{"texto": "gasté 15 mil en almuerzo ayer"}`. Hasta **280 caracteres** 
 
 ## Imagen
 
-- Tres etapas: `node:24.22.1-alpine3.24` (digest `sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53`, índice multiarquitectura, resuelto el 2026-10-22; mismo Node que `.azure-pipelines/web.yml`) hace `npm ci` y `npm run build` en `web/` (necesita `diseno/`); `golang:1.27.3-alpine3.24` (digest `sha256:b8c9b82affbbb82a020bbcf998dad2ba9516944ac7e883524642a481a9505e9c`, índice multiarquitectura, resuelto el 2026-10-22) copia ese `web/dist` a `src/web/estatico/` y compila un binario estático con la web embebida; `gcr.io/distroless/static-debian13:nonroot` lo ejecuta, fijada por digest `sha256:18f4cc26c9ffa7f20a359298be7deadac5c607c8e03a02b8119f1a5fc2f82c99` (índice multiarquitectura subido el 2026-10-23, D-161; se usa el más nuevo que cumple 7 días de antigüedad).
+- Tres etapas: `node:24.22.1-alpine3.24` (digest `sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53`, índice multiarquitectura, resuelto el 2026-10-22; mismo Node que `.azure-pipelines/web.yml`) hace `npm ci` y `npm run build` en `web/` (necesita `diseno/`); `golang:1.27.4-alpine3.24` (digest `sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf`, índice multiarquitectura, resuelto el 2026-11-11) copia ese `web/dist` a `src/web/estatico/` y compila un binario estático con la web embebida; `gcr.io/distroless/static-debian13:nonroot` lo ejecuta, fijada por digest `sha256:18f4cc26c9ffa7f20a359298be7deadac5c607c8e03a02b8119f1a5fc2f82c99` (índice multiarquitectura subido el 2026-10-23, D-161; se usa el más nuevo que cumple 7 días de antigüedad).
 - El contexto es la raíz del monorepo; el `.dockerignore` de la raíz deja pasar solo `api/`, `web/` y `diseno/`.
 - Distroless no trae shell, así que no hay `HEALTHCHECK` ni comandos en forma de shell; la salud se consulta por `/salud` desde fuera.
 - Corre como usuario 65532 (nonroot), sin root. El `ENTRYPOINT` es el binario.
-- Go 1.27.3 (go.dev, 2026-10-22; SHA-256 del tarball `65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40`, fijado en `.azure-pipelines/api.yml`).
+- Go 1.27.4 (go.dev, 2026-11-11; SHA-256 del tarball `7226736c2339719cda28fbf3a54d71aa63bcefe376e98cef00034268dab24840`, fijado en `.azure-pipelines/plantillas/pasos/go.yml`). Corrige GO-2026-6859 (net/http), que afectaba a 1.27.3.
 
 ## Base de datos y migraciones
 
