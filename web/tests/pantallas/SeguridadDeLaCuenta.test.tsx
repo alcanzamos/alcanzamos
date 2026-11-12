@@ -105,7 +105,8 @@ describe("PN-71 · Seguridad de la cuenta", () => {
     expect(window.location.pathname).toBe("/cuenta/privacidad");
   });
 
-  it("orden: «Movimientos», «Cómo cuidamos tus datos», «Cerrar sesión» y, última, «Borrar mi cuenta»", async () => {
+  // L3 de la US-77 (punto 3): «Presupuesto» es una entrada provisional, como «Movimientos», justo después de ella.
+  it("orden: «Movimientos», «Presupuesto», «Cómo cuidamos tus datos», «Cerrar sesión» y, última, «Borrar mi cuenta»", async () => {
     simularApi(() => json(200, { ingreso_anterior: null }));
     render(<SeguridadDeLaCuenta />);
     await screen.findByText("Este es tu primer ingreso.");
@@ -115,10 +116,29 @@ describe("PN-71 · Seguridad de la cuenta", () => {
       ),
     ).toEqual([
       "Movimientos",
+      "Presupuesto",
       "Cómo cuidamos tus datos",
       "Cerrar sesión",
       "Borrar mi cuenta",
     ]);
+  });
+
+  it("«Presupuesto» es un enlace con aspecto de «Movimientos» que abre PN-06", async () => {
+    simularApi(() => json(200, { ingreso_anterior: null }));
+    render(<SeguridadDeLaCuenta />);
+    await screen.findByText("Este es tu primer ingreso.");
+    // El de PN-71, no el destino de la Navegación lateral.
+    const enlace = within(screen.getByRole("main")).getByRole("link", {
+      name: "Presupuesto",
+    });
+    expect(enlace).toHaveAttribute("href", "/presupuesto");
+    expect(enlace).toHaveClass(
+      within(screen.getByRole("main")).getByRole("link", {
+        name: "Movimientos",
+      }).className,
+    );
+    fireEvent.click(enlace);
+    expect(window.location.pathname).toBe("/presupuesto");
   });
 
   it("la entrada a PN-63 también está con el error de carga", async () => {

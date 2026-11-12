@@ -1833,6 +1833,262 @@
         "texto": "Pedir otro enlace",
         "e14": "E14-PCP 4.2 ter (PN-74), estado «Enlace vencido o ya usado» (D-192); mismo botón que PN-62 (4.5), con otro destino"
       }
+    },
+    "presupuesto": {
+      "destino": {
+        "texto": "Presupuesto",
+        "e14": "E14-SDD 5.9 (destino «Presupuesto» de la navegación); E14-PPA 4.1 (PN-06), fila 8; entrada provisional en PN-71 (L3 de la US-77, punto 3)"
+      },
+      "titulo": {
+        "texto": "Presupuesto de {mes}",
+        "e14": "E14-PPA 4.1 (PN-06), fila 2: «Presupuesto de noviembre» (plantilla sacada del ejemplo); E14-PPA 4.2 (PN-07), fila 2"
+      },
+      "resumen": {
+        "titulo": {
+          "texto": "Tu presupuesto este mes",
+          "e14": "E14-PPA 4.1 (PN-06), fila 3; E14-PPA 4.2 (PN-07), fila 3"
+        },
+        "ingresoRegistrado": {
+          "texto": "Ingreso registrado",
+          "e14": "E14-PPA 4.1 (PN-06), fila 3: «Ingreso registrado $1.200.000»; E14-PPA 4.2 (PN-07), fila 3"
+        },
+        "asignado": {
+          "texto": "Asignado",
+          "e14": "E14-PPA 4.1 (PN-06), fila 3: «Asignado $40.000»; E14-PPA 4.2 (PN-07), fila 3"
+        },
+        "sinAsignar": {
+          "texto": "Sin asignar",
+          "e14": "E14-PPA 4.1 (PN-06), fila 3: cifra grande «Sin asignar $1.160.000»"
+        },
+        "llegaDespues": {
+          "texto": "Llega después: {monto} (esperado)",
+          "e14": "E14-PPA 4.1 (PN-06), fila 3: «Llega después: $1.200.000 (esperado)» (D-094); E14-PPA 4.2 (PN-07), reglas"
+        },
+        "porConfirmar": {
+          "texto": "Por confirmar: {monto}",
+          "e14": "Aprobado por el dueño (L14 de la US-77, punto 4, 2026-11-11): E14-PPA 4.1 (PN-06), fila 3, nota fechada del 2026-11-11, «Llega después» separa lo esperado de lo por confirmar; línea aparte, solo si lo por confirmar es mayor que cero; también en PN-07"
+        },
+        "cuentaLoRegistrado": {
+          "texto": "Sin asignar cuenta lo que ya registraste.",
+          "e14": "E14-PPA 4.1 (PN-06), fila 3, texto `tipografia.pequeno` (primera frase)"
+        },
+        "seSumaCuandoLlegue": {
+          "texto": "{nombre} del {fecha} se suma cuando llegue.",
+          "e14": "Propuesto en la US-77 (T3, web) y aprobado por el dueño (L14 de la US-77, punto 3, 2026-11-11): E14 no tiene el texto. Sale de E14-PPA 4.1 (PN-06), fila 3 («El salario del 16 de noviembre de 2026 se suma cuando llegue.»), con el nombre de la categoría tal cual; solo con una fecha esperada"
+        },
+        "seSumaCuandoLoConfirmes": {
+          "texto": "{nombre} del {fecha} se suma cuando lo confirmes.",
+          "e14": "Aprobado por el dueño (L14 de la US-77, punto 4, 2026-11-11): E14-PPA 4.1 (PN-06), fila 3, nota fechada del 2026-11-11; solo con una fecha por confirmar"
+        },
+        "verMisIngresos": {
+          "texto": "Ver mis ingresos",
+          "e14": "E14-PPA 4.1 (PN-06), fila 3 (abre PN-08); E14-PPA 3 (PN-07 → PN-08)"
+        },
+        "nulo": {
+          "texto": "Puedes repartir lo que llegue o dejar el presupuesto en cero.",
+          "e14": "E14-PPA 4.2 (PN-07), fila 3, con ingreso nulo"
+        },
+        "bajo": {
+          "texto": "Lo asignado supera por {monto} lo que registraste. Se actualiza cuando registres más ingresos.",
+          "e14": "E14-PPA 4.2 (PN-07), fila 3, con ingreso bajo: «Lo asignado supera por $10.000 lo que registraste…»"
+        },
+        "dejarEnCero": {
+          "texto": "Dejar el presupuesto en cero",
+          "e14": "E14-PPA 4.2 (PN-07), fila 3b"
+        }
+      },
+      "registrarUnIngreso": {
+        "texto": "Registrar un ingreso",
+        "e14": "E14-PPA 4.3 (PN-08), fila 5; E14-PPA 4.2 (PN-07), fila 3a (abren el formulario con Tipo «Ingreso»)"
+      },
+      "categorias": {
+        "titulo": {
+          "texto": "Por categoría",
+          "e14": "E14-PPA 4.1 (PN-06), fila 4"
+        },
+        "sinPresupuestos": {
+          "texto": "Todavía no tienes presupuesto este mes.",
+          "e14": "E14-PPA 4.1 (PN-06), estado «Sin presupuestos»"
+        },
+        "elige": {
+          "texto": "Elige una categoría y pon cuánto quieres gastar en ella.",
+          "e14": "E14-PPA 4.1 (PN-06), estado «Sin presupuestos»"
+        },
+        "sinGastos": {
+          "texto": "Todavía no hay gastos este mes.",
+          "e14": "E14-PPA 4.2 (PN-07), fila 4, con ingreso nulo"
+        },
+        "conPresupuesto": {
+          "texto": "Presupuesto {presupuesto} · Gastado {gastado}",
+          "e14": "E14-PPA 4.1 (PN-06), «Cómo se arma cada fila»: «Presupuesto $40.000 · Gastado $40.000»"
+        },
+        "sinPresupuesto": {
+          "texto": "Gastado {gastado} · Sin presupuesto",
+          "e14": "E14-PPA 4.1 (PN-06), «Cómo se arma cada fila»: «Gastado $650.000 · Sin presupuesto»"
+        },
+        "quedan": {
+          "texto": "Quedan {monto} por gastar.",
+          "e14": "E14-PPA 4.1 (PN-06), «Estado de una categoría con presupuesto»: «Quedan $180.000 por gastar.»"
+        },
+        "usadoTodo": {
+          "texto": "Ya usaste todo lo presupuestado.",
+          "e14": "E14-PPA 4.1 (PN-06), «Estado de una categoría con presupuesto»"
+        },
+        "superado": {
+          "texto": "Gastado {gastado} de {presupuesto} presupuestados.",
+          "e14": "E14-PPA 4.1 (PN-06), «Estado de una categoría con presupuesto»: «Gastado $120.000 de $100.000 presupuestados.»"
+        },
+        "poner": {
+          "texto": "Poner presupuesto",
+          "e14": "E14-PPA 4.1 (PN-06), «Cómo se arma cada fila», Acción sin presupuesto"
+        },
+        "corregir": {
+          "texto": "Corregir",
+          "e14": "E14-PPA 4.1 (PN-06), «Cómo se arma cada fila», Acción con presupuesto (D-094)"
+        },
+        "quitar": {
+          "texto": "Quitar",
+          "e14": "E14-PPA 4.1 (PN-06), «Cómo se arma cada fila», Acción con presupuesto (D-094)"
+        },
+        "nombreDePoner": {
+          "texto": "Poner presupuesto a {categoria}",
+          "e14": "Propuesto en la US-77 (T3, web) y aprobado por el dueño (L17 de la US-77, 2026-11-11): E14 no tiene el texto. E14-PPA 4.1 (PN-06) pide el nombre de la categoría en el nombre accesible de «Poner presupuesto» (RNF-019, criterio 6)"
+        },
+        "nombreDeQuitar": {
+          "texto": "Quitar el presupuesto de {categoria}",
+          "e14": "Propuesto en la US-77 (T3, web) y aprobado por el dueño (L17 de la US-77, 2026-11-11): E14 no tiene el texto. E14-PPA 4.1 (PN-06) pide el nombre de la categoría en el nombre accesible de «Quitar» (SC-E21-13); sale del título de la hoja «¿Quitar el presupuesto de Transporte?»"
+        },
+        "agregarOtra": {
+          "texto": "Agregar otra categoría",
+          "e14": "E14-PPA 4.1 (PN-06), fila 5 (abre «Ver todas» de E14-PPN 3.1)"
+        }
+      },
+      "hoja": {
+        "titulo": {
+          "texto": "Presupuesto de {categoria}",
+          "e14": "E14-PPA 4.1 (PN-06), hoja «Poner presupuesto», fila 1: «Presupuesto de Servicios públicos»"
+        },
+        "tituloCorregir": {
+          "texto": "Corregir el presupuesto de {categoria}",
+          "e14": "E14-PPA 4.1 (PN-06), «Corregir y quitar»: «Corregir el presupuesto de Transporte»; también es el nombre accesible de «Corregir»"
+        },
+        "monto": {
+          "texto": "Monto para {mes}",
+          "e14": "E14-PPA 4.1 (PN-06), hoja «Poner presupuesto», fila 2: «Monto para noviembre»"
+        },
+        "guardar": {
+          "texto": "Guardar",
+          "e14": "E14-PPA 4.1 (PN-06), hoja «Poner presupuesto», fila 5"
+        }
+      },
+      "quitar": {
+        "titulo": {
+          "texto": "¿Quitar el presupuesto de {categoria}?",
+          "e14": "E14-PPA 4.1 (PN-06), «Corregir y quitar»: «¿Quitar el presupuesto de Transporte?»"
+        },
+        "explicacion": {
+          "texto": "Lo que gastaste no cambia. Puedes poner otro cuando quieras.",
+          "e14": "E14-PPA 4.1 (PN-06), «Corregir y quitar»"
+        },
+        "confirmar": {
+          "texto": "Quitar presupuesto",
+          "e14": "E14-PPA 4.1 (PN-06), «Corregir y quitar», Botón · Primario"
+        }
+      },
+      "avisos": {
+        "guardamos": {
+          "texto": "Listo, guardamos tu presupuesto de {categoria}.",
+          "e14": "E14-PPA 4.1 (PN-06), «Corregir y quitar» y reglas: «Listo, guardamos tu presupuesto de Servicios públicos.»"
+        },
+        "quitamos": {
+          "texto": "Listo, quitamos tu presupuesto de {categoria}.",
+          "e14": "E14-PPA 4.1 (PN-06), «Corregir y quitar»: «Listo, quitamos tu presupuesto de Transporte.»"
+        },
+        "enCero": {
+          "texto": "Listo, tu presupuesto de {mes} queda en cero. Cuando llegue un ingreso, puedes repartirlo.",
+          "e14": "E14-PPA 4.2 (PN-07), reglas y estado «En cero»"
+        },
+        "errorAlGuardar": {
+          "titulo": {
+            "texto": "No pudimos guardar el presupuesto.",
+            "e14": "E14-PPA 4.1 (PN-06), estado «Error de guardado»"
+          },
+          "mensaje": {
+            "texto": "Tus datos están a salvo. Intenta de nuevo.",
+            "e14": "E14-PPA 4.1 (PN-06), estado «Error de guardado»"
+          }
+        },
+        "errorAlCargar": {
+          "titulo": {
+            "texto": "No pudimos cargar tu presupuesto.",
+            "e14": "E14-PPA 4.1 (PN-06), estado «Error de carga»; E14-PPA 4.2 (PN-07)"
+          },
+          "mensaje": {
+            "texto": "Tus datos están a salvo. Intenta de nuevo.",
+            "e14": "E14-PPA 4.1 (PN-06), estado «Error de carga»; E14-PPA 4.2 (PN-07)"
+          }
+        }
+      }
+    },
+    "ingresos": {
+      "titulo": {
+        "texto": "Ingresos",
+        "e14": "E14-PPA 4.3 (PN-08), fila 1 (barra)"
+      },
+      "total": {
+        "entran": {
+          "texto": "Entran este mes",
+          "e14": "E14-PPA 4.3 (PN-08), fila 3"
+        },
+        "entraron": {
+          "texto": "Entraron este mes",
+          "e14": "E14-PPA 4.3 (PN-08), «Con varias fuentes»: el periodo ya terminó"
+        },
+        "yaRegistrado": {
+          "texto": "Ya registrado",
+          "e14": "E14-PPA 4.3 (PN-08), fila 3: «Ya registrado $1.200.000»"
+        },
+        "esperado": {
+          "texto": "Esperado",
+          "e14": "E14-PPA 4.3 (PN-08), fila 3: «Esperado $1.200.000»"
+        }
+      },
+      "marca": {
+        "registrado": {
+          "texto": "Registrado",
+          "e14": "E14-PPA 4.3 (PN-08), «Cómo se arma cada fila», Marca"
+        },
+        "esperado": {
+          "texto": "Esperado",
+          "e14": "E14-PPA 4.3 (PN-08), «Cómo se arma cada fila», Marca (D-091)"
+        }
+      },
+      "apoyoConDescripcion": {
+        "texto": "{medio} · {descripcion}",
+        "e14": "E14-PPA 4.3 (PN-08), «Cómo se arma cada fila», Texto de apoyo: el medio de pago y, si hay, la descripción"
+      },
+      "vacio": {
+        "titulo": {
+          "texto": "Todavía no registras ingresos este mes.",
+          "e14": "E14-PPA 4.3 (PN-08), estado «Sin ingresos en el periodo»"
+        },
+        "mensaje": {
+          "texto": "Cuando registres uno, aquí lo verás.",
+          "e14": "E14-PPA 4.3 (PN-08), estado «Sin ingresos en el periodo»"
+        }
+      },
+      "avisos": {
+        "errorAlCargar": {
+          "titulo": {
+            "texto": "No pudimos cargar tus ingresos.",
+            "e14": "E14-PPA 4.3 (PN-08), estado «Error de carga»"
+          },
+          "mensaje": {
+            "texto": "Tus datos están a salvo. Intenta de nuevo.",
+            "e14": "E14-PPA 4.3 (PN-08), estado «Error de carga»"
+          }
+        }
+      }
     }
   },
   "solo_android": {

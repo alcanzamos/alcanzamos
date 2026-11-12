@@ -1,9 +1,9 @@
 import { alTocarEnlace } from "../enrutador";
 import { textos } from "../textos/es.generated";
-import { IconoAgregar, IconoMovimientos } from "./Iconos";
+import { IconoAgregar, IconoMovimientos, IconoPresupuesto } from "./Iconos";
 
 /** El lugar de la barra donde está la persona; sin él, la pantalla no es un destino (E14-PTU 4.0). */
-export type Lugar = "registrar" | "movimientos";
+export type Lugar = "registrar" | "movimientos" | "presupuesto";
 
 export type Lateral = {
   activo?: Lugar;
@@ -11,14 +11,20 @@ export type Lateral = {
   registrarSecundario?: boolean;
 };
 
-// Los destinos de E14-SDD 5.9, en su orden, que ya existen en la web. Inicio, Presupuesto y Metas llegan con su
-// pantalla: un destino sin pantalla sería un enlace muerto.
+// Los destinos de E14-SDD 5.9, en su orden, que ya existen en la web (nota del 2026-11-10 de 5.13): «Presupuesto» va
+// después de «Movimientos» desde la US-77. Inicio y Metas llegan con su pantalla: sin ella serían un enlace muerto.
 const destinos = [
   {
     lugar: "movimientos",
     href: "/movimientos",
     nombre: textos.movimientos.titulo,
     Icono: IconoMovimientos,
+  },
+  {
+    lugar: "presupuesto",
+    href: "/presupuesto",
+    nombre: textos.presupuesto.destino,
+    Icono: IconoPresupuesto,
   },
 ] as const;
 

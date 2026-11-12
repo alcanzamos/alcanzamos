@@ -6,7 +6,9 @@ import { BorrarCuenta } from "./pantallas/BorrarCuenta";
 import { CambiarContrasena } from "./pantallas/CambiarContrasena";
 import { CrearCuenta } from "./pantallas/CrearCuenta";
 import { Entrar } from "./pantallas/Entrar";
+import { Ingresos } from "./pantallas/Ingresos";
 import { Movimientos } from "./pantallas/Movimientos";
+import { Presupuesto } from "./pantallas/Presupuesto";
 import { Privacidad } from "./pantallas/Privacidad";
 import { Recuperar } from "./pantallas/Recuperar";
 import { Registrar } from "./pantallas/Registrar";
@@ -40,6 +42,8 @@ const pantallas: Record<string, () => ReactElement> = {
   "/movimientos": Movimientos,
   "/registrar": Registrar,
   "/registrar/se-repite": SeRepite,
+  "/presupuesto": Presupuesto,
+  "/ingresos": Ingresos,
 };
 
 // Rutas de la app. `/` y toda ruta que no existe llevan a `/entrar`: no hay una pantalla de «no encontrada» en E14.
