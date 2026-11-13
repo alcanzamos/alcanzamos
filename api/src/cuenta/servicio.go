@@ -3,6 +3,7 @@ package cuenta
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/mail"
 	"strings"
@@ -209,12 +210,37 @@ type Servicio struct {
 	cupo   chan struct{} // un lugar por pedido de verificación en segundo plano (A2)
 }
 
-// NuevoServicio arma el servicio con sus puertos.
-func NuevoServicio(d Dependencias) *Servicio {
+// ErrDependenciaFaltante es el error de NuevoServicio cuando a Dependencias le falta un puerto.
+var ErrDependenciaFaltante = errors.New("cuenta: falta una dependencia")
+
+// NuevoServicio arma el servicio con sus puertos. Todos son obligatorios, también para quien solo usa una parte (las
+// tareas usan la purga y el aviso, no el hash ni los límites): una dependencia que falta se descubre aquí, al armar, y no
+// a mitad de una corrida con un nil pointer (ítem 294, L10). El error es ErrDependenciaFaltante y nombra todas las que faltan.
+func NuevoServicio(d Dependencias) (*Servicio, error) {
+	var faltan []string
+	for _, p := range []struct {
+		nombre string
+		falta  bool
+	}{
+		{"Repo", d.Repo == nil},
+		{"Correo", d.Correo == nil},
+		{"Politica", d.Politica == nil},
+		{"Hasher", d.Hasher == nil},
+		{"Reloj", d.Reloj == nil},
+		{"Limitador", d.Limitador == nil},
+		{"Log", d.Log == nil},
+	} {
+		if p.falta {
+			faltan = append(faltan, p.nombre)
+		}
+	}
+	if len(faltan) > 0 {
+		return nil, fmt.Errorf("%w: %s", ErrDependenciaFaltante, strings.Join(faltan, ", "))
+	}
 	if d.CupoDeSolicitudes <= 0 {
 		d.CupoDeSolicitudes = CupoDeSolicitudes
 	}
-	return &Servicio{d: d, cupo: make(chan struct{}, d.CupoDeSolicitudes)}
+	return &Servicio{d: d, cupo: make(chan struct{}, d.CupoDeSolicitudes)}, nil
 }
 
 // Esperar bloquea hasta que terminen las solicitudes y los envíos de correo en curso. Lo usan las pruebas y el apagado ordenado.
@@ -402,7 +428,8 @@ func (s *Servicio) BorrarCuentasSinConfirmar(ctx context.Context, ahora time.Tim
 
 // avisarAntesDeLaPurga manda el aviso a las cuentas del caso 2 que llevan 5 días o más (D-203, S5). El correo dice el
 // momento real del borrado, el que llegue más tarde entre creada_en + 7 días y el aviso + 48 horas, y el aviso que se
-// registra es el de la pasada, el mismo con que se calculó esa fecha. El envío lleva un plazo corto
+// registra es la hora leída justo antes de enviar ese correo, por cada cuenta (no la del inicio de la pasada, que una purga
+// o unos envíos lentos dejan atrás): así la purga siempre espera 48 horas o más desde el correo real. El envío lleva un plazo corto
 // (PlazoDeEnvioConFilasBloqueadas) porque se hace con las filas bloqueadas. Si falla, no se registra nada y queda un
 // aviso en el registro, con el id de la cuenta y no con el correo: la pasada siguiente lo reintenta.
 //
@@ -417,11 +444,14 @@ func (s *Servicio) avisarAntesDeLaPurga(ctx context.Context, ahora time.Time) (i
 	return s.d.Repo.AvisarAntesDeLaPurga(ctx, ahora.Add(-PlazoParaAvisar), func(ctx context.Context, c CuentaPorAvisar) (time.Time, error) {
 		ctx, cancelar := context.WithTimeout(ctx, plazo)
 		defer cancelar()
-		if err := s.d.Correo.EnviarAvisoDePurga(ctx, c.Correo, momentoDelBorrado(c.CreadaEn, ahora)); err != nil {
+		// La hora del aviso se lee aquí, justo antes de enviar y por cada cuenta, y no al empezar la pasada: la purga o
+		// los envíos anteriores pueden haber tardado, y con la hora de la pasada las 48 horas contarían desde antes del correo.
+		avisoEn := s.d.Reloj.Ahora()
+		if err := s.d.Correo.EnviarAvisoDePurga(ctx, c.Correo, momentoDelBorrado(c.CreadaEn, avisoEn)); err != nil {
 			s.d.Log.WarnContext(ctx, "aviso de purga no enviado: se reintenta en la pasada siguiente", "persona_id", c.ID, "error", err)
 			return time.Time{}, err
 		}
-		return ahora, nil
+		return avisoEn, nil
 	})
 }
 

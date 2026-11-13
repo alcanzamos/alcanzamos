@@ -5,6 +5,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -111,7 +112,7 @@ func ArmarEnrutador(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, 
 	hasher := argon2id.Predeterminado()
 	correoSMTP := correo.NuevoSMTP(cfg, hora)
 	politica := seguridad.NuevaPoliticaDeContrasena()
-	cuentas := cuenta.NuevoServicio(cuenta.Dependencias{
+	cuentas, err := cuenta.NuevoServicio(cuenta.Dependencias{
 		Repo:      pg.NuevoCuentas(pool),
 		Correo:    correoSMTP,
 		Politica:  politica,
@@ -120,6 +121,9 @@ func ArmarEnrutador(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, 
 		Limitador: limitador,
 		Log:       log,
 	})
+	if err != nil {
+		return nil, nil, err
+	}
 	autenticaciones, err := autenticacion.NuevoServicio(autenticacion.Dependencias{
 		Repo: pg.NuevoAutenticacion(pool), Hasher: hasher, Limitador: limitador, Reloj: hora,
 		Correo: correoSMTP, Politica: politica, Log: log,
@@ -171,20 +175,49 @@ func migrar(ctx context.Context, log *slog.Logger) error {
 	return nil
 }
 
-// correrTareas es el punto de entrada del trabajo programado: conecta con la base, corre cada tarea (E12 EjecutorDeTareas)
-// y deja constancia del inicio y del fin. Termina con error, y código 1, si alguna tarea falla o no hay base.
+// correrTareas es el punto de entrada del trabajo programado: carga la misma configuración del correo que el API, conecta
+// con la base, arma las tareas (ArmarTareas), las corre (E12 EjecutorDeTareas) y deja constancia del inicio y del fin.
+// Termina con error, y código 1, si falta la configuración, si alguna tarea falla o si no hay base.
 func correrTareas(ctx context.Context, log *slog.Logger) error {
 	log.Info("tareas: inicio")
+	// Con el aviso antes de la purga (ítem 294, D-203) la tarea envía correo: necesita CORREO_SMTP, CORREO_REMITENTE,
+	// CORREO_PRIVACIDAD y URL_PUBLICA, igual que el API. Sin ellas no corre nada, en vez de fallar en el primer aviso.
+	cfg, err := config.Cargar(os.Getenv)
+	if err != nil {
+		return err
+	}
 	pool, err := bd.Conectar(ctx)
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
 
-	hora := reloj.Sistema{}
-	// Las tareas no envían correo ni calculan hashes: el servicio solo usa el repositorio.
-	cuentas := cuenta.NuevoServicio(cuenta.Dependencias{Repo: pg.NuevoCuentas(pool), Reloj: hora, Log: log})
-	ejecutadas, err := tareas.NuevoEjecutor(cuentas, pg.NuevoLimpieza(pool), hora, log).Ejecutar(ctx)
+	ejecutor, err := ArmarTareas(cfg, pool, log)
+	if err != nil {
+		return err
+	}
+	ejecutadas, err := ejecutor.Ejecutar(ctx)
 	log.Info("tareas: fin", "ejecutadas", ejecutadas)
 	return err
+}
+
+// ArmarTareas es el único lugar donde se arman las tareas programadas: `api tareas` (correrTareas) y las pruebas lo
+// llaman, así que lo que se prueba es lo que corre en producción (ítem 294, L10: el servicio de las tareas se armaba sin
+// correo y se caía con el primer aviso). Las tareas envían correo (el aviso antes de la purga), con el mismo adaptador SMTP
+// y la misma configuración del API. Falla si falta una dependencia del servicio de cuentas, antes de correr nada.
+func ArmarTareas(cfg config.Config, pool *pgxpool.Pool, log *slog.Logger) (*tareas.Ejecutor, error) {
+	if pool == nil {
+		return nil, errors.New("tareas: falta el pool de la base")
+	}
+	hora := reloj.Sistema{}
+	// El servicio de cuentas exige todos sus puertos aunque las tareas solo usen la purga y el aviso (repositorio, correo,
+	// reloj y registro): el hash, la política y los límites no se llaman desde aquí.
+	cuentas, err := cuenta.NuevoServicio(cuenta.Dependencias{
+		Repo: pg.NuevoCuentas(pool), Correo: correo.NuevoSMTP(cfg, hora), Politica: seguridad.NuevaPoliticaDeContrasena(),
+		Hasher: argon2id.Predeterminado(), Reloj: hora, Limitador: seguridad.NuevoLimitadorDeIntentos(hora), Log: log,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return tareas.NuevoEjecutor(cuentas, pg.NuevoLimpieza(pool), hora, log), nil
 }

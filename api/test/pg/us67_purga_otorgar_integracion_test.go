@@ -22,7 +22,7 @@ func TestLaPurgaYUnOtorgamientoAlMismoTiempoQuedanCoherentes(t *testing.T) {
 	pool := pgtest.Nueva(t)
 	ahora := time.Now().UTC()
 	necesarias := cuenta.ReglaDeFinalidades{}.Codigos(cuenta.EtapaAdulta)
-	servicio := cuenta.NuevoServicio(cuenta.Dependencias{Repo: pg.NuevoCuentas(pool)})
+	servicio := servicioDeLaPurga(t, pool)
 	otorgante := pg.NuevoAutorizaciones(pool)
 	for i := range 20 {
 		var id string

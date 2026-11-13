@@ -23,6 +23,7 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/src/cuenta"
 	"github.com/alcanzamos/alcanzamos/api/src/seguridad"
 	"github.com/alcanzamos/alcanzamos/api/test/correo/correotest"
+	"github.com/alcanzamos/alcanzamos/api/test/reloj/relojtest"
 )
 
 const hora = time.Hour
@@ -37,20 +38,25 @@ type entornoDeAviso struct {
 	// limitadorDeTareas es el de los servicios de las pruebas de la tarea: aparte del que usa `svc` al sembrar, que ya
 	// gastó un correo de la dirección con el enlace de verificación.
 	limitadorDeTareas *seguridad.LimitadorDeIntentos
+	// relojDeTareas es la hora de la tarea: la que lee el servicio justo antes de enviar cada aviso (ítem 294, L10). `corrida`
+	// la pone en la hora de la pasada; quien llama a la tarea directamente la pone antes, o queda en `ahora`.
+	relojDeTareas *relojtest.Fijo
 }
 
 func nuevoEntornoDeAviso(t *testing.T) *entornoDeAviso {
 	t.Helper()
 	a := &entornoDeAviso{entornoDeCuentas: nuevoEntornoDeCuentas(t), registro: &bytes.Buffer{}}
 	a.limitadorDeTareas = seguridad.NuevoLimitadorDeIntentos(a.reloj)
-	a.tarea = a.servicioDeTareas(a.correo, 0)
+	a.relojDeTareas = &relojtest.Fijo{T: ahora}
+	a.tarea = a.servicioDeTareas(t, a.correo, 0)
 	return a
 }
 
-func (a *entornoDeAviso) servicioDeTareas(c correo.Correo, plazo time.Duration) *cuenta.Servicio {
-	return cuenta.NuevoServicio(cuenta.Dependencias{
+func (a *entornoDeAviso) servicioDeTareas(t *testing.T, c correo.Correo, plazo time.Duration) *cuenta.Servicio {
+	t.Helper()
+	return servicioDeCuentas(t, cuenta.Dependencias{
 		Repo: a.repo, Correo: c, Politica: seguridad.NuevaPoliticaDeContrasena(), Hasher: a.hasher,
-		Reloj: a.reloj, Limitador: a.limitadorDeTareas, Log: slog.New(slog.NewJSONHandler(a.registro, nil)),
+		Reloj: a.relojDeTareas, Limitador: a.limitadorDeTareas, Log: slog.New(slog.NewJSONHandler(a.registro, nil)),
 		PlazoDeEnvioConFilasBloqueadas: plazo,
 	})
 }
@@ -58,6 +64,7 @@ func (a *entornoDeAviso) servicioDeTareas(c correo.Correo, plazo time.Duration) 
 // corrida es una pasada de la tarea con `hoy` como la hora, y devuelve cuántas cuentas borró.
 func (a *entornoDeAviso) corrida(t *testing.T, hoy time.Time) int {
 	t.Helper()
+	a.relojDeTareas.T = hoy
 	n, err := a.tarea.BorrarCuentasSinConfirmar(context.Background(), hoy)
 	if err != nil {
 		t.Fatalf("la tarea en %v: %v", hoy, err)
@@ -345,6 +352,7 @@ func TestSinAutorizarElAvisoSaleUnaSolaVezAunqueLaTareaCorraMuchasVeces(t *testi
 	}
 	// Y a la vez: ocho pasadas al mismo tiempo sobre una cuenta nueva mandan un solo correo.
 	nueva := a.sembrar(t, "a-la-vez@ejemplo.test", primera.Add(-6*dia), true)
+	a.relojDeTareas.T = primera.Add(2 * dia) // antes de lanzar las pasadas: el reloj no se toca mientras corren
 	var wg sync.WaitGroup
 	for range 8 {
 		wg.Add(1)
@@ -576,7 +584,7 @@ func TestSiElCorreoSaleYLaEscrituraFallaLaPasadaSiguienteLoManda(t *testing.T) {
 	a := nuevoEntornoDeAviso(t)
 	id := a.sembrar(t, "escritura@ejemplo.test", ahora.Add(-6*dia), true)
 	mata := &matoLaConexion{Falso: a.correo, pool: a.pool, matar: true}
-	a.tarea = a.servicioDeTareas(mata, 0)
+	a.tarea = a.servicioDeTareas(t, mata, 0)
 	if _, err := a.tarea.BorrarCuentasSinConfirmar(context.Background(), ahora); err == nil {
 		t.Fatal("la escritura del aviso falló: la tarea debe devolver el error de la base")
 	}
@@ -621,7 +629,7 @@ func TestUnEnvioQueFallaNoImpideElDeLasDemasCuentas(t *testing.T) {
 	a := nuevoEntornoDeAviso(t)
 	mala := a.sembrar(t, "a-rechazada@ejemplo.test", ahora.Add(-6*dia), true)
 	buena := a.sembrar(t, "b-buena@ejemplo.test", ahora.Add(-6*dia), true)
-	a.tarea = a.servicioDeTareas(&rechazaA{Falso: a.correo, destino: "a-rechazada@ejemplo.test"}, 0)
+	a.tarea = a.servicioDeTareas(t, &rechazaA{Falso: a.correo, destino: "a-rechazada@ejemplo.test"}, 0)
 	a.corrida(t, ahora)
 	if a.avisoDe(t, mala) != nil || a.avisoDe(t, buena) == nil {
 		t.Fatalf("rechazada %v, buena %v", a.avisoDe(t, mala), a.avisoDe(t, buena))
@@ -681,7 +689,7 @@ func TestUnServidorDeCorreoQueNoResponde(t *testing.T) {
 		CorreoPrivacidad: "privacidad@ejemplo.test", URLPublica: "https://app.ejemplo.test",
 	}, a.reloj)
 	const plazo = 600 * time.Millisecond
-	a.tarea = a.servicioDeTareas(smtp, plazo)
+	a.tarea = a.servicioDeTareas(t, smtp, plazo)
 
 	salio := make(chan time.Duration, 1)
 	fallo := make(chan error, 1)
@@ -756,7 +764,7 @@ func TestUnServidorDeCorreoQueNoResponde(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Y la pasada siguiente, con el servidor sano, manda el aviso.
-	a.tarea = a.servicioDeTareas(a.correo, 0)
+	a.tarea = a.servicioDeTareas(t, a.correo, 0)
 	a.corrida(t, ahora.Add(15*time.Minute))
 	if a.avisoDe(t, id) == nil || a.numeroDeAvisos() != 1 {
 		t.Error("la pasada siguiente reintenta y avisa")

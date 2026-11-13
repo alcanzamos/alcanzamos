@@ -81,7 +81,9 @@ func TestSiElEnvioDelAvisoFallaNoSeRegistraYQuedaUnAvisoEnElRegistro(t *testing.
 		t.Errorf("el registro no debe llevar el correo: %s", registro)
 	}
 	// La corrida siguiente lo reintenta y sale.
+	// (el reloj avanza con la corrida: el aviso registra la hora leída antes de enviar, no la del inicio de la corrida)
 	e.correo.Error = nil
+	e.reloj.T = ahoraDePrueba.Add(15 * time.Minute)
 	if _, err := e.svc.BorrarCuentasSinConfirmar(context.Background(), ahoraDePrueba.Add(15*time.Minute)); err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +162,7 @@ func TestElEnvioDelAvisoTieneUnTiempoDeEsperaCorto(t *testing.T) {
 	}
 	e := nuevoEntorno()
 	mira := &correoQueMira{Falso: e.correo}
-	e.svc = cuenta.NuevoServicio(cuenta.Dependencias{
+	e.svc = servicioDe(cuenta.Dependencias{
 		Repo: e.repo, Correo: mira, Politica: seguridad.NuevaPoliticaDeContrasena(), Hasher: e.hasher,
 		Reloj: e.reloj, Limitador: e.limitador, Log: e.log(),
 	})
@@ -180,7 +182,7 @@ func TestElEnvioDelAvisoTieneUnTiempoDeEsperaCorto(t *testing.T) {
 func TestElPlazoDelEnvioDelAvisoSeConfigura(t *testing.T) {
 	e := nuevoEntorno()
 	mira := &correoQueMira{Falso: e.correo}
-	e.svc = cuenta.NuevoServicio(cuenta.Dependencias{
+	e.svc = servicioDe(cuenta.Dependencias{
 		Repo: e.repo, Correo: mira, Politica: seguridad.NuevaPoliticaDeContrasena(), Hasher: e.hasher,
 		Reloj: e.reloj, Limitador: e.limitador, Log: e.log(), PlazoDeEnvioConFilasBloqueadas: 250 * time.Millisecond,
 	})

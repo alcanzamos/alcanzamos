@@ -42,6 +42,7 @@ type repoFalso struct {
 	porAvisar   []cuenta.CuentaPorAvisar
 	avisadas    map[string]time.Time // id → el momento del aviso que el repositorio registró
 	errAvisar   error
+	errBorrar   error
 }
 
 func (r *repoFalso) SolicitarVerificacion(_ context.Context, v cuenta.NuevaVerificacion) error {
@@ -106,6 +107,9 @@ func (r *repoFalso) CompletarCuenta(_ context.Context, c cuenta.CuentaElegida) e
 
 func (r *repoFalso) BorrarSinConfirmar(_ context.Context, p cuenta.PlazosDeLaPurga) (cuenta.ResultadoDeLaPurga, error) {
 	r.plazos = p
+	if r.errBorrar != nil {
+		return cuenta.ResultadoDeLaPurga{}, r.errBorrar
+	}
 	return r.resultado, nil
 }
 
@@ -168,7 +172,7 @@ type entorno struct {
 func nuevoEntorno() *entorno {
 	e := &entorno{repo: &repoFalso{}, correo: &correotest.Falso{}, hasher: &hasheadorFalso{}, reloj: &relojtest.Fijo{T: ahoraDePrueba}, registro: &bytes.Buffer{}}
 	e.limitador = seguridad.NuevoLimitadorDeIntentos(e.reloj)
-	e.svc = cuenta.NuevoServicio(cuenta.Dependencias{
+	e.svc = servicioDe(cuenta.Dependencias{
 		Repo: e.repo, Correo: e.correo, Politica: seguridad.NuevaPoliticaDeContrasena(), Hasher: e.hasher,
 		Reloj: e.reloj, Limitador: e.limitador, Log: e.log(),
 	})
@@ -631,7 +635,7 @@ func TestElCuartoPedidoDeLaHoraNoRevocaElEnlaceVigente(t *testing.T) {
 // se registra sin correo ni token; al liberarse, vuelve a aceptar.
 func TestElTrabajoEnSegundoPlanoTieneUnTopeGlobal(t *testing.T) {
 	e := nuevoEntorno()
-	e.svc = cuenta.NuevoServicio(cuenta.Dependencias{
+	e.svc = servicioDe(cuenta.Dependencias{
 		Repo: e.repo, Correo: e.correo, Politica: seguridad.NuevaPoliticaDeContrasena(), Hasher: e.hasher,
 		Reloj: e.reloj, Limitador: e.limitador, Log: e.log(), CupoDeSolicitudes: 2,
 	})
@@ -657,4 +661,14 @@ func TestElTrabajoEnSegundoPlanoTieneUnTopeGlobal(t *testing.T) {
 	if n := len(e.correo.Enviados()); n != 3 {
 		t.Errorf("liberado el cupo vuelve a aceptar: %d", n)
 	}
+}
+
+// servicioDe arma el servicio con las dependencias dadas, que deben estar completas: una prueba con una dependencia que
+// falta es un error de la prueba.
+func servicioDe(d cuenta.Dependencias) *cuenta.Servicio {
+	s, err := cuenta.NuevoServicio(d)
+	if err != nil {
+		panic(err)
+	}
+	return s
 }

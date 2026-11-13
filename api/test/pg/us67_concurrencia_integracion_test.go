@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/alcanzamos/alcanzamos/api/src/cuenta"
-	"github.com/alcanzamos/alcanzamos/api/src/pg"
 	"github.com/alcanzamos/alcanzamos/api/test/pgtest"
 )
 
@@ -68,7 +67,7 @@ func TestPurgaNoBorraTrasOtorgamientoConcurrente(t *testing.T) {
 	}
 	fin := make(chan resultado, 1)
 	go func() {
-		s := cuenta.NuevoServicio(cuenta.Dependencias{Repo: pg.NuevoCuentas(pool)})
+		s := servicioDeLaPurga(t, pool)
 		n, err := s.BorrarCuentasSinConfirmar(ctx, ahora)
 		fin <- resultado{n, err}
 	}()
