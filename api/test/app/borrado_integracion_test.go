@@ -85,6 +85,7 @@ func TestBorrarLaCuentaDePuntaAPunta(t *testing.T) {
 		`INSERT INTO credencial (persona_id, hash) VALUES ($1::uuid, '` + hash + `')`,
 		`INSERT INTO autorizacion (titular_id, otorgante_id, finalidad, version_del_texto, otorgada_en) VALUES ($1::uuid, $1::uuid, 'cuenta_y_acceso', '1.0', now() - interval '1 day')`,
 		`INSERT INTO autorizacion (titular_id, otorgante_id, finalidad, version_del_texto, otorgada_en) VALUES ($1::uuid, $1::uuid, 'funciones_financieras', '1.0', now() - interval '1 day')`,
+		`INSERT INTO autorizacion (titular_id, otorgante_id, finalidad, version_del_texto, otorgada_en) VALUES ($1::uuid, $1::uuid, 'transmision_a_encargados', '1.1', now() - interval '1 day')`,
 		`INSERT INTO movimiento (persona_id, tipo, monto, fecha, medio, descripcion, categoria_id) VALUES ($1::uuid, 'gasto', 1000, current_date, 'efectivo', 'mercado', 1)`,
 	} {
 		if _, err := tx.Exec(ctx, q, persona); err != nil {
@@ -133,7 +134,7 @@ func TestBorrarLaCuentaDePuntaAPunta(t *testing.T) {
 	}
 	var retiradas int
 	_ = pool.QueryRow(ctx, `SELECT count(*) FROM autorizacion WHERE titular_id = $1::uuid AND retirada_en IS NOT NULL AND conservar_hasta > current_date + interval '2 years'`, persona).Scan(&retiradas)
-	if retiradas != 2 {
+	if retiradas != 3 {
 		t.Errorf("la prueba mínima de las autorizaciones: %d", retiradas)
 	}
 
@@ -225,7 +226,7 @@ func TestBorrarConHogarYMenoresDePuntaAPunta(t *testing.T) {
 	for _, par := range [][2]string{{laura, mateo}, {laura, sofia}, {camilo, sofia}} {
 		sql(`INSERT INTO tutoria (tutor_id, menor_id, declaro_escuchar_al_menor, declaro_representacion, autorizacion_expresa, version_declaracion, inicio) VALUES ($1::uuid, $2::uuid, true, true, true, '1.0', current_date)`, par[0], par[1])
 	}
-	for _, f := range []string{"cuenta_y_acceso", "funciones_financieras"} {
+	for _, f := range []string{"cuenta_y_acceso", "funciones_financieras", "transmision_a_encargados"} {
 		sql(`INSERT INTO autorizacion (titular_id, otorgante_id, finalidad, version_del_texto, otorgada_en) VALUES ($1::uuid, $1::uuid, $2, '1.0', now() - interval '1 day')`, laura, f)
 	}
 	sql(`INSERT INTO movimiento (persona_id, hogar_id, tipo, monto, fecha, medio, descripcion, categoria_id) VALUES ($1::uuid, $2::uuid, 'gasto', 80000, current_date, 'efectivo', 'arriendo de enero', 4)`, laura, hogar)

@@ -8,6 +8,7 @@ import { CrearCuenta } from "./pantallas/CrearCuenta";
 import { Entrar } from "./pantallas/Entrar";
 import { Ingresos } from "./pantallas/Ingresos";
 import { Movimientos } from "./pantallas/Movimientos";
+import { Politica } from "./pantallas/Politica";
 import { Presupuesto } from "./pantallas/Presupuesto";
 import { Privacidad } from "./pantallas/Privacidad";
 import { Recuperar } from "./pantallas/Recuperar";
@@ -32,6 +33,8 @@ const pantallas: Record<string, () => ReactElement> = {
   "/revisa-tu-correo": RevisaTuCorreo,
   "/verificar": Verificar,
   "/privacidad": Privacidad,
+  // PN-68 es pública (D-195): sin sesión; de dónde se abre lo dice `?desde=`.
+  "/politica": Politica,
   "/autorizacion": Autorizacion,
   "/recuperar-acceso": RecuperarAcceso,
   "/recuperar": Recuperar,

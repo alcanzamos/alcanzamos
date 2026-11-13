@@ -48,9 +48,11 @@ var rutasEsperadas = []servidor.Ruta{
 	{Patron: "PUT /api/v1/presupuestos/{id}", Nivel: seguridad.RequiereAutorizacion},
 	{Patron: "DELETE /api/v1/presupuestos/{id}", Nivel: seguridad.RequiereAutorizacion},
 	{Patron: "POST /api/v1/presupuestos/en-cero", Nivel: seguridad.RequiereAutorizacion},
-	{Patron: "GET /api/v1/cuenta/borrado", Nivel: seguridad.RequiereAutorizacion},
-	{Patron: "POST /api/v1/cuenta/borrado", Nivel: seguridad.RequiereAutorizacion},
-	{Patron: "GET /api/v1/cuenta/datos", Nivel: seguridad.RequiereAutorizacion},
+	// SC-E21-25, criterio 3: la cuenta sin una aceptación nueva descarga sus datos y borra su cuenta desde la hoja de «No autorizo».
+	{Patron: "GET /api/v1/cuenta/borrado", Nivel: seguridad.SinAutorizacion},
+	{Patron: "POST /api/v1/cuenta/borrado", Nivel: seguridad.SinAutorizacion},
+	{Patron: "GET /api/v1/cuenta/datos", Nivel: seguridad.SinAutorizacion},
+	{Patron: "PUT /api/v1/dispositivos/{dispositivo_id}/token", Nivel: seguridad.RequiereAutorizacion},
 }
 
 func enrutadorDePrueba(t *testing.T) *servidor.Enrutador {
@@ -113,6 +115,10 @@ var rutasAntesDeAutorizar = map[string]bool{
 	"GET /api/v1/autorizaciones":                true, // PN-64: solo lee
 	"POST /api/v1/autorizaciones":               true, // PN-64: autorizar
 	"POST /api/v1/autorizaciones/rechazo":       true, // PN-64: «No autorizo», borra
+	// SC-E21-25, criterio 3 y sección 5: la hoja de «No autorizo» de la cuenta a la que le falta una aceptación nueva.
+	"GET /api/v1/cuenta/borrado":  true, // lo que PN-69 dice del hogar y de los menores: solo lee
+	"POST /api/v1/cuenta/borrado": true, // borrar la cuenta con la contraseña: no guarda datos, los borra
+	"GET /api/v1/cuenta/datos":    true, // «Descargar mis datos» (RF-032): solo lee lo de la propia persona
 }
 
 func TestSoloLasRutasDelIngresoNoExigenAutorizacion(t *testing.T) {

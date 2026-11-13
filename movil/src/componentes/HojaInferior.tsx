@@ -1,5 +1,14 @@
 import type { ReactNode } from 'react';
-import { KeyboardAvoidingView, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { estiloDeTipografia } from '../fuentes';
 import { textos } from '../textos/es.generated';
@@ -13,23 +22,37 @@ import { RegionDeAnuncios } from './RegionDeAnuncios';
 // `titulo` lleva además el encabezado. El contenido se anuncia como una ventana modal para que TalkBack no salga de la
 // hoja; sube con el teclado (el campo de «Cambiar el monto» no queda tapado). Lleva su propia región viva (ACC-004): la
 // hoja es otra ventana en Android, y sus avisos se dicen en ella y no en la pantalla de atrás.
+// `desplazable` es para la hoja con mucho contenido (la de «No autorizo» de PN-54: explicación, descarga, contraseña y dos
+// botones): la hoja no pasa de la fracción de la ventana que dice `ALTO_MAXIMO`, el contenido se desplaza dentro de ella
+// y el teclado no impide tocar los botones. El encabezado y la región viva quedan fuera de lo que se desplaza.
+const ALTO_MAXIMO = 0.9;
+
 export function HojaInferior({
   visible,
   alCerrar,
   titulo,
+  desplazable = false,
   children,
 }: {
   visible: boolean;
   alCerrar: () => void;
   titulo?: string;
+  desplazable?: boolean;
   children: ReactNode;
 }) {
   const margenes = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
   return (
     <Modal transparent animationType="slide" visible={visible} onRequestClose={alCerrar}>
       <KeyboardAvoidingView behavior="padding" style={estilos.velo} accessibilityViewIsModal>
         <Pressable accessible={false} importantForAccessibility="no" style={estilos.fuera} onPress={alCerrar} />
-        <View style={[estilos.hoja, { paddingBottom: margenes.bottom + tokens.espacio['4'] }]}>
+        <View
+          style={[
+            estilos.hoja,
+            { paddingBottom: margenes.bottom + tokens.espacio['4'] },
+            desplazable && { maxHeight: height * ALTO_MAXIMO },
+          ]}
+        >
           <View style={estilos.encabezado}>
             {titulo && (
               <Text accessibilityRole="header" style={estilos.titulo}>
@@ -47,7 +70,17 @@ export function HojaInferior({
               <IconoCerrar color={tokens.color.texto.principal} />
             </Pressable>
           </View>
-          {children}
+          {desplazable ? (
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              style={estilos.desplazable}
+              contentContainerStyle={estilos.contenido}
+            >
+              {children}
+            </ScrollView>
+          ) : (
+            children
+          )}
           <RegionDeAnuncios />
         </View>
       </KeyboardAvoidingView>
@@ -68,6 +101,8 @@ const estilos = StyleSheet.create({
     backgroundColor: tokens.color.fondo.superficie,
   },
   encabezado: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: tokens.espacio['2'] },
+  desplazable: { flexShrink: 1 },
+  contenido: { gap: tokens.espacio['2'] },
   titulo: { ...estiloDeTipografia('titulo-3'), flex: 1, color: tokens.color.texto.principal },
   cerrar: {
     minWidth: tokens.tamano['tactil-minimo'],

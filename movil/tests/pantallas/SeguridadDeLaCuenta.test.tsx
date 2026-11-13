@@ -132,9 +132,30 @@ describe('PN-71 · Seguridad de la cuenta (E14-PCP 4.14)', () => {
     });
 
     it('403 autorizacion_pendiente → PN-63', async () => {
-      instalarFetchFalso(respuestaJson(403, { error: 'autorizacion_pendiente' }));
+      instalarFetchFalso(
+        respuestaJson(403, { error: 'autorizacion_pendiente' }),
+        respuestaJson(200, { version: { numero: '1.1', fecha: '2026-11-12' }, modo: 'completo', finalidades: [] }),
+      );
       const navegacion = await mostrar();
       await waitFor(() => expect(navegacion.dispatch).toHaveBeenCalledWith(reinicio('InformacionDePrivacidad')));
+    });
+
+    // SC-E21-25, sección 5, paso 2: la cuenta de antes del cambio va directo a PN-64, con la tarjeta que le falta.
+    it('403 autorizacion_pendiente con el modo falta_una_aceptacion → PN-64', async () => {
+      const { pedidos } = instalarFetchFalso(
+        respuestaJson(403, { error: 'autorizacion_pendiente' }),
+        respuestaJson(200, {
+          version: { numero: '1.1', fecha: '2026-11-12' },
+          modo: 'falta_una_aceptacion',
+          finalidades: [{ codigo: 'transmision_a_encargados', tipo: 'necesaria', otorgada: false }],
+        }),
+      );
+      const navegacion = await mostrar();
+      await waitFor(() => expect(navegacion.dispatch).toHaveBeenCalledWith(reinicio('AutorizacionDeDatos')));
+      expect(pedidos.map((p) => p.url.replace('http://api.prueba:18090', ''))).toEqual([
+        '/api/v1/cuenta/seguridad',
+        '/api/v1/autorizaciones',
+      ]);
     });
 
     it('si se sale de la pantalla antes de que conteste el API, no actualiza nada', async () => {
@@ -200,7 +221,14 @@ describe('PN-71 · Seguridad de la cuenta (E14-PCP 4.14)', () => {
       await mostrar();
       await screen.findByText('Este es tu primer ingreso.');
       const botones = screen.getAllByRole('button');
-      const orden = ['Movimientos', 'Presupuesto', 'Cómo cuidamos tus datos', 'Cerrar sesión', 'Borrar mi cuenta'];
+      const orden = [
+        'Movimientos',
+        'Presupuesto',
+        'Cómo cuidamos tus datos',
+        'Política de tratamiento y consultas',
+        'Cerrar sesión',
+        'Borrar mi cuenta',
+      ];
       expect(botones).toHaveLength(orden.length);
       orden.forEach((nombre, i) => expect(botones[i]).toBe(screen.getByRole('button', { name: nombre })));
     });
@@ -210,6 +238,21 @@ describe('PN-71 · Seguridad de la cuenta (E14-PCP 4.14)', () => {
       await mostrar();
       await screen.findByText('No pudimos cargar tu último ingreso.');
       expect(screen.getByRole('button', { name: 'Cómo cuidamos tus datos' })).toBeOnTheScreen();
+      expect(screen.getByRole('button', { name: 'Política de tratamiento y consultas' })).toBeOnTheScreen();
+    });
+  });
+
+  // D-195 (E14-PCP 4.14 y 4.16 T2 ter): mientras no exista PN-66, la entrada provisional a PN-68 va a un lado de la de PN-63.
+  describe('«Política de tratamiento y consultas» (D-195)', () => {
+    it('es un botón de texto que abre PN-68 y no pide nada más al API', async () => {
+      const { pedidos } = instalarFetchFalso(respuestaJson(200, { ingreso_anterior: null }));
+      const navegacion = await mostrar();
+      await screen.findByText('Este es tu primer ingreso.');
+      const politica = screen.getByRole('button', { name: 'Política de tratamiento y consultas' });
+      expect(politica).toHaveStyle({ alignSelf: 'flex-start' });
+      await fireEvent.press(politica);
+      expect(navegacion.navigate).toHaveBeenCalledWith('Politica');
+      expect(pedidos).toHaveLength(1);
     });
   });
 

@@ -140,7 +140,7 @@ func datos(t *testing.T, pool *pgxpool.Pool, persona, hogar string) {
 	t.Helper()
 	propios(t, pool, persona, false)
 	adultas(t, pool, persona)
-	for _, f := range []string{"cuenta_y_acceso", "funciones_financieras"} {
+	for _, f := range []string{"cuenta_y_acceso", "funciones_financieras", "transmision_a_encargados"} {
 		otorgarEn(t, pool, persona, persona, f, ahora.Add(-48*time.Hour))
 	}
 	if hogar != "" {
@@ -336,6 +336,7 @@ func TestBorrarConservaSoloLaPruebaMinimaDeLaAutorizacion(t *testing.T) {
 	laura := adulta(t, e.pool, "Laura", "laura@ejemplo.test")
 	otorgarEn(t, e.pool, laura, laura, "cuenta_y_acceso", ahora.Add(-48*time.Hour))
 	otorgarEn(t, e.pool, laura, laura, "funciones_financieras", ahora.Add(-48*time.Hour))
+	otorgarEn(t, e.pool, laura, laura, "transmision_a_encargados", ahora.Add(-48*time.Hour))
 	otorgarEn(t, e.pool, laura, laura, "avisos", ahora.Add(-72*time.Hour))
 	ejecutar(t, e.pool, `UPDATE autorizacion SET retirada_en = $2 WHERE titular_id = $1::uuid AND finalidad = 'avisos'`, laura, ahora.Add(-24*time.Hour))
 	otra := adulta(t, e.pool, "Ana", "ana@ejemplo.test")
@@ -345,10 +346,10 @@ func TestBorrarConservaSoloLaPruebaMinimaDeLaAutorizacion(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if n := contar(t, e.pool, `SELECT count(*) FROM autorizacion WHERE titular_id = $1::uuid`, laura); n != 3 {
-		t.Fatalf("la prueba de las 3 autorizaciones se conserva: %d", n)
+	if n := contar(t, e.pool, `SELECT count(*) FROM autorizacion WHERE titular_id = $1::uuid`, laura); n != 4 {
+		t.Fatalf("la prueba de las 4 autorizaciones se conserva: %d", n)
 	}
-	if n := contar(t, e.pool, `SELECT count(*) FROM autorizacion WHERE titular_id = $1::uuid AND retirada_en IS NOT NULL AND conservar_hasta = $2::date`, laura, conservarHasta); n != 3 {
+	if n := contar(t, e.pool, `SELECT count(*) FROM autorizacion WHERE titular_id = $1::uuid AND retirada_en IS NOT NULL AND conservar_hasta = $2::date`, laura, conservarHasta); n != 4 {
 		t.Errorf("todas quedan retiradas y con el plazo de 3 años: %d", n)
 	}
 	if n := contar(t, e.pool, `SELECT count(*) FROM autorizacion WHERE titular_id = $1::uuid AND finalidad = 'avisos' AND retirada_en = $2`, laura, ahora.Add(-24*time.Hour)); n != 1 {

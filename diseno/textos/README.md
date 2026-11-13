@@ -55,6 +55,7 @@ En el JSON, `{ "one": "{n} ingreso", "other": "{n} ingresos" }`; `plural(formas,
 
 - `comun`: un texto que las **dos** apps usan, con las mismas palabras (los de la web y los de Android que son idénticos). Una clave de `comun` que una de las apps no usa hace fallar la prueba de claves de esa app.
 - `solo_web` y `solo_android`: un texto que solo usa esa app; la prueba de claves de esa app exige que lo use.
+- Un texto ya aprobado cuya pantalla todavía no existe (hoy, `solo_android.crearCuentaDelMenor`, de PN-36, I11) va en `RESERVADOS` de [`usos.mjs`](usos.mjs): no cuenta como «sin uso» hasta que la historia de esa pantalla lo use y quite el grupo de la lista.
 - Un texto que pasa de solo-una-app a las dos se mueve a `comun` sin cambiar una letra (la ruta no cambia: el módulo generado junta `comun` y la sección de la app en un solo árbol `textos`).
 
 ## Cómo se comprueba

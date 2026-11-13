@@ -77,7 +77,7 @@ Toda ruta de `/api/` se registra con `Enrutador.Registrar(nivel, patron, manejad
 | Nivel | Qué exige | Rutas |
 |---|---|---|
 | `publica` | nada | pedir la verificación del correo (crear la cuenta), reenviar el correo, completar la cuenta con el enlace (PN-74), iniciar sesión y recuperar el acceso (pedir el enlace y elegir la contraseña con él) |
-| `sin_autorizacion` | cuenta con el correo **verificado**, aunque no haya autorizado lo necesario | cerrar sesión y las acciones de PN-64: ver las finalidades, autorizar y «No autorizo» ([Autorización](#autorización-us-50)) |
+| `sin_autorizacion` | cuenta con el correo **verificado**, aunque no haya autorizado lo necesario | cerrar sesión, las acciones de PN-64 (ver las finalidades, autorizar y «No autorizo», [Autorización](#autorización-us-50)) y, para la hoja de «No autorizo» de la cuenta a la que le falta una aceptación nueva, descargar los datos y borrar la cuenta con la contraseña ([Cuentas de antes del cambio](#cuentas-de-antes-del-cambio-modo-falta-una-aceptación-us-67), SC-E21-25 criterio 3) |
 | `requiere_autorizacion` | cuenta verificada y con las finalidades necesarias de su etapa **autorizadas** (`ReglaDeFinalidades`) | el ingreso anterior de PN-71, el cambio de contraseña de PN-73, las categorías, guardar, consultar, corregir y borrar movimientos ([Registro](#registro-de-movimientos-us-51) y [Movimientos](#movimientos-lista-detalle-corregir-y-borrar-us-52)), el presupuesto y los ingresos del periodo ([Presupuesto](#presupuesto-del-periodo-us-77-srcpresupuesto)) y todo lo demás |
 
 | Sujeto → | sin sesión | con sesión y sin correo verificado (solo un menor, hasta I11) | verificada sin autorizar | autorizada |
@@ -93,15 +93,15 @@ Toda ruta de `/api/` se registra con `Enrutador.Registrar(nivel, patron, manejad
 
 ### Finalidades necesarias por etapa del titular (`cuenta.ReglaDeFinalidades`, D-139)
 
-`0002_catalogo.sql` tiene tres finalidades necesarias y activas, pero a cada persona solo le tocan algunas. La regla está en un solo lugar (`src/cuenta/finalidades.go`) y según la etapa del **titular** (de quién son los datos; `autorizacion` separa `titular_id` de `otorgante_id`):
+`0002_catalogo.sql` y `0005_transmision_a_encargados.sql` tienen cuatro finalidades necesarias y activas, pero a cada persona solo le tocan algunas. La regla está en un solo lugar (`src/cuenta/finalidades.go`) y según la etapa del **titular** (de quién son los datos; `autorizacion` separa `titular_id` de `otorgante_id`):
 
 | Etapa del titular | Finalidades necesarias | Quién las otorga |
 |---|---|---|
-| adulta | `cuenta_y_acceso`, `funciones_financieras` | el titular mismo (`otorgante_id = titular_id`, PN-64) |
-| menor | `cuenta_del_menor` | su tutor (PN-36) |
-| a los 18 años (pasa a `adulta`) | la lista de adulto | la persona (PN-54), sin `cuenta_del_menor` |
+| adulta | `cuenta_y_acceso`, `funciones_financieras`, `transmision_a_encargados` | el titular mismo (`otorgante_id = titular_id`, PN-64) |
+| menor | `cuenta_del_menor`, `transmision_a_encargados` | su tutor (PN-36) |
+| a los 18 años (pasa a `adulta`) | la lista de adulto | la persona (PN-54), sin `cuenta_del_menor`; lo que dio su tutor no cuenta, así que `transmision_a_encargados` la da ella |
 
-Las accesorias (`avisos`, `horas_de_vida`, `correo_del_menor`) y `transferencia` (inactiva) no entran. `Cumple(etapa, titular, vigentes, tutores)` dice si se cumple; una etapa desconocida no cumple. **Prueba guardiana** (`TestElCatalogoNoTieneNecesariasSinClasificar`): lee las finalidades del INSERT de `0002_catalogo.sql` (la migración embebida, la misma que se aplica a la base) y falla si hay una necesaria y activa que la regla no clasifica; la prueba inversa falla si la regla exige un código que el catálogo no tiene como necesario y activo.
+`transmision_a_encargados` (SC-E21-25, D-202) es la aceptación expresa de que los datos se envíen a los encargados que los guardan y los procesan por cuenta del responsable (Azure en México, Azure Communication Services en Francia, Zoho Mail en Estados Unidos); es necesaria, no accesoria. Las accesorias (`avisos`, `horas_de_vida`, `correo_del_menor`) y `transferencia` (inactiva) no entran. `Cumple(etapa, titular, vigentes, tutores)` dice si se cumple y `Faltantes(etapa, titular, vigentes, tutores)` cuáles faltan, en el orden de la regla; una etapa desconocida no cumple. **Prueba guardiana** (`TestElCatalogoNoTieneNecesariasSinClasificar`): lee las finalidades de los INSERT de las migraciones embebidas (`0002` y `0005`, las mismas que se aplican a la base) y falla si hay una necesaria y activa que la regla no clasifica; la prueba inversa falla si la regla exige un código que el catálogo no tiene como necesario y activo.
 
 ## Seguridad (`src/seguridad`, US-49)
 
@@ -207,9 +207,11 @@ Crear una cuenta **verifica primero** (D-172, D-174, D-192; US-61): PN-58 pide s
 
 | Ruta | Nivel | Qué hace |
 |---|---|---|
-| `GET /api/v1/cuenta/borrado` | `requiere_autorizacion` | Lo que PN-69 dice del hogar (fila 4) y de los menores (filas 5 y 6): `{"hogar": null \| {nombre, es_administradora, unica_adulta, nuevo_administrador}, "menores": [{"id", "nombre"}]}`. No cambia nada |
-| `GET /api/v1/cuenta/datos` | `requiere_autorizacion` | «Descargar mis datos» (RF-032, D-102, D-180): un ZIP armado al pedirlo, `Content-Type: application/zip`, `Content-Disposition: attachment; filename="alcanzamos-mis-datos.zip"`, `Cache-Control: no-store`. No guarda copia ni registra su contenido. `401` si la cuenta ya no existe |
-| `POST /api/v1/cuenta/borrado` | `requiere_autorizacion` | Borra la cuenta. Cuerpo `{contrasena, confirma_menores, menores}` |
+| `GET /api/v1/cuenta/borrado` | `sin_autorizacion` | Lo que PN-69 dice del hogar (fila 4) y de los menores (filas 5 y 6): `{"hogar": null \| {nombre, es_administradora, unica_adulta, nuevo_administrador}, "menores": [{"id", "nombre"}]}`. No cambia nada |
+| `GET /api/v1/cuenta/datos` | `sin_autorizacion` | «Descargar mis datos» (RF-032, D-102, D-180): un ZIP armado al pedirlo, `Content-Type: application/zip`, `Content-Disposition: attachment; filename="alcanzamos-mis-datos.zip"`, `Cache-Control: no-store`. No guarda copia ni registra su contenido. `401` si la cuenta ya no existe |
+| `POST /api/v1/cuenta/borrado` | `sin_autorizacion` | Borra la cuenta. Cuerpo `{contrasena, confirma_menores, menores}` |
+
+**Las tres son `sin_autorizacion` desde la US-67 (SC-E21-25, criterio 3):** la cuenta a la que le falta una aceptación nueva (por ejemplo `transmision_a_encargados`) decide en la hoja de «No autorizo» de PN-54: descarga sus datos y borra la cuenta con la contraseña, sin tener que aceptar antes. No hay riesgo de un borrado sin querer: el borrado pide la contraseña y cuenta los fallos en el límite de D-136, igual que antes. El resto de las rutas sigue cerrado: toda otra ruta responde `403 autorizacion_pendiente`.
 
 E12 no nombra la ruta (`CuentaServicio.BorrarCuenta(s, contrasena, confirmaMenores)`); es POST, como `POST /api/v1/cuenta/contrasena`, porque lleva la contraseña en el cuerpo y así cae en la defensa de E17-ECO 3.15 cuando llegue (hoy ninguna ruta la tiene: bug #214 de I06).
 
@@ -338,9 +340,10 @@ PN-63 es solo información (no llama al API). PN-64 usa estas tres rutas, todas 
 
 | Ruta | Nivel | Qué hace |
 |---|---|---|
-| `GET /api/v1/autorizaciones` | `sin_autorizacion` | Las finalidades que una persona adulta puede autorizar ahora y la versión vigente del texto |
-| `POST /api/v1/autorizaciones` | `sin_autorizacion` | Guarda la autorización (PN-64, «Autorizar y continuar»). Cuerpo: `{"finalidades":[…],"version":"1.0"}` |
-| `POST /api/v1/autorizaciones/rechazo` | `sin_autorizacion` | «No autorizo»: borra la cuenta recién creada y cierra la sesión (RF-031, D-089) |
+| `GET /api/v1/autorizaciones` | `sin_autorizacion` | Las finalidades que una persona adulta puede autorizar ahora, el `modo` y la versión vigente del texto |
+| `POST /api/v1/autorizaciones` | `sin_autorizacion` | Guarda la autorización (PN-64, «Autorizar y continuar»). Cuerpo: `{"finalidades":[…],"version":"1.1"}` |
+| `POST /api/v1/autorizaciones/rechazo` | `sin_autorizacion` | «No autorizo»: borra la cuenta recién creada y cierra la sesión (RF-031, D-089). Una cuenta que ya autorizó algo antes no se borra por aquí |
+| `PUT /api/v1/dispositivos/{dispositivo_id}/token` | `requiere_autorizacion` | Registra el token de dispositivo de los avisos con la app cerrada; exige `avisos` vigente ([Avisos con la app cerrada](#avisos-con-la-app-cerrada-el-token-de-dispositivo-us-67)) |
 
 ### Ver las finalidades
 
@@ -348,32 +351,36 @@ PN-63 es solo información (no llama al API). PN-64 usa estas tres rutas, todas 
 
 ```json
 {
-  "version": { "numero": "1.0", "fecha": "2026-10-30" },
+  "version": { "numero": "1.1", "fecha": "2026-11-12" },
+  "modo": "completo",
   "finalidades": [
     { "codigo": "cuenta_y_acceso", "tipo": "necesaria", "otorgada": false },
     { "codigo": "funciones_financieras", "tipo": "necesaria", "otorgada": false },
+    { "codigo": "transmision_a_encargados", "tipo": "necesaria", "otorgada": false },
     { "codigo": "avisos", "tipo": "accesoria", "otorgada": false },
     { "codigo": "horas_de_vida", "tipo": "accesoria", "otorgada": false }
   ]
 }
 ```
 
-- **Por qué solo estas cuatro (D-139).** La lista sale de `cuenta.ReglaDeFinalidades` (`Codigos` y `Accesorias` de la etapa adulta): las dos necesarias de la persona adulta y las accesorias activas que PN-64 le ofrece. Quedan fuera `cuenta_del_menor` (necesaria, pero se autoriza en PN-36 con la tutoría), `correo_del_menor` (es del menor, I11) y `transferencia` (inactiva, NM-06). Lo que no está en la lista no se puede autorizar: el `POST` lo rechaza.
+- **`modo`.** `completo`: todas las que se ofrecen, cada una con `otorgada`. `falta_una_aceptacion`: la cuenta ya autorizó algo antes y le falta alguna necesaria; `finalidades` trae **solo las necesarias que le faltan**, con `otorgada` en falso, y nada de lo opcional (ver [Cuentas de antes del cambio](#cuentas-de-antes-del-cambio-modo-falta-una-aceptación-us-67)).
+- **Por qué solo estas cinco (D-139).** La lista sale de `cuenta.ReglaDeFinalidades` (`Codigos` y `Accesorias` de la etapa adulta): las tres necesarias de la persona adulta y las accesorias activas que PN-64 le ofrece. Quedan fuera `cuenta_del_menor` (necesaria, pero se autoriza en PN-36 con la tutoría), `correo_del_menor` (es del menor, I11) y `transferencia` (inactiva, NM-06). Lo que no está en la lista no se puede autorizar: el `POST` lo rechaza.
 - `otorgada` es verdadero si la persona tiene esa finalidad vigente (`retirada_en` nula) otorgada por ella misma.
-- `version` es el texto vigente. En la base se guarda como «1.0 del 2026-10-30» (`autorizacion.version_del_texto`); cada app escribe la fecha en palabras con la función común (D-090): «Texto versión 1.0 del 30 de octubre de 2026.».
+- `version` es el texto vigente (`autorizacion.VersionActual`). **1.1 del 2026-11-12** (SC-E21-25, RF-063): suma la aceptación expresa de la transmisión a los encargados; la 1.0 era «1.0 del 2026-10-30». En la base se guarda como «1.1 del 2026-11-12» (`autorizacion.version_del_texto`); cada app escribe la fecha en palabras con la función común (D-090): «Texto versión 1.1 del 12 de noviembre de 2026.». Lo guardado con la 1.0 sigue valiendo y no se repite: solo se pide lo que cambió. Un `POST` con `"version":"1.0"` es `409 version_desactualizada`.
 
 ### Autorizar
 
-Cuerpo `{"finalidades":["cuenta_y_acceso","funciones_financieras","avisos"],"version":"1.0"}`; un campo que no esté en el contrato da `400 solicitud_invalida`. Respuesta `200 {"estado":"autorizada"}` con `Cache-Control: no-store`.
+Cuerpo `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados","avisos"],"version":"1.1"}`; un campo que no esté en el contrato da `400 solicitud_invalida`. Respuesta `200 {"estado":"autorizada"}` con `Cache-Control: no-store`.
 
 | Código | Error | Cuándo |
 |---|---|---|
 | `409` | `version_desactualizada` | `version` no es la vigente (o falta). Se revisa primero. El cliente vuelve a pedir la lista y muestra el texto nuevo: es un conflicto con el estado actual, no un campo mal escrito |
 | `422` | `finalidad_invalida` | un código desconocido, inactivo o que no le toca a una persona adulta |
-| `422` | `faltan_necesarias` | no vienen las dos necesarias (las dos viajan juntas, en una sola casilla). Las accesorias son libres |
+| `422` | `faltan_necesarias` | no vienen todas las necesarias que la persona aún no tiene: la persona nueva, las tres (`cuenta_y_acceso` y `funciones_financieras` viajan juntas, en una sola casilla; `transmision_a_encargados` tiene la suya, SC-E21-25 criterio 1); la cuenta de antes del cambio, solo la que le falta. No se guarda nada. Las accesorias son libres |
 | `401` | `sin_sesion` | la cuenta se borró entre el guard y la escritura |
 
-- **Una transacción** inserta una fila de `autorizacion` por finalidad: `titular_id = otorgante_id = la persona`, `version_del_texto = "1.0 del 2026-10-30"`, `otorgada_en` = la hora del `Reloj`. Antes toma la fila de la persona (`FOR UPDATE`) para turnarse con «No autorizo».
+- **Una transacción** inserta una fila de `autorizacion` por finalidad: `titular_id = otorgante_id = la persona`, `version_del_texto = "1.1 del 2026-11-12"`, `otorgada_en` = la hora del `Reloj`. Antes toma la fila de la persona (`FOR UPDATE`) para turnarse con «No autorizo».
+- **A los 18 años la aceptación propia reemplaza a la del tutor (PN-54).** Si de una finalidad hay una vigente dada por otra persona (el tutor, cuando era menor), ocupa el único lugar de las vigentes por (titular, finalidad) y `ReglaDeFinalidades` solo cuenta la dada por la persona: sin más, el `POST` respondería 200 y la cuenta seguiría en `sin_autorizacion`. Dentro de la misma transacción, antes de insertar, se **retira** la del otro otorgante (`retirada_en`, sin `conservar_hasta`) y queda como historia con su fecha, versión y otorgante; no se borra y no se cambia el esquema (la unicidad de las vigentes de E13 es la correcta). `otorgada_en` es la hora del `Reloj` salvo que ya exista una fila de esa finalidad igual o posterior: entonces queda un microsegundo después (la clave `(titular, finalidad, otorgada_en)` es única). Pruebas: `TestALos18LaTransmisionPropiaReemplazaLaDelTutor` y `TestALos18LoDelTutorQuedaComoHistoria`.
 - **Idempotente.** Repetir la llamada no duplica nada ni mueve la fecha: `ON CONFLICT … DO NOTHING` sobre el índice único de las vigentes (`ix_autorizacion_vigente`). Si se suma una accesoria, solo entra esa. Una finalidad repetida en la lista cuenta una vez.
 - **La misma sesión sube de nivel, sin reautenticar.** El nivel no se guarda: `pg.Sesiones.Sujeto` calcula `Autorizada` en cada petición desde la base. No hay sesión nueva, no se rota el token y **`credencial.ingreso_anterior` no se toca**: tras autorizar, PN-71 de la misma sesión responde `{"ingreso_anterior":null}` y la persona ve «Este es tu primer ingreso.» (S2, `TestS2LaPersonaNuevaAutorizaYVeSuPrimerIngresoEnLaMismaSesion`).
 - **Evento.** No hay un evento de seguridad nuevo: el conjunto de E17-VTE 2.1 es cerrado (`inicio_sesion_fallido`, `acceso_denegado`, `error_autorizacion`) y la alerta de producción cuenta por esos tres valores; agregar uno cambiaría `infra/azure/alertas.tf`. Un otorgamiento correcto no es un fallo ni una negación: queda en el registro común (`INFO`, solo el identificador de la petición).
@@ -382,14 +389,44 @@ Cuerpo `{"finalidades":["cuenta_y_acceso","funciones_financieras","avisos"],"ver
 
 `POST /api/v1/autorizaciones/rechazo` (sin cuerpo): `204`, `Cache-Control: no-store` y la cookie `__Host-sesion` vencida (Android no tiene cookie: el token ya no sirve porque la sesión se borró). La app va a PN-60.
 
-- **Solo la sesión de nivel exactamente `sin_autorizacion`.** Con lo necesario ya autorizado responde `403 {"error":"ya_autorizada"}` y deja el evento `acceso_denegado` con la cuenta; no borra nada. Quien ya autorizó borra su cuenta por PN-69. La condición se vuelve a comprobar **dentro de la transacción** (si autorizó entre el guard y el borrado, también `403`).
+- **Solo la sesión de nivel exactamente `sin_autorizacion` y de una cuenta que nunca autorizó nada.** Con lo necesario ya autorizado responde `403 {"error":"ya_autorizada"}`; con **alguna autorización de antes** (vigente o retirada, como titular; la cuenta a la que le falta una aceptación nueva), `403 {"error":"cuenta_con_historial"}` (SC-E21-25, sección 5, paso 3: una cuenta con historial no lo pierde de un toque). Las dos dejan el evento `acceso_denegado` con la cuenta, no borran nada, no tocan la cookie y no cierran la sesión. Quien ya autorizó borra su cuenta por PN-69 (`POST /api/v1/cuenta/borrado`, con la contraseña, que también sirve en `sin_autorizacion`). La condición se vuelve a comprobar **dentro de la transacción** (si autorizó entre el guard y el borrado, también `403`).
 - **Una transacción** borra la persona y, por `ON DELETE CASCADE`, todo lo que tenga llave a ella: `perfil_adulto`, `credencial`, `sesion` (todas, no solo la de la petición), `enlace_un_uso` (verificación y recuperación), `token_dispositivo`, `ocultamiento_categoria`, `aviso`… La prueba recorre las llaves foráneas desde el catálogo de PostgreSQL (la consulta de E13 §7), así que una tabla nueva con llave a la persona entra sola, y comprueba que no queda ninguna fila.
-- **`autorizacion` es la excepción de E13 §7 y D-135.** No tiene llave a la persona, así que no se borra en cascada: las que hubiera (una necesaria suelta, por ejemplo) quedan retiradas (`retirada_en`) y conservadas hasta `conservar_hasta` (3 años, plazo provisional, `cuenta.AniosDeLaPruebaDeAutorizacion`) como prueba mínima, sin datos de contacto. Es el mismo criterio de `BorrarSinConfirmar`. Con el flujo normal no hay ninguna, porque no se guarda nada antes de autorizar.
+- **`autorizacion` es la excepción de E13 §7 y D-135.** No tiene llave a la persona, así que no se borra en cascada: las que hubiera quedan retiradas (`retirada_en`) y conservadas hasta `conservar_hasta` (3 años, plazo provisional, `cuenta.AniosDeLaPruebaDeAutorizacion`) como prueba mínima, sin datos de contacto. Es el mismo criterio de `BorrarSinConfirmar` y de PN-69. Desde la US-67 una cuenta con alguna fila no llega a este borrado, así que aquí no hay ninguna; el `UPDATE` queda como defensa.
 - Después, el correo y la contraseña ya no sirven (`401 credenciales_invalidas`) y la persona puede empezar de nuevo.
+
+### Cuentas de antes del cambio: modo «falta una aceptación» (US-67)
+
+Las cuentas creadas antes de `transmision_a_encargados` (todas de prueba hoy, SC-E21-25 sección 5) **no están rotas**: el API las reconoce solo, sin migración de datos.
+
+- **Nivel.** `ReglaDeFinalidades` suma la finalidad y `pg.Sesiones.Sujeto` deja `Autorizada = false` a la cuenta que no la tiene. Queda en `sin_autorizacion`: solo cierra sesión y usa las rutas de PN-64, más la hoja de «No autorizo» (descargar los datos y borrar la cuenta); toda otra ruta es `403 autorizacion_pendiente`. No se borra ni se cambia ningún dato.
+- **`GET /api/v1/autorizaciones`** trae `"modo":"falta_una_aceptacion"` y solo la necesaria que le falta (`transmision_a_encargados`), con `otorgada` en falso. El modo exige las dos cosas: faltante alguna necesaria **y** alguna autorización de antes como titular (la misma condición de la tarea diaria y de «No autorizo»). La persona nueva, sin historial, ve la lista completa. La cuenta ya completa, también.
+- **`POST /api/v1/autorizaciones`** con `{"finalidades":["transmision_a_encargados"],"version":"1.1"}` guarda solo esa fila (versión «1.1 del 2026-11-12», otorgante la persona). Lo de antes no se repite ni se duplica (RF-063) y la misma sesión llega a Inicio con todos sus datos. Sin ella, `422 faltan_necesarias` y no se guarda nada.
+- **«No autorizo» no borra sin preguntar.** `POST /api/v1/autorizaciones/rechazo` responde `403 cuenta_con_historial` (ver arriba). La app abre la hoja de PN-54 (D-102): `GET /api/v1/cuenta/datos` y `POST /api/v1/cuenta/borrado` con la contraseña, ya en `sin_autorizacion`.
+- **Pruebas:** `TestLaCuentaDeAntesDelCambioEntraAlModoLimitadoYAlAceptarRecuperaTodo`, `TestLaCuentaDeAntesDescargaYBorraDesdeLaHojaDeNoAutorizo`, `TestRechazarConUnaAutorizacionParcialNoBorraLaCuenta` y los de `ReglaDeFinalidades` en las tres etapas.
+- **Pendiente para las historias de las pantallas.** El API ya aplica la regla en las tres etapas (adulto, menor otorgada por el tutor, y a los 18 años otorgada por la persona; `TestCumple` y `TestFaltantes`), pero **el endpoint que crea la cuenta de un menor (PN-36, I11) y el que registra el primer ingreso a los 18 años (PN-54, I12) no existen todavía**: esas historias deben otorgar `transmision_a_encargados` con `titular_id` = el menor y `otorgante_id` = el tutor (o la persona a los 18), y exigirla antes de crear la cuenta (criterios 4 y 5 de SC-E21-25).
+
+### Avisos con la app cerrada: el token de dispositivo (US-67)
+
+El registro del token (E12 `AvisosServicio.RegistrarTokenDeDispositivo`, CU-21, NM-17) vive en `src/autorizacion/tokens.go` y `pg.Tokens`, junto a la autorización de la que depende. Los adaptadores de FCM y Web Push y el envío son otra historia (Boards 302); hoy no hay envío, así que lo que se prueba es lo que ese adaptador leerá: las filas de `token_dispositivo`.
+
+`PUT /api/v1/dispositivos/{dispositivo_id}/token` (`requiere_autorizacion`), cuerpo `{"token":"…"}`; `dispositivo_id` es el identificador aleatorio que la app genera al instalarse (1 a 64 caracteres) y `token` el de FCM o la suscripción de Web Push (1 a 2048). La app lo manda al abrirse, como mucho una vez al día. Es idempotente.
+
+| Código | Respuesta | Cuándo |
+|---|---|---|
+| `204` | sin cuerpo | guardado o confirmado (`ultimo_uso_en`) |
+| `403` | `avisos_no_autorizados` | la persona no tiene `avisos` vigente: no se guarda nada y queda el evento `acceso_denegado` (condición (a), SC-E21-25 criterio 10) |
+| `400` | `solicitud_invalida` | dispositivo o token fuera de la longitud o del formato de abajo, o un campo que no está en el contrato. No se guarda nada |
+| `401` | `sin_sesion` | la cuenta ya no existe |
+
+- **Formato (además de la longitud).** `dispositivo_id`: `[A-Za-z0-9._-]`, de 1 a 64 (el identificador aleatorio que la app genera al instalarse: UUID o base64url); un blanco, `/`, un carácter de control o uno fuera de ASCII es `400`. `token`: ASCII imprimible **sin espacio** (`0x21` a `0x7E`), de 1 a 2048; sin NUL ni otros caracteres de control (la base rechaza el NUL: antes era un `500`), sin blancos al principio, al final ni en medio, y sin letras fuera de ASCII. Cubre el token de FCM (`[A-Za-z0-9_:-]`) y la suscripción de Web Push, que la web debe mandar como **JSON compacto** (`JSON.stringify(suscripcion)`, sin blancos: la URL del servicio de push y las claves en base64url son ASCII). Si un servicio de push pusiera blancos o letras no ASCII en lo que entrega, la regla se ensancha en `src/autorizacion/tokens.go` y aquí. Pruebas: `TestElTokenYElDispositivoInvalidosSeRechazanSinGuardarNada` y `TestElTokenYElDispositivoValidosSeGuardan`.
+- **Una transacción** toma la fila de la persona (`FOR UPDATE`), comprueba `avisos` vigente, borra el mismo token si estaba en otro dispositivo o persona (E13: un token, un dispositivo) y lo guarda o lo reemplaza. El retiro de `avisos` toma el mismo bloqueo: un registro y un retiro a la vez nunca dejan un token sin autorización (`TestRegistrarElTokenYRetirarLosAvisosAlMismoTiempoQuedanCoherentes`).
+- **Retirar `avisos` borra los tokens (condición (c), criterio 12).** `autorizacion.Servicio.Retirar(ctx, persona, finalidad)` retira una accesoria (`avisos` u `horas_de_vida`; una necesaria no se retira, se borra la cuenta) y, si es `avisos`, borra en **la misma transacción** todas las filas de `token_dispositivo` de la persona, de todos sus dispositivos; la fila de `autorizacion` queda con `retirada_en` y sin `conservar_hasta` (la cuenta existe). Si el borrado falla, el retiro se deshace. **Todavía no hay ruta HTTP de retiro:** la pone la historia que construya PN-67, sobre `Servicio.Retirar` (para la cuenta de un menor, el tutor retira con `titular` = el menor, I11).
+- Ni el token ni el dispositivo van al registro.
+- **Lo que no está aquí:** que el adaptador no reciba nada tras el retiro y que por FCM y Web Push solo salgan el token y el texto fijo «Tienes un aviso en Alcanzamos.» con un `aviso_id` aleatorio (criterios 10, 11 y 12, partes del adaptador) son del ítem 302. También `BorrarTokensSinUso` (180 días) y borrar el token al cerrar sesión a propósito (NM-17, D-085).
 
 ### «Nada se guarda antes de autorizar» (S1, Ley 1581)
 
-Las rutas por debajo de `requiere_autorizacion` son solo las del ingreso (crear la cuenta y verificar el correo, entrar, recuperar el acceso, cerrar sesión y las tres de arriba); hoy la única que escribe datos de la persona más allá de eso, el cambio de contraseña (PN-73), exige autorización, igual que PN-71. `TestSoloLasRutasDelIngresoNoExigenAutorizacion` (`test/app`) falla si aparece una ruta nueva por debajo de `requiere_autorizacion` que no esté en esa lista a propósito. `TestSinAutorizarLasRutasProtegidasDan403YAutorizandoPasan` prueba `403 autorizacion_pendiente` sin autorizar y que, al autorizar en la misma sesión, pasan.
+Las rutas por debajo de `requiere_autorizacion` son solo las del ingreso (crear la cuenta y verificar el correo, entrar, recuperar el acceso, cerrar sesión, las tres de arriba y, desde la US-67, descargar los datos y borrar la cuenta, que solo leen o borran); hoy la única que escribe datos de la persona más allá de eso, el cambio de contraseña (PN-73), exige autorización, igual que PN-71. `TestSoloLasRutasDelIngresoNoExigenAutorizacion` (`test/app`) falla si aparece una ruta nueva por debajo de `requiere_autorizacion` que no esté en esa lista a propósito. `TestSinAutorizarLasRutasProtegidasDan403YAutorizandoPasan` prueba `403 autorizacion_pendiente` sin autorizar y que, al autorizar en la misma sesión, pasan.
 
 ## Registro de movimientos (US-51)
 
@@ -900,7 +937,7 @@ Cuerpo: `{"texto": "gasté 15 mil en almuerzo ayer"}`. Hasta **280 caracteres** 
 - `pgx` v5 (`pgxpool`) conecta con PostgreSQL. La URL sale de `BASE_DE_DATOS_URL`. Toda conexión del pool fija `TimeZone=UTC` (`bd.Conectar`; E17 3.9), aunque la URL o `PGTZ` pidan otra zona (A-05).
 - `goose` v3 se usa como biblioteca. Las migraciones van embebidas en el binario (`embed`).
 - `api migrar` aplica las migraciones pendientes y termina.
-- `0001_esquema_inicial.sql`, `0002_catalogo.sql`, `0003_ingreso_anterior.sql` (la columna `credencial.ingreso_anterior`, D-134) y `0004_presupuesto_en_cero.sql` (la tabla `presupuesto_en_cero`, la marca de «Dejar el presupuesto en cero», US-77) son copia idéntica de las de E13 (D-122). No se editan aquí. Si hay que cambiar algo, el cambio vuelve primero a E13, con nota fechada y versión nueva. **`0004` nace aquí** (decisión del dueño en la US-77, L6 (5)): su copia y su nota en E13 (v1.18) van en un PR de documentos en borrador, con este mismo SHA-256.
+- `0001_esquema_inicial.sql`, `0002_catalogo.sql`, `0003_ingreso_anterior.sql` (la columna `credencial.ingreso_anterior`, D-134), `0004_presupuesto_en_cero.sql` (la tabla `presupuesto_en_cero`, la marca de «Dejar el presupuesto en cero», US-77) y `0005_transmision_a_encargados.sql` (la finalidad necesaria `transmision_a_encargados`, US-67, SC-E21-25) son copia idéntica de las de E13 (D-122). No se editan aquí. Si hay que cambiar algo, el cambio vuelve primero a E13, con nota fechada y versión nueva. **`0004` nace aquí** (decisión del dueño en la US-77, L6 (5)): su copia y su nota en E13 (v1.18) van en un PR de documentos en borrador, con este mismo SHA-256.
 
 | Archivo | SHA-256 (igual en E13 y aquí) |
 |---|---|
@@ -908,8 +945,11 @@ Cuerpo: `{"texto": "gasté 15 mil en almuerzo ayer"}`. Hasta **280 caracteres** 
 | `migraciones/0002_catalogo.sql` | `f95c1a03e3a956cec11b448d913ebb79df5c96c72f1e475b446a35566c36de3b` |
 | `migraciones/0003_ingreso_anterior.sql` | `005fb34328e7ab1a2bc2842ffa722b7b2f3fb3382e4adbdc216ed6a7c0ff87c5` |
 | `migraciones/0004_presupuesto_en_cero.sql` | `f6dc137db7f1e67d9bcbb1f535d571b9da76b1a1ec8bb0ee4b55b14cf6ca4a24` |
+| `migraciones/0005_transmision_a_encargados.sql` | `26428c5541ae9d2de12400101280c7e9acb271b73e3529387f1b2682befa3259` |
 
-`test/migraciones/migraciones_test.go` compara el SHA-256 de cada archivo embebido con el de esta tabla. `TestMigracion0003AgregaYQuitaIngresoAnterior` comprueba que la columna (`timestamptz`) existe tras subir y no existe tras bajar solo esa migración (baja antes la `0004`, que va después). `TestMigracion0004CreaYQuitaPresupuestoEnCero` comprueba las columnas y las restricciones de `presupuesto_en_cero` (día 1, una por persona y mes, solo con perfil de adulta y el `CASCADE` al borrar la cuenta), que bajar solo esa migración la quita sin tocar `presupuesto` ni el catálogo, y que vuelve a subir.
+`test/migraciones/migraciones_test.go` compara el SHA-256 de cada archivo embebido con el de esta tabla. `TestMigracion0003AgregaYQuitaIngresoAnterior` comprueba que la columna (`timestamptz`) existe tras subir y no existe tras bajar solo esa migración (baja antes la `0005` y la `0004`, que van después). `TestMigracion0004CreaYQuitaPresupuestoEnCero` comprueba las columnas y las restricciones de `presupuesto_en_cero` (día 1, una por persona y mes, solo con perfil de adulta y el `CASCADE` al borrar la cuenta), que bajar solo esa migración la quita sin tocar `presupuesto` ni el catálogo, y que vuelve a subir.
+
+**`0005` nace aquí** (US-67): solo siembra `transmision_a_encargados` (necesaria, activa) en `finalidad`, sin cambio de esquema; el catálogo pasa de 7 a 8 finalidades. Su copia idéntica y la nota fechada en E13 (v1.19) las aplica la tarea T5 de la US-67 en el repositorio de documentos. `TestMigracion0005SiembraYQuitaLaTransmisionAEncargados` comprueba la fila tras subir, que bajar solo esa migración la quita y deja las 7 de `0002`, y que **bajar falla si ya hay autorizaciones de esa finalidad** (`fk_autorizacion_finalidad` es `RESTRICT`: la prueba de lo que la persona aceptó no se borra al bajar). El Down de `0002` tiene la misma restricción.
 
 `0004_presupuesto_en_cero.sql`:
 
@@ -1018,7 +1058,7 @@ Indirectas: `pgpassfile`, `pgservicefile`, `puddle/v2`, `mfridman/interpolate`, 
 ## Tareas programadas
 
 - `api tareas` es el punto de entrada del trabajo programado (`tareas.Ejecutor`, E12 `EjecutorDeTareas`). Se conecta con PostgreSQL, corre cada tarea aunque otra falle, registra `tareas: inicio` y `tareas: fin` (con cuántas terminaron bien) y termina con código 0, o 1 si una tarea falla o no hay base.
-- **`BorrarCuentasSinConfirmar` (D-135, DAT-006):** borra la `persona` (el `CASCADE` se lleva perfil, credencial, **sesiones**, enlaces y datos) de las cuentas adultas creadas hace 7 días o más que no confirmaron el correo **o** no tienen vigente cada finalidad necesaria de una persona adulta, otorgada por ella misma. **La lista sale de `cuenta.ReglaDeFinalidades` (D-139), no del SQL:** la consulta la recibe como parámetro. Sin correo de aviso. Nunca toca una cuenta con el correo confirmado y lo necesario autorizado. **Con D-172 es la limpieza de las cuentas pendientes** (solo correo y enlace, sin credencial ni sesión): a los 7 días de su primera creación (pedir de nuevo el correo no reinicia el plazo) se borran con su enlace; `TestLaTareaBorraLaCuentaPendienteALosSieteDias` y `TestBorrarCuentasSinConfirmar` lo prueban. Excluye las cuentas que pasaron de menor a adulta (`fecha_de_paso`) y las de menores. Como `autorizacion` no tiene llave a la persona, las filas que hubiera quedan retiradas en ese instante y conservadas 3 años (E13 §7, plazo provisional). Es idempotente.
+- **`BorrarCuentasSinConfirmar` (D-135, DAT-006):** borra la `persona` (el `CASCADE` se lleva perfil, credencial, **sesiones**, enlaces y datos) de las cuentas adultas creadas hace 7 días o más que no confirmaron el correo **o** que **nunca autorizaron nada**: sin ninguna fila en `autorizacion` como titular, vigente o retirada (SC-E21-25 sección 5, D-202). **Ya no mira las finalidades necesarias:** una cuenta que ya autorizó algo antes y a la que le falta una nueva (la de antes de `transmision_a_encargados`) no se borra nunca por esta tarea; queda en `sin_autorizacion`, sin plazo, hasta que acepte. Antes de la US-67 la tarea borraba a todas las que no tuvieran vigentes las necesarias de `ReglaDeFinalidades`, y sumar una finalidad a la regla habría borrado todas las cuentas de más de 7 días. La regla de los 7 días para el correo sin confirmar no cambia. **Dos sentencias en una transacción** (`pg.Cuentas.BorrarSinConfirmar`): la primera elige los candidatos y **bloquea** sus filas de `persona` (`FOR UPDATE`, por id); la segunda, con foto nueva, **vuelve a evaluar** la condición sobre esas filas y solo entonces retira las autorizaciones y borra. Con una sola sentencia, un otorgamiento en curso (que tiene la fila de la persona y escribe en `autorizacion`, que no tiene llave a persona) haría esperar a la purga y, al confirmarse, la purga seguiría con los candidatos de su foto antigua: en READ COMMITTED solo se relee la fila bloqueada, no el `NOT EXISTS` de otra tabla. Habría borrado a quien acababa de autorizar, dejando autorizaciones vigentes huérfanas. `TestPurgaNoBorraTrasOtorgamientoConcurrente` fija ese orden y `TestLaPurgaYUnOtorgamientoAlMismoTiempoQuedanCoherentes` lo prueba con carreras al azar. Si dos tareas se cruzan por una cuenta con otra operación que bloquee varias filas, PostgreSQL detecta el interbloqueo y la tarea falla y reintenta al día siguiente. Sin correo de aviso (el de los 5 días es el ítem 294). La cuenta que no confirmó el correo se borra aunque tenga autorizaciones: quedan retiradas y conservadas como prueba mínima. `TestLaTareaNoBorraUnaCuentaQueYaAutorizoAlgo` es la prueba que pidió el dueño: una cuenta de 8 días, con el correo confirmado, `cuenta_y_acceso` y `funciones_financieras` pero sin `transmision_a_encargados`, sigue con todos sus datos (perfil, credencial, sesión, movimiento y autorizaciones vigentes); una de control sin ninguna autorización se borra; la prueba falla si la tarea borra la primera. Nunca toca una cuenta con el correo confirmado que ya autorizó algo. **Con D-172 es la limpieza de las cuentas pendientes** (solo correo y enlace, sin credencial ni sesión): a los 7 días de su primera creación (pedir de nuevo el correo no reinicia el plazo) se borran con su enlace; `TestLaTareaBorraLaCuentaPendienteALosSieteDias` y `TestBorrarCuentasSinConfirmar` lo prueban. Excluye las cuentas que pasaron de menor a adulta (`fecha_de_paso`) y las de menores. Como `autorizacion` no tiene llave a la persona, las filas que hubiera quedan retiradas en ese instante y conservadas 3 años (E13 §7, plazo provisional). Es idempotente.
 - **`LimpiarSesionesYEnlaces` (CU-52):** borra las filas de `sesion` y `enlace_un_uso` con `vence_en` anterior a ahora. Es idempotente.
 - Se prueba con la misma imagen del API:
 

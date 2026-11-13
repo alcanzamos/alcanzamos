@@ -23,6 +23,8 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/src/autorizacion"
 	"github.com/alcanzamos/alcanzamos/api/src/cuenta"
 	"github.com/alcanzamos/alcanzamos/api/src/pg"
+	"github.com/alcanzamos/alcanzamos/api/src/presupuesto"
+	registroDeMovimientos "github.com/alcanzamos/alcanzamos/api/src/registro"
 	"github.com/alcanzamos/alcanzamos/api/src/seguridad"
 	"github.com/alcanzamos/alcanzamos/api/src/servidor"
 	"github.com/alcanzamos/alcanzamos/api/src/sesion"
@@ -34,7 +36,7 @@ import (
 
 const (
 	contrasena      = "lluvia café tren azul"
-	cuerpoAutorizar = `{"finalidades":["cuenta_y_acceso","funciones_financieras","avisos"],"version":"1.0"}`
+	cuerpoAutorizar = `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados","avisos"],"version":"1.1"}`
 	primerIngreso   = "2026-11-10T12:00:00Z"
 	rutaAutorizar   = "/api/v1/autorizaciones"
 	rutaRechazo     = "/api/v1/autorizaciones/rechazo"
@@ -92,6 +94,12 @@ func nuevoServidor(t *testing.T) *servidorDePrueba {
 	cuenta.NuevoHandler(cuentas, log).Registrar(enr)
 	autenticacion.NuevoHandler(entrar, registro, log).Registrar(enr)
 	autorizacion.NuevoHandler(autorizacion.NuevoServicio(pg.NuevoAutorizaciones(pool), reloj), registro, log).Registrar(enr)
+	registroDeMovimientos.NuevoHandler(registroDeMovimientos.NuevoServicio(pg.NuevoMovimientos(pool), reloj), log).Registrar(enr)
+	presupuesto.NuevoHandler(presupuesto.NuevoServicio(pg.NuevoPresupuestos(pool), reloj), log).Registrar(enr)
+	repoDeBorrado := pg.NuevoBorrado(pool)
+	cuenta.NuevoHandlerDeBorrado(cuenta.NuevoBorrado(repoDeBorrado, hasheadorRapido{}, limitador, reloj), registro, log).Registrar(enr)
+	cuenta.NuevoHandlerDeExportacion(cuenta.NuevoExportador(repoDeBorrado), log).Registrar(enr)
+	autorizacion.NuevoHandlerDeTokens(autorizacion.NuevoServicioDeTokens(pg.NuevoTokens(pool), reloj), registro, log).Registrar(enr)
 	api, err := enr.Construir()
 	if err != nil {
 		t.Fatal(err)
@@ -280,7 +288,7 @@ func TestListarYOtorgarGuardanLoQueDiceE13(t *testing.T) {
 	formas(t, func(t *testing.T, android bool) {
 		s := nuevoServidor(t)
 		c, persona := s.nuevaCuentaVerificada("laura@ejemplo.test", android)
-		if r := c.llamar("GET", rutaAutorizar, ""); r.Codigo != 200 || strings.Contains(r.Cuerpo, `"otorgada":true`) || !strings.Contains(r.Cuerpo, `"version":{"numero":"1.0","fecha":"2026-10-30"}`) {
+		if r := c.llamar("GET", rutaAutorizar, ""); r.Codigo != 200 || strings.Contains(r.Cuerpo, `"otorgada":true`) || !strings.Contains(r.Cuerpo, `"version":{"numero":"1.1","fecha":"2026-11-12"}`) {
 			t.Fatalf("lista al llegar: %d %s", r.Codigo, r.Cuerpo)
 		}
 		s.reloj.T = s.reloj.T.Add(time.Minute)
@@ -302,12 +310,12 @@ func TestListarYOtorgarGuardanLoQueDiceE13(t *testing.T) {
 			if err := filas.Scan(&f, &titular, &otorgante, &version, &otorgada, &retirada, &conservar); err != nil {
 				t.Fatal(err)
 			}
-			if titular != persona || otorgante != persona || version != "1.0 del 2026-10-30" || !otorgada.Equal(s.reloj.T) || retirada != nil || conservar != nil {
+			if titular != persona || otorgante != persona || version != "1.1 del 2026-11-12" || !otorgada.Equal(s.reloj.T) || retirada != nil || conservar != nil {
 				t.Errorf("%s: titular %s, otorgante %s, versión %q, otorgada %v, retirada %v, conservar %v", f, titular, otorgante, version, otorgada, retirada, conservar)
 			}
 			codigos = append(codigos, f)
 		}
-		if strings.Join(codigos, ",") != "avisos,cuenta_y_acceso,funciones_financieras" {
+		if strings.Join(codigos, ",") != "avisos,cuenta_y_acceso,funciones_financieras,transmision_a_encargados" {
 			t.Errorf("filas guardadas: %v (horas_de_vida no se autorizó)", codigos)
 		}
 		r := c.llamar("GET", rutaAutorizar, "")
@@ -329,19 +337,19 @@ func TestOtorgarEsIdempotente(t *testing.T) {
 			t.Fatalf("autorizar: %d %s", r.Codigo, r.Cuerpo)
 		}
 	}
-	if n := s.contar(`SELECT count(*) FROM autorizacion WHERE titular_id = $1::uuid`, persona); n != 3 {
-		t.Fatalf("después de repetir hay %d filas, se esperaban 3", n)
+	if n := s.contar(`SELECT count(*) FROM autorizacion WHERE titular_id = $1::uuid`, persona); n != 4 {
+		t.Fatalf("después de repetir hay %d filas, se esperaban 4", n)
 	}
 	primera := s.contar(`SELECT count(*) FROM autorizacion WHERE otorgada_en = $1`, s.reloj.T)
 	s.reloj.T = s.reloj.T.Add(time.Hour)
-	if r := c.llamar("POST", rutaAutorizar, `{"finalidades":["horas_de_vida","cuenta_y_acceso","funciones_financieras","avisos"],"version":"1.0"}`); r.Codigo != 200 {
+	if r := c.llamar("POST", rutaAutorizar, `{"finalidades":["horas_de_vida","cuenta_y_acceso","funciones_financieras","transmision_a_encargados","avisos"],"version":"1.1"}`); r.Codigo != 200 {
 		t.Fatalf("sumar una accesoria: %d %s", r.Codigo, r.Cuerpo)
 	}
-	if n := s.contar(`SELECT count(*) FROM autorizacion WHERE titular_id = $1::uuid AND retirada_en IS NULL`, persona); n != 4 {
-		t.Errorf("hay %d vigentes, se esperaban 4", n)
+	if n := s.contar(`SELECT count(*) FROM autorizacion WHERE titular_id = $1::uuid AND retirada_en IS NULL`, persona); n != 5 {
+		t.Errorf("hay %d vigentes, se esperaban 5", n)
 	}
-	if n := s.contar(`SELECT count(*) FROM autorizacion WHERE otorgada_en = $1`, s.reloj.T.Add(-time.Hour)); n != primera || primera != 3 {
-		t.Errorf("las tres primeras conservan su fecha: %d de %d", n, primera)
+	if n := s.contar(`SELECT count(*) FROM autorizacion WHERE otorgada_en = $1`, s.reloj.T.Add(-time.Hour)); n != primera || primera != 4 {
+		t.Errorf("las cuatro primeras conservan su fecha: %d de %d", n, primera)
 	}
 }
 
@@ -352,10 +360,11 @@ func TestOtorgarConErroresNoGuardaNada(t *testing.T) {
 		cuerpo, error string
 		codigo        int
 	}{
-		{`{"finalidades":["cuenta_y_acceso"],"version":"1.0"}`, "faltan_necesarias", 422},
-		{`{"finalidades":["cuenta_y_acceso","funciones_financieras","cuenta_del_menor"],"version":"1.0"}`, "finalidad_invalida", 422},
-		{`{"finalidades":["cuenta_y_acceso","funciones_financieras","transferencia"],"version":"1.0"}`, "finalidad_invalida", 422},
-		{`{"finalidades":["cuenta_y_acceso","funciones_financieras"],"version":"2.0"}`, "version_desactualizada", 409},
+		{`{"finalidades":["cuenta_y_acceso"],"version":"1.1"}`, "faltan_necesarias", 422},
+		{`{"finalidades":["cuenta_y_acceso","funciones_financieras"],"version":"1.1"}`, "faltan_necesarias", 422}, // SC-E21-25, criterio 1
+		{`{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados","cuenta_del_menor"],"version":"1.1"}`, "finalidad_invalida", 422},
+		{`{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados","transferencia"],"version":"1.1"}`, "finalidad_invalida", 422},
+		{`{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados"],"version":"2.0"}`, "version_desactualizada", 409},
 	} {
 		if r := c.llamar("POST", rutaAutorizar, caso.cuerpo); r.Codigo != caso.codigo || r.Cuerpo != `{"error":"`+caso.error+`"}` {
 			t.Errorf("%s: %d %s, se esperaba %d %s", caso.cuerpo, r.Codigo, r.Cuerpo, caso.codigo, caso.error)
@@ -424,13 +433,10 @@ func TestRechazarBorraTodoLoDeLaCuentaYCierraLaSesion(t *testing.T) {
 		s := nuevoServidor(t)
 		c, persona := s.nuevaCuentaVerificada("laura@ejemplo.test", android)
 		otra, otraPersona := s.nuevaCuentaVerificada("otra@ejemplo.test", android) // no debe tocarse
-		// Una segunda sesión de la misma persona (otro dispositivo) y una autorización parcial.
+		// Una segunda sesión de la misma persona (otro dispositivo). Sin ninguna autorización: una cuenta que ya autorizó algo
+		// no se borra de un toque (SC-E21-25, sección 5).
 		(&cliente{s: s, android: android}).llamar("POST", "/api/v1/sesiones", `{"identificador":"laura@ejemplo.test","contrasena":"`+contrasena+`"}`)
 		s.siembraLoQueTieneUnaCuentaNueva(persona)
-		if _, err := s.pool.Exec(context.Background(),
-			`INSERT INTO autorizacion (titular_id, otorgante_id, finalidad, version_del_texto, otorgada_en) VALUES ($1::uuid, $1::uuid, 'avisos', '1.0 del 2026-10-30', now())`, persona); err != nil {
-			t.Fatal(err)
-		}
 		antes := s.cuantoQueda(persona)
 		for _, tabla := range []string{"persona", "perfil_adulto", "credencial", "sesion", "enlace_un_uso", "token_dispositivo", "ocultamiento_categoria", "aviso"} {
 			if antes[tabla] == 0 {
@@ -464,12 +470,9 @@ func TestRechazarBorraTodoLoDeLaCuentaYCierraLaSesion(t *testing.T) {
 				t.Errorf("la consulta de referencias no vio %s: %v", quiere, tablas)
 			}
 		}
-		// La prueba mínima de la autorización que había queda retirada y conservada, sin llave a nadie (E13 §7, D-135).
-		if n := s.contar(`SELECT count(*) FROM autorizacion WHERE titular_id = $1::uuid AND retirada_en IS NOT NULL AND conservar_hasta IS NOT NULL`, persona); n != 1 {
-			t.Errorf("la prueba mínima debe quedar retirada y con conservar_hasta: %d", n)
-		}
-		if n := s.contar(`SELECT count(*) FROM autorizacion WHERE titular_id = $1::uuid AND retirada_en IS NULL`, persona); n != 0 {
-			t.Errorf("no queda ninguna autorización vigente: %d", n)
+		// Una cuenta nueva no tenía autorizaciones, así que no queda ninguna fila suya (ni vigente ni de prueba mínima).
+		if n := s.contar(`SELECT count(*) FROM autorizacion WHERE titular_id = $1::uuid`, persona); n != 0 {
+			t.Errorf("no queda ninguna autorización: %d", n)
 		}
 
 		// La sesión ya no existe, con la cookie o con el Bearer.
@@ -490,23 +493,40 @@ func TestRechazarBorraTodoLoDeLaCuentaYCierraLaSesion(t *testing.T) {
 	})
 }
 
-// Con una sola necesaria otorgada (parcial) la cuenta sigue en `sin_autorizacion` y «No autorizo» la borra.
-func TestRechazarConUnaAutorizacionParcialBorraLaCuenta(t *testing.T) {
-	s := nuevoServidor(t)
-	c, persona := s.nuevaCuentaVerificada("laura@ejemplo.test", false)
-	if _, err := s.pool.Exec(context.Background(),
-		`INSERT INTO autorizacion (titular_id, otorgante_id, finalidad, version_del_texto, otorgada_en) VALUES ($1::uuid, $1::uuid, 'cuenta_y_acceso', '1.0 del 2026-10-30', now())`, persona); err != nil {
-		t.Fatal(err)
-	}
-	if r := c.llamar("GET", rutaSeguridad, ""); r.Codigo != 403 {
-		t.Fatalf("con una sola necesaria sigue sin autorizar: %d %s", r.Codigo, r.Cuerpo)
-	}
-	if r := c.llamar("POST", rutaRechazo, ""); r.Codigo != 204 {
-		t.Fatalf("No autorizo: %d %s", r.Codigo, r.Cuerpo)
-	}
-	if s.cuantoQueda(persona)["persona"] != 0 || s.contar(`SELECT count(*) FROM autorizacion WHERE retirada_en IS NULL`) != 0 {
-		t.Error("la cuenta y sus autorizaciones vigentes deben desaparecer")
-	}
+// Con una sola necesaria otorgada (parcial) la cuenta sigue en `sin_autorizacion` y «No autorizo» ya no la borra: es una
+// cuenta que ya autorizó algo antes (SC-E21-25, sección 5, paso 3). Responde 403 `cuenta_con_historial`, con el evento
+// `acceso_denegado`, sin cookie vencida y sin tocar nada; la sesión sigue sirviendo.
+func TestRechazarConUnaAutorizacionParcialNoBorraLaCuenta(t *testing.T) {
+	formas(t, func(t *testing.T, android bool) {
+		s := nuevoServidor(t)
+		c, persona := s.nuevaCuentaVerificada("laura@ejemplo.test", android)
+		if _, err := s.pool.Exec(context.Background(),
+			`INSERT INTO autorizacion (titular_id, otorgante_id, finalidad, version_del_texto, otorgada_en) VALUES ($1::uuid, $1::uuid, 'cuenta_y_acceso', '1.0 del 2026-10-30', now())`, persona); err != nil {
+			t.Fatal(err)
+		}
+		if r := c.llamar("GET", rutaSeguridad, ""); r.Codigo != 403 {
+			t.Fatalf("con una sola necesaria sigue sin autorizar: %d %s", r.Codigo, r.Cuerpo)
+		}
+		antes := s.cuantoQueda(persona)
+		r := c.llamar("POST", rutaRechazo, "")
+		if r.Codigo != 403 || r.Cuerpo != `{"error":"cuenta_con_historial"}` || len(r.Cookies) != 0 {
+			t.Fatalf("No autorizo: %d %s %v", r.Codigo, r.Cuerpo, r.Cookies)
+		}
+		for tabla, n := range s.cuantoQueda(persona) {
+			if n != antes[tabla] {
+				t.Errorf("en %s había %d filas y ahora hay %d", tabla, antes[tabla], n)
+			}
+		}
+		if n := s.contar(`SELECT count(*) FROM autorizacion WHERE titular_id = $1::uuid AND retirada_en IS NULL AND conservar_hasta IS NULL`, persona); n != 1 {
+			t.Errorf("la autorización que tenía debe seguir vigente: %d", n)
+		}
+		if g := c.llamar("GET", rutaAutorizar, ""); g.Codigo != 200 {
+			t.Errorf("la sesión sigue sirviendo: %d %s", g.Codigo, g.Cuerpo)
+		}
+		if !strings.Contains(s.eventos.String(), `"evento_seguridad":"acceso_denegado","cuenta":"`+persona+`","ruta":"POST /api/v1/autorizaciones/rechazo","codigo":403`) {
+			t.Errorf("falta el evento acceso_denegado: %s", s.eventos)
+		}
+	})
 }
 
 // Quien ya autorizó no puede borrar su cuenta por «No autorizo»: 403, evento acceso_denegado y nada se toca.
@@ -542,14 +562,14 @@ func TestElRepositorioNoBorraUnaCuentaAutorizada(t *testing.T) {
 	_, persona := s.nuevaCuentaVerificada("laura@ejemplo.test", false)
 	repo := pg.NuevoAutorizaciones(s.pool)
 	ahora := s.reloj.T
-	necesarias := []string{"cuenta_y_acceso", "funciones_financieras"}
+	necesarias := []string{"cuenta_y_acceso", "funciones_financieras", "transmision_a_encargados"}
 	if err := repo.Otorgar(context.Background(), persona, necesarias, "1.0 del 2026-10-30", ahora); err != nil {
 		t.Fatal(err)
 	}
 	if err := repo.Rechazar(context.Background(), persona, necesarias, ahora, ahora); !errors.Is(err, autorizacion.ErrYaAutorizada) {
 		t.Fatalf("Rechazar = %v, se esperaba ErrYaAutorizada", err)
 	}
-	if s.cuantoQueda(persona)["persona"] != 1 || s.contar(`SELECT count(*) FROM autorizacion WHERE retirada_en IS NULL`) != 2 {
+	if s.cuantoQueda(persona)["persona"] != 1 || s.contar(`SELECT count(*) FROM autorizacion WHERE retirada_en IS NULL`) != 3 {
 		t.Error("no debe tocar nada")
 	}
 	// Una cuenta que no existe (ya borrada) no es un fallo de la base.
@@ -566,7 +586,7 @@ func TestElRepositorioNoBorraUnaCuentaAutorizada(t *testing.T) {
 func TestOtorgarYRechazarAlMismoTiempoQuedanCoherentes(t *testing.T) {
 	s := nuevoServidor(t)
 	repo := pg.NuevoAutorizaciones(s.pool)
-	necesarias := []string{"cuenta_y_acceso", "funciones_financieras"}
+	necesarias := []string{"cuenta_y_acceso", "funciones_financieras", "transmision_a_encargados"}
 	ahora := s.reloj.T
 	for i := range 15 {
 		persona := s.cuentaSinAutorizar(i)
@@ -583,7 +603,7 @@ func TestOtorgarYRechazarAlMismoTiempoQuedanCoherentes(t *testing.T) {
 		wg.Wait()
 		cuentas := s.contar(`SELECT count(*) FROM persona WHERE id = $1::uuid`, persona)
 		vigentes := s.contar(`SELECT count(*) FROM autorizacion WHERE titular_id = $1::uuid AND retirada_en IS NULL`, persona)
-		if (cuentas != 1 || vigentes != 2) && (cuentas != 0 || vigentes != 0) {
+		if (cuentas != 1 || vigentes != 3) && (cuentas != 0 || vigentes != 0) {
 			t.Fatalf("ronda %d: %d cuentas y %d autorizaciones vigentes", i, cuentas, vigentes)
 		}
 	}

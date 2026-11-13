@@ -89,7 +89,7 @@ func persona(t *testing.T, pool *pgxpool.Pool, correo string, verificada, autori
 		t.Fatal(err)
 	}
 	if autorizada {
-		for _, f := range []string{"cuenta_y_acceso", "funciones_financieras"} {
+		for _, f := range []string{"cuenta_y_acceso", "funciones_financieras", "transmision_a_encargados"} {
 			if _, err := pool.Exec(ctx, `INSERT INTO autorizacion (titular_id, otorgante_id, finalidad, version_del_texto, otorgada_en) VALUES ($1::uuid, $1::uuid, $2, '1.0', now())`, id, f); err != nil {
 				t.Fatal(err)
 			}

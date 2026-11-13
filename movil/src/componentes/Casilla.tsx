@@ -12,9 +12,12 @@ import { IconoAtencion, IconoCheck } from './Iconos';
 // cuando la pantalla le lleva el foco al guardar (`avisarErrores` y `ref`, ACC-004, bug 226); el texto visible del error
 // no se lee aparte. En la sesión del celular se oyó la casilla con su error. `deshabilitada` (la fila «No pasó» de
 // «Confirmar todos», E14-PRR 4.8) no cambia al tocarla; `contenido` reemplaza el texto visible cuando la fila lleva más
-// (nombre, apoyo y monto), y `texto` sigue siendo el nombre.
+// (nombre, apoyo y monto), y `texto` sigue siendo el nombre. `ayuda` es la nota que explica la casilla (la frase de los
+// avisos con la app cerrada de PN-64, SC-E21-25 3.6): se ve debajo (`tipografia.pequeno`, `color.texto.secundario`) como
+// texto normal, sin pista de accesibilidad, para que TalkBack la lea una sola vez, al llegar a ella.
 export function Casilla({
   texto,
+  ayuda,
   marcada,
   deshabilitada = false,
   contenido,
@@ -23,6 +26,7 @@ export function Casilla({
   ref,
 }: {
   texto: string;
+  ayuda?: string;
   marcada: boolean;
   deshabilitada?: boolean;
   contenido?: ReactNode;
@@ -33,12 +37,13 @@ export function Casilla({
   const [enFoco, setEnFoco] = useState(false);
   return (
     <View style={estilos.grupo}>
+      {/* Sin pista: la ayuda va como texto aparte, debajo, para que TalkBack la lea una sola vez (SC-E21-25 3.6). */}
+      {/* eslint-disable-next-line react-native-a11y/has-accessibility-hint */}
       <Pressable
         ref={ref}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: marcada, disabled: deshabilitada }}
         accessibilityLabel={nombreConError(texto, error)}
-        accessibilityHint={undefined}
         onPress={() => {
           if (!deshabilitada) alCambiar(!marcada);
         }}
@@ -59,6 +64,7 @@ export function Casilla({
           </Text>
         </View>
       )}
+      {ayuda && <Text style={estilos.ayuda}>{cifras(ayuda)}</Text>}
     </View>
   );
 }
@@ -91,4 +97,5 @@ const estilos = StyleSheet.create({
   texto: { ...estiloDeTipografia('cuerpo'), flex: 1, color: tokens.color.texto.principal },
   error: { flexDirection: 'row', alignItems: 'flex-start', gap: tokens.espacio['2'] },
   textoDeError: { ...estiloDeTipografia('pequeno'), flex: 1, color: tokens.color.estado.atencion.texto },
+  ayuda: { ...estiloDeTipografia('pequeno'), color: tokens.color.texto.secundario },
 });

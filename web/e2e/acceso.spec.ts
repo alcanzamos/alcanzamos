@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { responder, simularApi, sinViolaciones } from "./ayudas";
+import { catalogoCompleto, catalogoLimitado } from "./datosDeAutorizacion";
 
 const espera =
   "Hiciste muchos intentos. Espera unos minutos e intenta de nuevo.";
@@ -122,10 +123,40 @@ test.describe("PN-60 · Iniciar sesión", () => {
       "GET /api/v1/cuenta/seguridad": responder(403, {
         error: "autorizacion_pendiente",
       }),
+      "GET /api/v1/autorizaciones": responder(200, catalogoCompleto),
     });
     await page.goto("/entrar");
     await page.getByRole("button", { name: "Iniciar sesión" }).click();
     await expect(page).toHaveURL(/\/privacidad$/);
+  });
+
+  // SC-E21-25 sección 5, paso 2 y 3.8, criterio 6: la cuenta de antes del cambio entra y ve PN-64 con la tarjeta que le
+  // falta, sin pasar otra vez por PN-63.
+  test("una cuenta a la que solo le falta una aceptación entra y va directo a PN-64", async ({
+    page,
+  }) => {
+    const pedidos = await simularApi(page, {
+      "POST /api/v1/sesiones": responder(200, { estado: "activa" }),
+      "GET /api/v1/cuenta/seguridad": responder(403, {
+        error: "autorizacion_pendiente",
+      }),
+      "GET /api/v1/autorizaciones": responder(200, catalogoLimitado),
+    });
+    await page.goto("/entrar");
+    await page.getByRole("button", { name: "Iniciar sesión" }).click();
+    await expect(page).toHaveURL(/\/autorizacion$/);
+    await expect(
+      page.getByRole("heading", {
+        level: 2,
+        name: "Dónde guardamos tus datos",
+      }),
+    ).toBeVisible();
+    expect(pedidos.map((p) => `${p.metodo} ${p.ruta}`)).toEqual([
+      "POST /api/v1/sesiones",
+      "GET /api/v1/cuenta/seguridad",
+      "GET /api/v1/autorizaciones",
+      "GET /api/v1/autorizaciones",
+    ]);
   });
 
   test("solo con el teclado: de los campos a la seguridad de la cuenta", async ({
@@ -343,8 +374,8 @@ test.describe("PN-62 · Elegir la contraseña nueva", () => {
 test.describe("PN-71 · Seguridad de la cuenta", () => {
   // E14-PCP 4.14, nota del 2026-11-08 (bug 260) y 4.16 T2 ter: la entrada provisional a PN-63 va arriba de «Cerrar
   // sesión» y «Borrar mi cuenta» queda última, como en PN-66. «Presupuesto» (L3 de la US-77, punto 3) va justo después
-  // de «Movimientos», también provisional.
-  test("«Cómo cuidamos tus datos» arriba de «Cerrar sesión» y «Borrar mi cuenta» última, sin violaciones", async ({
+  // de «Movimientos», también provisional. La entrada a PN-68 (D-195, US-67) va justo después de la de PN-63.
+  test("«Cómo cuidamos tus datos» y «Política de tratamiento y consultas» arriba de «Cerrar sesión» y «Borrar mi cuenta» última, sin violaciones", async ({
     page,
   }) => {
     await simularApi(page, {
@@ -358,6 +389,7 @@ test.describe("PN-71 · Seguridad de la cuenta", () => {
       "Movimientos",
       "Presupuesto",
       "Cómo cuidamos tus datos",
+      "Política de tratamiento y consultas",
       "Cerrar sesión",
       "Borrar mi cuenta",
     ]);
@@ -535,6 +567,7 @@ test.describe("PN-73 · Cambiar la contraseña", () => {
       "POST /api/v1/cuenta/contrasena": responder(403, {
         error: "autorizacion_pendiente",
       }),
+      "GET /api/v1/autorizaciones": responder(200, catalogoCompleto),
     });
     await page.goto("/cuenta/contrasena");
     await page.getByRole("button", { name: "Guardar la contraseña" }).click();

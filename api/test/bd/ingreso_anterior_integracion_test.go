@@ -41,8 +41,10 @@ func TestMigracion0003AgregaYQuitaIngresoAnterior(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r, err := p.Down(ctx); err != nil || r.Source.Path != "0004_presupuesto_en_cero.sql" { // la que va después
-		t.Fatalf("Down: %+v, %v", r, err)
+	for _, despues := range []string{"0005_transmision_a_encargados.sql", "0004_presupuesto_en_cero.sql"} { // las que van después
+		if r, err := p.Down(ctx); err != nil || r.Source.Path != despues {
+			t.Fatalf("Down: %+v, %v; se esperaba %s", r, err, despues)
+		}
 	}
 	r, err := p.Down(ctx) // revierte solo la 0003
 	if err != nil || r.Source.Path != "0003_ingreso_anterior.sql" {
