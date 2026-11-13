@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/alcanzamos/alcanzamos/api/src/config"
+	"github.com/alcanzamos/alcanzamos/api/src/fechas"
 	"github.com/alcanzamos/alcanzamos/api/src/reloj"
 )
 
@@ -85,22 +86,55 @@ func (s *SMTP) EnviarAvisoDeCorreoRegistrado(ctx context.Context, destino string
 	return s.enviar(ctx, dir.Address, mensaje)
 }
 
+// EnviarAvisoDePurga manda a una cuenta del caso 2 el aviso de que se borra en `borradoEn` si no autoriza (ítem 294, D-203).
+// No registra el destino ni el cuerpo.
+func (s *SMTP) EnviarAvisoDePurga(ctx context.Context, destino string, borradoEn time.Time) error {
+	dir, err := mail.ParseAddress(destino)
+	if err != nil {
+		return fmt.Errorf("destino inválido: %w", err)
+	}
+	mensaje, err := s.mensajeDelAvisoDePurga(dir.Address, borradoEn)
+	if err != nil {
+		return err
+	}
+	return s.enviar(ctx, dir.Address, mensaje)
+}
+
 // enlaceDeVerificacion es URL_PUBLICA + /verificar?t=<token>. La ruta de la web existe desde la US-49 (PR 3).
 func (s *SMTP) enlaceDeVerificacion(token string) string {
 	return s.urlPublica + "/verificar?t=" + url.QueryEscape(token)
 }
 
 // mensajeDeVerificacion arma el correo de verificación con el asunto y el cuerpo de E14-PCP 4.2 quater, palabra por
-// palabra (aprobados por D-176; la duración del enlace, D-192, aprobada por el dueño el 2026-11-06).
+// palabra (aprobados por D-176; la duración del enlace, D-192, aprobada por el dueño el 2026-11-06). La última frase la
+// cambió el dueño el 2026-11-13 (ítem 294, D-203): dice lo que pasa con la cuenta y con el correo si nadie elige la contraseña.
 func (s *SMTP) mensajeDeVerificacion(destino, token string) ([]byte, error) {
 	cuerpo := "Hola,\r\n\r\n" +
 		"Pediste crear una cuenta en Alcanzamos con este correo. Para confirmarlo y elegir tu contraseña, abre este enlace. Sirve durante 24 horas y una sola vez:\r\n\r\n" +
 		s.enlaceDeVerificacion(token) + "\r\n\r\n" +
-		"Si no lo pediste, ignora este mensaje: no se crea ninguna cuenta.\r\n\r\n" +
+		"Si no lo pediste, ignora este mensaje: si nadie elige la contraseña, en 7 días borramos la cuenta y esta dirección de correo.\r\n\r\n" +
 		"--\r\n" +
 		"Este mensaje sale de una dirección que no recibe respuestas.\r\n" +
 		s.pie()
 	return s.mensaje(destino, "Elige tu contraseña para tu cuenta de Alcanzamos", cuerpo)
+}
+
+// enlaceDeEntrar es URL_PUBLICA + /entrar: la pantalla de iniciar sesión de la web (PN-60).
+func (s *SMTP) enlaceDeEntrar() string { return s.urlPublica + "/entrar" }
+
+// mensajeDelAvisoDePurga arma el aviso de antes de la purga con el asunto y el cuerpo que dictó el dueño el 2026-11-13
+// (ítem 294, D-203), palabra por palabra. {fecha} es el momento real del borrado, en palabras y en hora de Colombia
+// (D-090); el enlace es /entrar. Después va el pie de siempre, como en la verificación y la recuperación.
+func (s *SMTP) mensajeDelAvisoDePurga(destino string, borradoEn time.Time) ([]byte, error) {
+	cuerpo := "Hola,\r\n\r\n" +
+		"Confirmaste tu correo en Alcanzamos, pero todavía no autorizaste el uso de tus datos. Sin esa autorización no podemos guardar tu cuenta. Si no autorizas, la borramos el " +
+		fechas.EnPalabras(borradoEn) + ", con todo lo que tenga.\r\n\r\n" +
+		"Para autorizar, entra a Alcanzamos con tu correo y tu contraseña, en la app o aquí: " + s.enlaceDeEntrar() + "\r\n\r\n" +
+		"Si ya no quieres la cuenta, no tienes que hacer nada.\r\n\r\n" +
+		"--\r\n" +
+		"Este mensaje sale de una dirección que no recibe respuestas.\r\n" +
+		s.pie()
+	return s.mensaje(destino, "Tu cuenta de Alcanzamos se borra en 2 días", cuerpo)
 }
 
 // enlaceDeRecuperacion es URL_PUBLICA + /recuperar?t=<token> (PN-62).

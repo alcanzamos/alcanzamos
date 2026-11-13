@@ -47,7 +47,11 @@ func TestConLaBaseCaidaCadaOperacionFallaConUnErrorDeInfraestructura(t *testing.
 				HuellaDeSesion: []byte("otra"), Ahora: ahora})
 		}},
 		{"cuentas.BorrarSinConfirmar", func() error {
-			_, err := cuentas.BorrarSinConfirmar(ctx, ahora, ahora, ahora)
+			_, err := cuentas.BorrarSinConfirmar(ctx, cuenta.PlazosDeLaPurga{Ahora: ahora, CreadasHasta: ahora, AvisadasHasta: ahora, SinAvisoHasta: ahora, ConservarHasta: ahora})
+			return err
+		}},
+		{"cuentas.AvisarAntesDeLaPurga", func() error {
+			_, err := cuentas.AvisarAntesDeLaPurga(ctx, ahora, func(context.Context, cuenta.CuentaPorAvisar) (time.Time, error) { return ahora, nil })
 			return err
 		}},
 		{"autenticacion.CredencialPorCorreo", func() error { _, err := autenticaciones.CredencialPorCorreo(ctx, "a@ejemplo.test"); return err }},

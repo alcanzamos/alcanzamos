@@ -35,8 +35,13 @@ type repoFalso struct {
 	errSolicitar, errEnlace, errCompletar error
 	compuerta                             chan struct{} // si no es nil, SolicitarVerificacion espera a que se cierre
 
-	// BorrarSinConfirmar
-	hasta, conservar time.Time
+	// BorrarSinConfirmar y AvisarAntesDeLaPurga (ítem 294, D-203)
+	plazos      cuenta.PlazosDeLaPurga
+	resultado   cuenta.ResultadoDeLaPurga
+	avisarHasta time.Time
+	porAvisar   []cuenta.CuentaPorAvisar
+	avisadas    map[string]time.Time // id → el momento del aviso que el repositorio registró
+	errAvisar   error
 }
 
 func (r *repoFalso) SolicitarVerificacion(_ context.Context, v cuenta.NuevaVerificacion) error {
@@ -99,9 +104,34 @@ func (r *repoFalso) CompletarCuenta(_ context.Context, c cuenta.CuentaElegida) e
 	return nil
 }
 
-func (r *repoFalso) BorrarSinConfirmar(_ context.Context, hasta, _, conservar time.Time) (int, error) {
-	r.hasta, r.conservar = hasta, conservar
-	return 3, nil
+func (r *repoFalso) BorrarSinConfirmar(_ context.Context, p cuenta.PlazosDeLaPurga) (cuenta.ResultadoDeLaPurga, error) {
+	r.plazos = p
+	return r.resultado, nil
+}
+
+// AvisarAntesDeLaPurga hace lo del repositorio real sin la base: ofrece cada cuenta a `enviar` y solo registra el aviso de
+// la que sale bien.
+func (r *repoFalso) AvisarAntesDeLaPurga(ctx context.Context, avisarHasta time.Time, enviar cuenta.EnvioDelAviso) (int, error) {
+	r.avisarHasta = avisarHasta
+	if r.errAvisar != nil {
+		return 0, r.errAvisar
+	}
+	if r.avisadas == nil {
+		r.avisadas = map[string]time.Time{}
+	}
+	n := 0
+	for _, c := range r.porAvisar {
+		if _, ya := r.avisadas[c.ID]; ya {
+			continue
+		}
+		en, err := enviar(ctx, c)
+		if err != nil {
+			continue
+		}
+		r.avisadas[c.ID] = en
+		n++
+	}
+	return n, nil
 }
 
 type hasheadorFalso struct {
@@ -539,12 +569,24 @@ func TestVerificarYElegirContrasenaFallosInternosNoDanSesion(t *testing.T) {
 
 func TestBorrarCuentasSinConfirmarPideLosPlazos(t *testing.T) {
 	e := nuevoEntorno()
+	e.repo.resultado = cuenta.ResultadoDeLaPurga{Borradas: 3}
 	n, err := e.svc.BorrarCuentasSinConfirmar(context.Background(), ahoraDePrueba)
 	if err != nil || n != 3 {
 		t.Fatalf("borradas %d, %v", n, err)
 	}
-	if !e.repo.hasta.Equal(ahoraDePrueba.Add(-7*24*time.Hour)) || e.repo.conservar.Format("2006-01-02") != "2029-10-22" {
-		t.Errorf("plazos: %v %v", e.repo.hasta, e.repo.conservar)
+	// Caso 1: 7 días. Caso 2: 7 días desde creada_en y 48 horas desde el aviso; sin aviso, el límite del día 14 (D-203).
+	esperado := cuenta.PlazosDeLaPurga{
+		Ahora:          ahoraDePrueba,
+		CreadasHasta:   ahoraDePrueba.Add(-7 * 24 * time.Hour),
+		AvisadasHasta:  ahoraDePrueba.Add(-48 * time.Hour),
+		SinAvisoHasta:  ahoraDePrueba.Add(-14 * 24 * time.Hour),
+		ConservarHasta: ahoraDePrueba.AddDate(3, 0, 0),
+	}
+	if e.repo.plazos != esperado {
+		t.Errorf("plazos: %+v, se esperaba %+v", e.repo.plazos, esperado)
+	}
+	if e.repo.plazos.ConservarHasta.Format("2006-01-02") != "2029-10-22" {
+		t.Errorf("conservar hasta %v", e.repo.plazos.ConservarHasta)
 	}
 }
 

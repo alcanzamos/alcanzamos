@@ -32,9 +32,10 @@ func TestPurgaNoBorraTrasOtorgamientoConcurrente(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Del caso 2 con el aviso de hace 3 días: ya cumplió los 7 días y las 48 horas (D-203), así que la purga la elige.
 	_, err = tx.Exec(ctx,
-		`INSERT INTO perfil_adulto(persona_id, correo, correo_verificado)
-		 VALUES ($1::uuid, 'race@ejemplo.test', true)`, id)
+		`INSERT INTO perfil_adulto(persona_id, correo, correo_verificado, aviso_de_purga_en)
+		 VALUES ($1::uuid, 'race@ejemplo.test', true, $2)`, id, ahora.Add(-3*24*time.Hour))
 	if err != nil {
 		t.Fatal(err)
 	}
