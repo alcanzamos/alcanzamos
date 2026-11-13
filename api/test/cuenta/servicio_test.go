@@ -35,8 +35,14 @@ type repoFalso struct {
 	errSolicitar, errEnlace, errCompletar error
 	compuerta                             chan struct{} // si no es nil, SolicitarVerificacion espera a que se cierre
 
-	// BorrarSinConfirmar
-	hasta, conservar time.Time
+	// BorrarSinConfirmar y AvisarAntesDeLaPurga (ítem 294, D-203)
+	plazos      cuenta.PlazosDeLaPurga
+	resultado   cuenta.ResultadoDeLaPurga
+	avisarHasta time.Time
+	porAvisar   []cuenta.CuentaPorAvisar
+	avisadas    map[string]time.Time // id → el momento del aviso que el repositorio registró
+	errAvisar   error
+	errBorrar   error
 }
 
 func (r *repoFalso) SolicitarVerificacion(_ context.Context, v cuenta.NuevaVerificacion) error {
@@ -99,9 +105,42 @@ func (r *repoFalso) CompletarCuenta(_ context.Context, c cuenta.CuentaElegida) e
 	return nil
 }
 
-func (r *repoFalso) BorrarSinConfirmar(_ context.Context, hasta, _, conservar time.Time) (int, error) {
-	r.hasta, r.conservar = hasta, conservar
-	return 3, nil
+func (r *repoFalso) BorrarSinConfirmar(_ context.Context, p cuenta.PlazosDeLaPurga) (cuenta.ResultadoDeLaPurga, error) {
+	r.plazos = p
+	if r.errBorrar != nil {
+		return cuenta.ResultadoDeLaPurga{}, r.errBorrar
+	}
+	return r.resultado, nil
+}
+
+// AvisarAntesDeLaPurga hace lo del repositorio real sin la base: ofrece cada cuenta a `enviar` y solo registra el aviso de
+// la que sale bien. Si el contexto termina (el presupuesto de la tarea o una cancelación), deja de ofrecer cuentas y cuenta
+// como pendientes la que quedó a medias y las que no se ofrecieron.
+func (r *repoFalso) AvisarAntesDeLaPurga(ctx context.Context, avisarHasta time.Time, enviar cuenta.EnvioDelAviso) (cuenta.ResultadoDelAviso, error) {
+	r.avisarHasta = avisarHasta
+	if r.errAvisar != nil {
+		return cuenta.ResultadoDelAviso{}, r.errAvisar
+	}
+	if r.avisadas == nil {
+		r.avisadas = map[string]time.Time{}
+	}
+	var res cuenta.ResultadoDelAviso
+	for i, c := range r.porAvisar {
+		if _, ya := r.avisadas[c.ID]; ya {
+			continue
+		}
+		en, err := enviar(ctx, c)
+		if err == nil {
+			r.avisadas[c.ID] = en
+			res.Avisadas++
+			continue
+		}
+		if cerr := ctx.Err(); cerr != nil {
+			res.Pendientes = len(r.porAvisar) - i
+			return res, cerr
+		}
+	}
+	return res, nil
 }
 
 type hasheadorFalso struct {
@@ -138,7 +177,7 @@ type entorno struct {
 func nuevoEntorno() *entorno {
 	e := &entorno{repo: &repoFalso{}, correo: &correotest.Falso{}, hasher: &hasheadorFalso{}, reloj: &relojtest.Fijo{T: ahoraDePrueba}, registro: &bytes.Buffer{}}
 	e.limitador = seguridad.NuevoLimitadorDeIntentos(e.reloj)
-	e.svc = cuenta.NuevoServicio(cuenta.Dependencias{
+	e.svc = servicioDe(cuenta.Dependencias{
 		Repo: e.repo, Correo: e.correo, Politica: seguridad.NuevaPoliticaDeContrasena(), Hasher: e.hasher,
 		Reloj: e.reloj, Limitador: e.limitador, Log: e.log(),
 	})
@@ -539,12 +578,24 @@ func TestVerificarYElegirContrasenaFallosInternosNoDanSesion(t *testing.T) {
 
 func TestBorrarCuentasSinConfirmarPideLosPlazos(t *testing.T) {
 	e := nuevoEntorno()
+	e.repo.resultado = cuenta.ResultadoDeLaPurga{Borradas: 3}
 	n, err := e.svc.BorrarCuentasSinConfirmar(context.Background(), ahoraDePrueba)
 	if err != nil || n != 3 {
 		t.Fatalf("borradas %d, %v", n, err)
 	}
-	if !e.repo.hasta.Equal(ahoraDePrueba.Add(-7*24*time.Hour)) || e.repo.conservar.Format("2006-01-02") != "2029-10-22" {
-		t.Errorf("plazos: %v %v", e.repo.hasta, e.repo.conservar)
+	// Caso 1: 7 días. Caso 2: 7 días desde creada_en y 48 horas desde el aviso; sin aviso, el límite del día 14 (D-203).
+	esperado := cuenta.PlazosDeLaPurga{
+		Ahora:          ahoraDePrueba,
+		CreadasHasta:   ahoraDePrueba.Add(-7 * 24 * time.Hour),
+		AvisadasHasta:  ahoraDePrueba.Add(-48 * time.Hour),
+		SinAvisoHasta:  ahoraDePrueba.Add(-14 * 24 * time.Hour),
+		ConservarHasta: ahoraDePrueba.AddDate(3, 0, 0),
+	}
+	if e.repo.plazos != esperado {
+		t.Errorf("plazos: %+v, se esperaba %+v", e.repo.plazos, esperado)
+	}
+	if e.repo.plazos.ConservarHasta.Format("2006-01-02") != "2029-10-22" {
+		t.Errorf("conservar hasta %v", e.repo.plazos.ConservarHasta)
 	}
 }
 
@@ -589,7 +640,7 @@ func TestElCuartoPedidoDeLaHoraNoRevocaElEnlaceVigente(t *testing.T) {
 // se registra sin correo ni token; al liberarse, vuelve a aceptar.
 func TestElTrabajoEnSegundoPlanoTieneUnTopeGlobal(t *testing.T) {
 	e := nuevoEntorno()
-	e.svc = cuenta.NuevoServicio(cuenta.Dependencias{
+	e.svc = servicioDe(cuenta.Dependencias{
 		Repo: e.repo, Correo: e.correo, Politica: seguridad.NuevaPoliticaDeContrasena(), Hasher: e.hasher,
 		Reloj: e.reloj, Limitador: e.limitador, Log: e.log(), CupoDeSolicitudes: 2,
 	})
@@ -615,4 +666,14 @@ func TestElTrabajoEnSegundoPlanoTieneUnTopeGlobal(t *testing.T) {
 	if n := len(e.correo.Enviados()); n != 3 {
 		t.Errorf("liberado el cupo vuelve a aceptar: %d", n)
 	}
+}
+
+// servicioDe arma el servicio con las dependencias dadas, que deben estar completas: una prueba con una dependencia que
+// falta es un error de la prueba.
+func servicioDe(d cuenta.Dependencias) *cuenta.Servicio {
+	s, err := cuenta.NuevoServicio(d)
+	if err != nil {
+		panic(err)
+	}
+	return s
 }

@@ -61,7 +61,7 @@ func nuevoEntornoDeAccesoSinTrabajadores(t *testing.T) *entornoDeAcceso {
 	e := &entornoDeAcceso{entornoDeCuentas: nuevoEntornoDeCuentas(t)}
 	hasher := argon2id.Nuevo(parametrosVigentes, 4)
 	log := slog.New(slog.NewJSONHandler(io.Discard, nil))
-	cuentas := cuenta.NuevoServicio(cuenta.Dependencias{
+	cuentas := servicioDeCuentas(t, cuenta.Dependencias{
 		Repo: e.repo, Correo: e.correo, Politica: seguridad.NuevaPoliticaDeContrasena(), Hasher: hasher,
 		Reloj: e.reloj, Limitador: e.limitador, Log: log,
 	})

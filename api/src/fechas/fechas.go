@@ -5,6 +5,7 @@ package fechas
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"slices"
 	"time"
@@ -53,6 +54,28 @@ func Dia(anio int, mes time.Month, dia int) time.Time {
 func HoyEnColombia(ahora time.Time) time.Time {
 	a := ahora.In(colombia)
 	return Dia(a.Year(), a.Month(), a.Day())
+}
+
+// meses son los nombres propios de los meses: no dependen del idioma ni de la zona del sistema (D-090).
+var meses = [...]string{"enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"}
+
+// EnPalabras es el instante en palabras y en hora de Colombia (D-090): «18 de noviembre de 2026, a las 9:30 a. m.».
+// Es la forma de `fechaEnPalabras` de la app móvil sin el «el» del comienzo, para que la frase lo ponga («la borramos el
+// …»). La una va con «a la» («a la 1:05 p. m.»). Se ignoran los segundos.
+func EnPalabras(instante time.Time) string {
+	a := instante.In(colombia)
+	hora12 := a.Hour() % 12
+	if hora12 == 0 {
+		hora12 = 12
+	}
+	articulo, jornada := "a las", "a. m."
+	if hora12 == 1 {
+		articulo = "a la"
+	}
+	if a.Hour() >= 12 {
+		jornada = "p. m."
+	}
+	return fmt.Sprintf("%d de %s de %d, %s %d:%02d %s", a.Day(), meses[a.Month()-1], a.Year(), articulo, hora12, a.Minute(), jornada)
 }
 
 func ultimoDelMes(anio int, mes time.Month) int { return Dia(anio, mes+1, 0).Day() }

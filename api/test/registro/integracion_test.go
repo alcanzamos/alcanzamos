@@ -78,10 +78,13 @@ func nuevoServidorCon(t *testing.T, interpretador interpretacion.Interpretador) 
 	limitador := seguridad.NuevoLimitadorDeIntentos(reloj)
 	politica := seguridad.NuevaPoliticaDeContrasena()
 	correo := &correotest.Falso{}
-	cuentas := cuenta.NuevoServicio(cuenta.Dependencias{
+	cuentas, err := cuenta.NuevoServicio(cuenta.Dependencias{
 		Repo: pg.NuevoCuentas(pool), Correo: correo, Politica: politica, Hasher: hasheadorRapido{}, Reloj: reloj,
 		Limitador: limitador, Log: log,
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	entrar, err := autenticacion.NuevoServicio(autenticacion.Dependencias{
 		Repo: pg.NuevoAutenticacion(pool), Hasher: hasheadorRapido{}, Limitador: limitador, Reloj: reloj, Correo: correo,
 		Politica: politica, Log: log,

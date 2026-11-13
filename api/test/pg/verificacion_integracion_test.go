@@ -36,11 +36,14 @@ func TestBorrarCuentasSinConfirmar(t *testing.T) {
 	ctx := context.Background()
 	e := nuevoEntornoDeCuentas(t)
 	necesarias := []string{"cuenta_y_acceso", "funciones_financieras", "transmision_a_encargados"}
-	e.semillaEdad(t, "sin-confirmar-7@ejemplo.test", 7, false)                                                     // se borra
-	e.semillaEdad(t, "sin-confirmar-6@ejemplo.test", 6, false)                                                     // se queda: faltan horas
-	e.semillaEdad(t, "sin-confirmar-90@ejemplo.test", 90, false)                                                   // se borra
-	e.semillaEdad(t, "confirmada-sin-autorizar-7@ejemplo.test", 7, true)                                           // se borra: nunca autorizó nada
-	e.semillaEdad(t, "confirmada-sin-autorizar-6@ejemplo.test", 6, true)                                           // se queda
+	e.semillaEdad(t, "sin-confirmar-7@ejemplo.test", 7, false)                       // se borra
+	e.semillaEdad(t, "sin-confirmar-6@ejemplo.test", 6, false)                       // se queda: faltan horas
+	e.semillaEdad(t, "sin-confirmar-90@ejemplo.test", 90, false)                     // se borra
+	conAviso := e.semillaEdad(t, "confirmada-sin-autorizar-7@ejemplo.test", 7, true) // se borra: nunca autorizó nada y el aviso es de hace 3 días (D-203)
+	if _, err := e.pool.Exec(ctx, `UPDATE perfil_adulto SET aviso_de_purga_en = $2 WHERE persona_id = $1::uuid`, conAviso, ahora.Add(-3*24*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	e.semillaEdad(t, "confirmada-sin-autorizar-6@ejemplo.test", 6, true)                                           // se queda (la tarea le manda el aviso)
 	sinConfirmarAutorizada := e.semillaEdad(t, "autorizada-sin-confirmar-7@ejemplo.test", 7, false, necesarias...) // se borra: no confirmó el correo
 	e.semillaEdad(t, "confirmada-y-autorizada-7@ejemplo.test", 7, true, necesarias...)                             // nunca
 	e.semillaEdad(t, "confirmada-y-autorizada-400@ejemplo.test", 400, true, necesarias...)
@@ -66,8 +69,17 @@ func TestBorrarCuentasSinConfirmar(t *testing.T) {
 		t.Fatal(err)
 	}
 	enviadosAntes := len(e.correo.Enviados())
+	// Una corrida del trabajo programado: la purga y después los avisos, como el ejecutor (la limpieza va en medio).
+	corrida := func(hoy time.Time) (int, error) {
+		n, err := e.svc.BorrarCuentasSinConfirmar(ctx, hoy)
+		if err != nil {
+			return n, err
+		}
+		_, err = e.svc.AvisarAntesDeLaPurga(ctx, hoy)
+		return n, err
+	}
 
-	n, err := e.svc.BorrarCuentasSinConfirmar(ctx, ahora)
+	n, err := corrida(ahora)
 	if err != nil || n != 4 {
 		t.Fatalf("borradas %d (%v), se esperaban 4", n, err)
 	}
@@ -103,8 +115,10 @@ func TestBorrarCuentasSinConfirmar(t *testing.T) {
 			t.Errorf("%s: %d, se esperaban %d", tabla, n, esperado)
 		}
 	}
-	if len(e.correo.Enviados()) != enviadosAntes {
-		t.Error("la tarea no envía ningún correo")
+	// Lo único que envía la tarea es el aviso de antes de la purga (D-203), a la cuenta del caso 2 que ya pasó el día 5: la de
+	// 6 días. Ni el caso 1, ni la que ya autorizó algo, ni la que se borra en esta misma pasada.
+	if enviados := e.correo.Enviados(); len(enviados) != enviadosAntes+1 || !enviados[enviadosAntes].AvisoDePurga || enviados[enviadosAntes].Destino != "confirmada-sin-autorizar-6@ejemplo.test" {
+		t.Errorf("la tarea solo manda el aviso a la cuenta de 6 días del caso 2: %+v", enviados[enviadosAntes:])
 	}
 	// La prueba mínima de la autorización de la cuenta sin confirmar que se borró queda retirada y con plazo (E13 §7); la de
 	// las que se quedan, intacta.
@@ -119,14 +133,18 @@ func TestBorrarCuentasSinConfirmar(t *testing.T) {
 		t.Errorf("retirada %v, conservar_hasta %v", retirada, conservar)
 	}
 	// Idempotente: una segunda pasada no encuentra nada.
-	if n, err := e.svc.BorrarCuentasSinConfirmar(ctx, ahora); err != nil || n != 0 {
+	if n, err := corrida(ahora); err != nil || n != 0 {
 		t.Errorf("segunda pasada: %d, %v", n, err)
 	}
-	// Un día después las de 6 días cumplen el plazo; las confirmadas y autorizadas, nunca.
-	if n, err := e.svc.BorrarCuentasSinConfirmar(ctx, ahora.Add(24*time.Hour)); err != nil || n != 2 {
-		t.Errorf("un día después: %d, %v; se esperaban 2 (las de 6 días)", n, err)
+	// Un día después la sin confirmar de 6 días cumple el plazo; la confirmada de 6 días (caso 2) espera las 48 horas de su
+	// aviso, que se cumplen en la hora del aviso más dos días; las confirmadas y autorizadas, nunca.
+	if n, err := corrida(ahora.Add(24 * time.Hour)); err != nil || n != 1 {
+		t.Errorf("un día después: %d, %v; se esperaba 1 (la sin confirmar de 6 días)", n, err)
 	}
-	if n, err := e.svc.BorrarCuentasSinConfirmar(ctx, ahora.Add(60*24*time.Hour)); err != nil || n != 0 {
+	if n, err := corrida(ahora.Add(48 * time.Hour)); err != nil || n != 1 {
+		t.Errorf("a las 48 horas del aviso: %d, %v; se esperaba 1 (la confirmada de 6 días)", n, err)
+	}
+	if n, err := corrida(ahora.Add(60 * 24 * time.Hour)); err != nil || n != 0 {
 		t.Errorf("a los 60 días las confirmadas y autorizadas siguen: %d, %v", n, err)
 	}
 	if contar(t, e.pool, `SELECT count(*) FROM perfil_adulto WHERE correo LIKE 'confirmada-y-autorizada%'`) != 2 {
@@ -198,10 +216,11 @@ func TestLaTareaNoBorraUnaCuentaQueYaAutorizoAlgo(t *testing.T) {
 		t.Fatalf("la semilla debía dejar 2 autorizaciones vigentes: %d", vigentesAntes)
 	}
 
-	// La primera pasada borra solo la de control; las siguientes, aun a los 60 y a los 400 días, no encuentran nada más.
+	// La primera pasada solo le manda el aviso a la de control (de 8 días, sin ninguna autorización: el caso 2); la borra a
+	// las 48 horas del aviso, aquí a los 60 días. Las otras tres, aun a los 60 y a los 400 días, no se tocan.
 	for i, hoy := range []time.Time{ahora, ahora, ahora.Add(60 * 24 * time.Hour), ahora.Add(400 * 24 * time.Hour)} {
 		quiere := 0
-		if i == 0 {
+		if i == 2 {
 			quiere = 1
 		}
 		if n, err := e.svc.BorrarCuentasSinConfirmar(ctx, hoy); err != nil || n != quiere {
@@ -210,6 +229,11 @@ func TestLaTareaNoBorraUnaCuentaQueYaAutorizoAlgo(t *testing.T) {
 	}
 	existe := func(id string) bool {
 		return contar(t, e.pool, `SELECT count(*) FROM persona WHERE id = $1::uuid`, id) == 1
+	}
+	for _, e := range e.correo.Enviados() {
+		if e.AvisoDePurga && e.Destino != "nunca-autorizo@ejemplo.test" {
+			t.Errorf("solo la de control, que nunca autorizó, recibe el aviso: %s", e.Destino)
+		}
 	}
 	if !existe(antes) {
 		t.Fatal("la tarea borró una cuenta de más de 7 días con el correo confirmado y las necesarias de antes: ya autorizó algo (SC-E21-25, criterio 9)")

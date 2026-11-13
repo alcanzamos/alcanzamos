@@ -47,7 +47,7 @@ func nuevoEntornoDeCuentas(t *testing.T) *entornoDeCuentas {
 	base := nuevoEntorno(t)
 	e := &entornoDeCuentas{entorno: base, repo: pg.NuevoCuentas(base.pool), correo: &correotest.Falso{}, hasher: &hasheadorRapido{}}
 	e.limitador = seguridad.NuevoLimitadorDeIntentos(base.reloj)
-	e.svc = cuenta.NuevoServicio(cuenta.Dependencias{
+	e.svc = servicioDeCuentas(t, cuenta.Dependencias{
 		Repo: e.repo, Correo: e.correo, Politica: seguridad.NuevaPoliticaDeContrasena(), Hasher: e.hasher,
 		Reloj: base.reloj, Limitador: e.limitador, Log: slog.New(slog.NewJSONHandler(io.Discard, nil)),
 	})

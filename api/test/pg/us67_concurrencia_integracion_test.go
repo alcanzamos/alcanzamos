@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/alcanzamos/alcanzamos/api/src/cuenta"
-	"github.com/alcanzamos/alcanzamos/api/src/pg"
 	"github.com/alcanzamos/alcanzamos/api/test/pgtest"
 )
 
@@ -32,9 +31,10 @@ func TestPurgaNoBorraTrasOtorgamientoConcurrente(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Del caso 2 con el aviso de hace 3 días: ya cumplió los 7 días y las 48 horas (D-203), así que la purga la elige.
 	_, err = tx.Exec(ctx,
-		`INSERT INTO perfil_adulto(persona_id, correo, correo_verificado)
-		 VALUES ($1::uuid, 'race@ejemplo.test', true)`, id)
+		`INSERT INTO perfil_adulto(persona_id, correo, correo_verificado, aviso_de_purga_en)
+		 VALUES ($1::uuid, 'race@ejemplo.test', true, $2)`, id, ahora.Add(-3*24*time.Hour))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +67,7 @@ func TestPurgaNoBorraTrasOtorgamientoConcurrente(t *testing.T) {
 	}
 	fin := make(chan resultado, 1)
 	go func() {
-		s := cuenta.NuevoServicio(cuenta.Dependencias{Repo: pg.NuevoCuentas(pool)})
+		s := servicioDeLaPurga(t, pool)
 		n, err := s.BorrarCuentasSinConfirmar(ctx, ahora)
 		fin <- resultado{n, err}
 	}()

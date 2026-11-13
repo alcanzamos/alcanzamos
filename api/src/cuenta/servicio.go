@@ -3,6 +3,7 @@ package cuenta
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/mail"
 	"strings"
@@ -19,8 +20,31 @@ import (
 const (
 	// VigenciaDelEnlaceDeVerificacion: el enlace de verificación vence a las 24 horas (E13 §5.4).
 	VigenciaDelEnlaceDeVerificacion = 24 * time.Hour
-	// PlazoParaConfirmar: la cuenta que no confirma el correo o no autoriza se borra a los 7 días de creada (D-135).
+	// PlazoParaConfirmar: la cuenta que no confirma el correo se borra a los 7 días de creada (D-135, el caso 1). La que
+	// confirmó el correo y no autorizó nada (el caso 2) también espera estos 7 días, pero además el aviso (D-203).
 	PlazoParaConfirmar = 7 * 24 * time.Hour
+	// PlazoParaAvisar: el aviso antes de la purga sale a partir de los 5 días de creada la cuenta del caso 2 (D-203).
+	PlazoParaAvisar = 5 * 24 * time.Hour
+	// EsperaTrasElAviso: una cuenta del caso 2 se borra al menos 48 horas después del aviso (D-203).
+	EsperaTrasElAviso = 48 * time.Hour
+	// LimiteSinAviso: si a los 14 días de creada el aviso todavía no salió, la cuenta del caso 2 se borra igual y la tarea
+	// deja un error en el registro (D-203).
+	LimiteSinAviso = 14 * 24 * time.Hour
+	// PlazoDeEnvioConFilasBloqueadas es el tiempo de espera del envío del aviso (D-203, S4). El aviso se manda con la fila
+	// de la persona y la de su perfil bloqueadas (`FOR UPDATE`), para que dos pasadas de la tarea no lo manden dos veces ni
+	// se mande a quien está autorizando; un servidor de correo que no responde las dejaría bloqueadas, y con ellas a esa
+	// persona (iniciar sesión, autorizar, borrar la cuenta). Son 10 segundos: de sobra para el diálogo SMTP de un servidor
+	// sano (conectar, STARTTLS, un mensaje de texto plano) y mucho menos que los 30 s del adaptador, que son para un envío
+	// que no tiene nada bloqueado. Si se cumple, el envío falla, no se registra y se reintenta en la pasada siguiente.
+	PlazoDeEnvioConFilasBloqueadas = 10 * time.Second
+	// PresupuestoDeLosAvisos es el tiempo total de la tarea de los avisos (ítem 294, L14). El trabajo programado corre en
+	// el trabajo `caj-tareas` de Azure (infra/azure/aplicacion.tf), que con `replica_timeout_in_seconds = 300` mata el
+	// proceso a los 5 minutos. Con el servidor de correo caído, cada aviso gasta sus 10 s (PlazoDeEnvioConFilasBloqueadas):
+	// unas 30 cuentas pendientes llegan a ese tope y Azure mataría el proceso a mitad de un envío, con la corrida en
+	// error. Con 2 minutos la tarea termina por su cuenta y con margen: deja 3 minutos para la purga y la limpieza, que
+	// van antes, y para cerrar la conexión. Lo que no alcanza queda sin tocar para la corrida siguiente, que es en 15
+	// minutos, y la tarea lo deja en un WARN con cuántas cuentas faltan.
+	PresupuestoDeLosAvisos = 2 * time.Minute
 	// AniosDeLaPruebaDeAutorizacion: lo que se conserva tras borrar la cuenta, 3 años, es provisional (E13 §7, D-085).
 	AniosDeLaPruebaDeAutorizacion = 3
 
@@ -121,12 +145,59 @@ type Repositorio interface {
 	// lo reemplazó uno nuevo), guarda el nombre y la credencial, marca el correo como verificado, deja sin efecto los
 	// demás enlaces y crea la sesión. Todo o nada: sin la contraseña guardada no hay sesión (D-172 (3)).
 	CompletarCuenta(ctx context.Context, c CuentaElegida) error
-	// BorrarSinConfirmar borra, con todo lo que tengan (sesiones incluidas), las cuentas adultas creadas hasta
-	// `creadasHasta` que no confirmaron el correo o no tienen vigente cada una de las `necesarias` otorgadas por la
-	// propia persona (D-135, D-139), y devuelve cuántas. Las autorizaciones que tuvieran quedan retiradas en `ahora`
-	// y se conservan hasta `conservarHasta`.
-	BorrarSinConfirmar(ctx context.Context, creadasHasta, ahora, conservarHasta time.Time) (int, error)
+	// BorrarSinConfirmar borra, con todo lo que tengan (sesiones incluidas), las cuentas adultas que no confirmaron el
+	// correo (caso 1) o que lo confirmaron y nunca autorizaron nada (caso 2), según los plazos (D-135, D-203): el caso 1,
+	// creadas hasta `CreadasHasta`; el caso 2, creadas hasta `CreadasHasta` y avisadas hasta `AvisadasHasta`, o sin aviso y
+	// creadas hasta `SinAvisoHasta`. Devuelve cuántas borró y cuáles (de las del caso 2) sin aviso. Las autorizaciones que
+	// tuvieran quedan retiradas en `Ahora` y se conservan hasta `ConservarHasta`.
+	BorrarSinConfirmar(ctx context.Context, p PlazosDeLaPurga) (ResultadoDeLaPurga, error)
+	// AvisarAntesDeLaPurga recorre las cuentas del caso 2 (adulta, correo confirmado, ninguna autorización como titular)
+	// creadas hasta `avisarHasta` y sin aviso, **una por una**: en una transacción bloquea la fila de la persona y la de su
+	// perfil, vuelve a evaluar el caso con las filas bloqueadas, llama a `enviar` y, solo si sale bien, escribe en la misma
+	// transacción el momento que `enviar` devolvió como `aviso_de_purga_en`. Si `enviar` falla no escribe nada y sigue con
+	// la siguiente. Si `ctx` termina (el tiempo total de la tarea o una cancelación) no sigue con las demás y devuelve el
+	// error del contexto. Devuelve cuántas quedaron avisadas y, si terminó por el contexto, cuántas quedaron sin avisar:
+	// la que se interrumpió y las que no se llegaron a ofrecer.
+	AvisarAntesDeLaPurga(ctx context.Context, avisarHasta time.Time, enviar EnvioDelAviso) (ResultadoDelAviso, error)
 }
+
+// ResultadoDelAviso es lo que hizo una pasada de los avisos.
+type ResultadoDelAviso struct {
+	Avisadas int
+	// Pendientes son las cuentas que no se avisaron porque el contexto terminó antes; solo cuenta cuando devuelve error.
+	Pendientes int
+}
+
+// PlazosDeLaPurga son los momentos de corte de una pasada de la purga (D-203), calculados desde la hora de la pasada.
+type PlazosDeLaPurga struct {
+	Ahora time.Time
+	// CreadasHasta es `Ahora − 7 días`: el caso 1 se borra si se creó hasta aquí; el caso 2 también lo exige.
+	CreadasHasta time.Time
+	// AvisadasHasta es `Ahora − 48 horas`: el caso 2 se borra si su aviso es de hasta aquí.
+	AvisadasHasta time.Time
+	// SinAvisoHasta es `Ahora − 14 días`: el caso 2 sin aviso se borra si se creó hasta aquí.
+	SinAvisoHasta time.Time
+	// ConservarHasta es hasta cuándo se conserva la prueba mínima de las autorizaciones retiradas (E13 §7).
+	ConservarHasta time.Time
+}
+
+// ResultadoDeLaPurga es lo que borró una pasada de la purga.
+type ResultadoDeLaPurga struct {
+	Borradas int
+	// SinAviso son los ids de las cuentas del caso 2 que se borraron por el límite de 14 días sin que el aviso saliera.
+	SinAviso []string
+}
+
+// CuentaPorAvisar es una cuenta del caso 2 a la que le toca el aviso.
+type CuentaPorAvisar struct {
+	ID       string
+	Correo   string
+	CreadaEn time.Time
+}
+
+// EnvioDelAviso manda el aviso a una cuenta con sus filas bloqueadas y devuelve el momento del aviso, que el repositorio
+// guarda si no hay error. Si devuelve un error, el repositorio no guarda nada.
+type EnvioDelAviso func(ctx context.Context, c CuentaPorAvisar) (avisoEn time.Time, err error)
 
 // Hasheador calcula el hash de una contraseña (src/argon2id).
 type Hasheador interface {
@@ -144,6 +215,12 @@ type Dependencias struct {
 	Log       *slog.Logger
 	// CupoDeSolicitudes es el tope global de pedidos de verificación en segundo plano; sin valor, 100.
 	CupoDeSolicitudes int
+	// PlazoDeEnvioConFilasBloqueadas es el tiempo de espera del envío del aviso de la purga; sin valor,
+	// PlazoDeEnvioConFilasBloqueadas (10 s). Las pruebas lo acortan para no esperar con un servidor que no responde.
+	PlazoDeEnvioConFilasBloqueadas time.Duration
+	// PresupuestoDeLosAvisos es el tiempo total de la tarea de los avisos; sin valor, PresupuestoDeLosAvisos (2 minutos).
+	// Las pruebas lo acortan para no esperar dos minutos con un servidor que no responde.
+	PresupuestoDeLosAvisos time.Duration
 }
 
 // Servicio son los casos de uso de la cuenta.
@@ -153,12 +230,37 @@ type Servicio struct {
 	cupo   chan struct{} // un lugar por pedido de verificación en segundo plano (A2)
 }
 
-// NuevoServicio arma el servicio con sus puertos.
-func NuevoServicio(d Dependencias) *Servicio {
+// ErrDependenciaFaltante es el error de NuevoServicio cuando a Dependencias le falta un puerto.
+var ErrDependenciaFaltante = errors.New("cuenta: falta una dependencia")
+
+// NuevoServicio arma el servicio con sus puertos. Todos son obligatorios, también para quien solo usa una parte (las
+// tareas usan la purga y el aviso, no el hash ni los límites): una dependencia que falta se descubre aquí, al armar, y no
+// a mitad de una corrida con un nil pointer (ítem 294, L10). El error es ErrDependenciaFaltante y nombra todas las que faltan.
+func NuevoServicio(d Dependencias) (*Servicio, error) {
+	var faltan []string
+	for _, p := range []struct {
+		nombre string
+		falta  bool
+	}{
+		{"Repo", d.Repo == nil},
+		{"Correo", d.Correo == nil},
+		{"Politica", d.Politica == nil},
+		{"Hasher", d.Hasher == nil},
+		{"Reloj", d.Reloj == nil},
+		{"Limitador", d.Limitador == nil},
+		{"Log", d.Log == nil},
+	} {
+		if p.falta {
+			faltan = append(faltan, p.nombre)
+		}
+	}
+	if len(faltan) > 0 {
+		return nil, fmt.Errorf("%w: %s", ErrDependenciaFaltante, strings.Join(faltan, ", "))
+	}
 	if d.CupoDeSolicitudes <= 0 {
 		d.CupoDeSolicitudes = CupoDeSolicitudes
 	}
-	return &Servicio{d: d, cupo: make(chan struct{}, d.CupoDeSolicitudes)}
+	return &Servicio{d: d, cupo: make(chan struct{}, d.CupoDeSolicitudes)}, nil
 }
 
 // Esperar bloquea hasta que terminen las solicitudes y los envíos de correo en curso. Lo usan las pruebas y el apagado ordenado.
@@ -304,14 +406,92 @@ func (s *Servicio) VerificarYElegirContrasena(ctx context.Context, token, contra
 	return SesionNueva{Token: tokenDeSesion}, nil
 }
 
-// BorrarCuentasSinConfirmar borra, con todo lo que tengan, las cuentas de 7 días o más que no confirmaron el correo o
-// que nunca autorizaron nada como titulares (D-135). Una cuenta que ya autorizó algo antes no se borra aunque le falte
-// una finalidad necesaria nueva, como `transmision_a_encargados`: queda en `sin_autorizacion` hasta que la acepte
-// (SC-E21-25 sección 5, D-202), así que esta tarea ya no consulta ReglaDeFinalidades. No envía correo: la dirección no
-// está confirmada y puede ser de otra persona. Es idempotente: una cuenta ya borrada no vuelve a aparecer. Devuelve
-// cuántas borró.
+// BorrarCuentasSinConfirmar es la tarea de la purga de las cuentas que nadie confirmó o autorizó (D-135, D-203). Devuelve
+// cuántas borró, con todo lo que tengan:
+//   - caso 1 (el correo sin confirmar): a los 7 días de creada, sin aviso;
+//   - caso 2 (el correo confirmado y ninguna autorización como titular): cuando se cumplen 7 días desde creada_en **y**
+//     48 horas desde el aviso; sin aviso registrado, a los 14 días de creada, con un ERROR en el registro (el id de la
+//     cuenta, nunca el correo).
+//
+// Una cuenta que ya autorizó algo antes no se borra aunque le falte una finalidad necesaria nueva, como
+// `transmision_a_encargados`: queda en `sin_autorizacion` hasta que la acepte (SC-E21-25 sección 5, D-202).
+//
+// No manda ningún correo: el aviso es otra tarea (AvisarAntesDeLaPurga) que el ejecutor corre después de la purga y de la
+// limpieza de sesiones y enlaces, para que una cuenta que ya pasó el límite de 14 días se borre sin que un aviso de última
+// hora la deje 48 horas más y para que la limpieza nunca espere al correo (E12 EjecutorDeTareas, L14).
+//
+// Es idempotente: una cuenta ya borrada no vuelve a aparecer.
 func (s *Servicio) BorrarCuentasSinConfirmar(ctx context.Context, ahora time.Time) (int, error) {
-	return s.d.Repo.BorrarSinConfirmar(ctx, ahora.Add(-PlazoParaConfirmar), ahora, ahora.AddDate(AniosDeLaPruebaDeAutorizacion, 0, 0))
+	res, err := s.d.Repo.BorrarSinConfirmar(ctx, PlazosDeLaPurga{
+		Ahora:          ahora,
+		CreadasHasta:   ahora.Add(-PlazoParaConfirmar),
+		AvisadasHasta:  ahora.Add(-EsperaTrasElAviso),
+		SinAvisoHasta:  ahora.Add(-LimiteSinAviso),
+		ConservarHasta: ahora.AddDate(AniosDeLaPruebaDeAutorizacion, 0, 0),
+	})
+	if err != nil {
+		return 0, err
+	}
+	for _, id := range res.SinAviso {
+		s.d.Log.ErrorContext(ctx, "cuenta del caso 2 borrada sin aviso: pasaron 14 días desde que se creó y el aviso no salió", "persona_id", id)
+	}
+	return res.Borradas, nil
+}
+
+// AvisarAntesDeLaPurga es la tarea que manda el aviso a las cuentas del caso 2 que llevan 5 días o más sin aviso (D-203,
+// S5). Devuelve cuántas quedaron avisadas. El correo dice el momento real del borrado, el que llegue más tarde entre
+// creada_en + 7 días y el aviso + 48 horas, y el aviso que se registra es la hora leída justo antes de enviar ese correo,
+// por cada cuenta (no la del inicio de la corrida, que la purga o unos envíos lentos dejan atrás): así la purga siempre
+// espera 48 horas o más desde el correo real. El envío lleva un plazo corto (PlazoDeEnvioConFilasBloqueadas) porque se
+// hace con las filas bloqueadas. Si falla, no se registra nada y queda un aviso en el registro, con el id de la cuenta y no
+// con el correo: la corrida siguiente lo reintenta.
+//
+// **Tiene un tiempo total** (PresupuestoDeLosAvisos, 2 minutos; L14): al cumplirse deja de enviar, no registra nada de lo
+// que no salió, y las cuentas que faltan quedan para la corrida siguiente con un WARN que dice cuántas son (sin correos).
+// Agotar el tiempo no es una falla de la tarea; una cancelación del proceso, sí.
+//
+// **No pasa por el límite de 3 correos por hora a la dirección** (D-140 (2), D-172 (7)) y tampoco suma a su contador
+// (L5 del dueño, D-203): el aviso lo manda la tarea, no la persona, y es la única advertencia antes de borrar la cuenta. Por
+// eso este camino no llama a `Limitador.PermitirCorreo`, ni antes ni después de enviar.
+func (s *Servicio) AvisarAntesDeLaPurga(ctx context.Context, ahora time.Time) (int, error) {
+	plazo := s.d.PlazoDeEnvioConFilasBloqueadas
+	if plazo <= 0 {
+		plazo = PlazoDeEnvioConFilasBloqueadas
+	}
+	presupuesto := s.d.PresupuestoDeLosAvisos
+	if presupuesto <= 0 {
+		presupuesto = PresupuestoDeLosAvisos
+	}
+	enTotal, cancelar := context.WithTimeout(ctx, presupuesto)
+	defer cancelar()
+	res, err := s.d.Repo.AvisarAntesDeLaPurga(enTotal, ahora.Add(-PlazoParaAvisar), func(ctx context.Context, c CuentaPorAvisar) (time.Time, error) {
+		ctx, cancelar := context.WithTimeout(ctx, plazo)
+		defer cancelar()
+		// La hora del aviso se lee aquí, justo antes de enviar y por cada cuenta, y no al empezar la tarea: la purga o
+		// los envíos anteriores pueden haber tardado, y con la hora de la corrida las 48 horas contarían desde antes del correo.
+		avisoEn := s.d.Reloj.Ahora()
+		if err := s.d.Correo.EnviarAvisoDePurga(ctx, c.Correo, momentoDelBorrado(c.CreadaEn, avisoEn)); err != nil {
+			s.d.Log.WarnContext(ctx, "aviso de purga no enviado: se reintenta en la corrida siguiente", "persona_id", c.ID, "error", err)
+			return time.Time{}, err
+		}
+		return avisoEn, nil
+	})
+	if errors.Is(err, context.DeadlineExceeded) && ctx.Err() == nil {
+		s.d.Log.WarnContext(ctx, "avisos de purga: se acabó el tiempo total de la tarea, lo que falta queda para la corrida siguiente",
+			"pendientes", res.Pendientes, "presupuesto", presupuesto.String())
+		err = nil
+	}
+	return res.Avisadas, err
+}
+
+// momentoDelBorrado es cuándo se borra una cuenta del caso 2 avisada en `avisoEn`: lo que llegue más tarde entre creada_en
+// + 7 días y el aviso + 48 horas (D-203).
+func momentoDelBorrado(creadaEn, avisoEn time.Time) time.Time {
+	borrado := creadaEn.Add(PlazoParaConfirmar)
+	if tras := avisoEn.Add(EsperaTrasElAviso); tras.After(borrado) {
+		return tras
+	}
+	return borrado
 }
 
 // enviar manda el correo dentro del trabajo en segundo plano, que ya pasó el límite de la dirección y el cupo. Nunca

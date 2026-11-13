@@ -38,6 +38,10 @@ func TestMigracion0005SiembraYQuitaLaTransmisionAEncargados(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if r, err := p.Down(ctx); err != nil || r.Source.Path != "0006_aviso_de_purga.sql" { // la que va después
+		t.Fatalf("Down: %+v, %v", r, err)
+	}
+
 	// Con una autorización guardada, bajar falla y no cambia nada.
 	if _, err := pool.Exec(ctx,
 		`INSERT INTO autorizacion (titular_id, otorgante_id, finalidad, version_del_texto, otorgada_en)
@@ -66,5 +70,8 @@ func TestMigracion0005SiembraYQuitaLaTransmisionAEncargados(t *testing.T) {
 	}
 	if tipo, activa, total := fila(); tipo != "necesaria" || !activa || total != 8 {
 		t.Fatalf("tras volver a subir: %q %v %d", tipo, activa, total)
+	}
+	if _, err := p.Up(ctx); err != nil { // la 0006
+		t.Fatalf("subir las que siguen: %v", err)
 	}
 }

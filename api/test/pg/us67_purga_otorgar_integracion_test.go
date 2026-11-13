@@ -22,7 +22,7 @@ func TestLaPurgaYUnOtorgamientoAlMismoTiempoQuedanCoherentes(t *testing.T) {
 	pool := pgtest.Nueva(t)
 	ahora := time.Now().UTC()
 	necesarias := cuenta.ReglaDeFinalidades{}.Codigos(cuenta.EtapaAdulta)
-	servicio := cuenta.NuevoServicio(cuenta.Dependencias{Repo: pg.NuevoCuentas(pool)})
+	servicio := servicioDeLaPurga(t, pool)
 	otorgante := pg.NuevoAutorizaciones(pool)
 	for i := range 20 {
 		var id string
@@ -33,7 +33,9 @@ func TestLaPurgaYUnOtorgamientoAlMismoTiempoQuedanCoherentes(t *testing.T) {
 		if err := tx.QueryRow(ctx, `INSERT INTO persona (nombre, etapa, creada_en) VALUES ('Laura', 'adulta', $1) RETURNING id::text`, ahora.Add(-8*24*time.Hour)).Scan(&id); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := tx.Exec(ctx, `INSERT INTO perfil_adulto (persona_id, correo, correo_verificado) VALUES ($1::uuid, $2, true)`, id, fmt.Sprintf("p%d@ejemplo.test", i)); err != nil {
+		// El caso 2 con el aviso de hace 3 días: la purga la elige (D-203).
+		if _, err := tx.Exec(ctx, `INSERT INTO perfil_adulto (persona_id, correo, correo_verificado, aviso_de_purga_en) VALUES ($1::uuid, $2, true, $3)`,
+			id, fmt.Sprintf("p%d@ejemplo.test", i), ahora.Add(-3*24*time.Hour)); err != nil {
 			t.Fatal(err)
 		}
 		if err := tx.Commit(ctx); err != nil {

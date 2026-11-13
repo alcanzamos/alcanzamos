@@ -205,12 +205,16 @@ func invalidarEnlaces(ctx context.Context, tx pgx.Tx, persona string) error {
 }
 
 // BorrarSinConfirmar borra la persona (ON DELETE CASCADE se lleva perfil, credencial, sesiones, enlaces y datos) de las
-// cuentas adultas creadas hasta creadasHasta que no confirmaron el correo o que **nunca autorizaron nada**: sin ninguna
-// fila en `autorizacion` como titular, vigente o retirada (D-135, SC-E21-25 sección 5, D-202). Una cuenta que ya autorizó
-// algo y a la que le falta una finalidad necesaria nueva no se borra: queda en `sin_autorizacion`, sin plazo, hasta que
-// acepte (`ReglaDeFinalidades.Faltantes`); por eso esta consulta ya no mira las necesarias. Sin llave a la persona,
+// cuentas adultas que no confirmaron el correo (caso 1) o que lo confirmaron y **nunca autorizaron nada**: sin ninguna
+// fila en `autorizacion` como titular, vigente o retirada (caso 2; D-135, SC-E21-25 sección 5, D-202). Una cuenta que ya
+// autorizó algo y a la que le falta una finalidad necesaria nueva no se borra: queda en `sin_autorizacion`, sin plazo,
+// hasta que acepte (`ReglaDeFinalidades.Faltantes`); por eso esta consulta no mira las necesarias. Sin llave a la persona,
 // `autorizacion` no se borra en cascada: las que hubiera (solo las de una cuenta sin confirmar) quedan retiradas en
-// `ahora` y conservadas hasta `conservarHasta` (E13 §7).
+// `Ahora` y conservadas hasta `ConservarHasta` (E13 §7).
+//
+// Los plazos (D-203; ver `condicionDeLaPurga`): el caso 1, 7 días desde creada_en. El caso 2, 7 días desde creada_en **y**
+// 48 horas desde `aviso_de_purga_en`; sin aviso, 14 días desde creada_en, y esas cuentas se devuelven en
+// `ResultadoDeLaPurga.SinAviso` para que el servicio deje el error en el registro.
 //
 // **Dos sentencias en una transacción, porque una sola no es correcta.** Otorgar (y retirar, y registrar un token) toman
 // la fila de la persona con `FOR UPDATE` y después escriben en `autorizacion`, que no tiene llave a la persona. En READ
@@ -219,15 +223,16 @@ func invalidarEnlaces(ctx context.Context, tx pgx.Tx, persona string) error {
 // `persona` (la tabla bloqueada), nunca el `NOT EXISTS` de otra tabla, y borra a una persona que ya autorizó, dejando
 // autorizaciones vigentes huérfanas. Por eso: (1) se eligen los candidatos y se **bloquean** sus filas (`FOR UPDATE`, en
 // orden de id); con el bloqueo tomado, ningún otorgamiento puede estar a medias, y (2) una sentencia nueva, con foto
-// nueva que ya ve lo confirmado, **vuelve a evaluar la condición** sobre las filas bloqueadas y solo entonces retira y
-// borra. Quien llegó después de (2) espera el bloqueo y encuentra la cuenta borrada (`ErrSinCuenta`).
+// nueva que ya ve lo confirmado (también un aviso recién escrito), **vuelve a evaluar la condición** sobre las filas
+// bloqueadas y solo entonces retira y borra. Quien llegó después de (2) espera el bloqueo y encuentra la cuenta borrada
+// (`ErrSinCuenta`).
 //
 // Quedan fuera: las cuentas que pasaron de menor a adulta (fecha_de_paso), que tienen historia con su tutor y
 // no pasan por la verificación de este correo, y las de menores.
-func (r *Cuentas) BorrarSinConfirmar(ctx context.Context, creadasHasta, ahora, conservarHasta time.Time) (int, error) {
+func (r *Cuentas) BorrarSinConfirmar(ctx context.Context, p cuenta.PlazosDeLaPurga) (cuenta.ResultadoDeLaPurga, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		return 0, fmt.Errorf("abrir la transacción: %w", err)
+		return cuenta.ResultadoDeLaPurga{}, fmt.Errorf("abrir la transacción: %w", err)
 	}
 	defer tx.Rollback(ctx)
 	filas, err := tx.Query(ctx,
@@ -238,47 +243,166 @@ func (r *Cuentas) BorrarSinConfirmar(ctx context.Context, creadasHasta, ahora, c
 		     WHERE `+condicionDeLaPurga+`
 		 )
 		 SELECT p.id::text FROM persona p JOIN candidatas c ON c.id = p.id ORDER BY p.id FOR UPDATE OF p`,
-		creadasHasta)
+		p.CreadasHasta, p.AvisadasHasta, p.SinAvisoHasta)
 	if err != nil {
-		return 0, fmt.Errorf("bloquear las cuentas sin confirmar: %w", err)
+		return cuenta.ResultadoDeLaPurga{}, fmt.Errorf("bloquear las cuentas sin confirmar: %w", err)
 	}
 	bloqueadas, err := pgx.CollectRows(filas, pgx.RowTo[string])
 	if err != nil {
-		return 0, fmt.Errorf("leer las cuentas sin confirmar: %w", err)
+		return cuenta.ResultadoDeLaPurga{}, fmt.Errorf("leer las cuentas sin confirmar: %w", err)
 	}
 	if len(bloqueadas) == 0 {
-		return 0, nil
+		return cuenta.ResultadoDeLaPurga{}, nil
 	}
-	res, err := tx.Exec(ctx,
+	// `sin_aviso`: del caso 2 (correo verificado) y sin aviso; solo puede estar en las candidatas por el límite de 14 días.
+	filas, err = tx.Query(ctx,
 		`WITH candidatas AS (
-		     SELECT p.id
+		     SELECT p.id, (pa.correo_verificado AND pa.aviso_de_purga_en IS NULL) AS sin_aviso
 		     FROM persona p
 		     JOIN perfil_adulto pa ON pa.persona_id = p.id
-		     WHERE p.id = ANY($4::uuid[]) AND `+condicionDeLaPurga+`
+		     WHERE p.id = ANY($6::uuid[]) AND `+condicionDeLaPurga+`
 		 ), retiradas AS (
 		     UPDATE autorizacion a
-		        SET retirada_en = GREATEST(a.otorgada_en, $2), conservar_hasta = $3::date
+		        SET retirada_en = GREATEST(a.otorgada_en, $4), conservar_hasta = $5::date
 		       FROM candidatas c
 		      WHERE a.titular_id = c.id AND a.retirada_en IS NULL
 		     RETURNING a.id
 		 )
-		 DELETE FROM persona p USING candidatas c WHERE p.id = c.id`,
-		creadasHasta, ahora, conservarHasta, bloqueadas)
+		 DELETE FROM persona p USING candidatas c WHERE p.id = c.id RETURNING p.id::text, c.sin_aviso`,
+		p.CreadasHasta, p.AvisadasHasta, p.SinAvisoHasta, p.Ahora, p.ConservarHasta, bloqueadas)
 	if err != nil {
-		return 0, fmt.Errorf("borrar las cuentas sin confirmar: %w", err)
+		return cuenta.ResultadoDeLaPurga{}, fmt.Errorf("borrar las cuentas sin confirmar: %w", err)
+	}
+	var res cuenta.ResultadoDeLaPurga
+	for filas.Next() {
+		var id string
+		var sinAviso bool
+		if err := filas.Scan(&id, &sinAviso); err != nil {
+			return cuenta.ResultadoDeLaPurga{}, fmt.Errorf("leer las cuentas borradas: %w", err)
+		}
+		res.Borradas++
+		if sinAviso {
+			res.SinAviso = append(res.SinAviso, id)
+		}
+	}
+	if err := filas.Err(); err != nil {
+		return cuenta.ResultadoDeLaPurga{}, fmt.Errorf("borrar las cuentas sin confirmar: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return 0, fmt.Errorf("confirmar la transacción: %w", err)
+		return cuenta.ResultadoDeLaPurga{}, fmt.Errorf("confirmar la transacción: %w", err)
 	}
-	return int(res.RowsAffected()), nil
+	return res, nil
 }
 
-// condicionDeLaPurga es la condición de BorrarSinConfirmar (sobre `p` y `pa`, con `$1` = creadasHasta): se evalúa dos veces,
-// al elegir y al confirmar con las filas ya bloqueadas.
+// condicionDeLaPurga es la condición de BorrarSinConfirmar (sobre `p` y `pa`, con `$1` = CreadasHasta, `$2` =
+// AvisadasHasta y `$3` = SinAvisoHasta): se evalúa dos veces, al elegir y al confirmar con las filas ya bloqueadas.
+//
+//   - caso 1 (`NOT correo_verificado`): creada hasta `$1` (7 días), como desde D-135, con o sin autorizaciones;
+//   - caso 2 (correo verificado y ninguna autorización como titular, D-202): creada hasta `$1` **y**, o avisada hasta `$2`
+//     (48 horas desde el aviso), o sin aviso y creada hasta `$3` (el límite de 14 días, D-203).
 const condicionDeLaPurga = `p.etapa = 'adulta'
 		       AND pa.fecha_de_paso IS NULL
 		       AND p.creada_en <= $1
 		       AND (
 		           NOT pa.correo_verificado
-		           OR NOT EXISTS (SELECT 1 FROM autorizacion a WHERE a.titular_id = p.id)
+		           OR (
+		               NOT EXISTS (SELECT 1 FROM autorizacion a WHERE a.titular_id = p.id)
+		               AND (
+		                   pa.aviso_de_purga_en <= $2
+		                   OR (pa.aviso_de_purga_en IS NULL AND p.creada_en <= $3)
+		               )
+		           )
 		       )`
+
+// AvisarAntesDeLaPurga manda el aviso del día 5 a las cuentas del caso 2 y lo registra (ítem 294, D-203): adulta, sin
+// fecha_de_paso, con el correo confirmado, ninguna fila en `autorizacion` como titular (vigente o retirada, D-202), creada
+// hasta `avisarHasta` y sin `aviso_de_purga_en`.
+//
+// **Una cuenta por transacción**, para que el envío, que es lento y puede fallar, tenga bloqueada una sola cuenta a la vez
+// (y el servicio le pone un plazo corto): (1) se bloquean la fila de la persona y la de su perfil (en ese orden, el de
+// la purga y el del resto de las operaciones sobre la cuenta, para no abrazarse con ninguna); (2) con una sentencia nueva,
+// con la foto que ya ve lo confirmado, se **vuelve a evaluar** el caso 2 sobre las filas bloqueadas (si la persona acaba de
+// autorizar, o ya la avisó otra pasada, no se manda nada); (3) se envía; (4) solo si salió, se escribe
+// `aviso_de_purga_en` y se confirma. Si el envío falla, la transacción se deshace sin escribir nada y sigue la siguiente
+// cuenta. Si el correo sale y la escritura o la confirmación fallan, la pasada siguiente lo manda otra vez. Si el contexto
+// termina (el tiempo total de la tarea, L14, o una cancelación), no sigue con las demás cuentas: la transacción en curso se
+// deshace, así que no queda nada registrado ni ninguna fila bloqueada, y devuelve el error del contexto con cuántas
+// cuentas quedaron sin avisar.
+func (r *Cuentas) AvisarAntesDeLaPurga(ctx context.Context, avisarHasta time.Time, enviar cuenta.EnvioDelAviso) (cuenta.ResultadoDelAviso, error) {
+	filas, err := r.pool.Query(ctx,
+		`SELECT p.id::text FROM persona p JOIN perfil_adulto pa ON pa.persona_id = p.id WHERE `+condicionDelAviso+` ORDER BY p.creada_en, p.id`,
+		avisarHasta)
+	if err != nil {
+		return cuenta.ResultadoDelAviso{}, fmt.Errorf("buscar las cuentas por avisar: %w", err)
+	}
+	ids, err := pgx.CollectRows(filas, pgx.RowTo[string])
+	if err != nil {
+		return cuenta.ResultadoDelAviso{}, fmt.Errorf("leer las cuentas por avisar: %w", err)
+	}
+	var res cuenta.ResultadoDelAviso
+	for i, id := range ids {
+		avisada, err := r.avisarUna(ctx, id, avisarHasta, enviar)
+		if avisada {
+			res.Avisadas++
+			continue
+		}
+		// El contexto terminó (el tiempo total de la tarea o una cancelación): la cuenta que se interrumpió y las que
+		// siguen no se tocan, y quedan para la corrida siguiente.
+		if cerr := ctx.Err(); cerr != nil {
+			res.Pendientes = len(ids) - i
+			return res, cerr
+		}
+		if err != nil {
+			return res, err
+		}
+	}
+	return res, nil
+}
+
+// avisarUna es una cuenta de AvisarAntesDeLaPurga. Devuelve true si el aviso salió y quedó registrado.
+func (r *Cuentas) avisarUna(ctx context.Context, id string, avisarHasta time.Time, enviar cuenta.EnvioDelAviso) (bool, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return false, fmt.Errorf("abrir la transacción: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	for _, q := range []string{
+		`SELECT 1 FROM persona WHERE id = $1::uuid FOR UPDATE`,
+		`SELECT 1 FROM perfil_adulto WHERE persona_id = $1::uuid FOR UPDATE`,
+	} {
+		if _, err := tx.Exec(ctx, q, id); err != nil {
+			return false, fmt.Errorf("bloquear la cuenta por avisar: %w", err)
+		}
+	}
+	c := cuenta.CuentaPorAvisar{ID: id}
+	err = tx.QueryRow(ctx,
+		`SELECT pa.correo, p.creada_en FROM persona p JOIN perfil_adulto pa ON pa.persona_id = p.id
+		  WHERE p.id = $2::uuid AND `+condicionDelAviso, avisarHasta, id).Scan(&c.Correo, &c.CreadaEn)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil // se borró, autorizó o la avisó otra pasada mientras se esperaba el bloqueo
+	}
+	if err != nil {
+		return false, fmt.Errorf("volver a evaluar la cuenta por avisar: %w", err)
+	}
+	avisoEn, err := enviar(ctx, c)
+	if err != nil {
+		return false, nil // el servicio ya lo registró; nada se escribe y la pasada siguiente lo reintenta
+	}
+	if _, err := tx.Exec(ctx, `UPDATE perfil_adulto SET aviso_de_purga_en = $2 WHERE persona_id = $1::uuid`, id, avisoEn); err != nil {
+		return false, fmt.Errorf("registrar el aviso: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return false, fmt.Errorf("confirmar el aviso: %w", err)
+	}
+	return true, nil
+}
+
+// condicionDelAviso es el caso 2 sin aviso (sobre `p` y `pa`, con `$1` = creadas hasta `avisarHasta`): se evalúa al elegir
+// y, con las filas bloqueadas, antes de enviar.
+const condicionDelAviso = `p.etapa = 'adulta'
+		       AND pa.fecha_de_paso IS NULL
+		       AND pa.correo_verificado
+		       AND pa.correo IS NOT NULL
+		       AND pa.aviso_de_purga_en IS NULL
+		       AND p.creada_en <= $1
+		       AND NOT EXISTS (SELECT 1 FROM autorizacion a WHERE a.titular_id = p.id)`

@@ -17,13 +17,14 @@ import (
 
 func TestTareasConectaYTerminaSinError(t *testing.T) {
 	// Una base propia y migrada: las tareas consultan las tablas de cuenta.
+	entornoDeCorreo(t)
 	t.Setenv("BASE_DE_DATOS_URL", pgtest.Nueva(t).Config().ConnString())
 	codigo, salida := ejecutar("tareas")
 	if codigo != 0 {
 		t.Fatalf("código %d, registro %s", codigo, salida)
 	}
 	if !strings.Contains(salida, "tareas: inicio") || !strings.Contains(salida, "tareas: fin") ||
-		!strings.Contains(salida, `"ejecutadas":2`) {
+		!strings.Contains(salida, `"ejecutadas":3`) {
 		t.Fatalf("faltan los registros de inicio y fin: %s", salida)
 	}
 }
