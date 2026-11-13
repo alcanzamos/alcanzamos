@@ -176,8 +176,9 @@ func migrar(ctx context.Context, log *slog.Logger) error {
 }
 
 // correrTareas es el punto de entrada del trabajo programado: carga la misma configuración del correo que el API, conecta
-// con la base, arma las tareas (ArmarTareas), las corre (E12 EjecutorDeTareas) y deja constancia del inicio y del fin.
-// Termina con error, y código 1, si falta la configuración, si alguna tarea falla o si no hay base.
+// con la base, arma las tareas (ArmarTareas), las corre (E12 EjecutorDeTareas: purga, limpieza de sesiones y enlaces y, al
+// final, los avisos) y deja constancia del inicio y del fin. Termina con error, y código 1, si falta la configuración, si
+// alguna tarea falla o si no hay base.
 func correrTareas(ctx context.Context, log *slog.Logger) error {
 	log.Info("tareas: inicio")
 	// Con el aviso antes de la purga (ítem 294, D-203) la tarea envía correo: necesita CORREO_SMTP, CORREO_REMITENTE,
@@ -203,15 +204,18 @@ func correrTareas(ctx context.Context, log *slog.Logger) error {
 
 // ArmarTareas es el único lugar donde se arman las tareas programadas: `api tareas` (correrTareas) y las pruebas lo
 // llaman, así que lo que se prueba es lo que corre en producción (ítem 294, L10: el servicio de las tareas se armaba sin
-// correo y se caía con el primer aviso). Las tareas envían correo (el aviso antes de la purga), con el mismo adaptador SMTP
-// y la misma configuración del API. Falla si falta una dependencia del servicio de cuentas, antes de correr nada.
+// correo y se caía con el primer aviso). Arma las tres tareas del EjecutorDeTareas de E12, que corren en este orden: la
+// purga de las cuentas sin confirmar o sin autorizar, la limpieza de sesiones y enlaces vencidos y los avisos antes de la
+// purga (L14: los avisos van aparte y al final, con su propio tiempo total de 2 minutos, para que la limpieza nunca espere
+// al correo). Los avisos envían correo, con el mismo adaptador SMTP y la misma configuración del API. Falla si falta una
+// dependencia del servicio de cuentas, antes de correr nada.
 func ArmarTareas(cfg config.Config, pool *pgxpool.Pool, log *slog.Logger) (*tareas.Ejecutor, error) {
 	if pool == nil {
 		return nil, errors.New("tareas: falta el pool de la base")
 	}
 	hora := reloj.Sistema{}
-	// El servicio de cuentas exige todos sus puertos aunque las tareas solo usen la purga y el aviso (repositorio, correo,
-	// reloj y registro): el hash, la política y los límites no se llaman desde aquí.
+	// El servicio de cuentas exige todos sus puertos aunque las tareas solo usen la purga y los avisos (repositorio, correo,
+	// reloj y registro): el hash, la política y los límites no se llaman desde aquí. Un mismo servicio hace las dos tareas.
 	cuentas, err := cuenta.NuevoServicio(cuenta.Dependencias{
 		Repo: pg.NuevoCuentas(pool), Correo: correo.NuevoSMTP(cfg, hora), Politica: seguridad.NuevaPoliticaDeContrasena(),
 		Hasher: argon2id.Predeterminado(), Reloj: hora, Limitador: seguridad.NuevoLimitadorDeIntentos(hora), Log: log,
@@ -219,5 +223,5 @@ func ArmarTareas(cfg config.Config, pool *pgxpool.Pool, log *slog.Logger) (*tare
 	if err != nil {
 		return nil, err
 	}
-	return tareas.NuevoEjecutor(cuentas, pg.NuevoLimpieza(pool), hora, log), nil
+	return tareas.NuevoEjecutor(cuentas, pg.NuevoLimpieza(pool), cuentas, hora, log), nil
 }

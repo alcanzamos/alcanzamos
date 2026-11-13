@@ -34,7 +34,7 @@ func TestI294VerificadorHoraPorCadaEnvio(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.BorrarCuentasSinConfirmar(context.Background(), ahoraDePrueba); err != nil {
+	if _, err := s.AvisarAntesDeLaPurga(context.Background(), ahoraDePrueba); err != nil {
 		t.Fatal(err)
 	}
 	enviados := e.correo.Enviados()

@@ -21,7 +21,8 @@ func (*correoPanicoI294) EnviarAvisoDePurga(context.Context, string, time.Time) 
 	panic("SMTP sintetico")
 }
 
-// S2, S4, L10.3: el panic real del envio revierte la transaccion, libera ambas filas y no salta la limpieza.
+// S2, S4, L10.3: el panic real del envio revierte la transaccion, libera ambas filas y no salta la limpieza (que ahora corre
+// antes de los avisos, L14, y la purga tampoco falla: terminan bien dos de las tres tareas).
 func TestI294VerificadorPanicoSMTPRevierteYLimpia(t *testing.T) {
 	ctx := context.Background()
 	a := nuevoEntornoDeAviso(t)
@@ -43,9 +44,9 @@ func TestI294VerificadorPanicoSMTPRevierteYLimpia(t *testing.T) {
 	}
 	antes := huella()
 	a.tarea = a.servicioDeTareas(t, &correoPanicoI294{Falso: a.correo}, 0)
-	ejecutor := tareas.NuevoEjecutor(a.tarea, pg.NuevoLimpieza(a.pool), a.relojDeTareas, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+	ejecutor := tareas.NuevoEjecutor(a.tarea, pg.NuevoLimpieza(a.pool), a.tarea, a.relojDeTareas, slog.New(slog.NewJSONHandler(io.Discard, nil)))
 	n, err := ejecutor.Ejecutar(ctx)
-	if n != 1 || err == nil || err.Error() != "borrar cuentas sin confirmar: pánico: SMTP sintetico" {
+	if n != 2 || err == nil || err.Error() != "avisar antes de la purga: pánico: SMTP sintetico" {
 		t.Fatalf("ejecutadas=%d error=%v", n, err)
 	}
 	if despues := huella(); antes != despues {

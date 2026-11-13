@@ -24,7 +24,7 @@ func TestTareasConectaYTerminaSinError(t *testing.T) {
 		t.Fatalf("código %d, registro %s", codigo, salida)
 	}
 	if !strings.Contains(salida, "tareas: inicio") || !strings.Contains(salida, "tareas: fin") ||
-		!strings.Contains(salida, `"ejecutadas":2`) {
+		!strings.Contains(salida, `"ejecutadas":3`) {
 		t.Fatalf("faltan los registros de inicio y fin: %s", salida)
 	}
 }

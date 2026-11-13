@@ -19,7 +19,7 @@ const dia = 24 * time.Hour
 // `ahora − 5 días` (D-203).
 func TestElAvisoSaleDesdeElDia5(t *testing.T) {
 	e := nuevoEntorno()
-	if _, err := e.svc.BorrarCuentasSinConfirmar(context.Background(), ahoraDePrueba); err != nil {
+	if _, err := e.svc.AvisarAntesDeLaPurga(context.Background(), ahoraDePrueba); err != nil {
 		t.Fatal(err)
 	}
 	if !e.repo.avisarHasta.Equal(ahoraDePrueba.Add(-5 * dia)) {
@@ -44,7 +44,7 @@ func TestLaFechaDelAvisoEsLaDelBorradoReal(t *testing.T) {
 		t.Run(c.nombre, func(t *testing.T) {
 			e := nuevoEntorno()
 			e.repo.porAvisar = []cuenta.CuentaPorAvisar{{ID: "p1", Correo: "laura@ejemplo.test", CreadaEn: c.creadaEn}}
-			if _, err := e.svc.BorrarCuentasSinConfirmar(context.Background(), ahoraDePrueba); err != nil {
+			if _, err := e.svc.AvisarAntesDeLaPurga(context.Background(), ahoraDePrueba); err != nil {
 				t.Fatal(err)
 			}
 			enviados := e.correo.Enviados()
@@ -67,7 +67,7 @@ func TestSiElEnvioDelAvisoFallaNoSeRegistraYQuedaUnAvisoEnElRegistro(t *testing.
 	e := nuevoEntorno()
 	e.repo.porAvisar = []cuenta.CuentaPorAvisar{{ID: "p1", Correo: "laura@ejemplo.test", CreadaEn: ahoraDePrueba.Add(-6 * dia)}}
 	e.correo.Error = errors.New("servidor caído")
-	if _, err := e.svc.BorrarCuentasSinConfirmar(context.Background(), ahoraDePrueba); err != nil {
+	if _, err := e.svc.AvisarAntesDeLaPurga(context.Background(), ahoraDePrueba); err != nil {
 		t.Fatalf("un envío fallido no hace fallar la tarea: %v", err)
 	}
 	if len(e.repo.avisadas) != 0 {
@@ -84,7 +84,7 @@ func TestSiElEnvioDelAvisoFallaNoSeRegistraYQuedaUnAvisoEnElRegistro(t *testing.
 	// (el reloj avanza con la corrida: el aviso registra la hora leída antes de enviar, no la del inicio de la corrida)
 	e.correo.Error = nil
 	e.reloj.T = ahoraDePrueba.Add(15 * time.Minute)
-	if _, err := e.svc.BorrarCuentasSinConfirmar(context.Background(), ahoraDePrueba.Add(15*time.Minute)); err != nil {
+	if _, err := e.svc.AvisarAntesDeLaPurga(context.Background(), ahoraDePrueba.Add(15*time.Minute)); err != nil {
 		t.Fatal(err)
 	}
 	if en := e.repo.avisadas["p1"]; !en.Equal(ahoraDePrueba.Add(15 * time.Minute)) {
@@ -99,7 +99,7 @@ func TestSiElEnvioDelAvisoFallaNoSeRegistraYQuedaUnAvisoEnElRegistro(t *testing.
 func TestUnaFallaDeLaBaseAlAvisarEsUnaFallaDeLaTarea(t *testing.T) {
 	e := nuevoEntorno()
 	e.repo.errAvisar = errors.New("bd caída")
-	if _, err := e.svc.BorrarCuentasSinConfirmar(context.Background(), ahoraDePrueba); err == nil {
+	if _, err := e.svc.AvisarAntesDeLaPurga(context.Background(), ahoraDePrueba); err == nil {
 		t.Fatal("se esperaba el error de la base")
 	}
 }
@@ -167,7 +167,7 @@ func TestElEnvioDelAvisoTieneUnTiempoDeEsperaCorto(t *testing.T) {
 		Reloj: e.reloj, Limitador: e.limitador, Log: e.log(),
 	})
 	e.repo.porAvisar = []cuenta.CuentaPorAvisar{{ID: "p1", Correo: "laura@ejemplo.test", CreadaEn: ahoraDePrueba.Add(-6 * dia)}}
-	if _, err := e.svc.BorrarCuentasSinConfirmar(context.Background(), ahoraDePrueba); err != nil {
+	if _, err := e.svc.AvisarAntesDeLaPurga(context.Background(), ahoraDePrueba); err != nil {
 		t.Fatal(err)
 	}
 	if !mira.hayLimit {
@@ -187,7 +187,7 @@ func TestElPlazoDelEnvioDelAvisoSeConfigura(t *testing.T) {
 		Reloj: e.reloj, Limitador: e.limitador, Log: e.log(), PlazoDeEnvioConFilasBloqueadas: 250 * time.Millisecond,
 	})
 	e.repo.porAvisar = []cuenta.CuentaPorAvisar{{ID: "p1", Correo: "laura@ejemplo.test", CreadaEn: ahoraDePrueba.Add(-6 * dia)}}
-	if _, err := e.svc.BorrarCuentasSinConfirmar(context.Background(), ahoraDePrueba); err != nil {
+	if _, err := e.svc.AvisarAntesDeLaPurga(context.Background(), ahoraDePrueba); err != nil {
 		t.Fatal(err)
 	}
 	if espera := mira.limite.Sub(mira.inicio); !mira.hayLimit || espera > 250*time.Millisecond {
@@ -221,7 +221,7 @@ func TestElAvisoDePurgaNoCuentaEnElLimiteDeCorreosPorHora(t *testing.T) {
 			t.Fatalf("antes del aviso salieron %d correos, se esperaban %d: el límite de la dirección está lleno", n, seguridad.CorreosPorDestino)
 		}
 		e.repo.porAvisar = cuentaPorAvisar
-		if _, err := e.svc.BorrarCuentasSinConfirmar(context.Background(), ahoraDePrueba); err != nil {
+		if _, err := e.svc.AvisarAntesDeLaPurga(context.Background(), ahoraDePrueba); err != nil {
 			t.Fatal(err)
 		}
 		avisos := 0
@@ -246,7 +246,7 @@ func TestElAvisoDePurgaNoCuentaEnElLimiteDeCorreosPorHora(t *testing.T) {
 	t.Run("después del aviso la persona todavía puede pedir 3", func(t *testing.T) {
 		e := nuevoEntorno()
 		e.repo.porAvisar = cuentaPorAvisar
-		if _, err := e.svc.BorrarCuentasSinConfirmar(context.Background(), ahoraDePrueba); err != nil {
+		if _, err := e.svc.AvisarAntesDeLaPurga(context.Background(), ahoraDePrueba); err != nil {
 			t.Fatal(err)
 		}
 		if len(e.correo.Enviados()) != 1 || !e.correo.Enviados()[0].AvisoDePurga {
@@ -263,4 +263,124 @@ func TestElAvisoDePurgaNoCuentaEnElLimiteDeCorreosPorHora(t *testing.T) {
 			t.Errorf("el cuarto pedido de la hora no sale: salieron %d", n)
 		}
 	})
+}
+
+// Ítem 294, L14 (4): el aviso es una tarea aparte. La purga no manda correos ni le pide cuentas al repositorio de avisos.
+func TestLaPurgaNoMandaAvisos(t *testing.T) {
+	e := nuevoEntorno()
+	e.repo.porAvisar = []cuenta.CuentaPorAvisar{{ID: "p1", Correo: "laura@ejemplo.test", CreadaEn: ahoraDePrueba.Add(-6 * dia)}}
+	e.repo.resultado = cuenta.ResultadoDeLaPurga{Borradas: 1}
+	if n, err := e.svc.BorrarCuentasSinConfirmar(context.Background(), ahoraDePrueba); err != nil || n != 1 {
+		t.Fatalf("borradas %d, %v", n, err)
+	}
+	if len(e.correo.Enviados()) != 0 || len(e.repo.avisadas) != 0 || !e.repo.avisarHasta.IsZero() {
+		t.Errorf("la purga no avisa: correos %+v, avisadas %v, aviso pedido hasta %v", e.correo.Enviados(), e.repo.avisadas, e.repo.avisarHasta)
+	}
+}
+
+// Ítem 294, L14 (3): el tiempo total de los avisos es de 2 minutos. caj-tareas (infra/azure/aplicacion.tf) tiene
+// replica_timeout_in_seconds = 300 y Azure mata el proceso a los 5 minutos; con el servidor de correo caído, cada envío
+// gasta sus 10 s.
+func TestElPresupuestoDeLosAvisosEsDeDosMinutos(t *testing.T) {
+	if cuenta.PresupuestoDeLosAvisos != 2*time.Minute {
+		t.Fatalf("el presupuesto de los avisos es %v, se esperaban 2 minutos", cuenta.PresupuestoDeLosAvisos)
+	}
+}
+
+// correoQueSeCuelga manda los primeros `pasan` avisos y desde ahí se queda esperando a que el contexto termine, como un
+// servidor de correo que acepta la conexión y no contesta.
+type correoQueSeCuelga struct {
+	*correotest.Falso
+	mu       sync.Mutex
+	pasan    int
+	llamadas int
+}
+
+func (c *correoQueSeCuelga) EnviarAvisoDePurga(ctx context.Context, destino string, borradoEn time.Time) error {
+	c.mu.Lock()
+	c.llamadas++
+	cuelga := c.llamadas > c.pasan
+	c.mu.Unlock()
+	if cuelga {
+		<-ctx.Done()
+		return ctx.Err()
+	}
+	return c.Falso.EnviarAvisoDePurga(ctx, destino, borradoEn)
+}
+
+func cincoPorAvisar() []cuenta.CuentaPorAvisar {
+	var cuentas []cuenta.CuentaPorAvisar
+	for _, id := range []string{"p1", "p2", "p3", "p4", "p5"} {
+		cuentas = append(cuentas, cuenta.CuentaPorAvisar{ID: id, Correo: id + "@ejemplo.test", CreadaEn: ahoraDePrueba.Add(-6 * dia)})
+	}
+	return cuentas
+}
+
+// L14 (3): al acabarse el tiempo total, lo que falta queda para la corrida siguiente y queda un aviso (WARN) con cuántas
+// cuentas faltan y sin ningún correo. No es una falla de la tarea. Lo ya enviado queda registrado y la corrida siguiente
+// sigue con el resto.
+func TestAlAcabarseElPresupuestoLoQueFaltaQuedaParaLaCorridaSiguiente(t *testing.T) {
+	e := nuevoEntorno()
+	e.repo.porAvisar = cincoPorAvisar()
+	cuelga := &correoQueSeCuelga{Falso: e.correo, pasan: 2}
+	e.svc = servicioDe(cuenta.Dependencias{
+		Repo: e.repo, Correo: cuelga, Politica: seguridad.NuevaPoliticaDeContrasena(), Hasher: e.hasher,
+		Reloj: e.reloj, Limitador: e.limitador, Log: e.log(), PresupuestoDeLosAvisos: 150 * time.Millisecond,
+	})
+	inicio := time.Now()
+	n, err := e.svc.AvisarAntesDeLaPurga(context.Background(), ahoraDePrueba)
+	if err != nil || n != 2 {
+		t.Fatalf("avisadas %d, error %v: el presupuesto agotado no es una falla de la tarea", n, err)
+	}
+	if tardo := time.Since(inicio); tardo > 5*time.Second {
+		t.Errorf("la tarea siguió %v con un presupuesto de 150 ms", tardo)
+	}
+	if len(e.repo.avisadas) != 2 || e.repo.avisadas["p3"] != (time.Time{}) {
+		t.Errorf("solo p1 y p2 quedan registradas: %v", e.repo.avisadas)
+	}
+	if cuelga.llamadas != 3 {
+		t.Errorf("el envío que se colgó fue el último que se intentó: %d envíos", cuelga.llamadas)
+	}
+	var avisoDelPresupuesto string
+	for _, linea := range strings.Split(e.registro.String(), "\n") {
+		if strings.Contains(linea, `"pendientes"`) {
+			avisoDelPresupuesto = linea
+		}
+	}
+	if !strings.Contains(avisoDelPresupuesto, `"level":"WARN"`) || !strings.Contains(avisoDelPresupuesto, `"pendientes":3`) {
+		t.Errorf("falta el WARN con las 3 cuentas que faltan: %s", e.registro)
+	}
+	if strings.Contains(e.registro.String(), "ejemplo.test") {
+		t.Errorf("el registro no debe llevar correos: %s", e.registro)
+	}
+
+	// La corrida siguiente, con el servidor sano, sigue con las que faltan y no repite las avisadas.
+	e.svc = servicioDe(cuenta.Dependencias{
+		Repo: e.repo, Correo: e.correo, Politica: seguridad.NuevaPoliticaDeContrasena(), Hasher: e.hasher,
+		Reloj: e.reloj, Limitador: e.limitador, Log: e.log(),
+	})
+	if n, err := e.svc.AvisarAntesDeLaPurga(context.Background(), ahoraDePrueba.Add(15*time.Minute)); err != nil || n != 3 {
+		t.Fatalf("la corrida siguiente avisó %d, error %v", n, err)
+	}
+	if len(e.repo.avisadas) != 5 || len(e.correo.Enviados()) != 5 {
+		t.Errorf("al final las 5, una vez cada una: registradas %d, correos %d", len(e.repo.avisadas), len(e.correo.Enviados()))
+	}
+}
+
+// Si la tarea termina porque el proceso se apaga (no porque se acabó el presupuesto), sí es una falla y no hay aviso del presupuesto.
+func TestUnaCancelacionNoEsUnPresupuestoAgotado(t *testing.T) {
+	e := nuevoEntorno()
+	e.repo.porAvisar = cincoPorAvisar()
+	e.svc = servicioDe(cuenta.Dependencias{
+		Repo: e.repo, Correo: &correoQueSeCuelga{Falso: e.correo}, Politica: seguridad.NuevaPoliticaDeContrasena(), Hasher: e.hasher,
+		Reloj: e.reloj, Limitador: e.limitador, Log: e.log(),
+	})
+	ctx, cancelar := context.WithCancel(context.Background())
+	time.AfterFunc(100*time.Millisecond, cancelar)
+	if _, err := e.svc.AvisarAntesDeLaPurga(ctx, ahoraDePrueba); !errors.Is(err, context.Canceled) {
+		t.Fatalf("se esperaba la cancelación como error: %v", err)
+	}
+	if strings.Contains(e.registro.String(), `"pendientes"`) {
+		t.Errorf("una cancelación no es un presupuesto agotado: %s", e.registro)
+	}
 }

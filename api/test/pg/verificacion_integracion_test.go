@@ -69,8 +69,17 @@ func TestBorrarCuentasSinConfirmar(t *testing.T) {
 		t.Fatal(err)
 	}
 	enviadosAntes := len(e.correo.Enviados())
+	// Una corrida del trabajo programado: la purga y después los avisos, como el ejecutor (la limpieza va en medio).
+	corrida := func(hoy time.Time) (int, error) {
+		n, err := e.svc.BorrarCuentasSinConfirmar(ctx, hoy)
+		if err != nil {
+			return n, err
+		}
+		_, err = e.svc.AvisarAntesDeLaPurga(ctx, hoy)
+		return n, err
+	}
 
-	n, err := e.svc.BorrarCuentasSinConfirmar(ctx, ahora)
+	n, err := corrida(ahora)
 	if err != nil || n != 4 {
 		t.Fatalf("borradas %d (%v), se esperaban 4", n, err)
 	}
@@ -124,18 +133,18 @@ func TestBorrarCuentasSinConfirmar(t *testing.T) {
 		t.Errorf("retirada %v, conservar_hasta %v", retirada, conservar)
 	}
 	// Idempotente: una segunda pasada no encuentra nada.
-	if n, err := e.svc.BorrarCuentasSinConfirmar(ctx, ahora); err != nil || n != 0 {
+	if n, err := corrida(ahora); err != nil || n != 0 {
 		t.Errorf("segunda pasada: %d, %v", n, err)
 	}
 	// Un día después la sin confirmar de 6 días cumple el plazo; la confirmada de 6 días (caso 2) espera las 48 horas de su
 	// aviso, que se cumplen en la hora del aviso más dos días; las confirmadas y autorizadas, nunca.
-	if n, err := e.svc.BorrarCuentasSinConfirmar(ctx, ahora.Add(24*time.Hour)); err != nil || n != 1 {
+	if n, err := corrida(ahora.Add(24 * time.Hour)); err != nil || n != 1 {
 		t.Errorf("un día después: %d, %v; se esperaba 1 (la sin confirmar de 6 días)", n, err)
 	}
-	if n, err := e.svc.BorrarCuentasSinConfirmar(ctx, ahora.Add(48*time.Hour)); err != nil || n != 1 {
+	if n, err := corrida(ahora.Add(48 * time.Hour)); err != nil || n != 1 {
 		t.Errorf("a las 48 horas del aviso: %d, %v; se esperaba 1 (la confirmada de 6 días)", n, err)
 	}
-	if n, err := e.svc.BorrarCuentasSinConfirmar(ctx, ahora.Add(60*24*time.Hour)); err != nil || n != 0 {
+	if n, err := corrida(ahora.Add(60 * 24 * time.Hour)); err != nil || n != 0 {
 		t.Errorf("a los 60 días las confirmadas y autorizadas siguen: %d, %v", n, err)
 	}
 	if contar(t, e.pool, `SELECT count(*) FROM perfil_adulto WHERE correo LIKE 'confirmada-y-autorizada%'`) != 2 {

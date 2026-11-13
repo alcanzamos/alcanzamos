@@ -30,7 +30,11 @@ func TestI294AvisoDespuesDeUnaPurgaLenta(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Las dos tareas de la corrida, en el orden del ejecutor: la purga (lenta) y después los avisos, con la misma `ahora`.
 	if _, err := s.BorrarCuentasSinConfirmar(context.Background(), ahoraDePrueba); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AvisarAntesDeLaPurga(context.Background(), ahoraDePrueba); err != nil {
 		t.Fatal(err)
 	}
 	if en := e.repo.avisadas["p1"]; en.Before(envioEn) {

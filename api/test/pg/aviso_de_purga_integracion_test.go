@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net"
 	"strings"
@@ -61,13 +62,17 @@ func (a *entornoDeAviso) servicioDeTareas(t *testing.T, c correo.Correo, plazo t
 	})
 }
 
-// corrida es una pasada de la tarea con `hoy` como la hora, y devuelve cuántas cuentas borró.
+// corrida es una corrida del trabajo programado con `hoy` como la hora: la purga y después los avisos, en el orden del
+// ejecutor (L14 (4), la limpieza de sesiones y enlaces va en medio y no toca estas tablas). Devuelve cuántas cuentas borró.
 func (a *entornoDeAviso) corrida(t *testing.T, hoy time.Time) int {
 	t.Helper()
 	a.relojDeTareas.T = hoy
 	n, err := a.tarea.BorrarCuentasSinConfirmar(context.Background(), hoy)
 	if err != nil {
-		t.Fatalf("la tarea en %v: %v", hoy, err)
+		t.Fatalf("la purga en %v: %v", hoy, err)
+	}
+	if _, err := a.tarea.AvisarAntesDeLaPurga(context.Background(), hoy); err != nil {
+		t.Fatalf("los avisos en %v: %v", hoy, err)
 	}
 	return n
 }
@@ -358,7 +363,7 @@ func TestSinAutorizarElAvisoSaleUnaSolaVezAunqueLaTareaCorraMuchasVeces(t *testi
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_, _ = a.tarea.BorrarCuentasSinConfirmar(context.Background(), primera.Add(2*dia)) //nolint:errcheck // se mira el resultado en la base y en el correo
+			_, _ = a.tarea.AvisarAntesDeLaPurga(context.Background(), primera.Add(2*dia)) //nolint:errcheck // se mira el resultado en la base y en el correo
 		}()
 	}
 	wg.Wait()
@@ -585,7 +590,7 @@ func TestSiElCorreoSaleYLaEscrituraFallaLaPasadaSiguienteLoManda(t *testing.T) {
 	id := a.sembrar(t, "escritura@ejemplo.test", ahora.Add(-6*dia), true)
 	mata := &matoLaConexion{Falso: a.correo, pool: a.pool, matar: true}
 	a.tarea = a.servicioDeTareas(t, mata, 0)
-	if _, err := a.tarea.BorrarCuentasSinConfirmar(context.Background(), ahora); err == nil {
+	if _, err := a.tarea.AvisarAntesDeLaPurga(context.Background(), ahora); err == nil {
 		t.Fatal("la escritura del aviso falló: la tarea debe devolver el error de la base")
 	}
 	if a.numeroDeAvisos() != 1 {
@@ -611,13 +616,13 @@ func TestUnaPasadaCanceladaNoSigueConLasDemasCuentas(t *testing.T) {
 	ctx, cancelar := context.WithCancel(context.Background())
 	defer cancelar()
 	llamadas := 0
-	avisadas, err := a.repo.AvisarAntesDeLaPurga(ctx, ahora.Add(-cuenta.PlazoParaAvisar), func(context.Context, cuenta.CuentaPorAvisar) (time.Time, error) {
+	res, err := a.repo.AvisarAntesDeLaPurga(ctx, ahora.Add(-cuenta.PlazoParaAvisar), func(context.Context, cuenta.CuentaPorAvisar) (time.Time, error) {
 		llamadas++
 		cancelar()
 		return time.Time{}, errors.New("cancelado")
 	})
-	if !errors.Is(err, context.Canceled) || avisadas != 0 || llamadas != 1 {
-		t.Fatalf("avisadas %d, envíos %d, error %v", avisadas, llamadas, err)
+	if !errors.Is(err, context.Canceled) || res.Avisadas != 0 || res.Pendientes != 2 || llamadas != 1 {
+		t.Fatalf("avisadas %d, pendientes %d, envíos %d, error %v", res.Avisadas, res.Pendientes, llamadas, err)
 	}
 	if n := contar(t, a.pool, `SELECT count(*) FROM perfil_adulto WHERE aviso_de_purga_en IS NOT NULL`); n != 0 {
 		t.Errorf("no debe quedar ningún aviso: %d", n)
@@ -649,21 +654,17 @@ func (r *rechazaA) EnviarAvisoDePurga(ctx context.Context, destino string, borra
 	return r.Falso.EnviarAvisoDePurga(ctx, destino, borradoEn)
 }
 
-// S4: el envío con las filas bloqueadas tiene un tiempo de espera corto. Un servidor de correo que acepta la conexión y
-// no responde hace fallar el envío dentro del plazo, no registra nada y deja las filas libres: otra transacción las puede
-// bloquear después. Mientras el envío espera, las filas sí están bloqueadas (la prueba no vale si no lo estuvieran).
-func TestUnServidorDeCorreoQueNoResponde(t *testing.T) {
-	ctx := context.Background()
-	a := nuevoEntornoDeAviso(t)
-	id := a.sembrar(t, "cuelga@ejemplo.test", ahora.Add(-6*dia), true)
-
+// servidorQueNoResponde es un servidor SMTP que acepta la conexión y no dice nada. Devuelve su dirección, un canal con un
+// valor por conexión recibida y cuántas lleva.
+func servidorQueNoResponde(t *testing.T) (direccion string, llego <-chan struct{}, conexiones func() int) {
+	t.Helper()
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { l.Close() })
-	llego := make(chan struct{}, 4)
-	var conexiones []net.Conn
+	avisos := make(chan struct{}, 64)
+	var abiertas []net.Conn
 	var mu sync.Mutex
 	go func() {
 		for {
@@ -672,22 +673,193 @@ func TestUnServidorDeCorreoQueNoResponde(t *testing.T) {
 				return
 			}
 			mu.Lock()
-			conexiones = append(conexiones, c) // se acepta y no se dice nada
+			abiertas = append(abiertas, c) // se acepta y no se dice nada
 			mu.Unlock()
-			llego <- struct{}{}
+			avisos <- struct{}{}
 		}
 	}()
 	t.Cleanup(func() {
 		mu.Lock()
 		defer mu.Unlock()
-		for _, c := range conexiones {
+		for _, c := range abiertas {
 			c.Close()
 		}
 	})
-	smtp := correo.NuevoSMTP(config.Config{
-		CorreoSMTP: l.Addr().String(), CorreoRemitente: "no-responder@avisos.ejemplo.test",
+	return l.Addr().String(), avisos, func() int {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(abiertas)
+	}
+}
+
+func configDeCorreoSinRespuesta(direccion string) config.Config {
+	return config.Config{
+		CorreoSMTP: direccion, CorreoRemitente: "no-responder@avisos.ejemplo.test",
 		CorreoPrivacidad: "privacidad@ejemplo.test", URLPublica: "https://app.ejemplo.test",
-	}, a.reloj)
+	}
+}
+
+// correoQueSeCuelgaDespues manda los primeros `pasan` avisos y desde ahí se queda esperando a que el contexto termine.
+type correoQueSeCuelgaDespues struct {
+	*correotest.Falso
+	mu       sync.Mutex
+	pasan    int
+	llamadas int
+}
+
+func (c *correoQueSeCuelgaDespues) EnviarAvisoDePurga(ctx context.Context, destino string, borradoEn time.Time) error {
+	c.mu.Lock()
+	c.llamadas++
+	cuelga := c.llamadas > c.pasan
+	c.mu.Unlock()
+	if cuelga {
+		<-ctx.Done()
+		return ctx.Err()
+	}
+	return c.Falso.EnviarAvisoDePurga(ctx, destino, borradoEn)
+}
+
+// sembrarMuchas deja `n` cuentas del caso 2 de 6 días, con correos distintos.
+func (a *entornoDeAviso) sembrarMuchas(t *testing.T, n int) []string {
+	t.Helper()
+	ids := make([]string, 0, n)
+	for i := range n {
+		ids = append(ids, a.sembrar(t, fmt.Sprintf("pendiente-%02d@ejemplo.test", i), ahora.Add(-6*dia-time.Duration(i)*time.Minute), true))
+	}
+	return ids
+}
+
+// avisosRegistrados es cuántas cuentas tienen `aviso_de_purga_en`.
+func (a *entornoDeAviso) avisosRegistrados(t *testing.T) int {
+	t.Helper()
+	return contar(t, a.pool, `SELECT count(*) FROM perfil_adulto WHERE aviso_de_purga_en IS NOT NULL`)
+}
+
+// lineaDelPresupuesto es la línea del registro que dice cuántas cuentas quedaron sin avisar al acabarse el tiempo total.
+func lineaDelPresupuesto(registro string) string {
+	for _, linea := range strings.Split(registro, "\n") {
+		if strings.Contains(linea, `"pendientes"`) {
+			return linea
+		}
+	}
+	return ""
+}
+
+// L14 (3): con el servidor de correo colgado y muchas cuentas pendientes, la tarea de los avisos se detiene al agotar su
+// tiempo total (aquí acortado: el presupuesto es una dependencia del servicio) y no con el plazo de cada envío ni con todas
+// las cuentas: no registra nada de lo que no salió, deja las filas libres, avisa con un WARN (con la cuenta de las que
+// faltan y sin ningún correo) y no es una falla. La corrida siguiente, con el servidor sano, sigue con todas.
+func TestElPresupuestoDeLosAvisosCortaConElServidorColgado(t *testing.T) {
+	ctx := context.Background()
+	a := nuevoEntornoDeAviso(t)
+	const cuentas = 30
+	ids := a.sembrarMuchas(t, cuentas)
+	direccion, _, conexiones := servidorQueNoResponde(t)
+	const presupuesto = 700 * time.Millisecond
+	svc := servicioDeCuentas(t, cuenta.Dependencias{
+		Repo: a.repo, Correo: correo.NuevoSMTP(configDeCorreoSinRespuesta(direccion), a.reloj), Politica: seguridad.NuevaPoliticaDeContrasena(),
+		Hasher: a.hasher, Reloj: a.relojDeTareas, Limitador: a.limitadorDeTareas, Log: slog.New(slog.NewJSONHandler(a.registro, nil)),
+		PresupuestoDeLosAvisos: presupuesto, // el plazo de cada envío queda en sus 10 s: lo que corta es el tiempo total
+	})
+	inicio := time.Now()
+	n, err := svc.AvisarAntesDeLaPurga(ctx, ahora)
+	tardo := time.Since(inicio)
+	if err != nil || n != 0 {
+		t.Fatalf("avisadas %d, error %v: agotar el tiempo total no es una falla", n, err)
+	}
+	if tardo < presupuesto || tardo > 5*time.Second {
+		t.Errorf("la tarea tardó %v con un presupuesto de %v (el plazo de cada envío es de 10 s)", tardo, presupuesto)
+	}
+	if c := conexiones(); c != 1 {
+		t.Errorf("la tarea intentó con %d cuentas: debía detenerse en la primera, que se quedó esperando", c)
+	}
+	if a.avisosRegistrados(t) != 0 {
+		t.Fatalf("de lo que no salió no se registra nada: %d avisos", a.avisosRegistrados(t))
+	}
+	// Las filas quedaron libres y no queda ninguna transacción abierta.
+	libre, err := a.pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		`SELECT 1 FROM persona WHERE id = ANY($1::uuid[]) FOR UPDATE NOWAIT`,
+		`SELECT 1 FROM perfil_adulto WHERE persona_id = ANY($1::uuid[]) FOR UPDATE NOWAIT`,
+	} {
+		if _, err := libre.Exec(ctx, q, ids); err != nil {
+			t.Errorf("las filas debían quedar libres (%s): %v", q, err)
+		}
+	}
+	if err := libre.Rollback(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if abiertas := contar(t, a.pool, `SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND state = 'idle in transaction'`); abiertas != 0 {
+		t.Errorf("quedaron %d transacciones abiertas", abiertas)
+	}
+	linea := lineaDelPresupuesto(a.registro.String())
+	if !strings.Contains(linea, `"level":"WARN"`) || !strings.Contains(linea, fmt.Sprintf(`"pendientes":%d`, cuentas)) {
+		t.Errorf("falta el WARN con las %d cuentas que faltan: %s", cuentas, a.registro)
+	}
+	if strings.Contains(a.registro.String(), "ejemplo.test") {
+		t.Errorf("el registro no debe llevar correos: %s", a.registro)
+	}
+
+	// La corrida siguiente, con el servidor sano, avisa a todas, una vez cada una.
+	a.relojDeTareas.T = ahora.Add(15 * time.Minute)
+	if n, err := a.tarea.AvisarAntesDeLaPurga(ctx, ahora.Add(15*time.Minute)); err != nil || n != cuentas {
+		t.Fatalf("la corrida siguiente avisó %d de %d, error %v", n, cuentas, err)
+	}
+	if a.avisosRegistrados(t) != cuentas || a.numeroDeAvisos() != cuentas {
+		t.Errorf("registradas %d, correos %d, se esperaban %d", a.avisosRegistrados(t), a.numeroDeAvisos(), cuentas)
+	}
+}
+
+// L14 (3): lo que salió antes de agotarse el tiempo queda registrado y no se repite; el resto, y solo el resto, sigue en la
+// corrida siguiente.
+func TestElPresupuestoDeLosAvisosConservaLoYaEnviadoYSigueConElResto(t *testing.T) {
+	ctx := context.Background()
+	a := nuevoEntornoDeAviso(t)
+	const cuentas, salen = 30, 4
+	a.sembrarMuchas(t, cuentas)
+	cuelga := &correoQueSeCuelgaDespues{Falso: a.correo, pasan: salen}
+	svc := servicioDeCuentas(t, cuenta.Dependencias{
+		Repo: a.repo, Correo: cuelga, Politica: seguridad.NuevaPoliticaDeContrasena(), Hasher: a.hasher, Reloj: a.relojDeTareas,
+		Limitador: a.limitadorDeTareas, Log: slog.New(slog.NewJSONHandler(a.registro, nil)), PresupuestoDeLosAvisos: 500 * time.Millisecond,
+	})
+	n, err := svc.AvisarAntesDeLaPurga(ctx, ahora)
+	if err != nil || n != salen {
+		t.Fatalf("avisadas %d, error %v", n, err)
+	}
+	if a.avisosRegistrados(t) != salen || a.numeroDeAvisos() != salen {
+		t.Fatalf("registradas %d, correos %d, se esperaban %d", a.avisosRegistrados(t), a.numeroDeAvisos(), salen)
+	}
+	// El envío que se colgó cuenta entre las que faltan.
+	if linea := lineaDelPresupuesto(a.registro.String()); !strings.Contains(linea, fmt.Sprintf(`"pendientes":%d`, cuentas-salen)) {
+		t.Errorf("faltan %d cuentas: %s", cuentas-salen, a.registro)
+	}
+	a.relojDeTareas.T = ahora.Add(15 * time.Minute)
+	if n, err := a.tarea.AvisarAntesDeLaPurga(ctx, ahora.Add(15*time.Minute)); err != nil || n != cuentas-salen {
+		t.Fatalf("la corrida siguiente avisó %d, error %v", n, err)
+	}
+	for destino, veces := range a.avisosEnviados() {
+		if len(veces) != 1 {
+			t.Errorf("%s recibió %d avisos", destino, len(veces))
+		}
+	}
+	if a.avisosRegistrados(t) != cuentas || a.numeroDeAvisos() != cuentas {
+		t.Errorf("registradas %d, correos %d", a.avisosRegistrados(t), a.numeroDeAvisos())
+	}
+}
+
+// S4: el envío con las filas bloqueadas tiene un tiempo de espera corto. Un servidor de correo que acepta la conexión y
+// no responde hace fallar el envío dentro del plazo, no registra nada y deja las filas libres: otra transacción las puede
+// bloquear después. Mientras el envío espera, las filas sí están bloqueadas (la prueba no vale si no lo estuvieran).
+func TestUnServidorDeCorreoQueNoResponde(t *testing.T) {
+	ctx := context.Background()
+	a := nuevoEntornoDeAviso(t)
+	id := a.sembrar(t, "cuelga@ejemplo.test", ahora.Add(-6*dia), true)
+
+	direccion, llego, _ := servidorQueNoResponde(t)
+	smtp := correo.NuevoSMTP(configDeCorreoSinRespuesta(direccion), a.reloj)
 	const plazo = 600 * time.Millisecond
 	a.tarea = a.servicioDeTareas(t, smtp, plazo)
 
@@ -695,7 +867,7 @@ func TestUnServidorDeCorreoQueNoResponde(t *testing.T) {
 	fallo := make(chan error, 1)
 	inicio := time.Now()
 	go func() {
-		_, err := a.tarea.BorrarCuentasSinConfirmar(ctx, ahora)
+		_, err := a.tarea.AvisarAntesDeLaPurga(ctx, ahora)
 		fallo <- err
 		salio <- time.Since(inicio)
 	}()
@@ -793,7 +965,7 @@ func TestElAvisoVuelveAEvaluarElCasoConLaFilaBloqueada(t *testing.T) {
 	}
 	terminada := make(chan error, 1)
 	go func() {
-		_, err := a.tarea.BorrarCuentasSinConfirmar(ctx, ahora)
+		_, err := a.tarea.AvisarAntesDeLaPurga(ctx, ahora)
 		terminada <- err
 	}()
 	// Espera a que la pasada esté esperando el bloqueo de la fila.

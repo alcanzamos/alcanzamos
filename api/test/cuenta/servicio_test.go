@@ -114,28 +114,33 @@ func (r *repoFalso) BorrarSinConfirmar(_ context.Context, p cuenta.PlazosDeLaPur
 }
 
 // AvisarAntesDeLaPurga hace lo del repositorio real sin la base: ofrece cada cuenta a `enviar` y solo registra el aviso de
-// la que sale bien.
-func (r *repoFalso) AvisarAntesDeLaPurga(ctx context.Context, avisarHasta time.Time, enviar cuenta.EnvioDelAviso) (int, error) {
+// la que sale bien. Si el contexto termina (el presupuesto de la tarea o una cancelación), deja de ofrecer cuentas y cuenta
+// como pendientes la que quedó a medias y las que no se ofrecieron.
+func (r *repoFalso) AvisarAntesDeLaPurga(ctx context.Context, avisarHasta time.Time, enviar cuenta.EnvioDelAviso) (cuenta.ResultadoDelAviso, error) {
 	r.avisarHasta = avisarHasta
 	if r.errAvisar != nil {
-		return 0, r.errAvisar
+		return cuenta.ResultadoDelAviso{}, r.errAvisar
 	}
 	if r.avisadas == nil {
 		r.avisadas = map[string]time.Time{}
 	}
-	n := 0
-	for _, c := range r.porAvisar {
+	var res cuenta.ResultadoDelAviso
+	for i, c := range r.porAvisar {
 		if _, ya := r.avisadas[c.ID]; ya {
 			continue
 		}
 		en, err := enviar(ctx, c)
-		if err != nil {
+		if err == nil {
+			r.avisadas[c.ID] = en
+			res.Avisadas++
 			continue
 		}
-		r.avisadas[c.ID] = en
-		n++
+		if cerr := ctx.Err(); cerr != nil {
+			res.Pendientes = len(r.porAvisar) - i
+			return res, cerr
+		}
 	}
-	return n, nil
+	return res, nil
 }
 
 type hasheadorFalso struct {

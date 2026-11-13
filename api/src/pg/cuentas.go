@@ -324,32 +324,39 @@ const condicionDeLaPurga = `p.etapa = 'adulta'
 // con la foto que ya ve lo confirmado, se **vuelve a evaluar** el caso 2 sobre las filas bloqueadas (si la persona acaba de
 // autorizar, o ya la avisó otra pasada, no se manda nada); (3) se envía; (4) solo si salió, se escribe
 // `aviso_de_purga_en` y se confirma. Si el envío falla, la transacción se deshace sin escribir nada y sigue la siguiente
-// cuenta. Si el correo sale y la escritura o la confirmación fallan, la pasada siguiente lo manda otra vez.
-func (r *Cuentas) AvisarAntesDeLaPurga(ctx context.Context, avisarHasta time.Time, enviar cuenta.EnvioDelAviso) (int, error) {
+// cuenta. Si el correo sale y la escritura o la confirmación fallan, la pasada siguiente lo manda otra vez. Si el contexto
+// termina (el tiempo total de la tarea, L14, o una cancelación), no sigue con las demás cuentas: la transacción en curso se
+// deshace, así que no queda nada registrado ni ninguna fila bloqueada, y devuelve el error del contexto con cuántas
+// cuentas quedaron sin avisar.
+func (r *Cuentas) AvisarAntesDeLaPurga(ctx context.Context, avisarHasta time.Time, enviar cuenta.EnvioDelAviso) (cuenta.ResultadoDelAviso, error) {
 	filas, err := r.pool.Query(ctx,
 		`SELECT p.id::text FROM persona p JOIN perfil_adulto pa ON pa.persona_id = p.id WHERE `+condicionDelAviso+` ORDER BY p.creada_en, p.id`,
 		avisarHasta)
 	if err != nil {
-		return 0, fmt.Errorf("buscar las cuentas por avisar: %w", err)
+		return cuenta.ResultadoDelAviso{}, fmt.Errorf("buscar las cuentas por avisar: %w", err)
 	}
 	ids, err := pgx.CollectRows(filas, pgx.RowTo[string])
 	if err != nil {
-		return 0, fmt.Errorf("leer las cuentas por avisar: %w", err)
+		return cuenta.ResultadoDelAviso{}, fmt.Errorf("leer las cuentas por avisar: %w", err)
 	}
-	avisadas := 0
-	for _, id := range ids {
-		if err := ctx.Err(); err != nil {
-			return avisadas, err
-		}
+	var res cuenta.ResultadoDelAviso
+	for i, id := range ids {
 		avisada, err := r.avisarUna(ctx, id, avisarHasta, enviar)
-		if err != nil {
-			return avisadas, err
-		}
 		if avisada {
-			avisadas++
+			res.Avisadas++
+			continue
+		}
+		// El contexto terminó (el tiempo total de la tarea o una cancelación): la cuenta que se interrumpió y las que
+		// siguen no se tocan, y quedan para la corrida siguiente.
+		if cerr := ctx.Err(); cerr != nil {
+			res.Pendientes = len(ids) - i
+			return res, cerr
+		}
+		if err != nil {
+			return res, err
 		}
 	}
-	return avisadas, nil
+	return res, nil
 }
 
 // avisarUna es una cuenta de AvisarAntesDeLaPurga. Devuelve true si el aviso salió y quedó registrado.

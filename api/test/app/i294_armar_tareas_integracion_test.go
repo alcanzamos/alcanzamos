@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"mime"
+	"net"
 	"net/mail"
 	"strings"
 	"testing"
@@ -64,7 +65,7 @@ func TestArmarTareasEnviaElAvisoDeVerdad(t *testing.T) {
 	}
 	antes := time.Now()
 	for range 3 {
-		if n, err := ejecutor.Ejecutar(ctx); err != nil || n != 2 {
+		if n, err := ejecutor.Ejecutar(ctx); err != nil || n != 3 {
 			t.Fatalf("ejecutadas %d, error %v", n, err)
 		}
 	}
@@ -113,7 +114,7 @@ func TestArmarTareasConElCorreoCaidoNoSaltaLaLimpieza(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n, err := ejecutor.Ejecutar(ctx); err != nil || n != 2 {
+	if n, err := ejecutor.Ejecutar(ctx); err != nil || n != 3 {
 		t.Fatalf("ejecutadas %d, error %v", n, err)
 	}
 	var avisos, sesiones int
@@ -125,6 +126,53 @@ func TestArmarTareasConElCorreoCaidoNoSaltaLaLimpieza(t *testing.T) {
 	}
 	if avisos != 0 || sesiones != 0 {
 		t.Errorf("sin servidor de correo no se registra ningún aviso (%d) y la sesión vencida se limpia igual (quedan %d)", avisos, sesiones)
+	}
+}
+
+// Ítem 294, L14 (4): la limpieza de sesiones y enlaces nunca espera al correo. El servidor de correo de la prueba, al recibir
+// la conexión del primer aviso, mira la base: la sesión vencida ya se limpió y la cuenta del caso 2 ya pasó la purga.
+func TestArmarTareasLaLimpiezaTerminaAntesDeQueEmpieceElPrimerEnvio(t *testing.T) {
+	pool := pgtest.Nueva(t)
+	ctx := context.Background()
+	id := cuentaDelCaso2(t, pool, "laura@ejemplo.test", 6*24*time.Hour)
+	if _, err := pool.Exec(ctx, `INSERT INTO sesion (hash_token, persona_id, creada_en, ultimo_uso_en, vence_en)
+		VALUES (decode(repeat('ab', 32), 'hex'), $1::uuid, now() - interval '2 days', now() - interval '2 days', now() - interval '1 day')`, id); err != nil {
+		t.Fatal(err)
+	}
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { l.Close() })
+	vistoAlConectar := make(chan int, 4)
+	go func() {
+		for {
+			c, err := l.Accept()
+			if err != nil {
+				return
+			}
+			var sesiones int
+			if err := pool.QueryRow(ctx, `SELECT count(*) FROM sesion`).Scan(&sesiones); err != nil {
+				sesiones = -1
+			}
+			vistoAlConectar <- sesiones
+			c.Close() // el envío falla de inmediato: la cuenta queda para la corrida siguiente
+		}
+	}()
+	ejecutor, err := app.ArmarTareas(configDeCorreo(l.Addr().String()), pool, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n, err := ejecutor.Ejecutar(ctx); err != nil || n != 3 {
+		t.Fatalf("ejecutadas %d, error %v", n, err)
+	}
+	select {
+	case sesiones := <-vistoAlConectar:
+		if sesiones != 0 {
+			t.Errorf("cuando el primer envío empezó la sesión vencida seguía en la base (%d): la limpieza esperó al correo", sesiones)
+		}
+	default:
+		t.Fatal("la tarea de los avisos no llegó a conectarse al servidor de correo")
 	}
 }
 
