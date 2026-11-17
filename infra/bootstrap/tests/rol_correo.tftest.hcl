@@ -146,3 +146,29 @@ run "las_demas_asignaciones_no_cambian" {
     error_message = "Las asignaciones del pipeline y de lectura de secretos no deben cambiar."
   }
 }
+
+# Prueba de regresión de la verificación independiente del 2026-11-17: el Contributor y el acceso al estado siguen siendo
+# del pipeline, no del API.
+run "pipeline_conserva_su_principal" {
+  command = plan
+
+  variables {
+    ambiente = "uat"
+  }
+
+  override_resource {
+    target = azuread_service_principal.pipeline
+    values = {
+      object_id = "22222222-2222-2222-2222-222222222222"
+    }
+  }
+
+  assert {
+    condition = alltrue([
+      azurerm_role_assignment.pipeline_contribuye.principal_id == azuread_service_principal.pipeline.object_id,
+      azurerm_role_assignment.pipeline_estado.principal_id == azuread_service_principal.pipeline.object_id,
+      azuread_service_principal.pipeline.object_id != azurerm_user_assigned_identity.api.principal_id,
+    ])
+    error_message = "Contributor y el acceso al estado deben pertenecer al pipeline, no al API."
+  }
+}
