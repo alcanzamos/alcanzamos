@@ -1,5 +1,15 @@
+variable "ambiente" {
+  description = "Ambiente que se prepara: uat (Azure for Students) o produccion (pago por uso). Forma los nombres (D-200 (8))."
+  type        = string
+
+  validation {
+    condition     = contains(["uat", "produccion"], var.ambiente)
+    error_message = "El ambiente debe ser «uat» o «produccion»."
+  }
+}
+
 variable "subscription_id" {
-  description = "Suscripción de Azure for Students."
+  description = "Suscripción del ambiente: Azure for Students en UAT, pago por uso en producción (D-200 (7) y (8))."
   type        = string
 }
 
@@ -15,7 +25,7 @@ variable "azure_devops_organizacion_id" {
 }
 
 variable "conexion_de_servicio" {
-  description = "Nombre de la conexión de servicio de Azure DevOps que usa esta identidad."
+  description = "Nombre de la conexión de servicio de Azure DevOps que usa esta identidad. Por defecto, sc-<sufijo del ambiente>."
   type        = string
-  default     = "sc-alcanzamos-prod-mxc"
+  default     = null
 }

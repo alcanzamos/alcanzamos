@@ -8,6 +8,7 @@ import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
 import { instalarFetchFalso, respuestaJson } from '../ayudas/fetchFalso';
 import { navegacionFalsa, propiedades } from '../ayudas/pantalla';
 import { campo, quizasCampo } from '../ayudas/campos';
+import { comprobarOcupado } from '../ayudas/ocupado';
 
 jest.mock('expo-secure-store', () => jest.requireActual('../ayudas/secureStoreFalso').crearSecureStoreFalso());
 const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crearSecureStoreFalso>;
@@ -80,6 +81,17 @@ describe('PN-58 · Crear la cuenta, Android (E14-PCP 4.1)', () => {
     expect(navegacion.navigate).toHaveBeenCalledWith('Entrar');
   });
 
+  // D-195 (E14-PCP 4.1, fila 7): «Política de tratamiento de datos» abre PN-68 antes de crear la cuenta.
+  it('«Política de tratamiento de datos» es un botón de texto, después de «Ya tengo una cuenta», que abre PN-68', async () => {
+    const navegacion = await mostrar();
+    const politica = screen.getByRole('button', { name: 'Política de tratamiento de datos' });
+    const botones = screen.getAllByRole('button');
+    expect(botones.indexOf(politica)).toBe(botones.indexOf(screen.getByRole('button', { name: 'Ya tengo una cuenta' })) + 1);
+    expect(politica).toHaveStyle({ alignSelf: 'flex-start' });
+    await fireEvent.press(politica);
+    expect(navegacion.navigate).toHaveBeenCalledWith('Politica');
+  });
+
   describe('sin la edad comprobada en PN-65', () => {
     it('no se puede usar: vuelve a PN-60 y no hace ningún pedido', async () => {
       const { fetchFalso } = instalarFetchFalso();
@@ -130,7 +142,7 @@ describe('PN-58 · Crear la cuenta, Android (E14-PCP 4.1)', () => {
       );
     });
 
-    it('un segundo toque mientras envía no repite el pedido y deja el botón deshabilitado', async () => {
+    it('un segundo toque mientras envía no repite el pedido y deja el botón ocupado, no deshabilitado', async () => {
       let responder: (respuesta: Response) => void = () => undefined;
       const fetchFalso = jest.fn(() => new Promise<Response>((resolver) => (responder = resolver)));
       global.fetch = fetchFalso as unknown as typeof fetch;
@@ -139,7 +151,7 @@ describe('PN-58 · Crear la cuenta, Android (E14-PCP 4.1)', () => {
       await crear();
       await crear();
       expect(fetchFalso).toHaveBeenCalledTimes(1);
-      expect(screen.getByRole('button', { name: 'Crear cuenta', disabled: true })).toBeOnTheScreen();
+      comprobarOcupado({ name: 'Crear cuenta' });
       await act(async () => responder(respuestaJson(202, { estado: 'verificacion_pendiente' })));
     });
   });

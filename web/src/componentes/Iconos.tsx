@@ -82,6 +82,14 @@ export const IconoMovimientos = () => (
   </Icono>
 );
 
+// Presupuesto, del destino de la navegación (E14-SDD 5.1 y 5.9; «Ícono/Presupuesto» de Penpot): un gráfico de torta.
+export const IconoPresupuesto = () => (
+  <Icono>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 3v9l8.5 3" />
+  </Icono>
+);
+
 // Cerrar, de la Hoja inferior (E14-SDD 5.12): una equis.
 export const IconoCerrar = () => (
   <Icono>

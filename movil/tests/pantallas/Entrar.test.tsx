@@ -7,6 +7,7 @@ import { esperarSinAnuncios, focoDeTalkBack, nombreDe, regionesVivas } from '../
 import { navegacionFalsa, propiedades } from '../ayudas/pantalla';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
 import { campo } from '../ayudas/campos';
+import { comprobarOcupado } from '../ayudas/ocupado';
 
 jest.mock('expo-secure-store', () => jest.requireActual('../ayudas/secureStoreFalso').crearSecureStoreFalso());
 const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crearSecureStoreFalso>;
@@ -65,6 +66,16 @@ describe('PN-60 · Iniciar sesión, Android (E14-PCP 4.3)', () => {
     const navegacion = await mostrar();
     await fireEvent.press(screen.getByRole('button', { name: 'Crear una cuenta' }));
     expect(navegacion.navigate).toHaveBeenCalledWith('Edad');
+  });
+
+  // D-195 (E14-PCP 4.3, fila 9): «Política de tratamiento y consultas» abre PN-68 sin necesidad de una cuenta.
+  it('«Política de tratamiento y consultas» es un botón de texto, después de «Crear una cuenta», que abre PN-68', async () => {
+    const navegacion = await mostrar();
+    const politica = screen.getByRole('button', { name: 'Política de tratamiento y consultas' });
+    expect(screen.getAllByRole('button').at(-1)).toBe(politica);
+    expect(politica).toHaveStyle({ alignSelf: 'flex-start' });
+    await fireEvent.press(politica);
+    expect(navegacion.navigate).toHaveBeenCalledWith('Politica');
   });
 
   describe('con el correo que trae PN-59 («Ya elegí mi contraseña», D-184)', () => {
@@ -152,6 +163,7 @@ describe('PN-60 · Iniciar sesión, Android (E14-PCP 4.3)', () => {
       await llenar();
       await entrar();
       await entrar();
+      comprobarOcupado({ name: 'Iniciar sesión' });
       expect(fetchFalso).toHaveBeenCalledTimes(1);
       await act(async () => responder(respuestaJson(200, { estado: 'activa', token: 'x' })));
     });

@@ -1,0 +1,1131 @@
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+import { Presupuesto } from "../../src/pantallas/Presupuesto";
+import { json, porTexto, simularApi, type Pedido } from "../ayudas";
+
+// El escenario de E14-PPA 2.2 (Laura, 2 de noviembre de 2026, caso F) y el caso P de 2.3 (PN-07).
+type Fila = {
+  categoria_id: number;
+  presupuesto: { id: string; monto_centavos: number } | null;
+  gastado_centavos: number;
+  estado: "quedan" | "usado_todo" | "superado" | null;
+  quedan_centavos: number | null;
+  oculta?: boolean;
+};
+const fila = (f: Fila) => ({ nombre: "x", oculta: false, ...f });
+const sinPresupuesto = (id: number, gastado: number) =>
+  fila({
+    categoria_id: id,
+    presupuesto: null,
+    gastado_centavos: gastado,
+    estado: null,
+    quedan_centavos: null,
+  });
+const transporte = fila({
+  categoria_id: 8,
+  presupuesto: { id: "p8", monto_centavos: 4000000 },
+  gastado_centavos: 4000000,
+  estado: "usado_todo",
+  quedan_centavos: null,
+});
+
+type Resumen = {
+  modo: "normal" | "ingreso_bajo" | "ingreso_nulo";
+  en_cero?: boolean;
+  ingreso_registrado_centavos: number;
+  asignado_centavos: number;
+  sin_asignar_centavos: number | null;
+  asignado_supera_por_centavos: number | null;
+  llega_despues_centavos: number;
+  por_confirmar_centavos: number;
+};
+const datos = (
+  resumen: Resumen,
+  categorias: unknown[],
+  llegaDespues: unknown[] = [],
+) => ({
+  periodo_actual: "2026-11",
+  periodo: "2026-11",
+  editable: true,
+  resumen: { en_cero: false, ...resumen },
+  llega_despues: llegaDespues,
+  categorias,
+});
+
+// El salario del 16 de noviembre de 2026: esperado, no cuenta en «Sin asignar» (D-094, P-1).
+const salarioEsperado = {
+  recurrente_id: "r1",
+  fecha: "2026-11-16",
+  categoria_id: 17,
+  monto_centavos: 120000000,
+  marca: "esperado",
+};
+// El salario del 1 de noviembre ya pasó y no se ha confirmado: «Por confirmar» (US-60), no cuenta en «Sin asignar».
+const salarioPorConfirmar = {
+  ...salarioEsperado,
+  recurrente_id: "r2",
+  fecha: "2026-11-01",
+  marca: "por_confirmar",
+};
+
+const laura = datos(
+  {
+    modo: "normal",
+    ingreso_registrado_centavos: 120000000,
+    asignado_centavos: 4000000,
+    sin_asignar_centavos: 116000000,
+    asignado_supera_por_centavos: null,
+    llega_despues_centavos: 120000000,
+    por_confirmar_centavos: 0,
+  },
+  [
+    transporte,
+    sinPresupuesto(4, 65000000),
+    sinPresupuesto(1, 12000000),
+    sinPresupuesto(13, 2500000),
+    sinPresupuesto(11, 1500000),
+  ],
+  [salarioEsperado],
+);
+
+const nulo = (enCero = false, categorias: unknown[] = []) =>
+  datos(
+    {
+      modo: "ingreso_nulo",
+      en_cero: enCero,
+      ingreso_registrado_centavos: 0,
+      asignado_centavos: 0,
+      sin_asignar_centavos: null,
+      asignado_supera_por_centavos: null,
+      llega_despues_centavos: 0,
+      por_confirmar_centavos: 0,
+    },
+    categorias,
+  );
+
+const bajo = datos(
+  {
+    modo: "ingreso_bajo",
+    ingreso_registrado_centavos: 15000000,
+    asignado_centavos: 16000000,
+    sin_asignar_centavos: null,
+    asignado_supera_por_centavos: 1000000,
+    llega_despues_centavos: 0,
+    por_confirmar_centavos: 0,
+  },
+  [
+    fila({
+      categoria_id: 1,
+      presupuesto: { id: "p1", monto_centavos: 10000000 },
+      gastado_centavos: 0,
+      estado: "quedan",
+      quedan_centavos: 10000000,
+    }),
+    fila({
+      categoria_id: 8,
+      presupuesto: { id: "p8", monto_centavos: 6000000 },
+      gastado_centavos: 0,
+      estado: "quedan",
+      quedan_centavos: 6000000,
+    }),
+  ],
+);
+
+const catalogo = {
+  gasto: [
+    { id: 1, nombre: "x", general: false },
+    { id: 4, nombre: "x", general: false },
+    { id: 5, nombre: "x", general: false },
+    { id: 8, nombre: "x", general: false },
+    { id: 11, nombre: "x", general: false },
+    { id: 13, nombre: "x", general: false },
+    { id: 16, nombre: "x", general: true },
+  ],
+  ingreso: [{ id: 17, nombre: "x", general: false }],
+};
+
+/** El API de PN-06: cada lectura del presupuesto da la siguiente de `lecturas` (la última se repite). */
+function api(
+  lecturas: unknown[],
+  escribir: (p: Pedido) => Response | Promise<Response> = () => json(201, {}),
+) {
+  let n = 0;
+  return simularApi((p) => {
+    if (p.ruta === "/api/v1/categorias") return json(200, catalogo);
+    if (p.metodo === "GET" && p.ruta === "/api/v1/presupuestos")
+      return json(200, lecturas[Math.min(n++, lecturas.length - 1)]);
+    return escribir(p);
+  });
+}
+const escrituras = (pedidos: Pedido[]) =>
+  pedidos.filter((p) => p.metodo !== "GET");
+const lecturasDelPresupuesto = (pedidos: Pedido[]) =>
+  pedidos.filter((p) => p.metodo === "GET" && p.ruta === "/api/v1/presupuestos")
+    .length;
+
+async function abrir() {
+  render(<Presupuesto />);
+  await screen.findByRole("heading", { level: 2, name: "Por categoría" });
+}
+const tarjeta = (titulo: string) =>
+  screen.getByRole("heading", { level: 2, name: titulo }).closest("section")!;
+const filasDeCategoria = () =>
+  within(tarjeta("Por categoría"))
+    .getAllByRole("listitem")
+    .map((f) => f.textContent);
+const boton = (nombre: string) => screen.getByRole("button", { name: nombre });
+const hoja = (nombre: string) => screen.getByRole("dialog", { name: nombre });
+const escribirMonto = (valor: string, mes = "noviembre") =>
+  fireEvent.change(screen.getByLabelText(`Monto para ${mes}`), {
+    target: { value: valor },
+  });
+/** El aviso de error que queda en la pantalla, fuera de toda hoja. */
+const avisoEnLaPantalla = () => {
+  const aviso = screen
+    .getByText("No pudimos guardar el presupuesto.")
+    .closest(".aviso");
+  expect(aviso).not.toBeNull();
+  expect(aviso!.closest("[role='dialog']")).toBeNull();
+  expect(screen.getByRole("main")).toContainElement(aviso as HTMLElement);
+  return aviso;
+};
+
+describe("PN-06 · Presupuesto del periodo por categorías (E14-PPA 4.1)", () => {
+  it("Laura en noviembre: título, resumen con «Llega después», «Ver mis ingresos» y «Registrar»", async () => {
+    api([laura]);
+    await abrir();
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "Presupuesto de noviembre",
+      }),
+    ).toBeInTheDocument();
+    expect(document.title).toBe("Presupuesto de noviembre · Alcanzamos");
+    expect(tarjeta("Tu presupuesto este mes")).toHaveTextContent(
+      [
+        "Tu presupuesto este mes",
+        "Ingreso registrado$1.200.000",
+        "Asignado$40.000",
+        "Sin asignar$1.160.000",
+        "Llega después: $1.200.000 (esperado)",
+        "Sin asignar cuenta lo que ya registraste. Salario del 16 de noviembre de 2026 se suma cuando llegue.",
+        "Ver mis ingresos",
+      ].join(""),
+    );
+    expect(
+      screen.getByRole("link", { name: "Ver mis ingresos" }),
+    ).toHaveAttribute("href", "/ingresos");
+    // El de arriba del resumen; desde 768 px lo reemplaza el de la Navegación lateral, como en PN-01.
+    expect(
+      within(screen.getByRole("main")).getByRole("link", { name: "Registrar" }),
+    ).toHaveAttribute("href", "/registrar");
+    // PN-06 no es PN-07: sin «Registrar un ingreso» ni «Dejar el presupuesto en cero».
+    expect(screen.queryByText("Registrar un ingreso")).toBeNull();
+    expect(screen.queryByText("Dejar el presupuesto en cero")).toBeNull();
+  });
+
+  it("lleva la Navegación lateral (bug 233), con «Registrar» primario y «Presupuesto» activo (E14-PPA 4.1, variante web; L17 de la US-77, punto 2)", async () => {
+    api([laura]);
+    await abrir();
+    const barra = within(screen.getByRole("navigation"));
+    expect(barra.getAllByRole("link").map((e) => e.textContent)).toEqual([
+      "Registrar",
+      "Movimientos",
+      "Presupuesto",
+    ]);
+    expect(barra.getByRole("link", { name: "Registrar" })).toHaveClass(
+      "boton--primario",
+    );
+    expect(barra.getByRole("link", { name: "Presupuesto" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    for (const nombre of ["Registrar", "Movimientos"])
+      expect(barra.getByRole("link", { name: nombre })).not.toHaveAttribute(
+        "aria-current",
+      );
+  });
+
+  it("los números van en Figtree (D-123) y la cifra grande es «Sin asignar»", async () => {
+    api([laura]);
+    await abrir();
+    const grande = document.querySelector(".monto-grande");
+    expect(grande).toHaveTextContent("$1.160.000");
+    expect(grande).toHaveClass("cifra");
+  });
+
+  it("«Por categoría»: primero las que tienen presupuesto, en el orden del API, cada una con su texto", async () => {
+    api([laura]);
+    await abrir();
+    expect(filasDeCategoria()).toEqual([
+      "TransportePresupuesto $40.000 · Gastado $40.000Ya usaste todo lo presupuestado.CorregirQuitar",
+      "Arriendo o cuota de viviendaGastado $650.000 · Sin presupuestoPoner presupuesto",
+      "AlimentaciónGastado $120.000 · Sin presupuestoPoner presupuesto",
+      "Restaurantes y hotelesGastado $25.000 · Sin presupuestoPoner presupuesto",
+      "Recreación y culturaGastado $15.000 · Sin presupuestoPoner presupuesto",
+    ]);
+  });
+
+  it("los botones de cada fila llevan el nombre de la categoría en su nombre accesible (D-094, RNF-019)", async () => {
+    api([laura]);
+    await abrir();
+    expect(boton("Corregir el presupuesto de Transporte")).toHaveTextContent(
+      "Corregir",
+    );
+    expect(boton("Quitar el presupuesto de Transporte")).toHaveTextContent(
+      "Quitar",
+    );
+    expect(
+      boton("Poner presupuesto a Arriendo o cuota de vivienda"),
+    ).toHaveTextContent("Poner presupuesto");
+  });
+
+  it("sin fechas esperadas no hay «Llega después» ni la frase del salario", async () => {
+    api([
+      {
+        ...laura,
+        resumen: { ...laura.resumen, llega_despues_centavos: 0 },
+        llega_despues: [],
+      },
+    ]);
+    await abrir();
+    expect(screen.queryByText(/Llega después/)).toBeNull();
+    expect(screen.queryByText(/se suma cuando llegue/)).toBeNull();
+    expect(
+      screen.getByText("Sin asignar cuenta lo que ya registraste."),
+    ).toBeInTheDocument();
+  });
+
+  it("con dos fechas esperadas suma «Llega después» y no nombra una sola", async () => {
+    api([
+      {
+        ...laura,
+        resumen: { ...laura.resumen, llega_despues_centavos: 240000000 },
+        llega_despues: [
+          salarioEsperado,
+          { ...salarioEsperado, fecha: "2026-11-30" },
+        ],
+      },
+    ]);
+    await abrir();
+    expect(
+      screen.getByText(porTexto("Llega después: $2.400.000 (esperado)")),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/se suma cuando llegue/)).toBeNull();
+  });
+
+  // L14 de la US-77, puntos 2 y 3: «Llega después» separa lo esperado de lo por confirmar; cada línea sale solo si su
+  // total es mayor que cero, y la frase de una sola fecha va por cada marca.
+  const resumenCon = (
+    llega: number,
+    porConfirmar: number,
+    llegaDespues: unknown[],
+  ) => ({
+    ...laura,
+    resumen: {
+      ...laura.resumen,
+      llega_despues_centavos: llega,
+      por_confirmar_centavos: porConfirmar,
+    },
+    llega_despues: llegaDespues,
+  });
+
+  it("solo con lo esperado: «Llega después» y la frase de la fecha esperada, sin «Por confirmar»", async () => {
+    api([laura]);
+    await abrir();
+    expect(
+      screen.getByText(porTexto("Llega después: $1.200.000 (esperado)")),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Por confirmar/)).toBeNull();
+    expect(screen.queryByText(/cuando lo confirmes/)).toBeNull();
+  });
+
+  it("solo con lo por confirmar: «Por confirmar: $X» sin «Llega después», y la frase «se suma cuando lo confirmes»", async () => {
+    api([resumenCon(0, 120000000, [salarioPorConfirmar])]);
+    await abrir();
+    expect(tarjeta("Tu presupuesto este mes")).toHaveTextContent(
+      [
+        "Tu presupuesto este mes",
+        "Ingreso registrado$1.200.000",
+        "Asignado$40.000",
+        "Sin asignar$1.160.000",
+        "Por confirmar: $1.200.000",
+        "Sin asignar cuenta lo que ya registraste. Salario del 1 de noviembre de 2026 se suma cuando lo confirmes.",
+        "Ver mis ingresos",
+      ].join(""),
+    );
+    expect(screen.queryByText(/Llega después/)).toBeNull();
+    expect(screen.queryByText(/se suma cuando llegue/)).toBeNull();
+  });
+
+  it("con las dos marcas: dos líneas con su total exacto y la frase de la única fecha esperada", async () => {
+    api([
+      resumenCon(25000000, 123000000, [
+        {
+          ...salarioPorConfirmar,
+          fecha: "2026-11-05",
+          monto_centavos: 60000000,
+        },
+        {
+          ...salarioPorConfirmar,
+          fecha: "2026-11-16",
+          monto_centavos: 63000000,
+        },
+        {
+          ...salarioEsperado,
+          fecha: "2026-11-25",
+          categoria_id: 18,
+          monto_centavos: 25000000,
+        },
+      ]),
+    ]);
+    await abrir();
+    expect(tarjeta("Tu presupuesto este mes")).toHaveTextContent(
+      [
+        "Sin asignar$1.160.000",
+        "Llega después: $250.000 (esperado)",
+        "Por confirmar: $1.230.000",
+        "Sin asignar cuenta lo que ya registraste. Trabajo independiente o ventas del 25 de noviembre de 2026 se suma cuando llegue.",
+        "Ver mis ingresos",
+      ].join(""),
+    );
+    // Dos fechas por confirmar: la línea «Por confirmar» basta.
+    expect(screen.queryByText(/cuando lo confirmes/)).toBeNull();
+  });
+
+  it("una fecha de cada marca: las dos frases, primero la esperada", async () => {
+    api([
+      resumenCon(120000000, 30000000, [
+        salarioEsperado,
+        {
+          ...salarioPorConfirmar,
+          categoria_id: 18,
+          fecha: "2026-11-05",
+          monto_centavos: 30000000,
+        },
+      ]),
+    ]);
+    await abrir();
+    expect(
+      screen.getByText(porTexto("Por confirmar: $300.000")),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        porTexto(
+          "Sin asignar cuenta lo que ya registraste. Salario del 16 de noviembre de 2026 se suma cuando llegue. Trabajo independiente o ventas del 5 de noviembre de 2026 se suma cuando lo confirmes.",
+        ),
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("los números de «Por confirmar» van en Figtree (D-123)", async () => {
+    api([resumenCon(0, 123456789, [salarioPorConfirmar])]);
+    await abrir();
+    const linea = screen.getByText(porTexto("Por confirmar: $1.234.567,89"));
+    expect(
+      Array.from(linea.querySelectorAll(".cifra"), (c) => c.textContent),
+    ).toEqual(["1", "234", "567", "89"]);
+  });
+
+  it("los tres estados describen sin calificar y una oculta lleva el ícono y la palabra «Oculta» (RN-011)", async () => {
+    api([
+      datos(laura.resumen, [
+        fila({
+          categoria_id: 1,
+          presupuesto: { id: "p1", monto_centavos: 30000000 },
+          gastado_centavos: 12000000,
+          estado: "quedan",
+          quedan_centavos: 18000000,
+        }),
+        fila({
+          categoria_id: 13,
+          presupuesto: { id: "p13", monto_centavos: 10000000 },
+          gastado_centavos: 12000000,
+          estado: "superado",
+          quedan_centavos: null,
+          oculta: true,
+        }),
+      ]),
+    ]);
+    await abrir();
+    expect(filasDeCategoria()).toEqual([
+      "AlimentaciónPresupuesto $300.000 · Gastado $120.000Quedan $180.000 por gastar.CorregirQuitar",
+      "Restaurantes y hoteles OcultaPresupuesto $100.000 · Gastado $120.000Gastado $120.000 de $100.000 presupuestados.CorregirQuitar",
+    ]);
+  });
+
+  it("sin presupuestos: «Todavía no tienes presupuesto este mes.» y las categorías con gasto con «Poner presupuesto»", async () => {
+    api([datos(laura.resumen, [sinPresupuesto(4, 65000000)])]);
+    await abrir();
+    expect(tarjeta("Por categoría")).toHaveTextContent(
+      "Por categoríaTodavía no tienes presupuesto este mes.Elige una categoría y pon cuánto quieres gastar en ella.Arriendo o cuota de vivienda",
+    );
+  });
+
+  it("un error de carga dice el texto de E14 y «Intentar de nuevo» vuelve a pedir", async () => {
+    let fallar = true;
+    simularApi((p) => {
+      if (p.ruta === "/api/v1/categorias") return json(200, catalogo);
+      return fallar ? json(500, { error: "error_interno" }) : json(200, laura);
+    });
+    render(<Presupuesto />);
+    expect(
+      await screen.findByText("No pudimos cargar tu presupuesto."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Tus datos están a salvo. Intenta de nuevo."),
+    ).toBeInTheDocument();
+    fallar = false;
+    fireEvent.click(boton("Intentar de nuevo"));
+    await screen.findByRole("heading", { level: 2, name: "Por categoría" });
+  });
+
+  it("sin sesión va a PN-60", async () => {
+    simularApi(() => json(401, { error: "sin_sesion" }));
+    render(<Presupuesto />);
+    await waitFor(() => expect(window.location.pathname).toBe("/entrar"));
+  });
+});
+
+describe("PN-07 · Presupuesto con ingreso bajo o nulo (E14-PPA 4.2)", () => {
+  // RNF-017: ni Atención, ni rojo, ni signo menos, ni ninguna frase de la tabla «Lo que esta pantalla no dice nunca».
+  const prohibidas =
+    /sin ingresos|no tienes plata|no hay plata|te pasaste|de más|déficit|no alcanza|debes registrar|gasta menos|ahorra|-\$/i;
+  const sinReproche = () => {
+    expect(document.body.textContent).not.toMatch(prohibidas);
+    expect(document.querySelector(".aviso--atencion")).toBeNull();
+  };
+
+  it("con ingreso nulo: «Ingreso registrado $0», el texto, «Registrar un ingreso» y «Dejar el presupuesto en cero», sin «Sin asignar»", async () => {
+    api([nulo()]);
+    await abrir();
+    expect(tarjeta("Tu presupuesto este mes")).toHaveTextContent(
+      "Tu presupuesto este mesIngreso registrado$0Puedes repartir lo que llegue o dejar el presupuesto en cero.Ver mis ingresos",
+    );
+    expect(screen.queryByText("Sin asignar")).toBeNull();
+    expect(
+      screen.getByRole("link", { name: "Registrar un ingreso" }),
+    ).toHaveAttribute("href", "/registrar?tipo=ingreso");
+    expect(boton("Dejar el presupuesto en cero")).toHaveClass("boton--texto");
+    expect(tarjeta("Por categoría")).toHaveTextContent(
+      "Por categoríaTodavía no hay gastos este mes.",
+    );
+    sinReproche();
+  });
+
+  it("con ingreso nulo y el salario por confirmar: la línea «Por confirmar» y, debajo, la frase de la fecha (L14 y L17 de la US-77)", async () => {
+    api([
+      {
+        ...nulo(),
+        resumen: { ...nulo().resumen, por_confirmar_centavos: 120000000 },
+        llega_despues: [salarioPorConfirmar],
+      },
+    ]);
+    await abrir();
+    expect(tarjeta("Tu presupuesto este mes")).toHaveTextContent(
+      "Tu presupuesto este mesIngreso registrado$0Por confirmar: $1.200.000Salario del 1 de noviembre de 2026 se suma cuando lo confirmes.Puedes repartir lo que llegue o dejar el presupuesto en cero.Ver mis ingresos",
+    );
+    expect(screen.queryByText(/Llega después/)).toBeNull();
+    sinReproche();
+  });
+
+  // L17 de la US-77, punto 4: la frase de una sola fecha también en PN-07, bajo «Llega después» o «Por confirmar».
+  it("con ingreso bajo y una fecha esperada: «Llega después» y, debajo, «… se suma cuando llegue.»", async () => {
+    api([
+      {
+        ...bajo,
+        resumen: { ...bajo.resumen, llega_despues_centavos: 120000000 },
+        llega_despues: [salarioEsperado],
+      },
+    ]);
+    await abrir();
+    expect(tarjeta("Tu presupuesto este mes")).toHaveTextContent(
+      [
+        "Tu presupuesto este mes",
+        "Ingreso registrado$150.000",
+        "Asignado$160.000",
+        "Llega después: $1.200.000 (esperado)",
+        "Salario del 16 de noviembre de 2026 se suma cuando llegue.",
+        "Lo asignado supera por $10.000 lo que registraste. Se actualiza cuando registres más ingresos.",
+        "Ver mis ingresos",
+      ].join(""),
+    );
+    sinReproche();
+  });
+
+  it("con ingreso nulo, una fecha esperada y dos por confirmar: solo la frase de la esperada", async () => {
+    api([
+      {
+        ...nulo(),
+        resumen: {
+          ...nulo().resumen,
+          llega_despues_centavos: 120000000,
+          por_confirmar_centavos: 60000000,
+        },
+        llega_despues: [
+          salarioEsperado,
+          { ...salarioPorConfirmar, monto_centavos: 30000000 },
+          {
+            ...salarioPorConfirmar,
+            fecha: "2026-11-02",
+            monto_centavos: 30000000,
+          },
+        ],
+      },
+    ]);
+    await abrir();
+    expect(tarjeta("Tu presupuesto este mes")).toHaveTextContent(
+      [
+        "Ingreso registrado$0",
+        "Llega después: $1.200.000 (esperado)",
+        "Por confirmar: $600.000",
+        "Salario del 16 de noviembre de 2026 se suma cuando llegue.",
+        "Puedes repartir lo que llegue o dejar el presupuesto en cero.",
+      ].join(""),
+    );
+    expect(screen.queryByText(/cuando lo confirmes/)).toBeNull();
+    sinReproche();
+  });
+
+  it("en PN-07 los números de la frase van en Figtree (D-123)", async () => {
+    api([
+      {
+        ...nulo(),
+        resumen: { ...nulo().resumen, por_confirmar_centavos: 120000000 },
+        llega_despues: [salarioPorConfirmar],
+      },
+    ]);
+    await abrir();
+    const frase = screen.getByText(
+      porTexto(
+        "Salario del 1 de noviembre de 2026 se suma cuando lo confirmes.",
+      ),
+    );
+    expect(
+      Array.from(frase.querySelectorAll(".cifra"), (c) => c.textContent),
+    ).toEqual(["1", "2026"]);
+  });
+
+  it("con ingreso bajo: las dos filas y la frase de E14, sin «Dejar el presupuesto en cero»", async () => {
+    api([bajo]);
+    await abrir();
+    expect(tarjeta("Tu presupuesto este mes")).toHaveTextContent(
+      "Tu presupuesto este mesIngreso registrado$150.000Asignado$160.000Lo asignado supera por $10.000 lo que registraste. Se actualiza cuando registres más ingresos.Ver mis ingresos",
+    );
+    expect(
+      screen.getByRole("link", { name: "Registrar un ingreso" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Dejar el presupuesto en cero")).toBeNull();
+    expect(filasDeCategoria()).toEqual([
+      "AlimentaciónPresupuesto $100.000 · Gastado $0Quedan $100.000 por gastar.CorregirQuitar",
+      "TransportePresupuesto $60.000 · Gastado $0Quedan $60.000 por gastar.CorregirQuitar",
+    ]);
+    sinReproche();
+  });
+
+  it("con ingreso nulo y algo asignado no ofrece dejarlo en cero", async () => {
+    api([
+      {
+        ...nulo(),
+        resumen: { ...nulo().resumen, asignado_centavos: 6000000 },
+      },
+    ]);
+    await abrir();
+    expect(screen.queryByText("Dejar el presupuesto en cero")).toBeNull();
+  });
+
+  it("ya en cero (`en_cero`), el botón no vuelve a salir", async () => {
+    api([nulo(true)]);
+    await abrir();
+    expect(screen.queryByText("Dejar el presupuesto en cero")).toBeNull();
+    expect(
+      screen.getByRole("link", { name: "Registrar un ingreso" }),
+    ).toBeInTheDocument();
+  });
+
+  it("«Dejar el presupuesto en cero» guarda la marca del mes, avisa por la región viva y el botón se va", async () => {
+    const pedidos = api([nulo(), nulo(true)], () => json(204));
+    await abrir();
+    fireEvent.click(boton("Dejar el presupuesto en cero"));
+    const estado = await screen.findByRole("status");
+    await waitFor(() =>
+      expect(estado).toHaveTextContent(
+        "Listo, tu presupuesto de noviembre queda en cero. Cuando llegue un ingreso, puedes repartirlo.",
+      ),
+    );
+    expect(escrituras(pedidos)).toEqual([
+      {
+        metodo: "POST",
+        ruta: "/api/v1/presupuestos/en-cero",
+        cuerpo: { periodo: "2026-11" },
+      },
+    ]);
+    await waitFor(() =>
+      expect(screen.queryByText("Dejar el presupuesto en cero")).toBeNull(),
+    );
+    expect(document.activeElement).toHaveAttribute("id", "titulo-de-pagina");
+    sinReproche();
+  });
+
+  // Ya era así antes de L17: sin hoja, el aviso queda en la pantalla, con el foco, y un 409 vuelve a pedir la pantalla.
+  it("con un 409 al dejar en cero vuelve a pedir la pantalla y avisa en la pantalla, con el foco en el aviso", async () => {
+    const pedidos = api([nulo(), bajo], () =>
+      json(409, { error: "periodo_con_ingreso_o_presupuesto" }),
+    );
+    await abrir();
+    fireEvent.click(boton("Dejar el presupuesto en cero"));
+    const aviso = (
+      await screen.findByText("No pudimos guardar el presupuesto.")
+    ).closest(".aviso")!;
+    expect(aviso).toHaveFocus();
+    await waitFor(() => expect(lecturasDelPresupuesto(pedidos)).toBe(2));
+    await waitFor(() =>
+      expect(screen.queryByText("Dejar el presupuesto en cero")).toBeNull(),
+    );
+    expect(escrituras(pedidos)).toHaveLength(1);
+    sinReproche();
+  });
+
+  it("si no se pudo dejar en cero, el aviso de error de guardado y el botón sigue", async () => {
+    api([nulo()], () => json(500, { error: "error_interno" }));
+    await abrir();
+    fireEvent.click(boton("Dejar el presupuesto en cero"));
+    expect(
+      await screen.findByText("No pudimos guardar el presupuesto."),
+    ).toBeInTheDocument();
+    expect(boton("Dejar el presupuesto en cero")).toBeInTheDocument();
+    sinReproche();
+  });
+});
+
+describe("Hojas «Poner presupuesto», «Corregir» y «Quitar» (E14-PPA 4.1)", () => {
+  it("«Poner presupuesto» abre la hoja con el título, el monto vacío, «Guardar», «Ahora no» y «Cerrar»", async () => {
+    api([laura]);
+    await abrir();
+    fireEvent.click(boton("Poner presupuesto a Arriendo o cuota de vivienda"));
+    const h = hoja("Presupuesto de Arriendo o cuota de vivienda");
+    expect(within(h).getByLabelText("Monto para noviembre")).toHaveValue("");
+    expect(within(h).getByRole("button", { name: "Guardar" })).toHaveClass(
+      "boton--primario",
+    );
+    expect(within(h).getByRole("button", { name: "Ahora no" })).toBeVisible();
+    expect(within(h).getByRole("button", { name: "Cerrar" })).toBeVisible();
+    expect(document.activeElement).toHaveTextContent(
+      "Presupuesto de Arriendo o cuota de vivienda",
+    );
+  });
+
+  it("sin monto dice «Falta el monto.» y no manda nada; con «$0» dice el de E14-PPN 3.1", async () => {
+    const pedidos = api([laura]);
+    await abrir();
+    fireEvent.click(boton("Poner presupuesto a Arriendo o cuota de vivienda"));
+    fireEvent.click(boton("Guardar"));
+    expect(await screen.findByText("Falta el monto.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Monto para noviembre")).toHaveFocus();
+    escribirMonto("0");
+    fireEvent.click(boton("Guardar"));
+    expect(
+      await screen.findByText(porTexto("El monto debe ser mayor que $0.")),
+    ).toBeInTheDocument();
+    escribirMonto("12,345");
+    fireEvent.click(boton("Guardar"));
+    expect(
+      await screen.findByText("El monto puede tener hasta dos decimales."),
+    ).toBeInTheDocument();
+    expect(escrituras(pedidos)).toEqual([]);
+  });
+
+  it("al guardar manda los centavos del mes en curso, avisa y vuelve a pedir el presupuesto", async () => {
+    const pedidos = api([laura]);
+    await abrir();
+    fireEvent.click(boton("Poner presupuesto a Arriendo o cuota de vivienda"));
+    escribirMonto("650.000");
+    fireEvent.click(boton("Guardar"));
+    const estado = await screen.findByRole("status");
+    await waitFor(() =>
+      expect(estado).toHaveTextContent(
+        "Listo, guardamos tu presupuesto de Arriendo o cuota de vivienda.",
+      ),
+    );
+    expect(escrituras(pedidos)).toEqual([
+      {
+        metodo: "POST",
+        ruta: "/api/v1/presupuestos",
+        cuerpo: {
+          periodo: "2026-11",
+          categoria_id: 4,
+          monto_centavos: 65000000,
+        },
+      },
+    ]);
+    await waitFor(() => expect(lecturasDelPresupuesto(pedidos)).toBe(2));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("mientras guarda, otro toque a «Guardar» no manda otro pedido", async () => {
+    let soltar: (r: Response) => void = () => undefined;
+    const pedidos = api(
+      [laura],
+      () => new Promise<Response>((r) => (soltar = r)),
+    );
+    await abrir();
+    fireEvent.click(boton("Poner presupuesto a Arriendo o cuota de vivienda"));
+    escribirMonto("650.000");
+    fireEvent.click(boton("Guardar"));
+    await waitFor(() =>
+      expect(boton("Guardar")).toHaveAttribute("aria-disabled", "true"),
+    );
+    fireEvent.click(boton("Guardar"));
+    expect(escrituras(pedidos)).toHaveLength(1);
+    soltar(json(201, {}));
+    await screen.findByRole("status");
+  });
+
+  it("«Corregir» abre la hoja con el monto actual escrito y manda un PUT al presupuesto", async () => {
+    const pedidos = api([laura], () => json(200, {}));
+    await abrir();
+    fireEvent.click(boton("Corregir el presupuesto de Transporte"));
+    const h = hoja("Corregir el presupuesto de Transporte");
+    expect(within(h).getByLabelText("Monto para noviembre")).toHaveValue(
+      "$40.000",
+    );
+    escribirMonto("45.000");
+    fireEvent.click(within(h).getByRole("button", { name: "Guardar" }));
+    const estado = await screen.findByRole("status");
+    await waitFor(() =>
+      expect(estado).toHaveTextContent(
+        "Listo, guardamos tu presupuesto de Transporte.",
+      ),
+    );
+    expect(escrituras(pedidos)).toEqual([
+      {
+        metodo: "PUT",
+        ruta: "/api/v1/presupuestos/p8",
+        cuerpo: { monto_centavos: 4500000 },
+      },
+    ]);
+  });
+
+  it("un error de campo del API va al campo; uno de servidor, al aviso de E14 dentro de la hoja", async () => {
+    let respuesta = json(422, {
+      error: "datos_invalidos",
+      campos: { monto_centavos: "monto_no_positivo" },
+    });
+    api([laura], () => respuesta);
+    await abrir();
+    fireEvent.click(boton("Corregir el presupuesto de Transporte"));
+    fireEvent.click(boton("Guardar"));
+    expect(
+      await screen.findByText(porTexto("El monto debe ser mayor que $0.")),
+    ).toBeInTheDocument();
+    respuesta = json(500, { error: "error_interno" });
+    fireEvent.click(boton("Guardar"));
+    const h = hoja("Corregir el presupuesto de Transporte");
+    expect(
+      await within(h).findByText("No pudimos guardar el presupuesto."),
+    ).toBeInTheDocument();
+    expect(
+      within(h).getByText("Tus datos están a salvo. Intenta de nuevo."),
+    ).toBeInTheDocument();
+  });
+
+  it("«Ahora no» y «Cerrar» cierran sin pedir nada y el foco vuelve al botón que la abrió", async () => {
+    const pedidos = api([laura]);
+    await abrir();
+    fireEvent.click(boton("Corregir el presupuesto de Transporte"));
+    fireEvent.click(boton("Ahora no"));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(boton("Corregir el presupuesto de Transporte")).toHaveFocus();
+    fireEvent.click(boton("Quitar el presupuesto de Transporte"));
+    fireEvent.click(boton("Cerrar"));
+    expect(boton("Quitar el presupuesto de Transporte")).toHaveFocus();
+    expect(escrituras(pedidos)).toEqual([]);
+  });
+
+  it("«Quitar» pide confirmación; al confirmar borra el presupuesto, avisa y la fila vuelve a «Sin presupuesto»", async () => {
+    const sinTransporte = datos(laura.resumen, [
+      sinPresupuesto(4, 65000000),
+      sinPresupuesto(8, 4000000),
+    ]);
+    const pedidos = api([laura, sinTransporte], () => json(204));
+    await abrir();
+    fireEvent.click(boton("Quitar el presupuesto de Transporte"));
+    const h = hoja("¿Quitar el presupuesto de Transporte?");
+    expect(h).toHaveTextContent(
+      "Lo que gastaste no cambia. Puedes poner otro cuando quieras.",
+    );
+    expect(escrituras(pedidos)).toEqual([]);
+    fireEvent.click(
+      within(h).getByRole("button", { name: "Quitar presupuesto" }),
+    );
+    const estado = await screen.findByRole("status");
+    await waitFor(() =>
+      expect(estado).toHaveTextContent(
+        "Listo, quitamos tu presupuesto de Transporte.",
+      ),
+    );
+    expect(escrituras(pedidos)).toEqual([
+      { metodo: "DELETE", ruta: "/api/v1/presupuestos/p8", cuerpo: undefined },
+    ]);
+    await waitFor(() =>
+      expect(filasDeCategoria()).toContain(
+        "TransporteGastado $40.000 · Sin presupuestoPoner presupuesto",
+      ),
+    );
+  });
+
+  it("si no se pudo quitar, la hoja sigue con el aviso de error", async () => {
+    api([laura], () => json(500, { error: "error_interno" }));
+    await abrir();
+    fireEvent.click(boton("Quitar el presupuesto de Transporte"));
+    fireEvent.click(boton("Quitar presupuesto"));
+    const h = hoja("¿Quitar el presupuesto de Transporte?");
+    expect(
+      await within(h).findByText("No pudimos guardar el presupuesto."),
+    ).toBeInTheDocument();
+  });
+
+  it("«Agregar otra categoría» lista las de gasto que no están en «Por categoría» y abre «Poner presupuesto» con la elegida", async () => {
+    const pedidos = api([laura]);
+    await abrir();
+    const agregar = boton("Agregar otra categoría");
+    expect(agregar).toHaveClass("boton--secundario");
+    expect(agregar).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(agregar);
+    expect(agregar).toHaveAttribute("aria-expanded", "true");
+    const lista = screen.getByRole("list", { name: "Agregar otra categoría" });
+    expect(
+      within(lista)
+        .getAllByRole("button")
+        .map((b) => b.textContent),
+    ).toEqual(["Servicios públicos", "Otros gastos"]);
+    fireEvent.click(
+      within(lista).getByRole("button", { name: "Servicios públicos" }),
+    );
+    const h = hoja("Presupuesto de Servicios públicos");
+    fireEvent.change(within(h).getByLabelText("Monto para noviembre"), {
+      target: { value: "400.000" },
+    });
+    fireEvent.click(within(h).getByRole("button", { name: "Guardar" }));
+    await screen.findByRole("status");
+    expect(escrituras(pedidos)).toEqual([
+      {
+        metodo: "POST",
+        ruta: "/api/v1/presupuestos",
+        cuerpo: {
+          periodo: "2026-11",
+          categoria_id: 5,
+          monto_centavos: 40000000,
+        },
+      },
+    ]);
+  });
+
+  it("«Poner presupuesto» desde «Agregar otra categoría»: un 409 también cierra la hoja y avisa en la pantalla", async () => {
+    const pedidos = api([laura], () =>
+      json(409, { error: "presupuesto_compartido" }),
+    );
+    await abrir();
+    fireEvent.click(boton("Agregar otra categoría"));
+    fireEvent.click(boton("Servicios públicos"));
+    const h = hoja("Presupuesto de Servicios públicos");
+    fireEvent.change(within(h).getByLabelText("Monto para noviembre"), {
+      target: { value: "400.000" },
+    });
+    fireEvent.click(within(h).getByRole("button", { name: "Guardar" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(avisoEnLaPantalla()).toHaveFocus();
+    await waitFor(() => expect(lecturasDelPresupuesto(pedidos)).toBe(2));
+  });
+
+  it("un mes que no es el en curso (`editable` falso) no ofrece poner, corregir, quitar ni agregar", async () => {
+    api([{ ...laura, editable: false }]);
+    await abrir();
+    expect(screen.queryByText("Corregir")).toBeNull();
+    expect(screen.queryByText("Poner presupuesto")).toBeNull();
+    expect(screen.queryByText("Agregar otra categoría")).toBeNull();
+  });
+});
+
+// L17 de la US-77, punto 1: un 404 o un 409 dice que la hoja tenía datos viejos (el presupuesto ya no existe, el mes
+// cambió o la categoría tiene uno compartido). La hoja se cierra, la pantalla se vuelve a pedir y el aviso de E14 queda
+// en la pantalla, con el foco, como el de «Más» de la US-60. Repetir el intento exige volver a abrir la hoja.
+describe("Hoja con datos viejos: un 404 o un 409 al poner, corregir o quitar (L17 de la US-77, punto 1)", () => {
+  const acciones = {
+    poner: {
+      abridor: "Poner presupuesto a Arriendo o cuota de vivienda",
+      hoja: "Presupuesto de Arriendo o cuota de vivienda",
+      monto: "650.000",
+      confirmar: "Guardar",
+      pedido: { metodo: "POST", ruta: "/api/v1/presupuestos" },
+    },
+    corregir: {
+      abridor: "Corregir el presupuesto de Transporte",
+      hoja: "Corregir el presupuesto de Transporte",
+      monto: "45.000",
+      confirmar: "Guardar",
+      pedido: { metodo: "PUT", ruta: "/api/v1/presupuestos/p8" },
+    },
+    quitar: {
+      abridor: "Quitar el presupuesto de Transporte",
+      hoja: "¿Quitar el presupuesto de Transporte?",
+      monto: null,
+      confirmar: "Quitar presupuesto",
+      pedido: { metodo: "DELETE", ruta: "/api/v1/presupuestos/p8" },
+    },
+  };
+  const fallos = [
+    [404, "no_encontrado"],
+    [409, "periodo_no_editable"],
+    [409, "presupuesto_compartido"],
+  ] as const;
+
+  describe.each(Object.entries(acciones))("«%s»", (_accion, a) => {
+    it.each(fallos)(
+      "con %i %s: cierra la hoja, vuelve a pedir la pantalla y deja el aviso en la pantalla con el foco",
+      async (estado, codigo) => {
+        const pedidos = api([laura], () => json(estado, { error: codigo }));
+        await abrir();
+        fireEvent.click(boton(a.abridor));
+        if (a.monto) escribirMonto(a.monto);
+        fireEvent.click(
+          within(hoja(a.hoja)).getByRole("button", { name: a.confirmar }),
+        );
+        await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+        const aviso = avisoEnLaPantalla();
+        expect(aviso).toHaveTextContent(
+          "No pudimos guardar el presupuesto.Tus datos están a salvo. Intenta de nuevo.",
+        );
+        expect(aviso).toHaveFocus();
+        await waitFor(() => expect(lecturasDelPresupuesto(pedidos)).toBe(2));
+        expect(
+          escrituras(pedidos).map(({ metodo, ruta }) => ({ metodo, ruta })),
+        ).toEqual([a.pedido]);
+        // No fue un éxito: ningún «Listo, …» por la región viva.
+        expect(screen.queryByText(/^Listo,/)).toBeNull();
+      },
+    );
+  });
+
+  it("el aviso se va con la siguiente escritura", async () => {
+    let respuesta = json(404, { error: "no_encontrado" });
+    api([laura], () => respuesta);
+    await abrir();
+    fireEvent.click(boton("Quitar el presupuesto de Transporte"));
+    fireEvent.click(boton("Quitar presupuesto"));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    avisoEnLaPantalla();
+    respuesta = json(201, {});
+    fireEvent.click(boton("Poner presupuesto a Arriendo o cuota de vivienda"));
+    escribirMonto("650.000");
+    fireEvent.click(boton("Guardar"));
+    await screen.findByText(
+      "Listo, guardamos tu presupuesto de Arriendo o cuota de vivienda.",
+    );
+    expect(screen.queryByText("No pudimos guardar el presupuesto.")).toBeNull();
+  });
+
+  // Diciembre empezó entre abrir la hoja y «Guardar»: el API responde 409 y la pantalla vuelve con diciembre.
+  const diciembre = {
+    ...datos(
+      {
+        ...laura.resumen,
+        ingreso_registrado_centavos: 0,
+        asignado_centavos: 0,
+        sin_asignar_centavos: 0,
+        llega_despues_centavos: 0,
+      },
+      [sinPresupuesto(4, 0)],
+    ),
+    periodo_actual: "2026-12",
+    periodo: "2026-12",
+  };
+
+  it("si cambió el mes, la pantalla muestra el mes nuevo y nada se guarda en él hasta que la persona vuelva a poner", async () => {
+    let n = 0;
+    const pedidos = api([laura, diciembre], () =>
+      n++ === 0 ? json(409, { error: "periodo_no_editable" }) : json(201, {}),
+    );
+    await abrir();
+    fireEvent.click(boton("Poner presupuesto a Arriendo o cuota de vivienda"));
+    escribirMonto("650.000");
+    fireEvent.click(boton("Guardar"));
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Presupuesto de diciembre",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(avisoEnLaPantalla()).toBeInTheDocument();
+    expect(escrituras(pedidos)).toHaveLength(1);
+    // La persona vuelve a poner: ahora sí, en diciembre.
+    fireEvent.click(boton("Poner presupuesto a Arriendo o cuota de vivienda"));
+    expect(screen.getByLabelText("Monto para diciembre")).toHaveValue("");
+    escribirMonto("650.000", "diciembre");
+    fireEvent.click(boton("Guardar"));
+    await screen.findByText(
+      "Listo, guardamos tu presupuesto de Arriendo o cuota de vivienda.",
+    );
+    expect(escrituras(pedidos).map((p) => p.cuerpo)).toEqual([
+      { periodo: "2026-11", categoria_id: 4, monto_centavos: 65000000 },
+      { periodo: "2026-12", categoria_id: 4, monto_centavos: 65000000 },
+    ]);
+  });
+
+  it("una hoja abierta antes de que llegue el mes nuevo sigue con su mes: «Guardar» no pone nada en el mes nuevo", async () => {
+    let lecturas = 0;
+    let soltar: (r: Response) => void = () => undefined;
+    const pedidos = simularApi((p) => {
+      if (p.ruta === "/api/v1/categorias") return json(200, catalogo);
+      if (p.metodo === "GET") {
+        lecturas++;
+        if (lecturas === 1) return json(200, laura);
+        if (lecturas === 2) return new Promise<Response>((r) => (soltar = r));
+        return json(200, diciembre);
+      }
+      return json(409, { error: "periodo_no_editable" });
+    });
+    await abrir();
+    fireEvent.click(boton("Poner presupuesto a Arriendo o cuota de vivienda"));
+    escribirMonto("650.000");
+    fireEvent.click(boton("Guardar"));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    // Con la pantalla de noviembre todavía a la vista, la persona abre otra vez la hoja; después llega diciembre.
+    fireEvent.click(boton("Poner presupuesto a Arriendo o cuota de vivienda"));
+    soltar(json(200, diciembre));
+    await screen.findByRole("heading", {
+      level: 1,
+      name: "Presupuesto de diciembre",
+    });
+    const h = hoja("Presupuesto de Arriendo o cuota de vivienda");
+    expect(
+      within(h).getByLabelText("Monto para noviembre"),
+    ).toBeInTheDocument();
+    escribirMonto("650.000");
+    fireEvent.click(within(h).getByRole("button", { name: "Guardar" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(
+      escrituras(pedidos).map((p) => (p.cuerpo as { periodo: string }).periodo),
+    ).toEqual(["2026-11", "2026-11"]);
+  });
+
+  it("otro fallo (500 o sin conexión) deja la hoja abierta con el aviso dentro, sin volver a pedir la pantalla", async () => {
+    const pedidos = api([laura], () => json(500, { error: "error_interno" }));
+    await abrir();
+    fireEvent.click(boton("Corregir el presupuesto de Transporte"));
+    fireEvent.click(boton("Guardar"));
+    const h = hoja("Corregir el presupuesto de Transporte");
+    const aviso = (
+      await within(h).findByText("No pudimos guardar el presupuesto.")
+    ).closest(".aviso");
+    expect(aviso).toHaveFocus();
+    expect(lecturasDelPresupuesto(pedidos)).toBe(1);
+  });
+});

@@ -19,18 +19,43 @@ describe("NavegacionLateral (E14-SDD 5.13, bug 233)", () => {
     );
   });
 
-  it("solo lleva los destinos que ya existen: Movimientos, sin Inicio, Presupuesto ni Metas", () => {
+  it("solo lleva los destinos que ya existen, en el orden de 5.9: Movimientos y Presupuesto, sin Inicio ni Metas", () => {
     render(<NavegacionLateral />);
     expect(enlaces().map((e) => e.textContent)).toEqual([
       "Registrar",
       "Movimientos",
+      "Presupuesto",
     ]);
     expect(barra().getByRole("link", { name: "Movimientos" })).toHaveAttribute(
       "href",
       "/movimientos",
     );
-    for (const destino of ["Inicio", "Presupuesto", "Metas"])
+    expect(barra().getByRole("link", { name: "Presupuesto" })).toHaveAttribute(
+      "href",
+      "/presupuesto",
+    );
+    for (const destino of ["Inicio", "Metas"])
       expect(barra().queryByText(destino)).not.toBeInTheDocument();
+  });
+
+  // «Ícono/Presupuesto» de Penpot (E14-SDD 5.1; L18 de la US-77): caja de 24, trazo de 2 redondeado, un gráfico de torta.
+  it("«Presupuesto» lleva el ícono Presupuesto de Penpot, que no se lee", () => {
+    render(<NavegacionLateral />);
+    const icono = barra()
+      .getByRole("link", { name: "Presupuesto" })
+      .querySelector("svg");
+    expect(icono).toHaveAttribute("aria-hidden", "true");
+    expect(icono).toHaveAttribute("viewBox", "0 0 24 24");
+    expect(icono).toHaveAttribute("stroke-width", "2");
+    expect(icono).toHaveAttribute("stroke-linecap", "round");
+    expect(icono).toHaveAttribute("stroke-linejoin", "round");
+    const circulo = icono?.querySelector("circle");
+    expect(["cx", "cy", "r"].map((a) => circulo?.getAttribute(a))).toEqual([
+      "12",
+      "12",
+      "9",
+    ]);
+    expect(icono?.querySelector("path")).toHaveAttribute("d", "M12 3v9l8.5 3");
   });
 
   it("«Registrar» es Primario y pasa a Secundario donde la pantalla ya tiene su Primario", () => {
@@ -64,6 +89,16 @@ describe("NavegacionLateral (E14-SDD 5.13, bug 233)", () => {
       barra().getByRole("link", { name: "Movimientos" }),
     ).not.toHaveAttribute("aria-current");
 
+    rerender(<NavegacionLateral activo="presupuesto" />);
+    expect(barra().getByRole("link", { name: "Presupuesto" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    for (const nombre of ["Registrar", "Movimientos"])
+      expect(barra().getByRole("link", { name: nombre })).not.toHaveAttribute(
+        "aria-current",
+      );
+
     rerender(<NavegacionLateral />);
     for (const enlace of enlaces())
       expect(enlace).not.toHaveAttribute("aria-current");
@@ -73,6 +108,8 @@ describe("NavegacionLateral (E14-SDD 5.13, bug 233)", () => {
     render(<NavegacionLateral />);
     fireEvent.click(barra().getByRole("link", { name: "Movimientos" }));
     expect(window.location.pathname).toBe("/movimientos");
+    fireEvent.click(barra().getByRole("link", { name: "Presupuesto" }));
+    expect(window.location.pathname).toBe("/presupuesto");
     fireEvent.click(barra().getByRole("link", { name: "Registrar" }));
     expect(window.location.pathname).toBe("/registrar");
   });

@@ -27,6 +27,10 @@ const (
 	CuentaYAcceso        = "cuenta_y_acceso"
 	FuncionesFinancieras = "funciones_financieras"
 	CuentaDelMenor       = "cuenta_del_menor"
+	// TransmisionAEncargados es la aceptación expresa de que los datos se envíen a los encargados que los guardan y los
+	// procesan por cuenta del responsable (SC-E21-25, D-202; `0005_transmision_a_encargados.sql`). La da la persona
+	// adulta (PN-64), el tutor por el titular menor (PN-36) y la persona a los 18 años (PN-54).
+	TransmisionAEncargados = "transmision_a_encargados"
 )
 
 // Finalidades accesorias activas que PN-64 le ofrece a una persona adulta (D-139).
@@ -51,10 +55,11 @@ type Otorgamiento struct {
 // las otorga (E12 `ReglaDeFinalidades`, D-139). Es una regla sin estado y sin base de datos: quien la usa le entrega
 // los datos. Nada más del código debe repetir esta lista.
 //
-//   - Titular adulto: `cuenta_y_acceso` y `funciones_financieras`, otorgadas por él mismo (PN-64).
-//   - Titular menor: `cuenta_del_menor`, otorgada por su tutor (PN-36).
+//   - Titular adulto: `cuenta_y_acceso`, `funciones_financieras` y `transmision_a_encargados`, otorgadas por él mismo
+//     (PN-64).
+//   - Titular menor: `cuenta_del_menor` y `transmision_a_encargados`, otorgadas por su tutor (PN-36).
 //   - A los 18 años la persona pasa a `adulta` y vuelve a la lista de adulto, otorgada por ella (PN-54), sin
-//     `cuenta_del_menor`.
+//     `cuenta_del_menor`: lo que dio su tutor no cuenta, así que `transmision_a_encargados` la da ella.
 //
 // Las accesorias (`avisos`, `horas_de_vida`, `correo_del_menor`) y las inactivas (`transferencia`) no entran. La
 // prueba guardiana `TestElCatalogoNoTieneNecesariasSinClasificar` falla si el catálogo de la migración tiene una
@@ -62,8 +67,8 @@ type Otorgamiento struct {
 type ReglaDeFinalidades struct{}
 
 var (
-	necesariasDelAdulto = []FinalidadNecesaria{{CuentaYAcceso, LaPersona}, {FuncionesFinancieras, LaPersona}}
-	necesariasDelMenor  = []FinalidadNecesaria{{CuentaDelMenor, ElTutor}}
+	necesariasDelAdulto = []FinalidadNecesaria{{CuentaYAcceso, LaPersona}, {FuncionesFinancieras, LaPersona}, {TransmisionAEncargados, LaPersona}}
+	necesariasDelMenor  = []FinalidadNecesaria{{CuentaDelMenor, ElTutor}, {TransmisionAEncargados, ElTutor}}
 	// accesoriasDelAdulto son las que PN-64 ofrece. Quedan fuera `correo_del_menor` (es del menor, I11) y
 	// `transferencia` (inactiva, NM-06).
 	accesoriasDelAdulto = []string{Avisos, HorasDeVida}
@@ -106,16 +111,13 @@ func (ReglaDeFinalidades) Clasificada(codigo string) bool {
 	})
 }
 
-// Cumple dice si el titular tiene autorizadas, de la forma que la regla exige, todas las finalidades necesarias de su
-// etapa. vigentes son sus autorizaciones sin retirar y tutores los uuid de sus tutores actuales (vacío si es adulto).
-// Una etapa desconocida no cumple. Para cada finalidad hace falta una autorización vigente dada por quien la regla
-// dice: el propio titular, o uno de sus tutores.
-func (r ReglaDeFinalidades) Cumple(etapa Etapa, titular string, vigentes []Otorgamiento, tutores []string) bool {
-	necesarias := r.Necesarias(etapa)
-	if len(necesarias) == 0 || titular == "" {
-		return false
-	}
-	for _, f := range necesarias {
+// Faltantes devuelve los códigos de las finalidades necesarias de la etapa que el titular aún no tiene autorizadas de la
+// forma que la regla exige, en el orden de la regla (SC-E21-25, sección 5). vigentes son sus autorizaciones sin retirar y
+// tutores los uuid de sus tutores actuales (vacío si es adulto). Una finalidad vigente pero dada por quien la regla no
+// admite sigue faltando. Sin faltantes, o con una etapa desconocida, devuelve nada (ver Cumple para la etapa desconocida).
+func (r ReglaDeFinalidades) Faltantes(etapa Etapa, titular string, vigentes []Otorgamiento, tutores []string) []string {
+	var faltantes []string
+	for _, f := range r.Necesarias(etapa) {
 		dada := slices.ContainsFunc(vigentes, func(o Otorgamiento) bool {
 			if o.Finalidad != f.Codigo {
 				return false
@@ -126,8 +128,17 @@ func (r ReglaDeFinalidades) Cumple(etapa Etapa, titular string, vigentes []Otorg
 			return slices.Contains(tutores, o.OtorganteID)
 		})
 		if !dada {
-			return false
+			faltantes = append(faltantes, f.Codigo)
 		}
 	}
-	return true
+	return faltantes
+}
+
+// Cumple dice si el titular tiene autorizadas, de la forma que la regla exige, todas las finalidades necesarias de su
+// etapa: no le falta ninguna (Faltantes). Una etapa desconocida, o sin titular, no cumple.
+func (r ReglaDeFinalidades) Cumple(etapa Etapa, titular string, vigentes []Otorgamiento, tutores []string) bool {
+	if len(r.Necesarias(etapa)) == 0 || titular == "" {
+		return false
+	}
+	return len(r.Faltantes(etapa, titular, vigentes, tutores)) == 0
 }

@@ -34,19 +34,23 @@ jobs:
       - script: tofu fmt -check -recursive infra
         displayName: El formato de OpenTofu es correcto
 
+      # `tofu test` hace solo plan, con proveedores simulados (tests/*.tftest.hcl): comprueba los nombres, los
+      # tamaños y el dominio de correo de cada ambiente (uat y produccion) sin credenciales ni Azure (US-79).
       - script: |
           set -eu
           tofu init -backend=false -input=false
           tofu validate
+          tofu test
         workingDirectory: infra/bootstrap
-        displayName: infra/bootstrap es válido
+        displayName: infra/bootstrap es válido y sus pruebas pasan
 
       - script: |
           set -eu
           tofu init -backend=false -input=false
           tofu validate
-        workingDirectory: infra/produccion
-        displayName: infra/produccion es válido
+          tofu test
+        workingDirectory: infra/azure
+        displayName: infra/azure es válido y sus pruebas pasan
 
       - script: docker compose -f infra/local/compose.yaml --env-file infra/local/.env.example config --quiet
         displayName: El compose local es válido

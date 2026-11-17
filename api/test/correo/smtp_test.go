@@ -87,9 +87,10 @@ func TestMensajeDeVerificacion(t *testing.T) {
 	}
 	for _, fragmento := range []string{
 		"https://app.ejemplo.test/verificar?t=tok-en_123",
-		// E14-PCP 4.2 quater, palabra por palabra (D-176; la duración, D-192, aprobada por el dueño el 2026-11-06).
+		// E14-PCP 4.2 quater, palabra por palabra (D-176; la duración, D-192, aprobada por el dueño el 2026-11-06; la última
+		// frase cambió con el ítem 294, D-203: el dueño la dictó el 2026-11-13).
 		"Hola,\r\n\r\nPediste crear una cuenta en Alcanzamos con este correo. Para confirmarlo y elegir tu contraseña, abre este enlace. Sirve durante 24 horas y una sola vez:\r\n\r\n",
-		"Si no lo pediste, ignora este mensaje: no se crea ninguna cuenta.\r\n",
+		"Si no lo pediste, ignora este mensaje: si nadie elige la contraseña, en 7 días borramos la cuenta y esta dirección de correo.\r\n",
 		"Este mensaje sale de una dirección que no recibe respuestas.\r\n",
 	} {
 		if !strings.Contains(cuerpo, fragmento) {
@@ -364,22 +365,32 @@ func TestFalsoGuardaYFalla(t *testing.T) {
 	if e := f.Enviados(); len(e) != 3 || e[2] != (correotest.Envio{Destino: "g@h.test", Token: "r", Recuperacion: true}) {
 		t.Fatalf("enviados: %+v", e)
 	}
+	if err := f.EnviarAvisoDePurga(context.Background(), "i@j.test", momentoDelBorradoDePrueba); err != nil {
+		t.Fatal(err)
+	}
+	if e := f.Enviados(); len(e) != 4 || e[3] != (correotest.Envio{Destino: "i@j.test", AvisoDePurga: true, BorradoEn: momentoDelBorradoDePrueba}) {
+		t.Fatalf("enviados: %+v", e)
+	}
 	f.Error = errors.New("caído")
-	if err := f.EnviarVerificacion(context.Background(), "c@d.test", "u"); err == nil || len(f.Enviados()) != 3 {
+	if err := f.EnviarAvisoDePurga(context.Background(), "c@d.test", momentoDelBorradoDePrueba); err == nil || len(f.Enviados()) != 4 {
+		t.Fatal("el aviso de purga con Error tampoco guarda")
+	}
+	if err := f.EnviarVerificacion(context.Background(), "c@d.test", "u"); err == nil || len(f.Enviados()) != 4 {
 		t.Fatal("con Error no debe guardar y debe devolverlo")
 	}
-	if err := f.EnviarAvisoDeCorreoRegistrado(context.Background(), "c@d.test"); err == nil || len(f.Enviados()) != 3 {
+	if err := f.EnviarAvisoDeCorreoRegistrado(context.Background(), "c@d.test"); err == nil || len(f.Enviados()) != 4 {
 		t.Fatal("el aviso con Error tampoco guarda")
 	}
-	if err := f.EnviarRecuperacion(context.Background(), "c@d.test", "u"); err == nil || len(f.Enviados()) != 3 {
+	if err := f.EnviarRecuperacion(context.Background(), "c@d.test", "u"); err == nil || len(f.Enviados()) != 4 {
 		t.Fatal("la recuperación con Error tampoco guarda")
 	}
 }
 
 // Los textos de los correos no pasan por diseno/textos/es.json: esta prueba es lo único que los cuida. Compara el asunto
-// y el cuerpo completo, con el pie, palabra por palabra contra E14-PCP: 4.2 quater (verificación; D-176 y D-192),
-// 4.2 bis (aviso de correo ya registrado; D-192) y 4.4 bis (recuperación del acceso; D-143).
-func TestLosTresCorreosSonPalabraPorPalabraLosDeE14(t *testing.T) {
+// y el cuerpo completo, con el pie, palabra por palabra contra E14-PCP: 4.2 quater (verificación; D-176, D-192 y D-203),
+// 4.2 bis (aviso de correo ya registrado; D-192), el aviso de antes de la purga (ítem 294; D-203) y 4.4 bis
+// (recuperación del acceso; D-143).
+func TestLosCuatroCorreosSonPalabraPorPalabraLosDeE14(t *testing.T) {
 	const pie = "Si tienes dudas sobre tus datos, escribe a privacidad@ejemplo.test.\r\n"
 	casos := []struct {
 		nombre, asunto, cuerpo string
@@ -389,7 +400,7 @@ func TestLosTresCorreosSonPalabraPorPalabraLosDeE14(t *testing.T) {
 			"Hola,\r\n\r\n" +
 				"Pediste crear una cuenta en Alcanzamos con este correo. Para confirmarlo y elegir tu contraseña, abre este enlace. Sirve durante 24 horas y una sola vez:\r\n\r\n" +
 				"https://app.ejemplo.test/verificar?t=tok-en_123\r\n\r\n" +
-				"Si no lo pediste, ignora este mensaje: no se crea ninguna cuenta.\r\n\r\n" +
+				"Si no lo pediste, ignora este mensaje: si nadie elige la contraseña, en 7 días borramos la cuenta y esta dirección de correo.\r\n\r\n" +
 				"--\r\n" +
 				"Este mensaje sale de una dirección que no recibe respuestas.\r\n" + pie,
 			func(s *correo.SMTP) error {
@@ -404,6 +415,16 @@ func TestLosTresCorreosSonPalabraPorPalabraLosDeE14(t *testing.T) {
 				"--\r\n" + pie,
 			func(s *correo.SMTP) error {
 				return s.EnviarAvisoDeCorreoRegistrado(context.Background(), "laura@ejemplo.test")
+			}},
+		{"aviso de antes de la purga (ítem 294)", "Tu cuenta de Alcanzamos se borra en 2 días",
+			"Hola,\r\n\r\n" +
+				"Confirmaste tu correo en Alcanzamos, pero todavía no autorizaste el uso de tus datos. Sin esa autorización no podemos guardar tu cuenta. Si no autorizas, la borramos el 18 de noviembre de 2026, a las 9:30 a. m., con todo lo que tenga.\r\n\r\n" +
+				"Para autorizar, entra a Alcanzamos con tu correo y tu contraseña, en la app o aquí: https://app.ejemplo.test/entrar\r\n\r\n" +
+				"Si ya no quieres la cuenta, no tienes que hacer nada.\r\n\r\n" +
+				"--\r\n" +
+				"Este mensaje sale de una dirección que no recibe respuestas.\r\n" + pie,
+			func(s *correo.SMTP) error {
+				return s.EnviarAvisoDePurga(context.Background(), "laura@ejemplo.test", momentoDelBorradoDePrueba)
 			}},
 		{"recuperación (4.4 bis)", "Recupera el acceso a tu cuenta de Alcanzamos",
 			"Hola,\r\n\r\n" +
@@ -427,5 +448,97 @@ func TestLosTresCorreosSonPalabraPorPalabraLosDeE14(t *testing.T) {
 				t.Errorf("cuerpo:\n%q\nse esperaba:\n%q", cuerpo, c.cuerpo)
 			}
 		})
+	}
+}
+
+// 18 de noviembre de 2026, 14:30 UTC = 9:30 a. m. en Colombia.
+var momentoDelBorradoDePrueba = time.Date(2026, time.November, 18, 14, 30, 0, 0, time.UTC)
+
+// El aviso de antes de la purga (ítem 294, S5): el asunto y el cuerpo del dueño, palabra por palabra; la fecha es el momento
+// del borrado en palabras y en hora de Colombia (D-090); el enlace es URL_PUBLICA + /entrar; y después va el pie de siempre.
+func TestMensajeDelAvisoDePurga(t *testing.T) {
+	crudo := mensajeEnviado(t, func(s *correo.SMTP) error {
+		return s.EnviarAvisoDePurga(context.Background(), "laura@ejemplo.test", momentoDelBorradoDePrueba)
+	})
+	enc, cuerpo := leerMensaje(t, crudo)
+	asunto, err := new(mime.WordDecoder).DecodeHeader(enc.Get("Subject"))
+	if err != nil || asunto != "Tu cuenta de Alcanzamos se borra en 2 días" {
+		t.Fatalf("asunto %q (%v)", asunto, err)
+	}
+	if enc.Get("From") != "no-responder@avisos.ejemplo.test" || enc.Get("To") != "laura@ejemplo.test" {
+		t.Fatalf("encabezados: %v", enc)
+	}
+	esperado := "Hola,\r\n\r\n" +
+		"Confirmaste tu correo en Alcanzamos, pero todavía no autorizaste el uso de tus datos. Sin esa autorización no podemos guardar tu cuenta. Si no autorizas, la borramos el 18 de noviembre de 2026, a las 9:30 a. m., con todo lo que tenga.\r\n\r\n" +
+		"Para autorizar, entra a Alcanzamos con tu correo y tu contraseña, en la app o aquí: https://app.ejemplo.test/entrar\r\n\r\n" +
+		"Si ya no quieres la cuenta, no tienes que hacer nada.\r\n\r\n" +
+		"--\r\n" +
+		"Este mensaje sale de una dirección que no recibe respuestas.\r\n" +
+		"Si tienes dudas sobre tus datos, escribe a privacidad@ejemplo.test.\r\n"
+	if cuerpo != esperado {
+		t.Fatalf("cuerpo:\n%q\nse esperaba:\n%q", cuerpo, esperado)
+	}
+	if strings.Contains(cuerpo, "?t=") {
+		t.Error("el aviso no lleva ningún token: se entra con el correo y la contraseña")
+	}
+}
+
+// La fecha del aviso sale del momento que se le pasa, no de la hora del reloj del correo: el Date del mensaje sigue siendo
+// el del reloj (22 de octubre) y el cuerpo dice el 18 de noviembre.
+func TestElAvisoDePurgaDiceLaFechaDelBorradoNoLaDeHoy(t *testing.T) {
+	crudo := mensajeEnviado(t, func(s *correo.SMTP) error {
+		return s.EnviarAvisoDePurga(context.Background(), "laura@ejemplo.test", time.Date(2026, time.December, 1, 2, 45, 0, 0, time.UTC))
+	})
+	enc, cuerpo := leerMensaje(t, crudo)
+	if enc.Get("Date") != "Thu, 22 Oct 2026 15:00:00 +0000" {
+		t.Errorf("Date %q", enc.Get("Date"))
+	}
+	if !strings.Contains(cuerpo, "la borramos el 30 de noviembre de 2026, a las 9:45 p. m., con todo lo que tenga.") {
+		t.Errorf("la fecha debe ser la de Colombia (30 de noviembre, 9:45 p. m.):\n%s", cuerpo)
+	}
+}
+
+func TestEnviarAvisoDePurgaPorSMTP(t *testing.T) {
+	dir, salida := servidorSMTP(t, false)
+	s := correo.NuevoSMTP(configDePrueba(dir), relojDePrueba())
+	if err := s.EnviarAvisoDePurga(context.Background(), "laura@ejemplo.test", momentoDelBorradoDePrueba); err != nil {
+		t.Fatal(err)
+	}
+	rec := <-salida
+	if rec.remitente != "no-responder@avisos.ejemplo.test" || rec.destinatario != "laura@ejemplo.test" {
+		t.Fatalf("sobre inesperado: %+v", rec)
+	}
+	if err := s.EnviarAvisoDePurga(context.Background(), "no es un correo", momentoDelBorradoDePrueba); err == nil {
+		t.Fatal("un destino inválido debe fallar")
+	}
+}
+
+// Un servidor que acepta la conexión y no dice nada: con un contexto corto, el envío falla en ese plazo y no antes de
+// tiempo (S4: la tarea manda el aviso con las filas bloqueadas y no puede quedarse esperando).
+func TestEnviarAvisoDePurgaConUnServidorQueNoResponde(t *testing.T) {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { l.Close() })
+	go func() {
+		for {
+			c, err := l.Accept()
+			if err != nil {
+				return
+			}
+			t.Cleanup(func() { c.Close() })
+		}
+	}()
+	s := correo.NuevoSMTP(configDePrueba(l.Addr().String()), relojDePrueba())
+	ctx, cancelar := context.WithTimeout(context.Background(), 300*time.Millisecond)
+	defer cancelar()
+	inicio := time.Now()
+	err = s.EnviarAvisoDePurga(ctx, "laura@ejemplo.test", momentoDelBorradoDePrueba)
+	if err == nil {
+		t.Fatal("se esperaba un error")
+	}
+	if tardo := time.Since(inicio); tardo > 3*time.Second {
+		t.Errorf("el envío tardó %v con un plazo de 300 ms", tardo)
 	}
 }

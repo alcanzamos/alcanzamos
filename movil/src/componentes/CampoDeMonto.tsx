@@ -14,15 +14,20 @@ import { CampoDeTexto } from './CampoDeTexto';
 // - Con TalkBack activo, el campo muestra el número sin puntos también fuera de la edición: el foco de TalkBack no es
 //   el de edición, y un campo lleno que no se está editando diría «15, cero cero cero».
 // `valor` es el texto que guarda quien lo usa; `leerMonto` acepta las dos formas, así que los centavos no cambian.
+// `etiqueta` y `nombreAccesible` cambian el rótulo y el nombre de otro campo de monto («Monto para noviembre» de PN-06).
 export function CampoDeMonto({
   valor,
   alCambiar,
   error,
+  etiqueta = textos.registro.monto.etiqueta,
+  nombreAccesible = textos.registro.monto.nombreAccesible,
   ref,
 }: {
   valor: string;
   alCambiar: (valor: string) => void;
   error?: string;
+  etiqueta?: string;
+  nombreAccesible?: string;
   ref?: Ref<TextInputInstance>;
 }) {
   const [editando, setEditando] = useState(false);
@@ -30,9 +35,9 @@ export function CampoDeMonto({
   return (
     <CampoDeTexto
       ref={ref}
-      etiqueta={textos.registro.monto.etiqueta}
+      etiqueta={etiqueta}
       // El nombre que lee TalkBack lleva la moneda (dueño, 2026-11-08); el rótulo visible sigue siendo «Monto».
-      nombreAccesible={textos.registro.monto.nombreAccesible}
+      nombreAccesible={nombreAccesible}
       teclado="decimal-pad"
       cifra
       prefijo={SIMBOLO_DE_PESOS}

@@ -43,6 +43,19 @@ describe("PN-60 · Iniciar sesión", () => {
     ).not.toBeInTheDocument();
   });
 
+  // E14-PCP 4.3, fila 9 (CU-66): el enlace a la política está siempre visible, antes de crear una cuenta.
+  it("«Política de tratamiento y consultas» abre PN-68 desde PN-60, sin sesión", () => {
+    render(<Entrar />);
+    const enlace = screen.getByRole("link", {
+      name: "Política de tratamiento y consultas",
+    });
+    expect(enlace).toHaveAttribute("href", "/politica?desde=%2Fentrar");
+    expect(enlace).toHaveClass("boton--texto");
+    fireEvent.click(enlace);
+    expect(window.location.pathname).toBe("/politica");
+    expect(window.location.search).toBe("?desde=%2Fentrar");
+  });
+
   it("una cuenta activa manda el correo como identificador y va a la seguridad de la cuenta", async () => {
     const pedidos = simularApi(() => json(200, { estado: "activa" }));
     render(<Entrar />);

@@ -27,7 +27,7 @@ func tieneIngresoAnterior(t *testing.T, pool *pgxpool.Pool) bool {
 // 0003 (D-134): la columna existe tras subir y desaparece al bajar solo esa migración, sin tocar el resto.
 func TestMigracion0003AgregaYQuitaIngresoAnterior(t *testing.T) {
 	ctx := context.Background()
-	pool := pgtest.Nueva(t) // ya aplicó las tres migraciones
+	pool := pgtest.Nueva(t) // ya aplicó todas las migraciones
 	if !tieneIngresoAnterior(t, pool) {
 		t.Fatal("tras subir, credencial debe tener ingreso_anterior")
 	}
@@ -41,7 +41,12 @@ func TestMigracion0003AgregaYQuitaIngresoAnterior(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r, err := p.Down(ctx) // revierte solo la última
+	for _, despues := range []string{"0006_aviso_de_purga.sql", "0005_transmision_a_encargados.sql", "0004_presupuesto_en_cero.sql"} { // las que van después
+		if r, err := p.Down(ctx); err != nil || r.Source.Path != despues {
+			t.Fatalf("Down: %+v, %v; se esperaba %s", r, err, despues)
+		}
+	}
+	r, err := p.Down(ctx) // revierte solo la 0003
 	if err != nil || r.Source.Path != "0003_ingreso_anterior.sql" {
 		t.Fatalf("Down: %+v, %v", r, err)
 	}
@@ -54,5 +59,8 @@ func TestMigracion0003AgregaYQuitaIngresoAnterior(t *testing.T) {
 	}
 	if _, err := p.UpByOne(ctx); err != nil || !tieneIngresoAnterior(t, pool) {
 		t.Fatalf("volver a subir: %v", err)
+	}
+	if _, err := p.Up(ctx); err != nil {
+		t.Fatalf("subir las que siguen: %v", err)
 	}
 }

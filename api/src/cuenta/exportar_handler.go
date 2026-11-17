@@ -20,9 +20,10 @@ func NuevoHandlerDeExportacion(s *Exportador, log *slog.Logger) *HandlerDeExport
 	return &HandlerDeExportacion{servicio: s, log: log}
 }
 
-// Registrar añade la ruta.
+// Registrar añade la ruta. Es `sin_autorizacion` (SC-E21-25, criterio 3): quien no ha aceptado lo nuevo puede descargar sus
+// datos antes de decidir si borra la cuenta (RF-032, hoja de «No autorizo»).
 func (h *HandlerDeExportacion) Registrar(e *servidor.Enrutador) {
-	e.Registrar(seguridad.RequiereAutorizacion, "GET /api/v1/cuenta/datos", http.HandlerFunc(h.descargar))
+	e.Registrar(seguridad.SinAutorizacion, "GET /api/v1/cuenta/datos", http.HandlerFunc(h.descargar))
 }
 
 // descargar atiende GET /api/v1/cuenta/datos: «Descargar mis datos» de PN-69 (RF-032, D-102). Entrega el ZIP de la

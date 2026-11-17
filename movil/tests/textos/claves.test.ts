@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import ts from 'typescript';
 import { hojasDe, hojasDeLaPlataforma } from '../../../diseno/generar-textos.mjs';
-import { analizar, archivosDe, comparar } from '../../../diseno/textos/usos.mjs';
+import { analizar, archivosDe, comparar, RESERVADOS } from '../../../diseno/textos/usos.mjs';
 
 // S2 (D-160, E17-ECO 4.13, paso 51): `diseno/textos/es.json` es la única fuente de los textos de Android. Esta prueba
 // reemplaza a la de paridad con `movil/src/textos.ts`:
@@ -16,6 +16,7 @@ const raiz = path.resolve(__dirname, '../..');
 const json = JSON.parse(fs.readFileSync(path.join(raiz, '../diseno/textos/es.json'), 'utf8')) as Record<string, object>;
 const generado = path.join(raiz, 'src/textos/es.generated.ts');
 const hojas = hojasDeLaPlataforma(json, 'android').map(([ruta]) => ruta);
+const reservadas = hojas.filter((h) => RESERVADOS.some((r) => r.every((p, i) => h[i] === p)));
 const archivos = archivosDe(path.join(raiz, 'src')).filter((archivo) => archivo !== generado);
 const analisis = archivos.map((archivo) =>
   analizar(ts, path.relative(raiz, archivo), fs.readFileSync(archivo, 'utf8'), hojas),
@@ -46,7 +47,17 @@ describe('claves de textos usadas en movil/src (S2)', () => {
       hojas,
     );
     expect(comparar(hojas, usos).noExisten).toEqual(['avisos.noExiste.titulo']);
-    expect(comparar(hojas, usos).sinUso.length).toBe(hojas.length);
+    // Todo es «sin uso» salvo los grupos reservados de una pantalla futura.
+    expect(comparar(hojas, usos).sinUso.length).toBe(hojas.length - reservadas.length);
+  });
+
+  // Los textos de PN-36 (`solo_android.crearCuentaDelMenor`, aprobados el 2026-11-11) esperan a su pantalla de I11 y no
+  // cuentan como «sin uso» (S2 de la US-67); sus claves siguen existiendo.
+  it('los grupos reservados de una pantalla futura no cuentan como sin uso, pero sus claves siguen existiendo', () => {
+    expect(reservadas.length).toBeGreaterThan(0);
+    expect(reservadas.every((h) => h[0] === 'crearCuentaDelMenor')).toBe(true);
+    expect(comparar(hojas, []).sinUso).not.toContain('crearCuentaDelMenor.dondeGuardamos.titulo');
+    expect(comparar(hojas, [['crearCuentaDelMenor', 'noExiste']]).noExisten).toEqual(['crearCuentaDelMenor.noExiste']);
   });
 });
 

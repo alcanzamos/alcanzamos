@@ -564,6 +564,34 @@ export const textos = {
     autorizar: "Autorizar y continuar",
     // E14-PCP 4.7 (PN-64), fila 12
     noAutorizo: "No autorizo",
+    dondeGuardamos: {
+      // Aprobado por el dueño (2026-11-11, D-202): SC-E21-25 3.6, texto de PN-64 (E14-PCP 4.7; tarjeta «Dónde guardamos tus datos», entre la nota de lo necesario, fila 5, y «Lo que puedes elegir», fila 6). PN-54 usa el mismo texto (SC-E21-25 3.7, E14-PME)
+      titulo: "Dónde guardamos tus datos",
+      // Aprobado por el dueño (2026-11-11, D-202): SC-E21-25 3.6, texto de PN-64 (E14-PCP 4.7; explicación de la tarjeta «Dónde guardamos tus datos»; solo Azure, Azure Communication Services y Zoho: los avisos con la app cerrada no van en esta tarjeta). PN-54 usa el mismo texto (SC-E21-25 3.7)
+      explicacion: "Para que la app funcione, tus datos se guardan y se procesan en la nube de otras empresas, que los tratan por cuenta de Alcanzamos y solo para lo que les pedimos: Microsoft Azure, en México, guarda tu cuenta y lo que registras; Azure Communication Services, en Francia, envía los correos de la app; y Zoho Mail, en Estados Unidos, recibe lo que escribes a privacidad@alcanzamos.co. Los detalles están en la política.",
+      // Aprobado por el dueño (2026-11-11, D-202): SC-E21-25 3.6, texto de PN-64 (E14-PCP 4.7; casilla de la tarjeta «Dónde guardamos tus datos», sin marcar; finalidad `transmision_a_encargados`, necesaria). PN-54 usa el mismo texto (SC-E21-25 3.7)
+      casilla: "Acepto que mis datos se envíen a estos servicios en México, Francia y Estados Unidos para guardarlos y procesarlos como se explica arriba.",
+      // Aprobado por el dueño (2026-11-11, D-202): SC-E21-25 3.6, texto de PN-64 (E14-PCP 4.7; nota de la tarjeta «Dónde guardamos tus datos»). PN-54 usa el mismo texto (SC-E21-25 3.7)
+      nota: "Sin esta aceptación no podemos darte la cuenta, porque la app guarda tus datos en esos servicios.",
+      // Aprobado por el dueño (2026-11-12): E14-PCP 4.7, nota de la tarjeta «Dónde guardamos tus datos» en PN-64 en el modo «falta una aceptación» (la cuenta ya existe); en el modo completo va la nota de siempre (`nota`)
+      notaFaltaUnaAceptacion: "Sin esta aceptación no puedes seguir usando la app, porque guarda tus datos en esos servicios.",
+      // Aprobado por el dueño (2026-11-11, D-202): SC-E21-25 3.6, texto de PN-64 (E14-PCP 4.7; error bajo la casilla de la tarjeta «Dónde guardamos tus datos», con «Autorizar y continuar» sin marcarla; SC-E21-25 3.8, criterio 1). PN-54 usa el mismo texto (SC-E21-25 3.7)
+      error: "Falta que aceptes dónde guardamos tus datos.",
+    },
+    // Aprobado por el dueño (2026-11-11, D-202): SC-E21-25 3.6, «La frase de los avisos con la app cerrada». Va bajo la casilla opcional «Autorizo los avisos con la app cerrada.» de PN-64 (fila 7, antes de «Horas de vida») y, con el mismo texto, en PN-54 (fila 8 de E14-PME), en PN-67 (fila 4) y en la viñeta de los avisos de PN-68 (fila 5 b, SC-E21-25 sección 4)
+    fraseDeAvisos: "Si activas los avisos con la app cerrada, el código de tu teléfono o de tu navegador y un aviso que solo dice «Tienes un aviso en Alcanzamos.» pasan por el servicio de notificaciones de Google (Firebase Cloud Messaging) en Android, o por el de la empresa que hace tu navegador en la web. Esas empresas no dicen en qué país los procesan.",
+    hojaNoAutorizo: {
+      // E14-PME 4.11 (PN-54), estado «No autorizo» (D-102, D-103); SC-E21-25 sección 5, paso 3: la cuenta a la que le falta una aceptación usa la misma hoja
+      titulo: "¿No autorizas?",
+      // E14-PME 4.11 (PN-54), estado «No autorizo» (D-102, D-103); SC-E21-25 sección 5, paso 3
+      explicacion: "Si no autorizas, borramos tu cuenta y tu historial.",
+      // E14-PME 4.11 (PN-54), estado «No autorizo» (D-102, D-103); SC-E21-25 sección 5, paso 3
+      antesDescarga: "Antes puedes descargar tus datos.",
+      // E14-PME 4.11 (PN-54), estado «No autorizo» (Primario de la hoja); SC-E21-25 sección 5, paso 3
+      volver: "Volver y decidir",
+      // E14-PME 4.11 (PN-54), estado «No autorizo»: «sin la contraseña muestra…» (D-103); SC-E21-25 sección 5, paso 3
+      errorContrasena: "Falta tu contraseña para borrar la cuenta.",
+    },
   },
   finalidades: {
     cuenta_y_acceso: {
@@ -749,8 +777,8 @@ export const textos = {
     cuadro: {
       // E14-PPN 3.1, fila 3
       etiqueta: "Escribe el gasto o el ingreso",
-      // E14-PPN 3.1, fila 3
-      ayuda: "Por ejemplo: mercado 45 mil ayer.",
+      // E14-PPN 3.1, fila 3, con «Un movimiento a la vez.» antes del ejemplo (nota provisional de D-196, versión 1.14)
+      ayuda: "Un movimiento a la vez. Por ejemplo: mercado 45 mil ayer.",
       // E14-PPN 3.1, fila 4 (NM-12)
       privacidad: "No escribas datos de salud, religión ni de otras personas.",
       // E14-PPN 3.1, fila 5
@@ -992,6 +1020,262 @@ export const textos = {
     ayuda: "Un archivo ZIP con tus movimientos, metas, deudas y presupuestos en CSV. Solo trae lo tuyo.",
     // E14-PCP 4.12 (PN-69), estado «Descargando»
     preparando: "Preparando tu archivo…",
+  },
+  presupuesto: {
+    // E14-SDD 5.9 (destino «Presupuesto» de la navegación); E14-PPA 4.1 (PN-06), fila 8; entrada provisional en PN-71 (L3 de la US-77, punto 3)
+    destino: "Presupuesto",
+    // E14-PPA 4.1 (PN-06), fila 2: «Presupuesto de noviembre» (plantilla sacada del ejemplo); E14-PPA 4.2 (PN-07), fila 2
+    titulo: "Presupuesto de {mes}",
+    resumen: {
+      // E14-PPA 4.1 (PN-06), fila 3; E14-PPA 4.2 (PN-07), fila 3
+      titulo: "Tu presupuesto este mes",
+      // E14-PPA 4.1 (PN-06), fila 3: «Ingreso registrado $1.200.000»; E14-PPA 4.2 (PN-07), fila 3
+      ingresoRegistrado: "Ingreso registrado",
+      // E14-PPA 4.1 (PN-06), fila 3: «Asignado $40.000»; E14-PPA 4.2 (PN-07), fila 3
+      asignado: "Asignado",
+      // E14-PPA 4.1 (PN-06), fila 3: cifra grande «Sin asignar $1.160.000»
+      sinAsignar: "Sin asignar",
+      // E14-PPA 4.1 (PN-06), fila 3: «Llega después: $1.200.000 (esperado)» (D-094); E14-PPA 4.2 (PN-07), reglas
+      llegaDespues: "Llega después: {monto} (esperado)",
+      // Aprobado por el dueño (L14 de la US-77, punto 4, 2026-11-11): E14-PPA 4.1 (PN-06), fila 3, nota fechada del 2026-11-11, «Llega después» separa lo esperado de lo por confirmar; línea aparte, solo si lo por confirmar es mayor que cero; también en PN-07
+      porConfirmar: "Por confirmar: {monto}",
+      // E14-PPA 4.1 (PN-06), fila 3, texto `tipografia.pequeno` (primera frase)
+      cuentaLoRegistrado: "Sin asignar cuenta lo que ya registraste.",
+      // Propuesto en la US-77 (T3, web) y aprobado por el dueño (L14 de la US-77, punto 3, 2026-11-11): E14 no tiene el texto. Sale de E14-PPA 4.1 (PN-06), fila 3 («El salario del 16 de noviembre de 2026 se suma cuando llegue.»), con el nombre de la categoría tal cual; solo con una fecha esperada
+      seSumaCuandoLlegue: "{nombre} del {fecha} se suma cuando llegue.",
+      // Aprobado por el dueño (L14 de la US-77, punto 4, 2026-11-11): E14-PPA 4.1 (PN-06), fila 3, nota fechada del 2026-11-11; solo con una fecha por confirmar
+      seSumaCuandoLoConfirmes: "{nombre} del {fecha} se suma cuando lo confirmes.",
+      // E14-PPA 4.1 (PN-06), fila 3 (abre PN-08); E14-PPA 3 (PN-07 → PN-08)
+      verMisIngresos: "Ver mis ingresos",
+      // E14-PPA 4.2 (PN-07), fila 3, con ingreso nulo
+      nulo: "Puedes repartir lo que llegue o dejar el presupuesto en cero.",
+      // E14-PPA 4.2 (PN-07), fila 3, con ingreso bajo: «Lo asignado supera por $10.000 lo que registraste…»
+      bajo: "Lo asignado supera por {monto} lo que registraste. Se actualiza cuando registres más ingresos.",
+      // E14-PPA 4.2 (PN-07), fila 3b
+      dejarEnCero: "Dejar el presupuesto en cero",
+    },
+    // E14-PPA 4.3 (PN-08), fila 5; E14-PPA 4.2 (PN-07), fila 3a (abren el formulario con Tipo «Ingreso»)
+    registrarUnIngreso: "Registrar un ingreso",
+    categorias: {
+      // E14-PPA 4.1 (PN-06), fila 4
+      titulo: "Por categoría",
+      // E14-PPA 4.1 (PN-06), estado «Sin presupuestos»
+      sinPresupuestos: "Todavía no tienes presupuesto este mes.",
+      // E14-PPA 4.1 (PN-06), estado «Sin presupuestos»
+      elige: "Elige una categoría y pon cuánto quieres gastar en ella.",
+      // E14-PPA 4.2 (PN-07), fila 4, con ingreso nulo
+      sinGastos: "Todavía no hay gastos este mes.",
+      // E14-PPA 4.1 (PN-06), «Cómo se arma cada fila»: «Presupuesto $40.000 · Gastado $40.000»
+      conPresupuesto: "Presupuesto {presupuesto} · Gastado {gastado}",
+      // E14-PPA 4.1 (PN-06), «Cómo se arma cada fila»: «Gastado $650.000 · Sin presupuesto»
+      sinPresupuesto: "Gastado {gastado} · Sin presupuesto",
+      // E14-PPA 4.1 (PN-06), «Estado de una categoría con presupuesto»: «Quedan $180.000 por gastar.»
+      quedan: "Quedan {monto} por gastar.",
+      // E14-PPA 4.1 (PN-06), «Estado de una categoría con presupuesto»
+      usadoTodo: "Ya usaste todo lo presupuestado.",
+      // E14-PPA 4.1 (PN-06), «Estado de una categoría con presupuesto»: «Gastado $120.000 de $100.000 presupuestados.»
+      superado: "Gastado {gastado} de {presupuesto} presupuestados.",
+      // E14-PPA 4.1 (PN-06), «Cómo se arma cada fila», Acción sin presupuesto
+      poner: "Poner presupuesto",
+      // E14-PPA 4.1 (PN-06), «Cómo se arma cada fila», Acción con presupuesto (D-094)
+      corregir: "Corregir",
+      // E14-PPA 4.1 (PN-06), «Cómo se arma cada fila», Acción con presupuesto (D-094)
+      quitar: "Quitar",
+      // Propuesto en la US-77 (T3, web) y aprobado por el dueño (L17 de la US-77, 2026-11-11): E14 no tiene el texto. E14-PPA 4.1 (PN-06) pide el nombre de la categoría en el nombre accesible de «Poner presupuesto» (RNF-019, criterio 6)
+      nombreDePoner: "Poner presupuesto a {categoria}",
+      // Propuesto en la US-77 (T3, web) y aprobado por el dueño (L17 de la US-77, 2026-11-11): E14 no tiene el texto. E14-PPA 4.1 (PN-06) pide el nombre de la categoría en el nombre accesible de «Quitar» (SC-E21-13); sale del título de la hoja «¿Quitar el presupuesto de Transporte?»
+      nombreDeQuitar: "Quitar el presupuesto de {categoria}",
+      // E14-PPA 4.1 (PN-06), fila 5 (abre «Ver todas» de E14-PPN 3.1)
+      agregarOtra: "Agregar otra categoría",
+    },
+    hoja: {
+      // E14-PPA 4.1 (PN-06), hoja «Poner presupuesto», fila 1: «Presupuesto de Servicios públicos»
+      titulo: "Presupuesto de {categoria}",
+      // E14-PPA 4.1 (PN-06), «Corregir y quitar»: «Corregir el presupuesto de Transporte»; también es el nombre accesible de «Corregir»
+      tituloCorregir: "Corregir el presupuesto de {categoria}",
+      // E14-PPA 4.1 (PN-06), hoja «Poner presupuesto», fila 2: «Monto para noviembre»
+      monto: "Monto para {mes}",
+      // E14-PPA 4.1 (PN-06), hoja «Poner presupuesto», fila 5
+      guardar: "Guardar",
+    },
+    quitar: {
+      // E14-PPA 4.1 (PN-06), «Corregir y quitar»: «¿Quitar el presupuesto de Transporte?»
+      titulo: "¿Quitar el presupuesto de {categoria}?",
+      // E14-PPA 4.1 (PN-06), «Corregir y quitar»
+      explicacion: "Lo que gastaste no cambia. Puedes poner otro cuando quieras.",
+      // E14-PPA 4.1 (PN-06), «Corregir y quitar», Botón · Primario
+      confirmar: "Quitar presupuesto",
+    },
+    avisos: {
+      // E14-PPA 4.1 (PN-06), «Corregir y quitar» y reglas: «Listo, guardamos tu presupuesto de Servicios públicos.»
+      guardamos: "Listo, guardamos tu presupuesto de {categoria}.",
+      // E14-PPA 4.1 (PN-06), «Corregir y quitar»: «Listo, quitamos tu presupuesto de Transporte.»
+      quitamos: "Listo, quitamos tu presupuesto de {categoria}.",
+      // E14-PPA 4.2 (PN-07), reglas y estado «En cero»
+      enCero: "Listo, tu presupuesto de {mes} queda en cero. Cuando llegue un ingreso, puedes repartirlo.",
+      errorAlGuardar: {
+        // E14-PPA 4.1 (PN-06), estado «Error de guardado»
+        titulo: "No pudimos guardar el presupuesto.",
+        // E14-PPA 4.1 (PN-06), estado «Error de guardado»
+        mensaje: "Tus datos están a salvo. Intenta de nuevo.",
+      },
+      errorAlCargar: {
+        // E14-PPA 4.1 (PN-06), estado «Error de carga»; E14-PPA 4.2 (PN-07)
+        titulo: "No pudimos cargar tu presupuesto.",
+        // E14-PPA 4.1 (PN-06), estado «Error de carga»; E14-PPA 4.2 (PN-07)
+        mensaje: "Tus datos están a salvo. Intenta de nuevo.",
+      },
+    },
+  },
+  ingresos: {
+    // E14-PPA 4.3 (PN-08), fila 1 (barra)
+    titulo: "Ingresos",
+    total: {
+      // E14-PPA 4.3 (PN-08), fila 3
+      entran: "Entran este mes",
+      // E14-PPA 4.3 (PN-08), «Con varias fuentes»: el periodo ya terminó
+      entraron: "Entraron este mes",
+      // E14-PPA 4.3 (PN-08), fila 3: «Ya registrado $1.200.000»
+      yaRegistrado: "Ya registrado",
+      // E14-PPA 4.3 (PN-08), fila 3: «Esperado $1.200.000»
+      esperado: "Esperado",
+    },
+    marca: {
+      // E14-PPA 4.3 (PN-08), «Cómo se arma cada fila», Marca
+      registrado: "Registrado",
+      // E14-PPA 4.3 (PN-08), «Cómo se arma cada fila», Marca (D-091)
+      esperado: "Esperado",
+    },
+    // E14-PPA 4.3 (PN-08), «Cómo se arma cada fila», Texto de apoyo: el medio de pago y, si hay, la descripción
+    apoyoConDescripcion: "{medio} · {descripcion}",
+    vacio: {
+      // E14-PPA 4.3 (PN-08), estado «Sin ingresos en el periodo»
+      titulo: "Todavía no registras ingresos este mes.",
+      // E14-PPA 4.3 (PN-08), estado «Sin ingresos en el periodo»
+      mensaje: "Cuando registres uno, aquí lo verás.",
+    },
+    avisos: {
+      errorAlCargar: {
+        // E14-PPA 4.3 (PN-08), estado «Error de carga»
+        titulo: "No pudimos cargar tus ingresos.",
+        // E14-PPA 4.3 (PN-08), estado «Error de carga»
+        mensaje: "Tus datos están a salvo. Intenta de nuevo.",
+      },
+    },
+  },
+  politica: {
+    // E14-PCP 4.11 (PN-68), fila 1 (título de la barra superior)
+    titulo: "Política de tratamiento",
+    // E14-PCP 4.11 (PN-68), fila 2 («Versión 1.0 del 30 de octubre de 2026.»): la versión y la fecha son datos de la política, hoy 1.1 del 12 de noviembre de 2026 (SC-E21-25 3.1, RF-063); la fecha va en palabras (D-090)
+    version: "Versión {numero} del {fecha}.",
+    responsable: {
+      // E14-PCP 4.11 (PN-68), fila 3
+      titulo: "Quién responde por tus datos",
+      // Aprobado por el dueño (2026-11-12), decidido en D-200 (2) a partir de la respuesta 8 del abogado: va bajo el título de «Quién responde por tus datos», antes de las dos frases de E14-PCP 4.11 (PN-68), fila 3
+      proyecto: "Alcanzamos, proyecto de Andrés Jiménez.",
+      // E14-PCP 4.11 (PN-68), fila 3
+      nombre: "Andrés Jiménez, dueño de Alcanzamos.",
+      // E14-PCP 4.11 (PN-68), fila 3
+      correo: "Correo: privacidad@alcanzamos.co.",
+    },
+    finalidades: {
+      // E14-PCP 4.11 (PN-68), fila 4
+      titulo: "Para qué usamos tus datos",
+      // E14-PCP 4.11 (PN-68), fila 4: las finalidades de E14-PCP 5, separadas en «Necesarias» y «Opcionales»
+      necesarias: "Necesarias",
+      // E14-PCP 4.11 (PN-68), fila 4: las finalidades de E14-PCP 5, separadas en «Necesarias» y «Opcionales»
+      opcionales: "Opcionales",
+      cuenta_del_menor: {
+        // E14-PCP 5 (PN-36, se lista en PN-68, fila 4)
+        nombre: "Cuenta de un menor",
+        // E14-PCP 5 (PN-36, se lista en PN-68, fila 4); redacción sin suponer género (D-126), confirmada por el abogado (respuesta 10)
+        descripcion: "Usamos los datos de la cuenta de un niño, niña o adolescente a tu cargo para que pueda usar la app con tu acompañamiento. Tú respondes por esa cuenta porque tienes su tutoría.",
+      },
+      correo_del_menor: {
+        // E14-PCP 5 (pantalla del menor, se lista en PN-68, fila 4)
+        nombre: "Correo del menor",
+        // E14-PCP 5 (pantalla del menor, se lista en PN-68, fila 4)
+        descripcion: "Si tienes menos de 18 años y estás por cumplirlos, puedes dar un correo, con permiso de tu tutor. Lo usamos solo para que puedas entrar con él cuando cumplas 18.",
+      },
+      // Aprobado por el dueño (2026-11-10, D-200, primera respuesta; D-202): la frase de la política general de PN-68 que suma la US-67. E14 no dice en qué tarjeta va; aquí cierra «Para qué usamos tus datos» (fila 4)
+      sinVenta: "No vendemos tus datos ni los usamos para mostrarte publicidad de terceros.",
+    },
+    derechos: {
+      // E14-PCP 4.11 (PN-68), fila 5
+      titulo: "Tus derechos",
+      // E14-PCP 4.11 (PN-68), texto de «Tus derechos» (fila 5); borrador aprobado por el abogado (respuesta 6 de la revisión jurídica de I06) y por el dueño (D-200 (2))
+      intro: "Puedes:",
+      items: {
+        // E14-PCP 4.11 (PN-68), texto de «Tus derechos» (fila 5); borrador aprobado por el abogado (respuesta 6 de la revisión jurídica de I06) y por el dueño (D-200 (2))
+        conocer: "conocer qué datos tuyos tenemos y para qué los usamos;",
+        // E14-PCP 4.11 (PN-68), texto de «Tus derechos» (fila 5); borrador aprobado por el abogado (respuesta 6 de la revisión jurídica de I06) y por el dueño (D-200 (2))
+        corregir: "corregir o actualizar tus datos;",
+        // E14-PCP 4.11 (PN-68), texto de «Tus derechos» (fila 5); borrador aprobado por el abogado (respuesta 6 de la revisión jurídica de I06) y por el dueño (D-200 (2))
+        borrar: "pedir que borremos tus datos;",
+        // E14-PCP 4.11 (PN-68), texto de «Tus derechos» (fila 5); borrador aprobado por el abogado (respuesta 6 de la revisión jurídica de I06) y por el dueño (D-200 (2))
+        retirar: "retirar tu autorización cuando quieras;",
+        // E14-PCP 4.11 (PN-68), texto de «Tus derechos» (fila 5); borrador aprobado por el abogado (respuesta 6 de la revisión jurídica de I06) y por el dueño (D-200 (2))
+        prueba: "pedir la prueba de tu autorización: la versión del texto y la fecha;",
+        // E14-PCP 4.11 (PN-68), texto de «Tus derechos» (fila 5); borrador aprobado por el abogado (respuesta 6 de la revisión jurídica de I06) y por el dueño (D-200 (2))
+        queja: "presentar una queja ante la Superintendencia de Industria y Comercio.",
+      },
+    },
+    dondeGuardamos: {
+      // E14-PCP 4.11 (PN-68), fila 5 b (D-126); revisado por el abogado: países y transmisión a encargados (respuestas 5 y 8 de la revisión jurídica de I06, D-200)
+      titulo: "Dónde guardamos tus datos",
+      items: {
+        // E14-PCP 4.11 (PN-68), texto de «Dónde guardamos tus datos» (fila 5 b, D-126); países y encargados confirmados por el abogado (respuestas 5 y 8, D-200)
+        azure: "Tus datos se guardan en Microsoft Azure, en México.",
+        // E14-PCP 4.11 (PN-68), texto de «Dónde guardamos tus datos» (fila 5 b, D-126); países y encargados confirmados por el abogado (respuestas 5 y 8, D-200)
+        correo: "El correo que te enviamos (verificar tu cuenta, recuperar el acceso, avisos a quien tiene una tutoría) sale por Azure Communication Services, que guarda sus datos en Francia.",
+        // E14-PCP 4.11 (PN-68), texto de «Dónde guardamos tus datos» (fila 5 b, D-126); países y encargados confirmados por el abogado (respuestas 5 y 8, D-200)
+        zoho: "Lo que escribes a privacidad@alcanzamos.co queda en Zoho Mail, en Estados Unidos.",
+        // E14-PCP 4.11 (PN-68), texto de «Dónde guardamos tus datos» (fila 5 b, D-126; en E14 «encargadas» va en negrita); encargados confirmados por el abogado (respuesta 8, D-200)
+        encargadas: "Estas empresas son encargadas: tratan los datos por cuenta de Alcanzamos, que es el responsable, y solo para lo que les pedimos.",
+      },
+    },
+    consultas: {
+      // E14-PCP 4.11 (PN-68), fila 6
+      titulo: "Cómo hacer una consulta o un reclamo",
+      // E14-PCP 4.11 (PN-68), texto de «Cómo hacer una consulta o un reclamo» (fila 6); borrador aprobado por el abogado (respuesta 6 de la revisión jurídica de I06) y por el dueño (D-200 (2))
+      intro: "Escribe al correo privacidad@alcanzamos.co. En tu mensaje, cuéntanos:",
+      datos: {
+        // E14-PCP 4.11 (PN-68), texto de «Cómo hacer una consulta o un reclamo» (fila 6); borrador aprobado por el abogado (respuesta 6 de la revisión jurídica de I06) y por el dueño (D-200 (2))
+        nombre: "tu nombre y el correo de tu cuenta;",
+        // E14-PCP 4.11 (PN-68), texto de «Cómo hacer una consulta o un reclamo» (fila 6); borrador aprobado por el abogado (respuesta 6 de la revisión jurídica de I06) y por el dueño (D-200 (2))
+        tipo: "si es una consulta o un reclamo;",
+        // E14-PCP 4.11 (PN-68), texto de «Cómo hacer una consulta o un reclamo» (fila 6); borrador aprobado por el abogado (respuesta 6 de la revisión jurídica de I06) y por el dueño (D-200 (2))
+        que: "qué quieres saber o qué quieres corregir.",
+      },
+      // E14-PCP 4.11 (PN-68), texto de «Cómo hacer una consulta o un reclamo» (fila 6); borrador aprobado por el abogado (respuesta 6 de la revisión jurídica de I06) y por el dueño (D-200 (2))
+      menor: "Si escribes por un menor a tu cargo, dinos su nombre. Si no tienes cuenta y quieres que quitemos tu nombre de una deuda que otra persona registró, escribe al mismo correo.",
+      tiempos: {
+        // E14-PCP 4.11 (PN-68), texto de «Cómo hacer una consulta o un reclamo» (fila 6; en E14 va en negrita); borrador aprobado por el abogado (respuesta 6 de la revisión jurídica de I06) y por el dueño (D-200 (2))
+        titulo: "Cuánto tardamos.",
+        // E14-PCP 4.11 (PN-68), texto de «Cómo hacer una consulta o un reclamo» (fila 6); borrador aprobado por el abogado (respuesta 6 de la revisión jurídica de I06) y por el dueño (D-200 (2))
+        consulta: "Una consulta: máximo 10 días hábiles desde que la recibimos. Si necesitamos más tiempo, te contamos el motivo y la nueva fecha. Serían máximo 5 días hábiles más.",
+        // E14-PCP 4.11 (PN-68), texto de «Cómo hacer una consulta o un reclamo» (fila 6); borrador aprobado por el abogado (respuesta 6 de la revisión jurídica de I06) y por el dueño (D-200 (2))
+        reclamo: "Un reclamo: máximo 15 días hábiles desde el día siguiente a que lo recibimos. Si necesitamos más tiempo, te contamos el motivo y la nueva fecha. Serían máximo 8 días hábiles más.",
+        // E14-PCP 4.11 (PN-68), texto de «Cómo hacer una consulta o un reclamo» (fila 6) y nota del 2026-10-22 (D-126); frase aprobada por el abogado (respuesta 9) y por el dueño (D-200 (2))
+        incompleto: "Si tu reclamo llega incompleto, te lo decimos en los 5 días siguientes para que lo completes. Si pasan 2 meses sin que lo completes, entendemos que ya no lo necesitas.",
+      },
+      // Aprobado por el dueño (2026-11-12, D-200 (2)): va al final de «Cómo hacer una consulta o un reclamo», E14-PCP 4.11 (PN-68), fila 6
+      adolescentes: "Si tienes entre 12 y 17 años, puedes escribirnos tú o pedirle a quien te acompaña que escriba por ti.",
+    },
+    escribir: {
+      // E14-PCP 4.11 (PN-68), fila 7 (abre el correo del dispositivo con la dirección escrita)
+      boton: "Escribir al correo",
+      // E14-PCP 4.11 (PN-68), fila 7 y nota «El correo es privacidad@alcanzamos.co» (D-113): la dirección a la que abre el botón «Escribir al correo»; es la misma de las filas 3, 5 b y 6
+      direccion: "privacidad@alcanzamos.co",
+    },
+    entradas: {
+      // E14-PCP 4.6 (PN-63), fila 10 (abre PN-68); E14-PCP 4.7 (PN-64), fila 10 (abre PN-68 con la misma versión); E14-PME 4.11 (PN-54), fila 10
+      leerCompleta: "Leer la política completa",
+      // E14-PCP 4.1 (PN-58), fila 7 (abre PN-68)
+      deTratamientoDeDatos: "Política de tratamiento de datos",
+      // E14-PCP 4.3 (PN-60), fila 9 (abre PN-68); E14-PCP 4.14 (PN-71) y 4.16 T2 ter, entrada provisional (bug 260, D-195)
+      yConsultas: "Política de tratamiento y consultas",
+    },
   },
   recuperar: {
     // E14-PCP 4.5 (PN-62)

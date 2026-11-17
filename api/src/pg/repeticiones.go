@@ -22,7 +22,12 @@ func (m *Movimientos) Recurrentes(ctx context.Context, persona string) ([]regist
 		return nil, fmt.Errorf("abrir la lectura: %w", err)
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck // solo lectura
+	return recurrentesEn(ctx, tx, persona)
+}
 
+// recurrentesEn lee las repeticiones de la persona dentro de `tx`: la usan Recurrentes y las lecturas del presupuesto,
+// para que lo registrado y lo pendiente salgan de la misma foto de la base.
+func recurrentesEn(ctx context.Context, tx pgx.Tx, persona string) ([]registro.Recurrente, error) {
 	lista, err := filasDe(ctx, tx, "las repeticiones", func(f pgx.CollectableRow) (registro.Recurrente, error) {
 		var (
 			r        registro.Recurrente

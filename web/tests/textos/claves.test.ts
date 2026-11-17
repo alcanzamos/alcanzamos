@@ -127,6 +127,20 @@ describe("el análisis de usos", () => {
     expect(entero.problemas[0]).toMatch(/sin acceso por punto/);
   });
 
+  // Los textos de PN-36 (aprobados el 2026-11-11) esperan a su pantalla de I11 y no cuentan como «sin uso».
+  it("los grupos reservados de una pantalla futura no cuentan como sin uso, pero sus claves siguen existiendo", () => {
+    const reservadas = [
+      ["crearCuentaDelMenor", "dondeGuardamos", "titulo"],
+      ["crearCuentaDelMenor", "avisos"],
+    ];
+    expect(comparar([...hojas, ...reservadas], []).sinUso).toEqual(
+      hojas.map((h) => h.join(".")),
+    );
+    expect(
+      comparar(hojas, [["crearCuentaDelMenor", "noExiste"]]).noExisten,
+    ).toEqual(["crearCuentaDelMenor.noExiste"]);
+  });
+
   it("ignora un archivo que no importa textos", () => {
     expect(
       analizar("z.ts", "const textos = { a: 1 }; textos.a;", hojas).usos,

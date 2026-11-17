@@ -57,7 +57,7 @@ Un solo origen: la web y el API comparten dominio, sin CORS. No hay dominio fijo
 
 ## Configuración
 
-Ningún dominio ni dirección va fija en el código (D-129). `config.Cargar` lee estas variables y, si falta alguna o no es válida, devuelve un error que las nombra todas. El comando `api` la exige al arrancar; `migrar` y `tareas` no la necesitan.
+Ningún dominio ni dirección va fija en el código (D-129). `config.Cargar` lee estas variables y, si falta alguna o no es válida, devuelve un error que las nombra todas. Los comandos `api` y `tareas` la exigen al arrancar (`tareas` manda el aviso antes de la purga, ítem 294, D-203: el trabajo programado necesita las mismas cuatro variables del correo que el API; sin ellas no corre ninguna tarea y termina con código 1); `migrar` no la necesita.
 
 | Variable | Qué es | Ejemplo local (Mailpit de `infra/local`) |
 |---|---|---|
@@ -77,8 +77,8 @@ Toda ruta de `/api/` se registra con `Enrutador.Registrar(nivel, patron, manejad
 | Nivel | Qué exige | Rutas |
 |---|---|---|
 | `publica` | nada | pedir la verificación del correo (crear la cuenta), reenviar el correo, completar la cuenta con el enlace (PN-74), iniciar sesión y recuperar el acceso (pedir el enlace y elegir la contraseña con él) |
-| `sin_autorizacion` | cuenta con el correo **verificado**, aunque no haya autorizado lo necesario | cerrar sesión y las acciones de PN-64: ver las finalidades, autorizar y «No autorizo» ([Autorización](#autorización-us-50)) |
-| `requiere_autorizacion` | cuenta verificada y con las finalidades necesarias de su etapa **autorizadas** (`ReglaDeFinalidades`) | el ingreso anterior de PN-71, el cambio de contraseña de PN-73, las categorías, guardar, consultar, corregir y borrar movimientos ([Registro](#registro-de-movimientos-us-51) y [Movimientos](#movimientos-lista-detalle-corregir-y-borrar-us-52)) y todo lo demás |
+| `sin_autorizacion` | cuenta con el correo **verificado**, aunque no haya autorizado lo necesario | cerrar sesión, las acciones de PN-64 (ver las finalidades, autorizar y «No autorizo», [Autorización](#autorización-us-50)) y, para la hoja de «No autorizo» de la cuenta a la que le falta una aceptación nueva, descargar los datos y borrar la cuenta con la contraseña ([Cuentas de antes del cambio](#cuentas-de-antes-del-cambio-modo-falta-una-aceptación-us-67), SC-E21-25 criterio 3) |
+| `requiere_autorizacion` | cuenta verificada y con las finalidades necesarias de su etapa **autorizadas** (`ReglaDeFinalidades`) | el ingreso anterior de PN-71, el cambio de contraseña de PN-73, las categorías, guardar, consultar, corregir y borrar movimientos ([Registro](#registro-de-movimientos-us-51) y [Movimientos](#movimientos-lista-detalle-corregir-y-borrar-us-52)), el presupuesto y los ingresos del periodo ([Presupuesto](#presupuesto-del-periodo-us-77-srcpresupuesto)) y todo lo demás |
 
 | Sujeto → | sin sesión | con sesión y sin correo verificado (solo un menor, hasta I11) | verificada sin autorizar | autorizada |
 |---|---|---|---|---|
@@ -93,15 +93,15 @@ Toda ruta de `/api/` se registra con `Enrutador.Registrar(nivel, patron, manejad
 
 ### Finalidades necesarias por etapa del titular (`cuenta.ReglaDeFinalidades`, D-139)
 
-`0002_catalogo.sql` tiene tres finalidades necesarias y activas, pero a cada persona solo le tocan algunas. La regla está en un solo lugar (`src/cuenta/finalidades.go`) y según la etapa del **titular** (de quién son los datos; `autorizacion` separa `titular_id` de `otorgante_id`):
+`0002_catalogo.sql` y `0005_transmision_a_encargados.sql` tienen cuatro finalidades necesarias y activas, pero a cada persona solo le tocan algunas. La regla está en un solo lugar (`src/cuenta/finalidades.go`) y según la etapa del **titular** (de quién son los datos; `autorizacion` separa `titular_id` de `otorgante_id`):
 
 | Etapa del titular | Finalidades necesarias | Quién las otorga |
 |---|---|---|
-| adulta | `cuenta_y_acceso`, `funciones_financieras` | el titular mismo (`otorgante_id = titular_id`, PN-64) |
-| menor | `cuenta_del_menor` | su tutor (PN-36) |
-| a los 18 años (pasa a `adulta`) | la lista de adulto | la persona (PN-54), sin `cuenta_del_menor` |
+| adulta | `cuenta_y_acceso`, `funciones_financieras`, `transmision_a_encargados` | el titular mismo (`otorgante_id = titular_id`, PN-64) |
+| menor | `cuenta_del_menor`, `transmision_a_encargados` | su tutor (PN-36) |
+| a los 18 años (pasa a `adulta`) | la lista de adulto | la persona (PN-54), sin `cuenta_del_menor`; lo que dio su tutor no cuenta, así que `transmision_a_encargados` la da ella |
 
-Las accesorias (`avisos`, `horas_de_vida`, `correo_del_menor`) y `transferencia` (inactiva) no entran. `Cumple(etapa, titular, vigentes, tutores)` dice si se cumple; una etapa desconocida no cumple. **Prueba guardiana** (`TestElCatalogoNoTieneNecesariasSinClasificar`): lee las finalidades del INSERT de `0002_catalogo.sql` (la migración embebida, la misma que se aplica a la base) y falla si hay una necesaria y activa que la regla no clasifica; la prueba inversa falla si la regla exige un código que el catálogo no tiene como necesario y activo.
+`transmision_a_encargados` (SC-E21-25, D-202) es la aceptación expresa de que los datos se envíen a los encargados que los guardan y los procesan por cuenta del responsable (Azure en México, Azure Communication Services en Francia, Zoho Mail en Estados Unidos); es necesaria, no accesoria. Las accesorias (`avisos`, `horas_de_vida`, `correo_del_menor`) y `transferencia` (inactiva) no entran. `Cumple(etapa, titular, vigentes, tutores)` dice si se cumple y `Faltantes(etapa, titular, vigentes, tutores)` cuáles faltan, en el orden de la regla; una etapa desconocida no cumple. **Prueba guardiana** (`TestElCatalogoNoTieneNecesariasSinClasificar`): lee las finalidades de los INSERT de las migraciones embebidas (`0002` y `0005`, las mismas que se aplican a la base) y falla si hay una necesaria y activa que la regla no clasifica; la prueba inversa falla si la regla exige un código que el catálogo no tiene como necesario y activo.
 
 ## Seguridad (`src/seguridad`, US-49)
 
@@ -151,7 +151,7 @@ Una prueba por regla en `test/seguridad/contrasena_test.go`. Las reglas miran la
 
 ### Correo (`src/correo`)
 
-SMTP de la biblioteca estándar; texto plano en español. Los dos correos de la cuenta (el de verificación, E14-PCP 4.2 quater, y el aviso de que alguien intentó crear una cuenta con el correo, 4.2 bis) terminan **exactamente** con «Si tienes dudas sobre tus datos, escribe a <CORREO_PRIVACIDAD>.» (D-143); una prueba compara el texto en los dos. El puerto `Correo` tiene un `Falso` para las pruebas. Nunca se registra el token, la dirección ni el cuerpo. Tampoco el texto que responde el servidor SMTP, que suele repetir la dirección (A-15): de un error con código queda solo el código, uno de la red o de la conexión cerrada se conserva y cualquier otro (por ejemplo una línea sin código) se reemplaza por «respuesta del servidor no válida». Una prueba con un servidor de mentira recorre esos casos y busca la dirección en cada línea del registro.
+SMTP de la biblioteca estándar; texto plano en español. Los correos de la cuenta (el de verificación, E14-PCP 4.2 quater; el aviso de que alguien intentó crear una cuenta con el correo, 4.2 bis; la recuperación del acceso, y el aviso antes de la purga, D-203) terminan **exactamente** con «Si tienes dudas sobre tus datos, escribe a <CORREO_PRIVACIDAD>.» (D-143); una prueba compara el texto en todos. **El correo de verificación cambió su última frase** (el texto de E14-PCP 4.2 quater que aprobó D-176 decía «…no se crea ninguna cuenta.», lo que no era cierto: la cuenta pendiente ya existe y se borra a los 7 días): ahora dice «Si no lo pediste, ignora este mensaje: si nadie elige la contraseña, en 7 días borramos la cuenta y esta dirección de correo.» (D-203). **El aviso antes de la purga** (`EnviarAvisoDePurga`) lleva el asunto «Tu cuenta de Alcanzamos se borra en 2 días» y el cuerpo que dictó el dueño, palabra por palabra, con el pie de siempre; ver «Tareas programadas». `TestLosCuatroCorreosSonPalabraPorPalabraLosDeE14` compara asunto y cuerpo completos de los cuatro. El puerto `Correo` tiene un `Falso` para las pruebas. Nunca se registra el token, la dirección ni el cuerpo. Tampoco el texto que responde el servidor SMTP, que suele repetir la dirección (A-15): de un error con código queda solo el código, uno de la red o de la conexión cerrada se conserva y cualquier otro (por ejemplo una línea sin código) se reemplaza por «respuesta del servidor no válida». Una prueba con un servidor de mentira recorre esos casos y busca la dirección en cada línea del registro.
 
 ## Cuenta (US-49, US-61)
 
@@ -207,9 +207,11 @@ Crear una cuenta **verifica primero** (D-172, D-174, D-192; US-61): PN-58 pide s
 
 | Ruta | Nivel | Qué hace |
 |---|---|---|
-| `GET /api/v1/cuenta/borrado` | `requiere_autorizacion` | Lo que PN-69 dice del hogar (fila 4) y de los menores (filas 5 y 6): `{"hogar": null \| {nombre, es_administradora, unica_adulta, nuevo_administrador}, "menores": [{"id", "nombre"}]}`. No cambia nada |
-| `GET /api/v1/cuenta/datos` | `requiere_autorizacion` | «Descargar mis datos» (RF-032, D-102, D-180): un ZIP armado al pedirlo, `Content-Type: application/zip`, `Content-Disposition: attachment; filename="alcanzamos-mis-datos.zip"`, `Cache-Control: no-store`. No guarda copia ni registra su contenido. `401` si la cuenta ya no existe |
-| `POST /api/v1/cuenta/borrado` | `requiere_autorizacion` | Borra la cuenta. Cuerpo `{contrasena, confirma_menores, menores}` |
+| `GET /api/v1/cuenta/borrado` | `sin_autorizacion` | Lo que PN-69 dice del hogar (fila 4) y de los menores (filas 5 y 6): `{"hogar": null \| {nombre, es_administradora, unica_adulta, nuevo_administrador}, "menores": [{"id", "nombre"}]}`. No cambia nada |
+| `GET /api/v1/cuenta/datos` | `sin_autorizacion` | «Descargar mis datos» (RF-032, D-102, D-180): un ZIP armado al pedirlo, `Content-Type: application/zip`, `Content-Disposition: attachment; filename="alcanzamos-mis-datos.zip"`, `Cache-Control: no-store`. No guarda copia ni registra su contenido. `401` si la cuenta ya no existe |
+| `POST /api/v1/cuenta/borrado` | `sin_autorizacion` | Borra la cuenta. Cuerpo `{contrasena, confirma_menores, menores}` |
+
+**Las tres son `sin_autorizacion` desde la US-67 (SC-E21-25, criterio 3):** la cuenta a la que le falta una aceptación nueva (por ejemplo `transmision_a_encargados`) decide en la hoja de «No autorizo» de PN-54: descarga sus datos y borra la cuenta con la contraseña, sin tener que aceptar antes. No hay riesgo de un borrado sin querer: el borrado pide la contraseña y cuenta los fallos en el límite de D-136, igual que antes. El resto de las rutas sigue cerrado: toda otra ruta responde `403 autorizacion_pendiente`.
 
 E12 no nombra la ruta (`CuentaServicio.BorrarCuenta(s, contrasena, confirmaMenores)`); es POST, como `POST /api/v1/cuenta/contrasena`, porque lleva la contraseña en el cuerpo y así cae en la defensa de E17-ECO 3.15 cuando llegue (hoy ninguna ruta la tiene: bug #214 de I06).
 
@@ -223,10 +225,11 @@ E12 no nombra la ruta (`CuentaServicio.BorrarCuenta(s, contrasena, confirmaMenor
   2. Si administra el hogar y queda otra persona adulta, el papel pasa a la de `miembro_hogar.desde` más antigua (RN-007). Si era la única adulta, el hogar se disuelve: todo lo de ese `hogar_id` se borra con ella.
   3. Se borra lo **propio** (`hogar_id` nulo) de `movimiento`, `movimiento_recurrente`, `meta`, `presupuesto` y `deuda`. Hay que hacerlo antes: el `SET NULL` de `persona_id` dejaría la fila sin dueño y violaría `ck_*_persona_o_hogar`. Lo compartido de un hogar que sigue queda en el hogar con `persona_id` nulo (D-053).
   4. `autorizacion` no tiene llave a la persona: sus filas quedan retiradas y con `conservar_hasta` a 3 años (E13 §7, provisional).
-  5. `DELETE FROM persona` y el `CASCADE` se lleva perfiles, credencial, **todas las sesiones** y tokens de dispositivo, enlaces, avisos, pertenencia al hogar, tutorías y propuestas pendientes.
-- **Descargar mis datos.** Cuatro CSV en UTF-8 con marca de orden de bytes (para que Excel lea las tildes), la primera fila con los nombres de las columnas, montos en pesos con dos decimales y punto (`45000.00`; en la base van en centavos) y fechas `AAAA-MM-DD`. Sin ningún id. Solo la librería estándar (`archive/zip`, `encoding/csv`).
+  5. `DELETE FROM persona` y el `CASCADE` se lleva perfiles, credencial, **todas las sesiones** y tokens de dispositivo, enlaces, avisos, pertenencia al hogar, tutorías y propuestas pendientes, y con el perfil de adulta lo que cuelga de él sin hogar, como las marcas de `presupuesto_en_cero` (`0004`; `TestBorrarSinHogarNoDejaNadaDeLaPersonaYNoTocaAOtra` las siembra y comprueba que no queda ninguna de la persona y que las de otra siguen).
+- **Descargar mis datos.** Cuatro CSV en UTF-8 con marca de orden de bytes (para que Excel lea las tildes), la primera fila con los nombres de las columnas, montos en pesos con dos decimales y punto (`45000.00`; en la base van en centavos), fechas `AAAA-MM-DD` y meses `AAAA-MM`. Sin ningún id. Solo la librería estándar (`archive/zip`, `encoding/csv`).
   - `movimientos.csv`: `fecha, tipo, monto_en_pesos, categoria, medio_de_pago, descripcion, meta, sentido, compartido_con_el_hogar`. Son los movimientos con `persona_id` de la persona (los que ella registró, también los que compartió con el hogar, marcados «sí»); nada de lo que registró otra persona ni las filas compartidas sin dueño. `meta` solo es el nombre de una meta suya (un aporte); `sentido` es `entrada` o `salida`.
-  - `metas.csv` (`nombre, monto_objetivo_en_pesos, fecha_objetivo, creada_el`), `deudas.csv` (`nombre, monto_en_pesos, total_a_pagar_en_pesos, cuotas, inicio, vence, origen`) y `presupuestos.csv` (`periodo, categoria, monto_asignado_en_pesos`): solo la fila de nombres hasta que existan esos temas (D-180). Los nombres de columnas los propuse con los de E13; los confirma el dueño al llenarlos.
+  - `presupuestos.csv` (`periodo, categoria, monto_asignado_en_pesos`, las columnas de D-180; se llena desde la US-77): una fila por **presupuesto propio** (`persona_id` suyo y `hogar_id` nulo), con el mes `AAAA-MM`, el nombre de la categoría y el monto (`2026-11,Transporte,40000.00`), y una fila por **mes dejado en cero** (`presupuesto_en_cero`), con la categoría vacía y el monto en cero (`2026-09,,0.00`). Por periodo y, en cada mes, la marca primero y después las categorías por id (el orden del catálogo, que no depende de la intercalación de la base). Nada de otra persona ni lo compartido con el hogar.
+  - `metas.csv` (`nombre, monto_objetivo_en_pesos, fecha_objetivo, creada_el`) y `deudas.csv` (`nombre, monto_en_pesos, total_a_pagar_en_pesos, cuotas, inicio, vence, origen`): solo la fila de nombres hasta que existan esos temas (D-180). Los nombres de columnas los propuse con los de E13; los confirma el dueño al llenarlos.
   - Un texto que empieza con `= + - @` o un control lleva antes una comilla simple, para que la hoja de cálculo no lo ejecute como fórmula.
 - **Segunda llamada.** Con la misma sesión es `401 sin_sesion`: la primera ya la borró. Con una carrera (las dos pasaron el control de acceso a la vez), la segunda encuentra la cuenta ya borrada y también responde `401`; las pruebas de `test/pg` y `test/app` lo recorren con PostgreSQL.
 - **Registro.** Nada de lo borrado ni la contraseña quedan en el registro: ni correos, ni nombres, ni ids de menores. El id interno de la cuenta solo aparece en el evento `inicio_sesion_fallido` de una contraseña mal escrita (E17-ECO 3.13).
@@ -337,9 +340,10 @@ PN-63 es solo información (no llama al API). PN-64 usa estas tres rutas, todas 
 
 | Ruta | Nivel | Qué hace |
 |---|---|---|
-| `GET /api/v1/autorizaciones` | `sin_autorizacion` | Las finalidades que una persona adulta puede autorizar ahora y la versión vigente del texto |
-| `POST /api/v1/autorizaciones` | `sin_autorizacion` | Guarda la autorización (PN-64, «Autorizar y continuar»). Cuerpo: `{"finalidades":[…],"version":"1.0"}` |
-| `POST /api/v1/autorizaciones/rechazo` | `sin_autorizacion` | «No autorizo»: borra la cuenta recién creada y cierra la sesión (RF-031, D-089) |
+| `GET /api/v1/autorizaciones` | `sin_autorizacion` | Las finalidades que una persona adulta puede autorizar ahora, el `modo` y la versión vigente del texto |
+| `POST /api/v1/autorizaciones` | `sin_autorizacion` | Guarda la autorización (PN-64, «Autorizar y continuar»). Cuerpo: `{"finalidades":[…],"version":"1.1"}` |
+| `POST /api/v1/autorizaciones/rechazo` | `sin_autorizacion` | «No autorizo»: borra la cuenta recién creada y cierra la sesión (RF-031, D-089). Una cuenta que ya autorizó algo antes no se borra por aquí |
+| `PUT /api/v1/dispositivos/{dispositivo_id}/token` | `requiere_autorizacion` | Registra el token de dispositivo de los avisos con la app cerrada; exige `avisos` vigente ([Avisos con la app cerrada](#avisos-con-la-app-cerrada-el-token-de-dispositivo-us-67)) |
 
 ### Ver las finalidades
 
@@ -347,48 +351,82 @@ PN-63 es solo información (no llama al API). PN-64 usa estas tres rutas, todas 
 
 ```json
 {
-  "version": { "numero": "1.0", "fecha": "2026-10-30" },
+  "version": { "numero": "1.1", "fecha": "2026-11-12" },
+  "modo": "completo",
   "finalidades": [
     { "codigo": "cuenta_y_acceso", "tipo": "necesaria", "otorgada": false },
     { "codigo": "funciones_financieras", "tipo": "necesaria", "otorgada": false },
+    { "codigo": "transmision_a_encargados", "tipo": "necesaria", "otorgada": false },
     { "codigo": "avisos", "tipo": "accesoria", "otorgada": false },
     { "codigo": "horas_de_vida", "tipo": "accesoria", "otorgada": false }
   ]
 }
 ```
 
-- **Por qué solo estas cuatro (D-139).** La lista sale de `cuenta.ReglaDeFinalidades` (`Codigos` y `Accesorias` de la etapa adulta): las dos necesarias de la persona adulta y las accesorias activas que PN-64 le ofrece. Quedan fuera `cuenta_del_menor` (necesaria, pero se autoriza en PN-36 con la tutoría), `correo_del_menor` (es del menor, I11) y `transferencia` (inactiva, NM-06). Lo que no está en la lista no se puede autorizar: el `POST` lo rechaza.
+- **`modo`.** `completo`: todas las que se ofrecen, cada una con `otorgada`. `falta_una_aceptacion`: la cuenta ya autorizó algo antes y le falta alguna necesaria; `finalidades` trae **solo las necesarias que le faltan**, con `otorgada` en falso, y nada de lo opcional (ver [Cuentas de antes del cambio](#cuentas-de-antes-del-cambio-modo-falta-una-aceptación-us-67)).
+- **Por qué solo estas cinco (D-139).** La lista sale de `cuenta.ReglaDeFinalidades` (`Codigos` y `Accesorias` de la etapa adulta): las tres necesarias de la persona adulta y las accesorias activas que PN-64 le ofrece. Quedan fuera `cuenta_del_menor` (necesaria, pero se autoriza en PN-36 con la tutoría), `correo_del_menor` (es del menor, I11) y `transferencia` (inactiva, NM-06). Lo que no está en la lista no se puede autorizar: el `POST` lo rechaza.
 - `otorgada` es verdadero si la persona tiene esa finalidad vigente (`retirada_en` nula) otorgada por ella misma.
-- `version` es el texto vigente. En la base se guarda como «1.0 del 2026-10-30» (`autorizacion.version_del_texto`); cada app escribe la fecha en palabras con la función común (D-090): «Texto versión 1.0 del 30 de octubre de 2026.».
+- `version` es el texto vigente (`autorizacion.VersionActual`). **1.1 del 2026-11-12** (SC-E21-25, RF-063): suma la aceptación expresa de la transmisión a los encargados; la 1.0 era «1.0 del 2026-10-30». En la base se guarda como «1.1 del 2026-11-12» (`autorizacion.version_del_texto`); cada app escribe la fecha en palabras con la función común (D-090): «Texto versión 1.1 del 12 de noviembre de 2026.». Lo guardado con la 1.0 sigue valiendo y no se repite: solo se pide lo que cambió. Un `POST` con `"version":"1.0"` es `409 version_desactualizada`.
 
 ### Autorizar
 
-Cuerpo `{"finalidades":["cuenta_y_acceso","funciones_financieras","avisos"],"version":"1.0"}`; un campo que no esté en el contrato da `400 solicitud_invalida`. Respuesta `200 {"estado":"autorizada"}` con `Cache-Control: no-store`.
+Cuerpo `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados","avisos"],"version":"1.1"}`; un campo que no esté en el contrato da `400 solicitud_invalida`. Respuesta `200 {"estado":"autorizada"}` con `Cache-Control: no-store`.
 
 | Código | Error | Cuándo |
 |---|---|---|
 | `409` | `version_desactualizada` | `version` no es la vigente (o falta). Se revisa primero. El cliente vuelve a pedir la lista y muestra el texto nuevo: es un conflicto con el estado actual, no un campo mal escrito |
 | `422` | `finalidad_invalida` | un código desconocido, inactivo o que no le toca a una persona adulta |
-| `422` | `faltan_necesarias` | no vienen las dos necesarias (las dos viajan juntas, en una sola casilla). Las accesorias son libres |
+| `422` | `faltan_necesarias` | no vienen todas las necesarias que la persona aún no tiene: la persona nueva, las tres (`cuenta_y_acceso` y `funciones_financieras` viajan juntas, en una sola casilla; `transmision_a_encargados` tiene la suya, SC-E21-25 criterio 1); la cuenta de antes del cambio, solo la que le falta. No se guarda nada. Las accesorias son libres |
 | `401` | `sin_sesion` | la cuenta se borró entre el guard y la escritura |
 
-- **Una transacción** inserta una fila de `autorizacion` por finalidad: `titular_id = otorgante_id = la persona`, `version_del_texto = "1.0 del 2026-10-30"`, `otorgada_en` = la hora del `Reloj`. Antes toma la fila de la persona (`FOR UPDATE`) para turnarse con «No autorizo».
+- **Una transacción** inserta una fila de `autorizacion` por finalidad: `titular_id = otorgante_id = la persona`, `version_del_texto = "1.1 del 2026-11-12"`, `otorgada_en` = la hora del `Reloj`. Antes toma la fila de la persona (`FOR UPDATE`) para turnarse con «No autorizo».
+- **A los 18 años la aceptación propia reemplaza a la del tutor (PN-54).** Si de una finalidad hay una vigente dada por otra persona (el tutor, cuando era menor), ocupa el único lugar de las vigentes por (titular, finalidad) y `ReglaDeFinalidades` solo cuenta la dada por la persona: sin más, el `POST` respondería 200 y la cuenta seguiría en `sin_autorizacion`. Dentro de la misma transacción, antes de insertar, se **retira** la del otro otorgante (`retirada_en`, sin `conservar_hasta`) y queda como historia con su fecha, versión y otorgante; no se borra y no se cambia el esquema (la unicidad de las vigentes de E13 es la correcta). `otorgada_en` es la hora del `Reloj` salvo que ya exista una fila de esa finalidad igual o posterior: entonces queda un microsegundo después (la clave `(titular, finalidad, otorgada_en)` es única). Pruebas: `TestALos18LaTransmisionPropiaReemplazaLaDelTutor` y `TestALos18LoDelTutorQuedaComoHistoria`.
 - **Idempotente.** Repetir la llamada no duplica nada ni mueve la fecha: `ON CONFLICT … DO NOTHING` sobre el índice único de las vigentes (`ix_autorizacion_vigente`). Si se suma una accesoria, solo entra esa. Una finalidad repetida en la lista cuenta una vez.
 - **La misma sesión sube de nivel, sin reautenticar.** El nivel no se guarda: `pg.Sesiones.Sujeto` calcula `Autorizada` en cada petición desde la base. No hay sesión nueva, no se rota el token y **`credencial.ingreso_anterior` no se toca**: tras autorizar, PN-71 de la misma sesión responde `{"ingreso_anterior":null}` y la persona ve «Este es tu primer ingreso.» (S2, `TestS2LaPersonaNuevaAutorizaYVeSuPrimerIngresoEnLaMismaSesion`).
-- **Evento.** No hay un evento de seguridad nuevo: el conjunto de E17-VTE 2.1 es cerrado (`inicio_sesion_fallido`, `acceso_denegado`, `error_autorizacion`) y la alerta de producción cuenta por esos tres valores; agregar uno cambiaría `infra/produccion/alertas.tf`. Un otorgamiento correcto no es un fallo ni una negación: queda en el registro común (`INFO`, solo el identificador de la petición).
+- **Evento.** No hay un evento de seguridad nuevo: el conjunto de E17-VTE 2.1 es cerrado (`inicio_sesion_fallido`, `acceso_denegado`, `error_autorizacion`) y la alerta de producción cuenta por esos tres valores; agregar uno cambiaría `infra/azure/alertas.tf`. Un otorgamiento correcto no es un fallo ni una negación: queda en el registro común (`INFO`, solo el identificador de la petición).
 
 ### «No autorizo»
 
 `POST /api/v1/autorizaciones/rechazo` (sin cuerpo): `204`, `Cache-Control: no-store` y la cookie `__Host-sesion` vencida (Android no tiene cookie: el token ya no sirve porque la sesión se borró). La app va a PN-60.
 
-- **Solo la sesión de nivel exactamente `sin_autorizacion`.** Con lo necesario ya autorizado responde `403 {"error":"ya_autorizada"}` y deja el evento `acceso_denegado` con la cuenta; no borra nada. Quien ya autorizó borra su cuenta por PN-69. La condición se vuelve a comprobar **dentro de la transacción** (si autorizó entre el guard y el borrado, también `403`).
+- **Solo la sesión de nivel exactamente `sin_autorizacion` y de una cuenta que nunca autorizó nada.** Con lo necesario ya autorizado responde `403 {"error":"ya_autorizada"}`; con **alguna autorización de antes** (vigente o retirada, como titular; la cuenta a la que le falta una aceptación nueva), `403 {"error":"cuenta_con_historial"}` (SC-E21-25, sección 5, paso 3: una cuenta con historial no lo pierde de un toque). Las dos dejan el evento `acceso_denegado` con la cuenta, no borran nada, no tocan la cookie y no cierran la sesión. Quien ya autorizó borra su cuenta por PN-69 (`POST /api/v1/cuenta/borrado`, con la contraseña, que también sirve en `sin_autorizacion`). La condición se vuelve a comprobar **dentro de la transacción** (si autorizó entre el guard y el borrado, también `403`).
 - **Una transacción** borra la persona y, por `ON DELETE CASCADE`, todo lo que tenga llave a ella: `perfil_adulto`, `credencial`, `sesion` (todas, no solo la de la petición), `enlace_un_uso` (verificación y recuperación), `token_dispositivo`, `ocultamiento_categoria`, `aviso`… La prueba recorre las llaves foráneas desde el catálogo de PostgreSQL (la consulta de E13 §7), así que una tabla nueva con llave a la persona entra sola, y comprueba que no queda ninguna fila.
-- **`autorizacion` es la excepción de E13 §7 y D-135.** No tiene llave a la persona, así que no se borra en cascada: las que hubiera (una necesaria suelta, por ejemplo) quedan retiradas (`retirada_en`) y conservadas hasta `conservar_hasta` (3 años, plazo provisional, `cuenta.AniosDeLaPruebaDeAutorizacion`) como prueba mínima, sin datos de contacto. Es el mismo criterio de `BorrarSinConfirmar`. Con el flujo normal no hay ninguna, porque no se guarda nada antes de autorizar.
+- **`autorizacion` es la excepción de E13 §7 y D-135.** No tiene llave a la persona, así que no se borra en cascada: las que hubiera quedan retiradas (`retirada_en`) y conservadas hasta `conservar_hasta` (3 años, plazo provisional, `cuenta.AniosDeLaPruebaDeAutorizacion`) como prueba mínima, sin datos de contacto. Es el mismo criterio de `BorrarSinConfirmar` y de PN-69. Desde la US-67 una cuenta con alguna fila no llega a este borrado, así que aquí no hay ninguna; el `UPDATE` queda como defensa.
 - Después, el correo y la contraseña ya no sirven (`401 credenciales_invalidas`) y la persona puede empezar de nuevo.
+
+### Cuentas de antes del cambio: modo «falta una aceptación» (US-67)
+
+Las cuentas creadas antes de `transmision_a_encargados` (todas de prueba hoy, SC-E21-25 sección 5) **no están rotas**: el API las reconoce solo, sin migración de datos.
+
+- **Nivel.** `ReglaDeFinalidades` suma la finalidad y `pg.Sesiones.Sujeto` deja `Autorizada = false` a la cuenta que no la tiene. Queda en `sin_autorizacion`: solo cierra sesión y usa las rutas de PN-64, más la hoja de «No autorizo» (descargar los datos y borrar la cuenta); toda otra ruta es `403 autorizacion_pendiente`. No se borra ni se cambia ningún dato.
+- **`GET /api/v1/autorizaciones`** trae `"modo":"falta_una_aceptacion"` y solo la necesaria que le falta (`transmision_a_encargados`), con `otorgada` en falso. El modo exige las dos cosas: faltante alguna necesaria **y** alguna autorización de antes como titular (la misma condición de la tarea diaria y de «No autorizo»). La persona nueva, sin historial, ve la lista completa. La cuenta ya completa, también.
+- **`POST /api/v1/autorizaciones`** con `{"finalidades":["transmision_a_encargados"],"version":"1.1"}` guarda solo esa fila (versión «1.1 del 2026-11-12», otorgante la persona). Lo de antes no se repite ni se duplica (RF-063) y la misma sesión llega a Inicio con todos sus datos. Sin ella, `422 faltan_necesarias` y no se guarda nada.
+- **«No autorizo» no borra sin preguntar.** `POST /api/v1/autorizaciones/rechazo` responde `403 cuenta_con_historial` (ver arriba). La app abre la hoja de PN-54 (D-102): `GET /api/v1/cuenta/datos` y `POST /api/v1/cuenta/borrado` con la contraseña, ya en `sin_autorizacion`.
+- **Pruebas:** `TestLaCuentaDeAntesDelCambioEntraAlModoLimitadoYAlAceptarRecuperaTodo`, `TestLaCuentaDeAntesDescargaYBorraDesdeLaHojaDeNoAutorizo`, `TestRechazarConUnaAutorizacionParcialNoBorraLaCuenta` y los de `ReglaDeFinalidades` en las tres etapas.
+- **Pendiente para las historias de las pantallas.** El API ya aplica la regla en las tres etapas (adulto, menor otorgada por el tutor, y a los 18 años otorgada por la persona; `TestCumple` y `TestFaltantes`), pero **el endpoint que crea la cuenta de un menor (PN-36, I11) y el que registra el primer ingreso a los 18 años (PN-54, I12) no existen todavía**: esas historias deben otorgar `transmision_a_encargados` con `titular_id` = el menor y `otorgante_id` = el tutor (o la persona a los 18), y exigirla antes de crear la cuenta (criterios 4 y 5 de SC-E21-25).
+
+### Avisos con la app cerrada: el token de dispositivo (US-67)
+
+El registro del token (E12 `AvisosServicio.RegistrarTokenDeDispositivo`, CU-21, NM-17) vive en `src/autorizacion/tokens.go` y `pg.Tokens`, junto a la autorización de la que depende. Los adaptadores de FCM y Web Push y el envío son otra historia (Boards 302); hoy no hay envío, así que lo que se prueba es lo que ese adaptador leerá: las filas de `token_dispositivo`.
+
+`PUT /api/v1/dispositivos/{dispositivo_id}/token` (`requiere_autorizacion`), cuerpo `{"token":"…"}`; `dispositivo_id` es el identificador aleatorio que la app genera al instalarse (1 a 64 caracteres) y `token` el de FCM o la suscripción de Web Push (1 a 2048). La app lo manda al abrirse, como mucho una vez al día. Es idempotente.
+
+| Código | Respuesta | Cuándo |
+|---|---|---|
+| `204` | sin cuerpo | guardado o confirmado (`ultimo_uso_en`) |
+| `403` | `avisos_no_autorizados` | la persona no tiene `avisos` vigente: no se guarda nada y queda el evento `acceso_denegado` (condición (a), SC-E21-25 criterio 10) |
+| `400` | `solicitud_invalida` | dispositivo o token fuera de la longitud o del formato de abajo, o un campo que no está en el contrato. No se guarda nada |
+| `401` | `sin_sesion` | la cuenta ya no existe |
+
+- **Formato (además de la longitud).** `dispositivo_id`: `[A-Za-z0-9._-]`, de 1 a 64 (el identificador aleatorio que la app genera al instalarse: UUID o base64url); un blanco, `/`, un carácter de control o uno fuera de ASCII es `400`. `token`: ASCII imprimible **sin espacio** (`0x21` a `0x7E`), de 1 a 2048; sin NUL ni otros caracteres de control (la base rechaza el NUL: antes era un `500`), sin blancos al principio, al final ni en medio, y sin letras fuera de ASCII. Cubre el token de FCM (`[A-Za-z0-9_:-]`) y la suscripción de Web Push, que la web debe mandar como **JSON compacto** (`JSON.stringify(suscripcion)`, sin blancos: la URL del servicio de push y las claves en base64url son ASCII). Si un servicio de push pusiera blancos o letras no ASCII en lo que entrega, la regla se ensancha en `src/autorizacion/tokens.go` y aquí. Pruebas: `TestElTokenYElDispositivoInvalidosSeRechazanSinGuardarNada` y `TestElTokenYElDispositivoValidosSeGuardan`.
+- **Una transacción** toma la fila de la persona (`FOR UPDATE`), comprueba `avisos` vigente, borra el mismo token si estaba en otro dispositivo o persona (E13: un token, un dispositivo) y lo guarda o lo reemplaza. El retiro de `avisos` toma el mismo bloqueo: un registro y un retiro a la vez nunca dejan un token sin autorización (`TestRegistrarElTokenYRetirarLosAvisosAlMismoTiempoQuedanCoherentes`).
+- **Retirar `avisos` borra los tokens (condición (c), criterio 12).** `autorizacion.Servicio.Retirar(ctx, persona, finalidad)` retira una accesoria (`avisos` u `horas_de_vida`; una necesaria no se retira, se borra la cuenta) y, si es `avisos`, borra en **la misma transacción** todas las filas de `token_dispositivo` de la persona, de todos sus dispositivos; la fila de `autorizacion` queda con `retirada_en` y sin `conservar_hasta` (la cuenta existe). Si el borrado falla, el retiro se deshace. **Todavía no hay ruta HTTP de retiro:** la pone la historia que construya PN-67, sobre `Servicio.Retirar` (para la cuenta de un menor, el tutor retira con `titular` = el menor, I11).
+- Ni el token ni el dispositivo van al registro.
+- **Lo que no está aquí:** que el adaptador no reciba nada tras el retiro y que por FCM y Web Push solo salgan el token y el texto fijo «Tienes un aviso en Alcanzamos.» con un `aviso_id` aleatorio (criterios 10, 11 y 12, partes del adaptador) son del ítem 302. También `BorrarTokensSinUso` (180 días) y borrar el token al cerrar sesión a propósito (NM-17, D-085).
 
 ### «Nada se guarda antes de autorizar» (S1, Ley 1581)
 
-Las rutas por debajo de `requiere_autorizacion` son solo las del ingreso (crear la cuenta y verificar el correo, entrar, recuperar el acceso, cerrar sesión y las tres de arriba); hoy la única que escribe datos de la persona más allá de eso, el cambio de contraseña (PN-73), exige autorización, igual que PN-71. `TestSoloLasRutasDelIngresoNoExigenAutorizacion` (`test/app`) falla si aparece una ruta nueva por debajo de `requiere_autorizacion` que no esté en esa lista a propósito. `TestSinAutorizarLasRutasProtegidasDan403YAutorizandoPasan` prueba `403 autorizacion_pendiente` sin autorizar y que, al autorizar en la misma sesión, pasan.
+Las rutas por debajo de `requiere_autorizacion` son solo las del ingreso (crear la cuenta y verificar el correo, entrar, recuperar el acceso, cerrar sesión, las tres de arriba y, desde la US-67, descargar los datos y borrar la cuenta, que solo leen o borran); hoy la única que escribe datos de la persona más allá de eso, el cambio de contraseña (PN-73), exige autorización, igual que PN-71. `TestSoloLasRutasDelIngresoNoExigenAutorizacion` (`test/app`) falla si aparece una ruta nueva por debajo de `requiere_autorizacion` que no esté en esa lista a propósito. `TestSinAutorizarLasRutasProtegidasDan403YAutorizandoPasan` prueba `403 autorizacion_pendiente` sin autorizar y que, al autorizar en la misma sesión, pasan.
 
 ## Registro de movimientos (US-51)
 
@@ -667,6 +705,157 @@ Todo pedido que no es GET (POST, PUT y DELETE: todo pedido que cambia algo, D-19
 
 Pruebas: `test/fechas/confirmar_test.go` (FP-17 a FP-23 por nombre, más montos, desbordes y casos vacíos); `test/registro/pendientes_test.go` (contrato, errores y CSRF con un repositorio falso); `test/registro/pendientes_integracion_test.go` (de punta a punta contra PostgreSQL, en web y Android: la lista, D-094 en la lista de noviembre y diciembre, «No pasó», todo o nada, carreras con 8 pedidos a la vez, lotes en orden contrario a la vez (36 pares, sin 500), 40P01 y 40001 como `conflicto_concurrente`, lo ajeno, hogar, `detenido_en`, categoría oculta, 401/403 y CSRF); `test/pg/repeticiones_integracion_test.go`; `test/servidor/csrf_test.go`; `test/app/repeticiones_integracion_test.go` (`verificacion_pendiente` en las cuatro rutas y el cableado de producción: `URL_PUBLICA` llega a la defensa CSRF). `test/app/rutas_test.go` lleva el inventario de rutas.
 
+## Presupuesto del periodo (US-77, `src/presupuesto`)
+
+PN-06 (presupuesto por categorías), PN-07 (la misma pantalla con un ingreso bajo o nulo) y PN-08 (los ingresos del periodo de varias fuentes) de E14-PPA usan estas rutas, todas `requiere_autorizacion` (sin sesión `401`, sin autorizar `403 autorizacion_pendiente`, antes de leer nada), iguales en web (cookie) y Android (Bearer). Código en `src/presupuesto` (`Servicio`, `Handler`; E12 §5.4) y `pg.Presupuestos`. **Las reglas viven aquí** (E17-ECO 4.7): modo de la pantalla, sumas, estados y orden; la app solo pone los textos de E14. Como el resto del API, **no manda textos**: ids, claves del catálogo, montos en centavos y códigos. Solo lee lo propio (`persona_id` de la sesión). **E12 y E17 no fijan las rutas HTTP: estas son una propuesta.**
+
+| Ruta | Qué hace |
+|---|---|
+| `GET /api/v1/presupuestos?periodo=AAAA-MM` | PN-06 y PN-07: el resumen del periodo y «Por categoría» |
+| `GET /api/v1/ingresos?periodo=AAAA-MM` | PN-08: los ingresos del periodo por fuente, registrados, esperados y por confirmar |
+| `POST /api/v1/presupuestos` | «Poner presupuesto» a una categoría en el mes en curso (CU-09 3); si ya tiene, lo corrige |
+| `PUT /api/v1/presupuestos/{id}` | «Corregir» el monto de un presupuesto del mes en curso (CU-09 3a) |
+| `DELETE /api/v1/presupuestos/{id}` | «Quitar presupuesto» del mes en curso (CU-09 3b); ningún gasto cambia |
+| `POST /api/v1/presupuestos/en-cero` | «Dejar el presupuesto en cero» del mes en curso (PN-07, CU-10 2a): guarda la marca del mes |
+
+`periodo` es opcional en las dos: por defecto el mes de hoy **en Colombia** (`registro.LeerPeriodo`, la misma lectura de `GET /api/v1/movimientos`); `422 {"error":"datos_invalidos","campos":{"periodo":"periodo_invalido"}}` si no es `AAAA-MM` o es anterior a 1900. Las dos responden `200` con `Cache-Control: no-store`. **Montos en centavos enteros y sumas exactas** (RNF-002, D-082): toda suma se hace con enteros grandes (`math/big`) y sale como número JSON entero, también si no cabe en `int64`; lo gastado por categoría es `sum(monto)` de la base (`numeric`, exacto).
+
+### PN-06 y PN-07: `GET /api/v1/presupuestos`
+
+```json
+{
+  "periodo_actual": "2026-11",
+  "periodo": "2026-11",
+  "editable": true,
+  "resumen": {
+    "modo": "normal",
+    "en_cero": false,
+    "ingreso_registrado_centavos": 120000000,
+    "asignado_centavos": 4000000,
+    "sin_asignar_centavos": 116000000,
+    "asignado_supera_por_centavos": null,
+    "llega_despues_centavos": 120000000,
+    "por_confirmar_centavos": 0
+  },
+  "llega_despues": [
+    { "recurrente_id": "0192f3c4-…", "fecha": "2026-11-16", "categoria_id": 17, "monto_centavos": 120000000, "marca": "esperado" }
+  ],
+  "categorias": [
+    { "categoria_id": 8, "nombre": "Transporte", "oculta": false, "presupuesto": { "id": "…", "monto_centavos": 4000000 },
+      "gastado_centavos": 4000000, "estado": "usado_todo", "quedan_centavos": null },
+    { "categoria_id": 4, "nombre": "Arriendo o cuota de vivienda", "oculta": false, "presupuesto": null,
+      "gastado_centavos": 65000000, "estado": null, "quedan_centavos": null }
+  ]
+}
+```
+
+Es Laura el 2 de noviembre de 2026 (E14-PPA 2.2, caso F): «Ingreso registrado $1.200.000», «Asignado $40.000», «Sin asignar $1.160.000» y «Llega después: $1.200.000 (esperado)».
+
+| Campo | Qué es |
+|---|---|
+| `periodo_actual`, `periodo` | El mes de hoy en Colombia y el que se muestra |
+| `editable` | `periodo` es el mes en curso: solo entonces se pone, corrige y quita un presupuesto (D-094, SC-E21-13) |
+| `resumen.modo` | Qué tarjeta muestra la app (D-094, P-3): `normal` (PN-06) si hay ingreso registrado y lo asignado no lo supera; `ingreso_bajo` (PN-07) si lo asignado supera el ingreso registrado; `ingreso_nulo` (PN-07) si el ingreso registrado es cero, haya o no algo asignado |
+| `resumen.en_cero` | La persona dejó el periodo en cero («Dejar el presupuesto en cero», `POST /api/v1/presupuestos/en-cero`) **y sigue en cero**: sin ingreso registrado y sin nada asignado. Con `true` la app muestra que el mes quedó en cero y no vuelve a ofrecer el botón. Ver «Dejar el presupuesto en cero» abajo |
+| `ingreso_registrado_centavos` | La suma de los movimientos de **ingreso** del periodo (RF-007: nunca supone un salario). Un retiro de una meta no es un ingreso (RN-013) |
+| `asignado_centavos` | La suma de los presupuestos **propios** del periodo (`hogar_id` nulo, como la escritura y la descarga; L12 (2) de la US-77): uno compartido con el hogar no suma ni es fila de `categorias` |
+| `sin_asignar_centavos` | Registrado menos asignado, **solo en `normal`** (≥ 0); `null` en los otros dos modos |
+| `asignado_supera_por_centavos` | Asignado menos registrado, **solo en `ingreso_bajo`** (> 0): «Lo asignado supera por $10.000 lo que registraste.» El API da el hecho y la app lo dice sin signo menos (RNF-017); `null` en los otros modos. Con `ingreso_nulo` no hay diferencia (E14-PPA 4.2) |
+| `llega_despues` | «Llega después» (E14-PPA 4.1; L14 (1) de la US-77): las fechas pendientes de las repeticiones de **ingreso** del periodo, por fecha y, con la misma fecha, por `recurrente_id`. Cada una con su `marca`: `esperado` si todavía no llega (`fecha` > hoy en Colombia) y `por_confirmar` si ya llegó (`fecha` ≤ hoy). Cada una trae `recurrente_id` y `fecha`, los de las rutas de confirmar y omitir de la US-60, `categoria_id` y `monto_centavos` (el habitual). Sin pendientes, `[]` |
+| `llega_despues_centavos` | La suma de las fechas `esperado` de `llega_despues`: la línea «Llega después: $X (esperado)». `0` sin esperadas: la línea no se ve |
+| `por_confirmar_centavos` | La suma de las fechas `por_confirmar` de `llega_despues`: la línea «Por confirmar: $Y». `0` sin fechas por confirmar: la línea no se ve |
+| `categorias` | «Por categoría»: las categorías de gasto con presupuesto en el periodo, **también las ocultas** (`oculta: true`, RN-011, CU-55 2c), y las demás categorías de gasto con gasto en el periodo que la persona **no** ocultó. Primero las que tienen presupuesto y después las demás, cada grupo de mayor a menor `gastado_centavos` y, si empatan, **por nombre** (E14-PPA 4.1, PN-06 fila 4; L6 (6) de la US-77). El nombre del catálogo se compara en Go con la intercalación del español de Unicode (CLDR, `golang.org/x/text/collate` con `language.Spanish`, la versión de `go.mod`), no con la de la base, que depende de cómo se creó: las tildes y las mayúsculas no cambian el orden de las letras (`Educación` antes que `Transporte`, `Árbol` antes que `Bebida`), la «ñ» va entre la «n» y la «o» y, con las mismas letras, sin tilde va antes. Dos nombres iguales quedan por `categoria_id`. Solo gasto: ni ingresos ni aportes (RN-013). `[]` sin nada |
+| `presupuesto` | `{id, monto_centavos}` o `null` («Poner presupuesto») |
+| `gastado_centavos` | La suma de los gastos del periodo en esa categoría (`0` sin gastos) |
+| `estado` | Solo con presupuesto: `quedan` («Quedan $X por gastar.», con `quedan_centavos` = presupuesto − gastado), `usado_todo` («Ya usaste todo lo presupuestado.») o `superado` («Gastado $X de $Y presupuestados.»). Describe sin calificar |
+
+**Reglas.**
+
+- **Lo pendiente es E15 5.2** (`fechas.Pendientes`, la misma regla de «Por confirmar» de la US-60): sin las fechas confirmadas, las omitidas («No pasó», D-092), las anteriores a la creación de la repetición ni las de `detenido_en` en adelante. Es por confirmar si `fecha ≤ hoy` (Colombia). Solo las repeticiones de la persona (`persona_id`). Así, en un mes **terminado** toda fecha pendiente está por confirmar (`llega_despues_centavos` es `0`) y en un mes que no ha empezado, esperada (`por_confirmar_centavos` es `0`).
+- **Lo esperado y lo por confirmar no cuentan en «Sin asignar» ni deciden el modo** (D-094, P-1 y P-3) hasta que se confirman: el modo sale solo de lo registrado y lo asignado. Una persona con el salario vencido sin confirmar y nada registrado en el mes ve `modo: ingreso_nulo` (PN-07) con el salario en `por_confirmar_centavos` y en `llega_despues`; al confirmarlo pasa a `ingreso_registrado_centavos` y sale de la lista.
+- **Lo registrado y lo pendiente salen de la misma lectura** (`REPEATABLE READ`, solo lectura): una fecha que se confirma a la vez no cuenta dos veces.
+- **Solo una persona adulta presupuesta** (E12 §6, RF-007): una persona menor recibe `403 {"error":"solo_personas_adultas"}`, también al poner. Hoy un menor no llega a ninguna ruta con sesión (I11); la base lo asegura también (`presupuesto.persona_id` apunta a `perfil_adulto`).
+- **«Dejar el presupuesto en cero»** (PN-07, CU-10 2a) se guarda (L6 (5) de la US-77): ver abajo.
+
+### PN-08: `GET /api/v1/ingresos`
+
+```json
+{
+  "periodo_actual": "2026-11",
+  "periodo": "2026-11",
+  "meses": ["2026-11", "2026-10"],
+  "total": { "entran_centavos": 240000000, "registrado_centavos": 120000000, "esperado_centavos": 120000000, "por_confirmar": 0 },
+  "fuentes": [
+    { "categoria_id": 17, "nombre": "Salario", "oculta": false, "total_centavos": 240000000, "ingresos": [
+      { "fecha": "2026-11-01", "marca": "registrado", "monto_centavos": 120000000, "medio": "transferencia", "descripcion": null,
+        "movimiento_id": "…", "recurrente_id": null },
+      { "fecha": "2026-11-16", "marca": "esperado", "monto_centavos": 120000000, "medio": "transferencia", "descripcion": null,
+        "movimiento_id": null, "recurrente_id": "0192f3c4-…" }
+    ] }
+  ]
+}
+```
+
+| Campo | Qué es |
+|---|---|
+| `meses` | Los meses con ingresos registrados, del más reciente al más antiguo: la lista de «Otro mes». Los chips del mes anterior, el actual y el siguiente los arma la app con `periodo_actual` |
+| `total` | «Entran este mes»: `entran_centavos` = `registrado_centavos` + `esperado_centavos`, el «ingresos del mes» de la simulación (E14-PPN 9.3). **Lo esperado incluye lo por confirmar** (D-091, E15 5.5: lo pendiente no es registrado aunque su fecha haya llegado). `por_confirmar` cuenta las fechas por confirmar del periodo: con dos o más la app ofrece «Confirmar todos» (D-093). Si el periodo ya terminó, la app dice «Entraron este mes» comparando `periodo` con `periodo_actual` |
+| `fuentes` | Una por categoría de ingreso con algo en el periodo (RF-009), de mayor a menor `total_centavos` y, si empatan, por `categoria_id`; también una categoría oculta (`oculta: true`): un movimiento conserva su categoría. `[]` sin ingresos («Todavía no registras ingresos este mes.») |
+| `ingresos` | Por fecha y, con la misma fecha, primero lo registrado. `marca`: `registrado` (con `movimiento_id`, el de PN-02), `esperado` o `por_confirmar` (con `recurrente_id`: «Confirmar» es `POST /api/v1/repeticiones/{recurrente_id}/confirmacion` con `fecha`, y «No pasó», `/omision`, de la US-60; el monto es el habitual y el medio, el de la repetición). La marca va siempre en texto, nunca solo en color |
+
+PN-08 no comprueba la etapa: muestra ingresos propios, que una persona menor también registra.
+
+### Poner, corregir y quitar
+
+**Solo el mes en curso** (D-094, SC-E21-13; E12 `ErrPeriodoNoEditable`): el de hoy **en Colombia** (el `Reloj` en Bogotá). A las 23:59 del 30 de noviembre en Colombia (04:59 UTC del 1 de diciembre) noviembre sigue en curso. Presupuestar otros meses es de E21. Todo presupuesto es **propio**: `persona_id` de la sesión y `hogar_id` nulo (L3 de la US-77: el campo de E13 ya está y el hogar llega en I08 sin migración); un campo fuera del contrato (`persona_id`, `hogar_id`…) da `400 solicitud_invalida`. La escritura, como la lectura y la descarga, **solo toca lo propio** (L14 de la US-77): uno compartido con el hogar, aunque sea de la misma persona, no se corrige ni se quita (`404 no_encontrado`), no cuenta como presupuesto que la categoría ya tiene al poner (una oculta que solo tiene uno compartido es `422 categoria_invalida`), no se pisa al poner (`409 presupuesto_compartido`, abajo) ni suma en lo asignado al dejar el mes en cero.
+
+`POST /api/v1/presupuestos`:
+
+```json
+{ "periodo": "2026-11", "categoria_id": 5, "monto_centavos": 40000000 }
+```
+
+`periodo` va explícito para que un formulario abierto el último día del mes no guarde en el siguiente sin saberlo. `201` con el presupuesto creado, o `200` si la categoría ya tenía presupuesto en ese mes y se corrigió (E13: único por persona, periodo y categoría; dos «Guardar» a la vez dejan una sola fila). La categoría tiene que ser **de gasto** y que la persona **la vea** (la misma regla del catálogo); una que ocultó vale solo si ya tiene presupuesto en el mes (RN-011: sigue en la lista con «Corregir»). La general («Otros gastos») vale.
+
+**Con un presupuesto compartido con el hogar en la misma categoría y mes: `409 presupuesto_compartido`** (D-201, opción A de L16 de la US-77). La clave única de E13 (persona, periodo, categoría) no lleva `hogar_id`, así que el presupuesto propio chocaría con esa fila compartida, y antes `ON CONFLICT … DO UPDATE` le cambiaba el monto. Ahora **nunca toca una fila compartida**: el `DO UPDATE … WHERE presupuesto.hogar_id IS NULL` lo decide la base en la misma sentencia, sobre la fila con la que chocó ya bloqueada y en su última versión, sin una lectura previa que una fila compartida recién confirmada pueda adelantar; si no vuelve ninguna fila, el repositorio da `ErrPresupuestoCompartido`. Se eligió `409` y no `422`: el cuerpo es válido y es un conflicto con lo guardado, como `periodo_no_editable`. La app muestra su error genérico de guardar. Pruebas: `TestIntegracionPonerConUnPresupuestoCompartidoEs409` (HTTP y repositorio, la fila compartida igual, lo propio de otra categoría y otro mes sigue creando y corrigiendo) y `TestIntegracionPonerNoPisaUnCompartidoQueLlegaALaVez` (la fila compartida se siembra en una transacción sin confirmar, «Poner» queda esperando en el índice único y, al confirmar, responde `ErrPresupuestoCompartido` sin pisarla).
+
+```json
+{ "id": "0192f3c4-…", "categoria_id": 5, "periodo": "2026-11", "monto_centavos": 40000000 }
+```
+
+`PUT /api/v1/presupuestos/{id}` con `{"monto_centavos": 4000000}`: `200` con el presupuesto (la misma forma). `DELETE /api/v1/presupuestos/{id}`: `204` sin cuerpo; lo gastado no cambia y la fila vuelve a «Sin presupuesto». Las tres con `Cache-Control: no-store`. El repositorio corrige y quita con el periodo en la condición: si el mes cambió o la fila desapareció entre leer y escribir, no toca nada (`404`).
+
+### Dejar el presupuesto en cero
+
+E14-PPA 4.2 y CU-10 2a dicen que el periodo queda definido en cero; antes no se guardaba y el botón volvía al recargar. Ahora se guarda una **marca por persona adulta y mes** en `presupuesto_en_cero` (migración `0004`), propia (sin hogar), como `valoracion_mensual`: la llave apunta a `perfil_adulto` y se borra con la cuenta.
+
+`POST /api/v1/presupuestos/en-cero` con `{"periodo": "2026-11"}`: `204` sin cuerpo y `Cache-Control: no-store`. **Es idempotente**: otra vez es `204` y la marca sigue siendo una (`ON CONFLICT DO NOTHING`). Solo el **mes en curso** de Colombia, como poner un presupuesto, y solo si el mes **sigue en cero**: la suma de los ingresos registrados del mes y la de lo asignado propio son cero (las mismas sumas de `resumen`; uno compartido con el hogar no cuenta; un gasto no cuenta, y lo esperado o por confirmar de una repetición tampoco, porque no es registrado). Es cuando la app ofrece el botón (`modo: ingreso_nulo` y `asignado_centavos: 0`).
+
+**Qué pasa con la marca después (decisión de esta historia).** La marca **se conserva** como historia (también en «Descargar mis datos»); no se borra al llegar un ingreso ni al asignar algo. La lectura la muestra (`resumen.en_cero`) **solo mientras el mes siga en cero**: con un ingreso registrado o algo asignado `en_cero` es `false` y la pantalla vuelve a su modo de siempre («Cuando llegue un ingreso, puedes repartirlo.»); si después el mes vuelve a quedar en cero (se borra el ingreso o se quita el presupuesto), vuelve a ser `true`, porque la persona ya lo había definido en cero. Así ninguna otra ruta (registrar, confirmar, poner) tiene que tocar la marca, y una carrera entre dejarlo en cero y registrar un ingreso no deja nada incoherente: la comprobación y la escritura no se bloquean, y si la marca se cuela, la lectura no la muestra. Un mes pasado conserva su `en_cero` en la lectura.
+
+Los errores son los de la tabla que sigue; el orden es forma (`422` o `400`), mes en curso (`409 periodo_no_editable`) y lo que la base rechaza (`409 periodo_con_ingreso_o_presupuesto`, `403 solo_personas_adultas`, `401 sin_sesion`).
+
+### Errores y registro de las rutas que escriben
+
+**Errores.** El orden es forma (`422`), dueña (`404`) y estado (`409`), como en la US-60.
+
+| Código | Cuándo | Rutas |
+|---|---|---|
+| `422 datos_invalidos` con `campos` (todos a la vez) | `periodo` (también al dejar en cero): `periodo_requerido`, `periodo_invalido`. `categoria_id`: `categoria_requerida`, `categoria_invalida` (fuera de 1 a 32767, no existe, no es de gasto u oculta sin presupuesto en el mes). `monto_centavos`: `monto_requerido` («Falta el monto.»), `monto_invalido` (no es un entero de centavos que quepa en `int64`; la app muestra «El monto puede tener hasta dos decimales.» antes de mandarlo), `monto_no_positivo` («El monto debe ser mayor que $0.») | POST; PUT solo `monto_centavos` |
+| `404 no_encontrado` | El presupuesto no existe, es de otra persona, es uno compartido con el hogar o el id está mal formado (el mismo código: no revela que existe) | PUT, DELETE |
+| `409 periodo_no_editable` | El periodo no es el mes en curso | POST, PUT, DELETE |
+| `409 periodo_con_ingreso_o_presupuesto` | El mes ya tiene ingreso registrado o algo asignado: no se deja en cero (E14-PPA 4.2) | `POST /api/v1/presupuestos/en-cero` |
+| `409 presupuesto_compartido` | La categoría ya tiene en el mes un presupuesto compartido con el hogar de la persona: no se toca ni cambia nada (la clave única de E13 no lleva `hogar_id`). La app muestra su error genérico de guardar | `POST /api/v1/presupuestos` |
+| `403 solo_personas_adultas` | Una persona menor (hoy no llega a ninguna ruta con sesión; la base lo asegura con la llave a `perfil_adulto`) | todas menos `GET /api/v1/ingresos` |
+| `400 solicitud_invalida` | Cuerpo que no es un JSON de un objeto o con un campo fuera del contrato | POST, PUT |
+| `403 solicitud_no_permitida` · `415 tipo_de_contenido_no_permitido` | La defensa contra CSRF del `Enrutador` (E17 3.15, D-194) | POST, PUT, DELETE |
+| `401 sin_sesion` · `403 autorizacion_pendiente` · `403 verificacion_pendiente` | El guard de `requiere_autorizacion`; `401` también si la cuenta se borró mientras tanto | todas |
+| `500 error_interno` | Fallo de la base o datos incoherentes | todas |
+
+**Registro (SEG-006).** «presupuesto guardado» (con `creado`), «presupuesto corregido», «presupuesto quitado» y «presupuesto dejado en cero», con el id de la petición: nunca el monto, la categoría, el id del presupuesto, el periodo ni la persona.
+
+Pruebas: `test/presupuesto/presupuesto_test.go` (contrato con un repositorio falso: Laura en noviembre, el caso P de octubre, los modos de D-094 P-3, «Llega después» con lo esperado y lo por confirmar y un total para cada uno (en curso, terminado y por empezar), los estados, las ocultas, el empate por nombre en español (tildes, «ñ», mayúsculas y nombres iguales), lo omitido y lo detenido, un mes pasado, el periodo de Colombia, sumas al centavo por encima de `int64` y los errores), `test/presupuesto/escritura_test.go` (poner, corregir, quitar y dejar en cero con un repositorio falso: cada código, el orden de los errores, el mes en curso de Colombia, la idempotencia y el registro sin montos), `test/presupuesto/integracion_test.go`, `test/presupuesto/escritura_integracion_test.go` y `test/presupuesto/en_cero_integracion_test.go` (de punta a punta contra PostgreSQL, en web y Android: E14-PPA 2.2 con lo de otra persona, sumas exactas de la base, aportes y retiros fuera, categorías ocultas, el empate por nombre con el catálogo de la base, PN-08 con la confirmación de la US-60, «Llega después» con una fecha esperada y dos por confirmar, solo por confirmar y en un mes terminado, poner, corregir y quitar con la fila propia y sin hogar, lo compartido con el hogar que no se lee, corrige, quita ni cuenta al poner o al dejar en cero, el `409 presupuesto_compartido` al poner sobre uno compartido (también cuando llega a la vez, sin confirmar), qué categorías se presupuestan, otro mes y lo ajeno sin cambiar nada, ocho «Guardar» a la vez, dejar en cero (la marca de cada persona, idempotente, `en_cero` con un ingreso o un presupuesto y otra vez en cero, otro mes), la defensa contra CSRF, una persona menor y una cuenta borrada contra el repositorio, 401 y 403). `test/app/seg006_integracion_test.go` suma poner, corregir, quitar y dejar en cero a SEG-006, `test/app/csrf_integracion_test.go` pasa todo POST del inventario (también el de dejar en cero) por SEG-016, `test/app/csrf_put_delete_integracion_test.go` suma el `PUT` y el `DELETE` a SEG-016 y `test/app/rutas_test.go` lleva el inventario de rutas.
+
 ## Interpretación (US-62, `src/interpretacion`)
 
 Convierte un texto escrito en español en una interpretación **con reglas y sin IA** (opción D, D-075, D-191). Es el puerto `Interpretador` de ADR-005 §5.1 y E12 §5.2 con su motor. La ruta HTTP que lo usa es [`POST /api/v1/movimientos/interpretacion`](#interpretar-un-texto-post-apiv1movimientosinterpretacion).
@@ -715,6 +904,7 @@ Cuerpo: `{"texto": "gasté 15 mil en almuerzo ayer"}`. Hasta **280 caracteres** 
 
 - **Categoría.** Solo una que la persona ve (RN-011, RF-005): si la que sugiere el motor está oculta o no es apta para un menor, `categoria` es `null` y ella elige; nunca se cambia por otra. El motor no usa la base de datos; el servicio hace una lectura del catálogo visible.
 - **Varios movimientos** (D-077): `varios_movimientos: true` cuando el detector cuenta dos o más montos; solo se propone el primero («Tomamos solo el primer movimiento. Registra los otros por separado.»). Es una pista, no una decisión: nada se guarda.
+- **Con varios montos, sin categoría** (D-196, paso 1, provisional hasta la US-68): con `varios_movimientos: true` la `categoria` es `null`, porque el motor puede sacarla de otro movimiento que el del monto y la fecha («mercado 45 mil ayer y 12 mil de pasajes» daba «Transporte»). El monto y la fecha siguen siendo los del primero y la persona elige la categoría; el cliente no pasa a «Revisa y confirma» sin ella («Falta elegir la categoría.»). La regla vive en el servicio (`src/registro/interpretar.go`), no en el motor: `reglas.json` no cambia. `TestInterpretarConMasDeUnMontoDejaLaCategoriaVacia` lo prueba, también que con un solo monto la categoría se sigue proponiendo.
 - Errores: `422 datos_invalidos` con `campos.texto` = `texto_requerido` (vacío, solo espacios o sin el campo) o `texto_largo` (más de 280 caracteres), sin llamar al motor; `400 solicitud_invalida` con un campo fuera del contrato; `403`/`415` de la defensa CSRF; `401`/`403` del acceso. Un fallo inesperado del interpretador o del catálogo es `500 error_interno`; el tiempo agotado **no** es un 500.
 - **El texto no se registra ni se guarda.** El registro técnico solo lleva la petición y el `resultado`.
 - **IAR-003 y RN-005.** El `Servicio` recibe el `Interpretador` con `ConInterpretador`: el motor, el falso o un espía. `test/registro/interpretacion_test.go` comprueba que cambiarlo no cambia ninguna otra función (el mismo recorrido de categorías, guardar, listar, detalle, corregir, borrar, próximas y pendientes da byte a byte lo mismo), y que ninguna ruta que no es la de interpretación lo llama (un espía que falla), también con todo el Enrutador y PostgreSQL (`interpretacion_integracion_test.go`): los montos, totales y repeticiones que calcula el API nunca pasan por él (RN-005).
@@ -747,15 +937,36 @@ Cuerpo: `{"texto": "gasté 15 mil en almuerzo ayer"}`. Hasta **280 caracteres** 
 - `pgx` v5 (`pgxpool`) conecta con PostgreSQL. La URL sale de `BASE_DE_DATOS_URL`. Toda conexión del pool fija `TimeZone=UTC` (`bd.Conectar`; E17 3.9), aunque la URL o `PGTZ` pidan otra zona (A-05).
 - `goose` v3 se usa como biblioteca. Las migraciones van embebidas en el binario (`embed`).
 - `api migrar` aplica las migraciones pendientes y termina.
-- `0001_esquema_inicial.sql`, `0002_catalogo.sql` y `0003_ingreso_anterior.sql` (la columna `credencial.ingreso_anterior`, D-134) son copia idéntica de las de E13 (D-122). No se editan aquí. Si hay que cambiar algo, el cambio vuelve primero a E13, con nota fechada y versión nueva.
+- `0001_esquema_inicial.sql`, `0002_catalogo.sql`, `0003_ingreso_anterior.sql` (la columna `credencial.ingreso_anterior`, D-134), `0004_presupuesto_en_cero.sql` (la tabla `presupuesto_en_cero`, la marca de «Dejar el presupuesto en cero», US-77) `0005_transmision_a_encargados.sql` (la finalidad necesaria `transmision_a_encargados`, US-67, SC-E21-25) y `0006_aviso_de_purga.sql` (la columna `perfil_adulto.aviso_de_purga_en`, ítem 294, D-203) son copia idéntica de las de E13 (D-122). No se editan aquí. Si hay que cambiar algo, el cambio vuelve primero a E13, con nota fechada y versión nueva. **`0004` nace aquí** (decisión del dueño en la US-77, L6 (5)): su copia y su nota en E13 (v1.18) van en un PR de documentos en borrador, con este mismo SHA-256.
 
 | Archivo | SHA-256 (igual en E13 y aquí) |
 |---|---|
 | `migraciones/0001_esquema_inicial.sql` | `1244bc98f8218c202851a2a7cc18ae212b0c5a316d9238220e55ff48f351ab30` |
 | `migraciones/0002_catalogo.sql` | `f95c1a03e3a956cec11b448d913ebb79df5c96c72f1e475b446a35566c36de3b` |
 | `migraciones/0003_ingreso_anterior.sql` | `005fb34328e7ab1a2bc2842ffa722b7b2f3fb3382e4adbdc216ed6a7c0ff87c5` |
+| `migraciones/0004_presupuesto_en_cero.sql` | `f6dc137db7f1e67d9bcbb1f535d571b9da76b1a1ec8bb0ee4b55b14cf6ca4a24` |
+| `migraciones/0005_transmision_a_encargados.sql` | `26428c5541ae9d2de12400101280c7e9acb271b73e3529387f1b2682befa3259` |
+| `migraciones/0006_aviso_de_purga.sql` | `7b4b52251afd2092a86b5eb47af459665db5d00103dc7bae9ba697d62b7094f0` |
 
-`test/migraciones/migraciones_test.go` compara el SHA-256 de cada archivo embebido con el de esta tabla. `TestMigracion0003AgregaYQuitaIngresoAnterior` comprueba que la columna (`timestamptz`) existe tras subir y no existe tras bajar solo esa migración.
+`test/migraciones/migraciones_test.go` compara el SHA-256 de cada archivo embebido con el de esta tabla. `TestMigracion0003AgregaYQuitaIngresoAnterior` comprueba que la columna (`timestamptz`) existe tras subir y no existe tras bajar solo esa migración (baja antes la `0006`, la `0005` y la `0004`, que van después). `TestMigracion0004CreaYQuitaPresupuestoEnCero` comprueba las columnas y las restricciones de `presupuesto_en_cero` (día 1, una por persona y mes, solo con perfil de adulta y el `CASCADE` al borrar la cuenta), que bajar solo esa migración la quita sin tocar `presupuesto` ni el catálogo, y que vuelve a subir.
+
+**`0005` nace aquí** (US-67): solo siembra `transmision_a_encargados` (necesaria, activa) en `finalidad`, sin cambio de esquema; el catálogo pasa de 7 a 8 finalidades. Su copia idéntica y la nota fechada en E13 (v1.19) las aplica la tarea T5 de la US-67 en el repositorio de documentos. `TestMigracion0005SiembraYQuitaLaTransmisionAEncargados` comprueba la fila tras subir, que bajar solo esa migración la quita y deja las 7 de `0002`, y que **bajar falla si ya hay autorizaciones de esa finalidad** (`fk_autorizacion_finalidad` es `RESTRICT`: la prueba de lo que la persona aceptó no se borra al bajar). El Down de `0002` tiene la misma restricción.
+
+**`0006` nace aquí** (ítem 294, D-203): una columna `perfil_adulto.aviso_de_purga_en timestamptz NULL`, sin valor por defecto, así que las cuentas que ya existen nacen sin aviso y la primera pasada de la tarea después de desplegar avisa a las que ya pasaron el día 5. Como `0003`, es un `ALTER TABLE … ADD COLUMN` con su `COMMENT`; el esquema no define roles ni permisos (no hay `GRANT` en ninguna migración), así que no suma ninguno. Su copia idéntica y la nota fechada en E13 las lleva el repositorio de documentos. `TestMigracion0006AgregaYQuitaElAvisoDePurga` comprueba el tipo (`timestamptz`), que admite nulo, su comentario, que una cuenta nueva nace sin aviso, que bajar solo esa migración la quita sin tocar el perfil ni el catálogo y que vuelve a subir.
+
+`0004_presupuesto_en_cero.sql`:
+
+```sql
+CREATE TABLE presupuesto_en_cero (
+    persona_id uuid NOT NULL,
+    periodo date NOT NULL,
+    creado_en timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT pk_presupuesto_en_cero PRIMARY KEY (persona_id, periodo),
+    CONSTRAINT ck_presupuesto_en_cero_periodo CHECK (EXTRACT(day FROM periodo) = 1),
+    CONSTRAINT fk_presupuesto_en_cero_persona_id FOREIGN KEY (persona_id) REFERENCES perfil_adulto (persona_id) ON DELETE CASCADE
+);
+-- Down: DROP TABLE IF EXISTS presupuesto_en_cero;
+```
 
 Prueba de integración (PostgreSQL 18 del compose local; deja la base sin tablas):
 
@@ -770,7 +981,7 @@ docker compose -f ../infra/local/compose.yaml --env-file ../infra/local/.env.exa
 
 Las pruebas viven en `test/` y miden `src/` con `-coverpkg=./src/...`. Las dos listas de paquetes son explícitas (E17-ECO 5.5) y se comparan por ruta completa relativa a `src/` (`cmd/api` es ese paquete; `cmd` solo no lo es). El pipeline `api` (`.azure-pipelines/api.yml`) falla si:
 
-- el grupo **núcleo y seguridad** (`nucleo` cuando exista, `seguridad`, `argon2id`, `sesion`, `servidor`, `autenticacion`, `cuenta`, D-151, `autorizacion`, US-50, y `fechas` y `registro`, US-51) queda bajo **90 %**;
+- el grupo **núcleo y seguridad** (`nucleo` cuando exista, `seguridad`, `argon2id`, `sesion`, `servidor`, `autenticacion`, `cuenta`, D-151, `autorizacion`, US-50, `fechas` y `registro`, US-51, `interpretacion`, US-62, y `presupuesto`, US-77) queda bajo **90 %**;
 - el grupo **resto del API** (`app`, `bd`, `cmd/api`, `config`, `correo`, `pg`, `reloj`, `tareas` y `web`) queda bajo **75 %**;
 - algún grupo queda bajo la base de `test/cobertura-base.json` (sin bajar respecto de `main`). Un PR que sube la cobertura puede subir la base (valores con un decimal, redondeados hacia abajo); **nunca bajarla**;
 - aparece un paquete de `src/` que **no está en ninguna de las dos listas**. Se busca en el perfil de cobertura y también en un recorrido de las carpetas de `src/` con archivos `.go` (tercer argumento de `medir`), así que un paquete sin pruebas tampoco pasa. Hay que clasificarlo en E17-ECO 5.5 y en `cobertura.py`. Un paquete nuevo de seguridad no cae al 75 % sin que nadie lo note. `nucleo` puede no existir todavía: su ausencia no falla.
@@ -849,14 +1060,25 @@ Indirectas: `pgpassfile`, `pgservicefile`, `puddle/v2`, `mfridman/interpolate`, 
 
 ## Tareas programadas
 
-- `api tareas` es el punto de entrada del trabajo programado (`tareas.Ejecutor`, E12 `EjecutorDeTareas`). Se conecta con PostgreSQL, corre cada tarea aunque otra falle, registra `tareas: inicio` y `tareas: fin` (con cuántas terminaron bien) y termina con código 0, o 1 si una tarea falla o no hay base.
-- **`BorrarCuentasSinConfirmar` (D-135, DAT-006):** borra la `persona` (el `CASCADE` se lleva perfil, credencial, **sesiones**, enlaces y datos) de las cuentas adultas creadas hace 7 días o más que no confirmaron el correo **o** no tienen vigente cada finalidad necesaria de una persona adulta, otorgada por ella misma. **La lista sale de `cuenta.ReglaDeFinalidades` (D-139), no del SQL:** la consulta la recibe como parámetro. Sin correo de aviso. Nunca toca una cuenta con el correo confirmado y lo necesario autorizado. **Con D-172 es la limpieza de las cuentas pendientes** (solo correo y enlace, sin credencial ni sesión): a los 7 días de su primera creación (pedir de nuevo el correo no reinicia el plazo) se borran con su enlace; `TestLaTareaBorraLaCuentaPendienteALosSieteDias` y `TestBorrarCuentasSinConfirmar` lo prueban. Excluye las cuentas que pasaron de menor a adulta (`fecha_de_paso`) y las de menores. Como `autorizacion` no tiene llave a la persona, las filas que hubiera quedan retiradas en ese instante y conservadas 3 años (E13 §7, plazo provisional). Es idempotente.
+- `api tareas` es el punto de entrada del trabajo programado (`tareas.Ejecutor`, E12 `EjecutorDeTareas`), y corre **cada 15 minutos**. Carga la configuración del correo (la misma del API: `CORREO_SMTP`, `CORREO_REMITENTE`, `CORREO_PRIVACIDAD` y `URL_PUBLICA`), se conecta con PostgreSQL, arma las tareas con **`app.ArmarTareas`** (el único lugar donde se arman, las tres: `correrTareas` y las pruebas lo llaman, así que lo que se prueba es lo que corre; usa el mismo adaptador SMTP que el API), corre cada tarea aunque otra falle, registra `tareas: inicio` y `tareas: fin` (con cuántas de las tres terminaron bien) y termina con código 0, o 1 si falta la configuración, una tarea falla o no hay base. **Son tres tareas y corren siempre en este orden (ítem 294, L14):** (1) `BorrarCuentasSinConfirmar`, la purga; (2) `LimpiarSesionesYEnlaces`; (3) `AvisarAntesDeLaPurga`, los avisos. **La limpieza nunca espera al correo:** los avisos van al final porque son lo único que depende de un servidor de correo que puede no contestar, y la purga ya no manda ningún correo. `TestLaLimpiezaTerminaAntesDeQueEmpieceCualquierEnvio` (con un correo que se queda esperando: al empezar el primer envío la purga y la limpieza ya terminaron) y `TestArmarTareasLaLimpiezaTerminaAntesDeQueEmpieceElPrimerEnvio` (con `ArmarTareas` y un servidor de correo que mira la base al recibir la conexión) lo prueban. **Las tres son independientes:** si la purga o el aviso fallan, la limpieza corre igual (y la falla de la purga no salta los avisos) y la tarea informa la falla al final (error y código 1); un pánico de una tarea cuenta como falla de esa tarea (línea ERROR con el nombre de la tarea y el valor del pánico) y tampoco salta las demás. `cuenta.NuevoServicio` devuelve `ErrDependenciaFaltante` si falta cualquiera de sus puertos (`Repo`, `Correo`, `Politica`, `Hasher`, `Reloj`, `Limitador`, `Log`), de modo que una dependencia que falta se descubre al armar y no a mitad de una corrida (antes, el servicio de las tareas sin `Correo` se caía con el primer aviso). `TestArmarTareasEnviaElAvisoDeVerdad` manda un aviso real por el adaptador SMTP a un servidor de mentira que guarda lo que recibe; `TestArmarTareasConElCorreoCaidoNoSaltaLaLimpieza`, `TestSiLaPurgaOElAvisoFallanLaLimpiezaCorreIgual` y `TestUnPanicoDeUnaTareaNoSaltaLasDemas` prueban la independencia.
+- **`BorrarCuentasSinConfirmar` (D-135, DAT-006):** borra la `persona` (el `CASCADE` se lleva perfil, credencial, **sesiones**, enlaces y datos) de las cuentas adultas que no confirmaron el correo (**caso 1**: a los 7 días de creadas) **o** que lo confirmaron y **nunca autorizaron nada** (**caso 2**): sin ninguna fila en `autorizacion` como titular, vigente o retirada (SC-E21-25 sección 5, D-202). El caso 2 ya no se borra a los 7 días a secas: espera el aviso, ver el punto siguiente (D-203). **Ya no mira las finalidades necesarias:** una cuenta que ya autorizó algo antes y a la que le falta una nueva (la de antes de `transmision_a_encargados`) no se borra nunca por esta tarea; queda en `sin_autorizacion`, sin plazo, hasta que acepte. Antes de la US-67 la tarea borraba a todas las que no tuvieran vigentes las necesarias de `ReglaDeFinalidades`, y sumar una finalidad a la regla habría borrado todas las cuentas de más de 7 días. La regla de los 7 días para el correo sin confirmar no cambia. **Dos sentencias en una transacción** (`pg.Cuentas.BorrarSinConfirmar`): la primera elige los candidatos y **bloquea** sus filas de `persona` (`FOR UPDATE`, por id); la segunda, con foto nueva, **vuelve a evaluar** la condición sobre esas filas y solo entonces retira las autorizaciones y borra. Con una sola sentencia, un otorgamiento en curso (que tiene la fila de la persona y escribe en `autorizacion`, que no tiene llave a persona) haría esperar a la purga y, al confirmarse, la purga seguiría con los candidatos de su foto antigua: en READ COMMITTED solo se relee la fila bloqueada, no el `NOT EXISTS` de otra tabla. Habría borrado a quien acababa de autorizar, dejando autorizaciones vigentes huérfanas. `TestPurgaNoBorraTrasOtorgamientoConcurrente` fija ese orden y `TestLaPurgaYUnOtorgamientoAlMismoTiempoQuedanCoherentes` lo prueba con carreras al azar. Si dos tareas se cruzan por una cuenta con otra operación que bloquee varias filas, PostgreSQL detecta el interbloqueo y la tarea falla y reintenta al día siguiente. El caso 1 no recibe aviso: la dirección no está confirmada y puede ser de otra persona. La cuenta que no confirmó el correo se borra aunque tenga autorizaciones: quedan retiradas y conservadas como prueba mínima. `TestLaTareaNoBorraUnaCuentaQueYaAutorizoAlgo` es la prueba que pidió el dueño: una cuenta de 8 días, con el correo confirmado, `cuenta_y_acceso` y `funciones_financieras` pero sin `transmision_a_encargados`, sigue con todos sus datos (perfil, credencial, sesión, movimiento y autorizaciones vigentes); una de control sin ninguna autorización recibe el aviso y se borra a las 48 horas; la prueba falla si la tarea borra la primera. Nunca toca una cuenta con el correo confirmado que ya autorizó algo. **Con D-172 es la limpieza de las cuentas pendientes** (solo correo y enlace, sin credencial ni sesión): a los 7 días de su primera creación (pedir de nuevo el correo no reinicia el plazo) se borran con su enlace; `TestLaTareaBorraLaCuentaPendienteALosSieteDias` y `TestBorrarCuentasSinConfirmar` lo prueban. Excluye las cuentas que pasaron de menor a adulta (`fecha_de_paso`) y las de menores. Como `autorizacion` no tiene llave a la persona, las filas que hubiera quedan retiradas en ese instante y conservadas 3 años (E13 §7, plazo provisional). Es idempotente.
+- **El aviso antes de la purga (ítem 294, D-203).** El caso 2 (adulta, sin `fecha_de_paso`, correo confirmado y ninguna fila en `autorizacion` como titular) recibe un correo **una sola vez**, en la primera pasada de la tarea (cada 15 minutos) a partir de `creada_en` + 5 días (120 h), y se borra cuando se cumplen **las dos**: 7 días desde `creada_en` y 48 horas desde el aviso (`aviso_de_purga_en`, migración `0006`). Las cuentas que ya pasaron el día 5 al desplegar reciben el aviso en la primera pasada y se borran 48 horas después. La purga (`Servicio.BorrarCuentasSinConfirmar`) y el aviso (`Servicio.AvisarAntesDeLaPurga`) son **dos tareas distintas**, y el ejecutor corre **primero la purga, después la limpieza de sesiones y enlaces y al final el aviso**: así una cuenta que ya pasó el límite no gana 48 horas por un aviso de última hora y la limpieza no espera al correo. La purga no manda ningún correo (`TestLaPurgaNoMandaAvisos`).
+  - **Límite del día 14.** Sin aviso registrado (el servidor de correo caído, por ejemplo), la cuenta del caso 2 espera, pero si a los 14 días de `creada_en` el aviso todavía no salió se borra igual, y la tarea deja una línea **ERROR** con el id de la persona (`persona_id`), nunca el correo (`ResultadoDeLaPurga.SinAviso`). Hasta entonces no se borra.
+  - **Una cuenta por transacción** (`pg.Cuentas.AvisarAntesDeLaPurga`): (1) bloquea la fila de `persona` y la de `perfil_adulto`, en ese orden, el de la purga y el del resto de las operaciones sobre una cuenta; (2) con una sentencia nueva, **vuelve a evaluar el caso 2 sobre las filas bloqueadas**: si la persona acaba de autorizar (un otorgamiento en curso tiene la fila y escribe en `autorizacion`), o ya la avisó otra pasada que corría a la vez, no se manda nada; (3) envía; (4) solo si el correo salió, escribe `aviso_de_purga_en` en esa misma transacción y confirma. La hora que se escribe es la **leída justo antes de enviar ese correo, por cada cuenta** (el reloj del servicio, no la `ahora` con que empezó la pasada), la misma con que se calculó la fecha del correo: una purga o unos envíos lentos no acortan las 48 horas desde el correo real (`TestI294AvisoDespuesDeUnaPurgaLenta`). Si el correo sale y la escritura falla, la pasada siguiente lo manda otra vez.
+  - **Si el envío falla**, no se registra nada, la tarea no falla, queda una línea **WARN** («aviso de purga no enviado…», con el id y sin el correo) y la pasada siguiente lo reintenta; una cuenta que falla no impide el aviso de las demás. Un fallo de la base sí es un fallo de la tarea.
+  - **Tiempo de espera del envío con las filas bloqueadas (S4).** El envío se hace con la fila de la persona y la de su perfil bloqueadas; un servidor de correo que no responde las dejaría así (y con ellas, iniciar sesión, autorizar o borrar la cuenta de esa persona). `cuenta.PlazoDeEnvioConFilasBloqueadas` son **10 segundos**, bien por encima del diálogo SMTP de un servidor sano y muy por debajo de los 30 s del adaptador (`Dependencias.PlazoDeEnvioConFilasBloqueadas` lo acorta en las pruebas). Al cumplirse, el envío falla, no se registra y las filas quedan libres. Como se avisa de una cuenta a la vez, una corrida con el servidor de correo caído tardaría 10 segundos por cuenta pendiente: de ahí el tiempo total del punto siguiente.
+  - **Tiempo total de los avisos: 2 minutos (L14).** `caj-tareas` (`infra/azure/aplicacion.tf`) tiene `replica_timeout_in_seconds = 300`: Azure mata el proceso a los 5 minutos, y con el correo caído unas 30 cuentas pendientes (10 s cada una) llegan a ese tope y la corrida termina muerta a mitad de un envío. Por eso la tarea de los avisos tiene un presupuesto total, `cuenta.PresupuestoDeLosAvisos` = **2 minutos** (justificado en el comentario de la constante: deja 3 minutos para la purga y la limpieza, que van antes, y para cerrar; `Dependencias.PresupuestoDeLosAvisos` lo acorta en las pruebas, igual que el plazo del envío). Es un plazo sobre el contexto de la tarea: al cumplirse, el envío en curso se interrumpe, su transacción se deshace (sin registrar nada y sin dejar filas bloqueadas) y no se toca ninguna cuenta más. Lo que no alcanzó queda **sin registrar, para la corrida siguiente** (15 minutos después), y la tarea deja una línea **WARN** («avisos de purga: se acabó el tiempo total de la tarea…») con `pendientes` (cuántas cuentas faltaron, la interrumpida incluida) y `presupuesto`, sin ningún correo. Agotar el presupuesto no es una falla de la tarea (código 0); que el proceso se cancele (el contenedor se apaga), sí. El plazo de 10 s de cada envío sigue igual. `TestElPresupuestoDeLosAvisosCortaConElServidorColgado` (un servidor que acepta y calla, 30 cuentas: la tarea se detiene en el presupuesto y no en el plazo de cada envío, intenta con una sola cuenta, no registra nada, deja las filas libres y ninguna transacción abierta, deja el WARN y la corrida siguiente avisa a las 30), `TestElPresupuestoDeLosAvisosConservaLoYaEnviadoYSigueConElResto` (lo enviado antes queda registrado y no se repite), y con el repositorio falso `TestAlAcabarseElPresupuestoLoQueFaltaQuedaParaLaCorridaSiguiente`, `TestUnaCancelacionNoEsUnPresupuestoAgotado` y `TestElPresupuestoDeLosAvisosEsDeDosMinutos`.
+  - **Fuera del límite de correos por hora (D-203).** El límite de 3 correos por hora a una dirección (D-140 (2), D-172 (7)) no mira el aviso: el aviso **sale igual** aunque la persona ya haya gastado los 3 de la hora (pedir la verificación, reenviarla o los avisos de «alguien intentó crear una cuenta»), y **tampoco suma al contador de la dirección**: después del aviso la persona todavía puede pedir 3. El aviso lo manda la tarea y no la persona, y es la única advertencia antes de borrar la cuenta; el camino del aviso no llama a `Limitador.PermitirCorreo`. `TestElAvisoDePurgaNoCuentaEnElLimiteDeCorreosPorHora` (con un repositorio falso) y `TestElAvisoDePurgaNoPasaPorElLimiteDeCorreosPorHoraNiSumaAlContador` (contra PostgreSQL) lo prueban en los dos sentidos: con 3 pedidos en la última hora el aviso sale y el cuarto pedido sigue detenido; con el aviso primero, salen los 3 pedidos y el cuarto queda detenido.
+  - **El texto** (el que dictó el dueño el 2026-11-13, palabra por palabra; `smtp.go`). Asunto: «Tu cuenta de Alcanzamos se borra en 2 días». Dice «la borramos el {fecha}», con la fecha del **borrado real**, en palabras y en hora de Colombia (`fechas.EnPalabras`, D-090: «18 de noviembre de 2026, a las 9:30 a. m.»): lo que llegue más tarde entre `creada_en` + 7 días y el aviso + 48 horas (con el aviso saliendo desde el día 5, siempre es el aviso + 48 horas). El enlace es `URL_PUBLICA` + `/entrar` (iniciar sesión, sin token) y después va el pie de siempre. La hora que dice es la del primer momento en que la cuenta cumple las dos condiciones; la tarea corre cada 15 minutos, así que el borrado ocurre en esa pasada o hasta 15 minutos después.
+  - **Pruebas.** `test/cuenta/aviso_de_purga_test.go` (con un repositorio falso: el aviso desde el día 5, la fecha del correo, el fallo y su registro, el error de la cuenta sin aviso y el plazo del envío) y `test/pg/aviso_de_purga_integracion_test.go` (contra PostgreSQL): `TestElCaso2SinAvisoNoSeBorraAntesDelDia14YDesdeElDia14Si`, `TestUnaCuentaQueAutorizaDespuesDelAvisoNoSeBorra`, `TestElCaso1NuncaRecibeElAviso`, `TestSinAutorizarElAvisoSaleUnaSolaVezAunqueLaTareaCorraMuchasVeces` (150 pasadas seguidas y 8 a la vez), `TestLaFechaDelCorreoEsLaDelBorradoReal`, `TestLasCuentasQueYaPasaronElDia5AlDesplegarReciebenElAvisoYSeBorran48HorasDespues`, `TestLaPurgaDelCaso2EsperaLasDosCondiciones`, `TestSiElEnvioFallaNoSeRegistraYSeReintentaEnLaPasadaSiguiente`, `TestElAvisoVuelveAEvaluarElCasoConLaFilaBloqueada`, `TestElPresupuestoDeLosAvisos…` y `TestUnServidorDeCorreoQueNoResponde` (un servidor que acepta la conexión y calla: el envío falla dentro del plazo, no se registra, las filas estaban bloqueadas durante el envío y quedan libres).
 - **`LimpiarSesionesYEnlaces` (CU-52):** borra las filas de `sesion` y `enlace_un_uso` con `vence_en` anterior a ahora. Es idempotente.
 - Se prueba con la misma imagen del API:
 
 ```sh
 docker run --rm --network alcanzamos-local_default \
   -e BASE_DE_DATOS_URL=postgres://alcanzamos:solo-local@postgres:5432/alcanzamos \
+  -e CORREO_SMTP=mailpit:1025 -e CORREO_REMITENTE=no-responder@avisos.ejemplo.test \
+  -e CORREO_PRIVACIDAD=privacidad@ejemplo.test -e URL_PUBLICA=http://127.0.0.1:8080 \
   alcanzamos-api:dev tareas
 ```
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Pendiente } from "../api/repeticiones";
+import type { FechaPorConfirmar } from "../api/repeticiones";
 import { Boton } from "../componentes/Boton";
 import { CampoDeTexto } from "../componentes/CampoDeTexto";
 import { Hoja } from "../componentes/Hoja";
@@ -24,7 +24,7 @@ export function HojaDeMas({
   alElegir,
   alCerrar,
 }: {
-  fila: Pendiente;
+  fila: FechaPorConfirmar;
   conIncluir?: boolean;
   alElegir: (opcion: Opcion) => void;
   alCerrar: () => void;
@@ -88,7 +88,7 @@ export function HojaDeMonto({
   alConfirmar,
   alCerrar,
 }: {
-  fila: Pendiente;
+  fila: FechaPorConfirmar;
   textoDelBoton: string;
   enviando?: boolean;
   alConfirmar: (centavos: bigint) => void;

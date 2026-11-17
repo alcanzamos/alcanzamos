@@ -258,9 +258,10 @@ func TestSujetoSegunElEstadoDeLaCuenta(t *testing.T) {
 	paso("sin verificar", false, false)
 	otorgar(t, e.pool, persona, persona, "cuenta_y_acceso")
 	otorgar(t, e.pool, persona, persona, "funciones_financieras")
-	paso("con las dos autorizaciones pero sin verificar: son dos hechos distintos", false, true)
+	otorgar(t, e.pool, persona, persona, "transmision_a_encargados")
+	paso("con las tres autorizaciones pero sin verificar: son dos hechos distintos", false, true)
 	verificar(t, e.pool, persona)
-	paso("verificada y con las dos necesarias de adulto", true, true)
+	paso("verificada y con las tres necesarias de adulto", true, true)
 	if _, err := e.pool.Exec(ctx, `UPDATE autorizacion SET retirada_en = $1 WHERE titular_id = $2::uuid AND finalidad = 'cuenta_y_acceso'`, ahora, persona); err != nil {
 		t.Fatal(err)
 	}
@@ -298,8 +299,19 @@ func TestSujetoRespetaQuienOtorgaYLaFinalidadDeLaEtapa(t *testing.T) {
 		t.Fatal(err)
 	}
 	otorgarEn(t, e.pool, persona, persona, "funciones_financieras", ahora) // ahora sí, por ella misma
+	if autorizada() {
+		t.Fatal("a la cuenta de antes del cambio le falta transmision_a_encargados (SC-E21-25): no está autorizada")
+	}
+	otorgar(t, e.pool, persona, otra, "transmision_a_encargados") // la dio otra persona: no vale
+	if autorizada() {
+		t.Fatal("transmision_a_encargados dada por otra persona no cuenta")
+	}
+	if _, err := e.pool.Exec(ctx, `UPDATE autorizacion SET retirada_en = $1 WHERE titular_id = $2::uuid AND finalidad = 'transmision_a_encargados'`, ahora, persona); err != nil {
+		t.Fatal(err)
+	}
+	otorgarEn(t, e.pool, persona, persona, "transmision_a_encargados", ahora.Add(time.Second)) // ahora sí, por ella misma
 	if !autorizada() {
-		t.Fatal("con las dos de adulto dadas por ella misma queda autorizada, sin pedirle cuenta_del_menor")
+		t.Fatal("con las tres de adulto dadas por ella misma queda autorizada, sin pedirle cuenta_del_menor")
 	}
 }
 
@@ -366,8 +378,19 @@ func TestSujetoDeUnMenorExigeLaAutorizacionDeSuTutor(t *testing.T) {
 		t.Fatal(err)
 	}
 	otorgarEn(t, e.pool, menor, tutor, "cuenta_del_menor", ahora.Add(3*time.Second))
+	if autorizada() {
+		t.Fatal("con solo cuenta_del_menor del tutor le falta transmision_a_encargados (SC-E21-25)")
+	}
+	otorgarEn(t, e.pool, menor, menor, "transmision_a_encargados", ahora.Add(4*time.Second)) // la dio el propio menor
+	if autorizada() {
+		t.Fatal("transmision_a_encargados dada por el propio menor no vale")
+	}
+	if _, err := e.pool.Exec(ctx, `UPDATE autorizacion SET retirada_en = $1 WHERE titular_id = $2::uuid AND finalidad = 'transmision_a_encargados'`, ahora.Add(5*time.Second), menor); err != nil {
+		t.Fatal(err)
+	}
+	otorgarEn(t, e.pool, menor, tutor, "transmision_a_encargados", ahora.Add(6*time.Second))
 	if !autorizada() {
-		t.Fatal("cuenta_del_menor otorgada por su tutor lo deja autorizado, sin pedirle la lista de adulto")
+		t.Fatal("cuenta_del_menor y transmision_a_encargados otorgadas por su tutor lo dejan autorizado, sin pedirle la lista de adulto")
 	}
 }
 
@@ -418,6 +441,7 @@ func TestPuntaAPuntaConElEnrutadorYLaBase(t *testing.T) {
 	}
 	otorgar(t, e.pool, laura, laura, "cuenta_y_acceso")
 	otorgar(t, e.pool, laura, laura, "funciones_financieras")
+	otorgar(t, e.pool, laura, laura, "transmision_a_encargados")
 	if c, _ := pedir(rutas[seguridad.RequiereAutorizacion], real); c != 200 {
 		t.Errorf("autorizada en requiere_autorizacion: %d", c)
 	}

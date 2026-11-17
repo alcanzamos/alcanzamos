@@ -105,7 +105,8 @@ describe("PN-71 · Seguridad de la cuenta", () => {
     expect(window.location.pathname).toBe("/cuenta/privacidad");
   });
 
-  it("orden: «Movimientos», «Cómo cuidamos tus datos», «Cerrar sesión» y, última, «Borrar mi cuenta»", async () => {
+  // L3 de la US-77 (punto 3): «Presupuesto» es una entrada provisional, como «Movimientos», justo después de ella.
+  it("orden: «Movimientos», «Presupuesto», las dos entradas de privacidad, «Cerrar sesión» y, última, «Borrar mi cuenta»", async () => {
     simularApi(() => json(200, { ingreso_anterior: null }));
     render(<SeguridadDeLaCuenta />);
     await screen.findByText("Este es tu primer ingreso.");
@@ -115,19 +116,59 @@ describe("PN-71 · Seguridad de la cuenta", () => {
       ),
     ).toEqual([
       "Movimientos",
+      "Presupuesto",
       "Cómo cuidamos tus datos",
+      "Política de tratamiento y consultas",
       "Cerrar sesión",
       "Borrar mi cuenta",
     ]);
   });
 
-  it("la entrada a PN-63 también está con el error de carga", async () => {
+  // D-195 (5), E14-PCP 4.14: la entrada provisional a PN-68 la hace la US-67, en un botón de texto como la de PN-63.
+  it("«Política de tratamiento y consultas» es un botón de texto que abre PN-68 y Atrás vuelve a PN-71", async () => {
+    simularApi(() => json(200, { ingreso_anterior: null }));
+    render(<SeguridadDeLaCuenta />);
+    await screen.findByText("Este es tu primer ingreso.");
+    const enlace = screen.getByRole("link", {
+      name: "Política de tratamiento y consultas",
+    });
+    expect(enlace).toHaveAttribute(
+      "href",
+      "/politica?desde=%2Fcuenta%2Fseguridad",
+    );
+    expect(enlace).toHaveClass("boton--texto");
+    fireEvent.click(enlace);
+    expect(window.location.pathname).toBe("/politica");
+  });
+
+  it("«Presupuesto» es un enlace con aspecto de «Movimientos» que abre PN-06", async () => {
+    simularApi(() => json(200, { ingreso_anterior: null }));
+    render(<SeguridadDeLaCuenta />);
+    await screen.findByText("Este es tu primer ingreso.");
+    // El de PN-71, no el destino de la Navegación lateral.
+    const enlace = within(screen.getByRole("main")).getByRole("link", {
+      name: "Presupuesto",
+    });
+    expect(enlace).toHaveAttribute("href", "/presupuesto");
+    expect(enlace).toHaveClass(
+      within(screen.getByRole("main")).getByRole("link", {
+        name: "Movimientos",
+      }).className,
+    );
+    fireEvent.click(enlace);
+    expect(window.location.pathname).toBe("/presupuesto");
+  });
+
+  it("las entradas a PN-63 y a PN-68 también están con el error de carga", async () => {
     simularApi(() => json(500, { error: "interno" }));
     render(<SeguridadDeLaCuenta />);
     await screen.findByText("No pudimos cargar tu último ingreso.");
     expect(
       screen.getByRole("link", { name: "Cómo cuidamos tus datos" }),
     ).toHaveAttribute("href", "/cuenta/privacidad");
+    expect(
+      screen.getByRole("link", { name: "Política de tratamiento y consultas" }),
+    ).toHaveAttribute("href", "/politica?desde=%2Fcuenta%2Fseguridad");
   });
 
   it("«Cerrar sesión» es un botón de texto", async () => {

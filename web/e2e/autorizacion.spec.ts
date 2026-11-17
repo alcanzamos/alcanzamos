@@ -1,18 +1,14 @@
 import { expect, test } from "@playwright/test";
 import { responder, simularApi, sinViolaciones } from "./ayudas";
+import {
+  AVISOS,
+  catalogoCompleto,
+  catalogoLimitado,
+  NECESARIAS,
+  TRANSMISION,
+} from "./datosDeAutorizacion";
 
-const finalidades = [
-  { codigo: "cuenta_y_acceso", tipo: "necesaria", otorgada: false },
-  { codigo: "funciones_financieras", tipo: "necesaria", otorgada: false },
-  { codigo: "avisos", tipo: "accesoria", otorgada: false },
-  { codigo: "horas_de_vida", tipo: "accesoria", otorgada: false },
-];
-const catalogo = {
-  version: { numero: "1.0", fecha: "2026-10-30" },
-  finalidades,
-};
-const NECESARIAS =
-  "Autorizo el uso de mis datos para estas finalidades necesarias.";
+const catalogo = catalogoCompleto;
 
 test.describe("PN-63 · Información de privacidad", () => {
   test("USA-003 sin violaciones de axe, con las ocho tarjetas, sin Atrás y con «Continuar» a PN-64", async ({
@@ -23,7 +19,10 @@ test.describe("PN-63 · Información de privacidad", () => {
       page.getByRole("heading", { level: 1, name: "Cómo cuidamos tus datos" }),
     ).toBeVisible();
     await expect(page.getByRole("region")).toHaveCount(8);
-    await expect(page.getByRole("link")).toHaveCount(0);
+    // Sin Atrás; el único enlace es «Leer la política completa» (E14-PCP 4.6, fila 10).
+    await expect(page.getByRole("link")).toHaveText([
+      "Leer la política completa",
+    ]);
     await sinViolaciones(page);
     await page.getByRole("button", { name: "Continuar" }).click();
     await expect(page).toHaveURL(/\/autorizacion$/);
@@ -93,6 +92,9 @@ test.describe("PN-63 · Información de privacidad", () => {
     await expect(titulo).toBeFocused();
     await expect(page.getByRole("region")).toHaveCount(8);
     await expect(page.getByRole("link", { name: "Atrás" })).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Leer la política completa" }),
+    ).toBeVisible();
     await expect(page.getByRole("button")).toHaveCount(0);
     await sinViolaciones(page);
     expect(pedidos.map((p) => `${p.metodo} ${p.ruta}`)).toEqual([
@@ -116,16 +118,19 @@ test.describe("PN-64 · Autorización de datos", () => {
     await expect(
       page.getByRole("heading", { level: 1, name: "Tu autorización" }),
     ).toBeVisible();
-    await expect(page.getByRole("checkbox")).toHaveCount(3);
+    await expect(page.getByRole("checkbox")).toHaveCount(4);
     for (const casilla of await page.getByRole("checkbox").all())
       await expect(casilla).not.toBeChecked();
     await expect(
-      page.getByText("Texto versión 1.0 del 30 de octubre de 2026."),
+      page.getByText("Texto versión 1.1 del 12 de noviembre de 2026."),
     ).toBeVisible();
     await sinViolaciones(page);
     await page.getByRole("button", { name: "Autorizar y continuar" }).click();
     await expect(
       page.getByText("Falta tu autorización para lo necesario."),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Falta que aceptes dónde guardamos tus datos."),
     ).toBeVisible();
     await expect(page.getByLabel(NECESARIAS)).toBeFocused();
     await sinViolaciones(page);
@@ -189,7 +194,8 @@ test.describe("PN-64 · Autorización de datos", () => {
 
     // Autoriza lo necesario y una accesoria en PN-64.
     await page.getByLabel(NECESARIAS).check();
-    await page.getByLabel("Autorizo los avisos con la app cerrada.").check();
+    await page.getByLabel(TRANSMISION).check();
+    await page.getByLabel(AVISOS).check();
     await page.getByRole("button", { name: "Autorizar y continuar" }).click();
 
     // Llega a PN-71 en la misma sesión: ve su primer ingreso.
@@ -204,8 +210,216 @@ test.describe("PN-64 · Autorización de datos", () => {
         (p) => p.metodo === "POST" && p.ruta === "/api/v1/autorizaciones",
       )?.cuerpo,
     ).toEqual({
-      finalidades: ["cuenta_y_acceso", "funciones_financieras", "avisos"],
-      version: "1.0",
+      finalidades: [
+        "cuenta_y_acceso",
+        "funciones_financieras",
+        "transmision_a_encargados",
+        "avisos",
+      ],
+      version: "1.1",
+    });
+  });
+
+  // SC-E21-25 3.6 y 3.8, criterio 1: la tarjeta «Dónde guardamos tus datos» y la frase de los avisos, bajo su casilla.
+  test("la tarjeta «Dónde guardamos tus datos» y la frase de los avisos con la app cerrada, sin violaciones de axe", async ({
+    page,
+  }) => {
+    await simularApi(page, {
+      "GET /api/v1/autorizaciones": responder(200, catalogo),
+    });
+    await page.goto("/autorizacion");
+    await expect(page.getByRole("heading", { level: 2 })).toHaveText([
+      "Lo necesario para usar la app",
+      "Dónde guardamos tus datos",
+      "Lo que puedes elegir",
+    ]);
+    await expect(
+      page.getByRole("region", { name: "Dónde guardamos tus datos" }),
+    ).toContainText("Microsoft Azure, en México");
+    // Solo la casilla de la tarjeta lleva el error; el error de la tarjeta y su nota describen la casilla.
+    await page.getByLabel(NECESARIAS).check();
+    await page.getByRole("button", { name: "Autorizar y continuar" }).click();
+    const casilla = page.getByLabel(TRANSMISION);
+    await expect(casilla).toBeFocused();
+    await expect(casilla).toHaveAccessibleDescription(
+      "Falta que aceptes dónde guardamos tus datos. Sin esta aceptación no podemos darte la cuenta, porque la app guarda tus datos en esos servicios.",
+    );
+    await sinViolaciones(page);
+    await expect(page.getByLabel(AVISOS)).toHaveAccessibleDescription(
+      /^Si activas los avisos con la app cerrada, el código de tu teléfono o de tu navegador/,
+    );
+    await expect(page.getByLabel(AVISOS)).not.toBeChecked();
+  });
+
+  // SC-E21-25 3.8, criterio 10 (a): sin «Autorizo los avisos con la app cerrada.» la web no pide la suscripción de push ni
+  // manda ninguna petición para registrar el token; el API simulado falla la prueba con cualquier pedido no previsto.
+  test("autorizar sin los avisos no suscribe el navegador a push ni registra ningún token (criterio 10)", async ({
+    page,
+  }) => {
+    const pedidos = await simularApi(page, {
+      "GET /api/v1/autorizaciones": responder(200, catalogo),
+      "POST /api/v1/autorizaciones": responder(200, { estado: "autorizada" }),
+      "GET /api/v1/cuenta/seguridad": responder(200, {
+        ingreso_anterior: null,
+      }),
+    });
+    await page.goto("/autorizacion");
+    await page.getByLabel(NECESARIAS).check();
+    await page.getByLabel(TRANSMISION).check();
+    await page.getByRole("button", { name: "Autorizar y continuar" }).click();
+    await expect(page).toHaveURL(/\/cuenta\/seguridad$/);
+    await expect(page.getByText("Este es tu primer ingreso.")).toBeVisible();
+    expect(
+      pedidos.filter((p) => p.ruta.startsWith("/api/v1/dispositivos")),
+    ).toEqual([]);
+    const suscripcion = await page.evaluate(async () => {
+      const registro = await navigator.serviceWorker?.getRegistration();
+      return registro ? await registro.pushManager.getSubscription() : null;
+    });
+    expect(suscripcion).toBeNull();
+  });
+
+  // D-195: «Leer la política completa» abre PN-68 con la versión del texto que se ve, y Atrás vuelve con lo marcado.
+  test("«Leer la política completa» abre PN-68 con la versión que se ve y Atrás vuelve con lo marcado", async ({
+    page,
+  }) => {
+    await simularApi(page, {
+      "GET /api/v1/autorizaciones": responder(200, catalogo),
+    });
+    await page.goto("/autorizacion");
+    await page.getByLabel(TRANSMISION).check();
+    await page.getByLabel(AVISOS).check();
+    await page.getByRole("link", { name: "Leer la política completa" }).click();
+    await expect(page).toHaveURL(/\/politica\?desde=%2Fautorizacion$/);
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Política de tratamiento" }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Versión 1.1 del 12 de noviembre de 2026."),
+    ).toBeVisible();
+    await page.getByRole("link", { name: "Atrás" }).click();
+    await expect(page).toHaveURL(/\/autorizacion$/);
+    await expect(page.getByLabel(TRANSMISION)).toBeChecked();
+    await expect(page.getByLabel(AVISOS)).toBeChecked();
+    await expect(page.getByLabel(NECESARIAS)).not.toBeChecked();
+  });
+});
+
+// SC-E21-25 sección 5 y 3.8, criterio 6: la cuenta de antes del cambio ve solo la tarjeta que le falta y, al aceptar,
+// llega a Inicio con todos sus datos.
+test.describe("PN-64 · modo «falta una aceptación»", () => {
+  test("solo la tarjeta que falta, sin violaciones de axe, y al aceptar manda solo esa aceptación y llega a Inicio", async ({
+    page,
+  }) => {
+    const pedidos = await simularApi(page, {
+      "GET /api/v1/autorizaciones": responder(200, catalogoLimitado),
+      "POST /api/v1/autorizaciones": responder(200, { estado: "autorizada" }),
+      "GET /api/v1/cuenta/seguridad": responder(200, {
+        ingreso_anterior: "2026-12-13T02:40:00Z",
+      }),
+    });
+    await page.goto("/autorizacion");
+    await expect(page.getByRole("heading", { level: 2 })).toHaveText([
+      "Dónde guardamos tus datos",
+    ]);
+    await expect(page.getByRole("checkbox")).toHaveCount(1);
+    await expect(page.getByLabel(TRANSMISION)).not.toBeChecked();
+    // Aprobado por el dueño (2026-11-12, E14-PCP 4.7): la nota de este modo no dice que la cuenta se crea.
+    await expect(page.getByLabel(TRANSMISION)).toHaveAccessibleDescription(
+      "Sin esta aceptación no puedes seguir usando la app, porque guarda tus datos en esos servicios.",
+    );
+    await expect(page.getByText("no podemos darte la cuenta")).toHaveCount(0);
+    await expect(page.getByText("Lo necesario para usar la app")).toHaveCount(
+      0,
+    );
+    await sinViolaciones(page);
+    await page.getByRole("button", { name: "Autorizar y continuar" }).click();
+    await expect(
+      page.getByText("Falta que aceptes dónde guardamos tus datos."),
+    ).toBeVisible();
+    await expect(page.getByLabel(TRANSMISION)).toHaveAccessibleDescription(
+      "Falta que aceptes dónde guardamos tus datos. Sin esta aceptación no puedes seguir usando la app, porque guarda tus datos en esos servicios.",
+    );
+    await sinViolaciones(page);
+    expect(pedidos).toHaveLength(1);
+    await page.getByLabel(TRANSMISION).check();
+    await page.getByRole("button", { name: "Autorizar y continuar" }).click();
+    await expect(page).toHaveURL(/\/cuenta\/seguridad$/);
+    await expect(
+      page.getByText(/Tu ingreso anterior fue el 12 de diciembre de 2026/),
+    ).toBeVisible();
+    expect(pedidos.find((p) => p.metodo === "POST")?.cuerpo).toEqual({
+      finalidades: ["transmision_a_encargados"],
+      version: "1.1",
+    });
+  });
+
+  test("«No autorizo» abre la hoja de PN-54 sin llamar al rechazo, con la descarga y la contraseña, y «Volver y decidir» la cierra", async ({
+    page,
+  }) => {
+    const pedidos = await simularApi(page, {
+      "GET /api/v1/autorizaciones": responder(200, catalogoLimitado),
+      "GET /api/v1/cuenta/borrado": responder(200, {
+        hogar: null,
+        menores: [],
+      }),
+    });
+    await page.goto("/autorizacion");
+    await page.getByLabel(TRANSMISION).check();
+    await page.getByRole("button", { name: "No autorizo" }).click();
+    const hoja = page.getByRole("dialog", { name: "¿No autorizas?" });
+    await expect(hoja).toBeVisible();
+    await expect(
+      hoja.getByText("Si no autorizas, borramos tu cuenta y tu historial."),
+    ).toBeVisible();
+    await expect(hoja.getByLabel("Tu contraseña")).toBeVisible();
+    await expect(
+      hoja.getByRole("button", { name: "Descargar mis datos" }),
+    ).toBeVisible();
+    await sinViolaciones(page);
+    await hoja.getByRole("button", { name: "Borrar mi cuenta" }).click();
+    await expect(
+      hoja.getByText("Falta tu contraseña para borrar la cuenta."),
+    ).toBeVisible();
+    await sinViolaciones(page);
+    await hoja.getByRole("button", { name: "Volver y decidir" }).click();
+    await expect(hoja).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "No autorizo" }),
+    ).toBeFocused();
+    await expect(page.getByLabel(TRANSMISION)).toBeChecked();
+    expect(pedidos.map((p) => `${p.metodo} ${p.ruta}`)).toEqual([
+      "GET /api/v1/autorizaciones",
+      "GET /api/v1/cuenta/borrado",
+    ]);
+  });
+
+  test("desde la hoja se borra la cuenta con la contraseña y va a PN-60 con «Borramos tu cuenta.»", async ({
+    page,
+  }) => {
+    const pedidos = await simularApi(page, {
+      "GET /api/v1/autorizaciones": responder(200, catalogoLimitado),
+      "GET /api/v1/cuenta/borrado": responder(200, {
+        hogar: null,
+        menores: [],
+      }),
+      "POST /api/v1/cuenta/borrado": responder(200, {
+        estado: "cuenta_borrada",
+      }),
+    });
+    await page.goto("/autorizacion");
+    await page.getByRole("button", { name: "No autorizo" }).click();
+    const hoja = page.getByRole("dialog", { name: "¿No autorizas?" });
+    await hoja.getByLabel("Tu contraseña").fill("lluvia café tren azul");
+    await hoja.getByRole("button", { name: "Borrar mi cuenta" }).click();
+    await expect(page).toHaveURL(/\/entrar$/);
+    await expect(
+      page.getByRole("status").filter({ hasText: "Borramos tu cuenta." }),
+    ).toBeVisible();
+    expect(pedidos.at(-1)?.cuerpo).toEqual({
+      contrasena: "lluvia café tren azul",
+      confirma_menores: false,
+      menores: [],
     });
   });
 });

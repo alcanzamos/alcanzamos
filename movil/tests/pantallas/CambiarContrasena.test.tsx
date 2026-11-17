@@ -5,6 +5,7 @@ import { CambiarContrasena } from '../../src/pantallas/CambiarContrasena';
 import { instalarFetchFalso, respuestaJson } from '../ayudas/fetchFalso';
 import { esperarSinAnuncios, focoDeTalkBack, nombreDe } from '../ayudas/anuncios';
 import { navegacionFalsa, propiedades } from '../ayudas/pantalla';
+import { comprobarOcupado } from '../ayudas/ocupado';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
 import { campo } from '../ayudas/campos';
 
@@ -228,6 +229,7 @@ describe('PN-73 · Cambiar la contraseña (E14-PCP 4.15)', () => {
       await llenar();
       await guardar();
       await guardar();
+      comprobarOcupado({ name: 'Guardar la contraseña' });
       expect(fetchFalso).toHaveBeenCalledTimes(1);
       await act(async () => responder(respuestaJson(200, { estado: 'contrasena_cambiada' })));
     });

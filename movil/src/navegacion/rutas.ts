@@ -1,5 +1,5 @@
 import type { Movimiento } from '../api/movimientos';
-import type { Pendientes } from '../api/repeticiones';
+import type { FechaPorConfirmar } from '../api/repeticiones';
 import type { DatosDeAviso } from '../textos';
 import type { Llegada } from './llegada';
 
@@ -24,8 +24,17 @@ export type Rutas = {
    * sobre PN-71 desde su entrada provisional «Cómo cuidamos tus datos» (bug 260) y su Atrás vuelve a PN-71.
    */
   InformacionDePrivacidad: { llegada?: Llegada; desdeElMenu?: true } | undefined;
-  /** PN-64: solo se abre desde «Continuar» de PN-63; su Atrás vuelve a PN-63. */
+  /**
+   * PN-64: se abre desde «Continuar» de PN-63 (su Atrás vuelve a PN-63) o, para la cuenta de antes del cambio a la que solo
+   * le falta una aceptación, directo desde el acceso negado (SC-E21-25, sección 5), como única pantalla de la pila.
+   */
   AutorizacionDeDatos: undefined;
+  /**
+   * PN-68 · Política de tratamiento (E14-PCP 4.11): pública, sin sesión. Se apila sobre la pantalla que la abre (PN-60,
+   * PN-58, PN-63 en el primer uso y desde el menú, PN-64 y PN-71) y su Atrás vuelve ahí, así PN-58 y PN-64 conservan lo
+   * escrito y lo marcado.
+   */
+  Politica: undefined;
   /**
    * PN-71, la pantalla de inicio provisional de quien entra con autorización. `aviso` es el mensaje de estado que lleva
    * datos de la persona («Listo, registramos tu gasto de $45.000.»): solo vive en la memoria, nunca se guarda.
@@ -34,9 +43,10 @@ export type Rutas = {
   /**
    * PN-01 · Movimientos (E14-PRR 4.1), destino de «Movimientos» de PN-71. Los filtros viven en la ruta (`periodo`
    * «AAAA-MM» y `categoria`), así sobreviven a abrir un movimiento. `aviso` es el mensaje de estado de después de
-   * guardar («Listo, registramos tu gasto de $45.000.»): solo vive en la memoria, nunca se guarda.
+   * guardar («Listo, registramos tu gasto de $45.000.»): solo vive en la memoria, nunca se guarda. `movimiento` es el id
+   * de una fecha registrada de PN-08: al cargar la lista abre su PN-02, como la web.
    */
-  ListaDeMovimientos: { periodo?: string; categoria?: number; aviso?: DatosDeAviso } | undefined;
+  ListaDeMovimientos: { periodo?: string; categoria?: number; aviso?: DatosDeAviso; movimiento?: string } | undefined;
   /**
    * PN-02 · Detalle de un movimiento (E14-PRR 4.2); se abre desde una fila de PN-01 con el movimiento que ya trae.
    * `noExiste`: el API contestó 404 al corregirlo o borrarlo («Ese movimiento ya no está.»).
@@ -45,11 +55,25 @@ export type Rutas = {
   /** «Corregir» de PN-02: los mismos campos del registro, llenos; su Atrás vuelve a PN-02 sin guardar. */
   CorregirMovimiento: { movimiento: Movimiento };
   /**
-   * «Confirmar todos» (E14-PRR 4.8), de la sección «Por confirmar» de PN-01 con más de una fecha; trae las fechas que ya
-   * pidió PN-01. Su Atrás vuelve a PN-01 sin guardar; al guardar vuelve con el aviso (`popTo`).
+   * «Confirmar todos» (E14-PRR 4.8), de la sección «Por confirmar» de PN-01 o de PN-08 con más de una fecha; trae las
+   * fechas que ya pidió esa pantalla. `periodoDeIngresos` es el periodo de PN-08 cuando viene de ahí. Su Atrás vuelve sin
+   * guardar; al guardar vuelve con el aviso (`popTo`).
    */
-  ConfirmarTodos: { pendientes: Pendientes };
-  /** Formulario de registro (E14-PPN 3.1); se abre desde «Registrar» de PN-01 y vuelve a PN-01 al guardar (D-164). */
+  ConfirmarTodos: { pendientes: { pendientes: FechaPorConfirmar[] }; periodoDeIngresos?: string };
+  /**
+   * PN-06 y PN-07 · Presupuesto (E14-PPA 4.1 y 4.2), destino de la entrada provisional «Presupuesto» de PN-71 (L3 de la
+   * US-77, punto 3). `aviso` es el mensaje de estado de después de guardar: solo vive en la memoria, nunca se guarda.
+   */
+  PresupuestoDelMes: { aviso?: DatosDeAviso } | undefined;
+  /**
+   * PN-08 · Ingresos del periodo (E14-PPA 4.3), desde «Ver mis ingresos» de PN-06 y PN-07; su Atrás vuelve ahí. `periodo`
+   * («AAAA-MM», sin él el mes en curso) vive en la ruta; `aviso` es el mensaje de estado de después de confirmar.
+   */
+  IngresosDelPeriodo: { periodo?: string; aviso?: DatosDeAviso } | undefined;
+  /**
+   * Formulario de registro (E14-PPN 3.1); se abre desde «Registrar» de PN-01, PN-06 y PN-07 y desde «Registrar un
+   * ingreso» de PN-07, y vuelve a PN-01 al guardar (D-164).
+   */
   FormularioDeRegistro: undefined;
   /** PN-03: se apila sobre Registrar; su Atrás vuelve al formulario sin cambiar nada. */
   SeRepite: undefined;

@@ -399,12 +399,8 @@ func (r *Borrado) borrarUnaVez(ctx context.Context, persona string, vistos []str
 // de la categoría y, en un aporte, el de su propia meta (nunca el de una meta de otra persona), y sin ningún id. Nada
 // que otra persona registró en un hogar ni los terceros que anotó (SC-E21-20). Cuenta.ErrNoExiste si la persona no está.
 func (r *Borrado) MovimientosDe(ctx context.Context, persona string) ([]cuenta.MovimientoExportado, error) {
-	var existe bool
-	if err := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM persona WHERE id = $1::uuid)`, persona).Scan(&existe); err != nil {
-		return nil, fmt.Errorf("leer la persona: %w", err)
-	}
-	if !existe {
-		return nil, cuenta.ErrNoExiste
+	if err := r.existe(ctx, persona); err != nil {
+		return nil, err
 	}
 	filas, err := r.pool.Query(ctx,
 		`SELECT m.fecha::text, m.tipo, m.monto, COALESCE(c.nombre, ''), m.medio, COALESCE(m.descripcion, ''),
@@ -427,4 +423,46 @@ func (r *Borrado) MovimientosDe(ctx context.Context, persona string) ([]cuenta.M
 		salida = append(salida, m)
 	}
 	return salida, filas.Err()
+}
+
+// PresupuestosDe implementa cuenta.RepositorioDeExportacion: los presupuestos propios de la persona (`persona_id` suyo y
+// `hogar_id` nulo) con el nombre de la categoría, y los meses que dejó en cero (`presupuesto_en_cero`) con la categoría
+// vacía y el monto en cero. Por periodo y, en cada mes, la marca primero y después las categorías por id (el orden del
+// catálogo, que no depende de la intercalación de la base). Sin ningún id. cuenta.ErrNoExiste si la persona no está.
+func (r *Borrado) PresupuestosDe(ctx context.Context, persona string) ([]cuenta.PresupuestoExportado, error) {
+	if err := r.existe(ctx, persona); err != nil {
+		return nil, err
+	}
+	filas, err := r.pool.Query(ctx,
+		`SELECT to_char(periodo, 'YYYY-MM'), categoria, monto FROM (
+		     SELECT p.periodo, c.nombre AS categoria, p.monto_asignado AS monto, p.categoria_id::int AS orden
+		     FROM presupuesto p JOIN categoria c ON c.id = p.categoria_id
+		     WHERE p.persona_id = $1::uuid AND p.hogar_id IS NULL
+		     UNION ALL
+		     SELECT z.periodo, '', 0, 0 FROM presupuesto_en_cero z WHERE z.persona_id = $1::uuid
+		 ) x
+		 ORDER BY periodo, orden`, persona)
+	if err != nil {
+		return nil, fmt.Errorf("leer los presupuestos: %w", err)
+	}
+	salida, err := pgx.CollectRows(filas, func(f pgx.CollectableRow) (cuenta.PresupuestoExportado, error) {
+		var p cuenta.PresupuestoExportado
+		return p, f.Scan(&p.Periodo, &p.Categoria, &p.MontoCentavos)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("leer un presupuesto: %w", err)
+	}
+	return salida, nil
+}
+
+// existe es nil si la persona está y cuenta.ErrNoExiste si no.
+func (r *Borrado) existe(ctx context.Context, persona string) error {
+	var existe bool
+	if err := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM persona WHERE id = $1::uuid)`, persona).Scan(&existe); err != nil {
+		return fmt.Errorf("leer la persona: %w", err)
+	}
+	if !existe {
+		return cuenta.ErrNoExiste
+	}
+	return nil
 }

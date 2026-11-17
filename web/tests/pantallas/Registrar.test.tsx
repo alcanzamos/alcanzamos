@@ -125,6 +125,22 @@ describe("PN-01 · Formulario de registro (E14-PPN 3.1, D-164)", () => {
     );
   });
 
+  // E14-PPA 4.2 (fila 3a) y 4.3 (fila 5): «Registrar un ingreso» abre el formulario con Tipo «Ingreso».
+  it("con «?tipo=ingreso» llega con «Ingreso» elegido y la dirección queda en /registrar", async () => {
+    api();
+    window.history.replaceState(null, "", "/registrar?tipo=ingreso");
+    await abrir();
+    await waitFor(() =>
+      expect(screen.getByRole("radio", { name: "Ingreso" })).toBeChecked(),
+    );
+    expect(window.location.pathname + window.location.search).toBe(
+      "/registrar",
+    );
+    // Cambiar a «Gasto» después no se deshace: el parámetro ya se usó.
+    elegir("Gasto");
+    expect(screen.getByRole("radio", { name: "Gasto" })).toBeChecked();
+  });
+
   it("el medio de pago es solo «Efectivo» y «Transferencia», con gasto y con ingreso", async () => {
     api();
     await abrir();

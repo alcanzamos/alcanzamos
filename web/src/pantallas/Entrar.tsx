@@ -8,6 +8,7 @@ import { Pagina } from "../componentes/Pagina";
 import { useFocoPendiente } from "../enfoque";
 import { navegar } from "../enrutador";
 import { avisoDeLlegada } from "../llegada";
+import { enlaceALaPolitica } from "../politica";
 import {
   avisoDeFallo,
   avisos,
@@ -105,6 +106,9 @@ export function Entrar() {
       </form>
       <BotonEnlace href="/crear-cuenta">
         {textos.entrar.crearCuenta}
+      </BotonEnlace>
+      <BotonEnlace href={enlaceALaPolitica("/entrar")} variante="texto">
+        {textos.politica.entradas.yConsultas}
       </BotonEnlace>
     </Pagina>
   );

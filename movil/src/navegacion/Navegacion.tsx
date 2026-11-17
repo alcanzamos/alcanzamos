@@ -1,6 +1,7 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
+import { hoyEnColombia } from '../fechas';
 import { AutorizacionDeDatos } from '../pantallas/AutorizacionDeDatos';
 import { BorrarCuenta } from '../pantallas/BorrarCuenta';
 import { CambiarContrasena } from '../pantallas/CambiarContrasena';
@@ -10,14 +11,18 @@ import { DetalleDeMovimiento } from '../pantallas/DetalleDeMovimiento';
 import { Edad } from '../pantallas/Edad';
 import { Entrar } from '../pantallas/Entrar';
 import { InformacionDePrivacidad } from '../pantallas/InformacionDePrivacidad';
+import { Ingresos } from '../pantallas/Ingresos';
 import { Movimientos } from '../pantallas/Movimientos';
+import { Politica } from '../pantallas/Politica';
+import { Presupuesto } from '../pantallas/Presupuesto';
 import { RecuperarAcceso } from '../pantallas/RecuperarAcceso';
 import { CorregirMovimiento, Registrar } from '../pantallas/Registrar';
 import { RevisaTuCorreo } from '../pantallas/RevisaTuCorreo';
 import { SeRepite } from '../pantallas/SeRepite';
 import { SeguridadDeLaCuenta } from '../pantallas/SeguridadDeLaCuenta';
 import { leerToken } from '../sesion/token';
-import { textos } from '../textos/es.generated';
+import { mesEnMinuscula } from '../textosDePresupuesto';
+import { formatear, textos } from '../textos/es.generated';
 import { tokens } from '../tokens/tokens.generated';
 import { conBarra } from './barra';
 import type { Rutas } from './rutas';
@@ -44,13 +49,20 @@ async function pantallaInicial(): Promise<keyof Rutas> {
 // cerrar sesión a PN-60 se cambia con `reemplazarPila`, para que Atrás no vuelva al formulario ni a una sesión cerrada. PN-63 es la primera de su pila (sin Atrás: el del
 // sistema sale de la app); PN-64 se apila sobre PN-63 (su Atrás vuelve a PN-63), y de PN-64 a PN-71 («Autorizar y continuar»)
 // y a PN-60 («No autorizo») se cambia con `reemplazarPila`: Atrás no vuelve a PN-64 ni a una cuenta borrada. PN-63 desde
-// el menú (con barra y sin «Continuar») se apila sobre PN-71 y su Atrás vuelve a PN-71 (bug 260). PN-61 se apila sobre PN-60. PN-62 no está: el
+// el menú (con barra y sin «Continuar») se apila sobre PN-71 y su Atrás vuelve a PN-71 (bug 260). PN-68 (política) es pública y se apila sobre la
+// pantalla que la abre (PN-60, PN-58, PN-63, PN-64 o PN-71): su Atrás vuelve ahí y PN-58 y PN-64 conservan lo escrito y lo
+// marcado (D-195). La cuenta de antes de la aceptación de la transmisión llega a PN-64 como única pantalla de la pila
+// (SC-E21-25, sección 5). PN-61 se apila sobre PN-60. PN-62 no está: el
 // enlace del correo abre la web (D-155) y la app no recibe enlaces hasta los App Links de I08. PN-01 («Movimientos») se apila
 // sobre PN-71 (su Atrás vuelve a PN-71) y «Registrar» sobre PN-01 (su Atrás vuelve a PN-01 sin guardar); PN-03 se apila
 // sobre «Registrar» (su Atrás vuelve al formulario). PN-02 se apila sobre PN-01 (su Atrás vuelve a PN-01) y «Corregir»
 // sobre PN-02 (su Atrás vuelve a PN-02 sin guardar). «Confirmar todos» se apila sobre PN-01 (su Atrás vuelve a PN-01 sin
 // guardar nada). Tras guardar, corregir o borrar se vuelve a PN-01 con `popTo` y el aviso como mensaje de estado: el
-// formulario, PN-02 y «Confirmar todos» salen de la pila y el Atrás no vuelve a ellos.
+// formulario, PN-02 y «Confirmar todos» salen de la pila y el Atrás no vuelve a ellos. PN-06 («Presupuesto», que es
+// también PN-07) se apila sobre PN-71 (su Atrás vuelve a PN-71) y «Registrar» sobre PN-06; al guardar, el formulario
+// deja PN-01 en su lugar (D-164) y el Atrás de PN-01 vuelve a PN-06. PN-08 («Ingresos») se apila sobre PN-06 (su Atrás
+// vuelve a PN-06); su «Confirmar todos» es el de PN-01 y vuelve a PN-08 con `popTo`, y una fecha registrada abre PN-01
+// del periodo con su PN-02 encima.
 export function Navegacion() {
   const [inicial, setInicial] = useState<keyof Rutas | null>(null);
   useEffect(() => {
@@ -80,6 +92,7 @@ export function Navegacion() {
           component={AutorizacionDeDatos}
           options={conBarra(textos.autorizacion.titulo)}
         />
+        <Pila.Screen name="Politica" component={Politica} options={conBarra(textos.politica.titulo)} />
         <Pila.Screen
           name="SeguridadDeLaCuenta"
           component={SeguridadDeLaCuenta}
@@ -112,6 +125,13 @@ export function Navegacion() {
           component={ConfirmarTodos}
           options={conBarra(textos.porConfirmar.confirmarTodos)}
         />
+        <Pila.Screen
+          name="PresupuestoDelMes"
+          component={Presupuesto}
+          // El mes de hoy en Colombia hasta que el API manda el suyo (la pantalla lo pone en la barra).
+          options={() => conBarra(formatear(textos.presupuesto.titulo, { mes: mesEnMinuscula(hoyEnColombia().slice(0, 7)) }))}
+        />
+        <Pila.Screen name="IngresosDelPeriodo" component={Ingresos} options={conBarra(textos.ingresos.titulo)} />
         <Pila.Screen name="FormularioDeRegistro" component={Registrar} options={conBarra(textos.registro.titulo)} />
         <Pila.Screen name="SeRepite" component={SeRepite} options={conBarra(textos.periodicidad.titulo)} />
       </Pila.Navigator>

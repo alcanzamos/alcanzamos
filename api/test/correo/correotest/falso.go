@@ -4,15 +4,19 @@ package correotest
 import (
 	"context"
 	"sync"
+	"time"
 )
 
 // Envio es lo que el Falso recibió. Token está vacío en el aviso de correo ya registrado, que no lleva ninguno.
-// Recuperacion distingue el enlace de recuperación del de verificación.
+// Recuperacion distingue el enlace de recuperación del de verificación. AvisoDePurga es el correo de antes de la purga
+// (D-203): no lleva token y BorradoEn es el momento del borrado que dice.
 type Envio struct {
 	Destino      string
 	Token        string
 	Aviso        bool
 	Recuperacion bool
+	AvisoDePurga bool
+	BorradoEn    time.Time
 }
 
 // Falso implementa correo.Correo: guarda en memoria lo que enviaría.
@@ -53,6 +57,17 @@ func (f *Falso) EnviarAvisoDeCorreoRegistrado(_ context.Context, destino string)
 		return f.Error
 	}
 	f.enviado = append(f.enviado, Envio{Destino: destino, Aviso: true})
+	return nil
+}
+
+// EnviarAvisoDePurga guarda el aviso de antes de la purga con el momento del borrado que dice.
+func (f *Falso) EnviarAvisoDePurga(_ context.Context, destino string, borradoEn time.Time) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.Error != nil {
+		return f.Error
+	}
+	f.enviado = append(f.enviado, Envio{Destino: destino, AvisoDePurga: true, BorradoEn: borradoEn})
 	return nil
 }
 

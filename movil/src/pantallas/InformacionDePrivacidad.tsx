@@ -30,24 +30,25 @@ const tarjetas: { tarjeta: { titulo: string; cuerpo: string }; Icono?: Component
 // - desde el menú (`desdeElMenu`): la barra nativa con el título y el Atrás (Navegacion.tsx), sin «Continuar». Mientras
 //   no exista PN-66, se abre con la entrada provisional «Cómo cuidamos tus datos» de PN-71 (nota del 2026-11-08 de 4.14,
 //   bug 260).
-// Sin «Leer la política completa»: abre PN-68, que no está construida.
+// «Leer la política completa» (fila 10, Secundario) abre PN-68 (D-195) en los dos modos, antes de «Continuar»; el Atrás de
+// PN-68 vuelve aquí.
 export function InformacionDePrivacidad({ navigation, route }: NativeStackScreenProps<Rutas, 'InformacionDePrivacidad'>) {
   if (route.params?.desdeElMenu)
     return (
       <Pantalla conBarra>
-        <Contenido />
+        <Contenido alLeerLaPolitica={() => navigation.navigate('Politica')} />
       </Pantalla>
     );
   return (
     <Pantalla titulo={textos.privacidad.titulo} estado={avisoDeLlegada(route.params?.llegada)}>
-      <Contenido />
+      <Contenido alLeerLaPolitica={() => navigation.navigate('Politica')} />
       <Boton alTocar={() => navigation.navigate('AutorizacionDeDatos')}>{textos.privacidad.continuar}</Boton>
     </Pantalla>
   );
 }
 
-// La frase de entrada y las tarjetas, iguales en los dos modos.
-function Contenido() {
+// La frase de entrada, las tarjetas y «Leer la política completa», iguales en los dos modos.
+function Contenido({ alLeerLaPolitica }: { alLeerLaPolitica: () => void }) {
   return (
     <>
       <Texto>{textos.privacidad.intro}</Texto>
@@ -56,6 +57,9 @@ function Contenido() {
           <Texto>{tarjeta.cuerpo}</Texto>
         </Tarjeta>
       ))}
+      <Boton variante="secundario" alTocar={alLeerLaPolitica}>
+        {textos.politica.entradas.leerCompleta}
+      </Boton>
     </>
   );
 }

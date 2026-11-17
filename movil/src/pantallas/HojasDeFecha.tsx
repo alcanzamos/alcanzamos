@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, type TextInputInstance } from 'react-native';
-import type { Pendiente } from '../api/repeticiones';
+import type { FechaPorConfirmar } from '../api/repeticiones';
 import { useAvisarErrores } from '../anuncios';
 import { Boton } from '../componentes/Boton';
 import { CampoDeMonto } from '../componentes/CampoDeMonto';
@@ -29,7 +29,7 @@ export function HojaDeMas({
   alElegir,
   alCerrar,
 }: {
-  fila: Pendiente;
+  fila: FechaPorConfirmar;
   conIncluir?: boolean;
   alElegir: (opcion: Opcion) => void;
   alCerrar: () => void;
@@ -65,7 +65,7 @@ export function HojaDeNoPaso({
   return (
     <HojaInferior visible titulo={h.tituloNoPaso} alCerrar={alCerrar}>
       <Texto>{h.textoNoPaso}</Texto>
-      <Boton deshabilitado={enviando} alTocar={alConfirmar}>
+      <Boton ocupado={enviando} alTocar={alConfirmar}>
         {h.noPaso}
       </Boton>
       <Boton variante="secundario" alTocar={alCerrar}>
@@ -83,7 +83,7 @@ export function HojaDeMonto({
   alConfirmar,
   alCerrar,
 }: {
-  fila: Pendiente;
+  fila: FechaPorConfirmar;
   textoDelBoton: string;
   enviando?: boolean;
   alConfirmar: (centavos: bigint) => void;
@@ -108,7 +108,7 @@ export function HojaDeMonto({
     <HojaInferior visible titulo={textosDeFilaPorConfirmar(fila).tituloDelMonto} alCerrar={alCerrar}>
       <CampoDeMonto ref={campo} valor={monto} alCambiar={setMonto} error={error} />
       <Texto variante="ayuda">{textos.movimientos.detalle.soloEstaFecha}</Texto>
-      <Boton deshabilitado={enviando} alTocar={confirmar}>
+      <Boton ocupado={enviando} alTocar={confirmar}>
         {textoDelBoton}
       </Boton>
       <Boton variante="secundario" alTocar={alCerrar}>

@@ -1,6 +1,6 @@
 # infra/local/
 
-Ambiente de desarrollo en el equipo del dueño, con Docker (D-080, D-119). En Azure solo vive producción.
+Ambiente de desarrollo en el equipo del dueño, con Docker (D-080, D-119). En Azure viven UAT y producción ([`infra/azure/`](../azure/README.md), D-200 (8)).
 
 Solo se usan datos sintéticos. Ningún correo sale del equipo.
 

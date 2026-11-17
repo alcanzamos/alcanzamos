@@ -4,7 +4,7 @@ import type { TextInputInstance } from 'react-native';
 import { crearCuenta } from '../api/cuentas';
 import { useAvisarErrores } from '../anuncios';
 import { Aviso } from '../componentes/Aviso';
-import { Boton } from '../componentes/Boton';
+import { Boton, BotonDeTexto } from '../componentes/Boton';
 import { CampoDeTexto } from '../componentes/CampoDeTexto';
 import { Nota, Texto } from '../componentes/Texto';
 import { Pantalla } from '../componentes/Pantalla';
@@ -64,17 +64,18 @@ export function CrearCuenta({ navigation, route }: NativeStackScreenProps<Rutas,
         alCambiar={setCorreo}
         error={errorDeCorreo}
       />
-      <Boton deshabilitado={enviando} alTocar={() => void enviar()}>
+      <Boton ocupado={enviando} alTocar={() => void enviar()}>
         {textos.crearCuenta.crear}
       </Boton>
       {aviso === avisos.errorAlCrearCuenta && (
-        <Boton variante="secundario" alTocar={() => void enviar()}>
+        <Boton variante="secundario" ocupado={enviando} alTocar={() => void enviar()}>
           {textos.acciones.intentarDeNuevo}
         </Boton>
       )}
       <Boton variante="secundario" alTocar={() => navigation.navigate('Entrar')}>
         {textos.crearCuenta.yaTengoCuenta}
       </Boton>
+      <BotonDeTexto alTocar={() => navigation.navigate('Politica')}>{textos.politica.entradas.deTratamientoDeDatos}</BotonDeTexto>
       <Nota>{textos.crearCuenta.nota}</Nota>
     </Pantalla>
   );

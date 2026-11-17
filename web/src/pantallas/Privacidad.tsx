@@ -1,9 +1,10 @@
 import type { ReactElement } from "react";
-import { Boton } from "../componentes/Boton";
+import { Boton, BotonEnlace } from "../componentes/Boton";
 import { IconoInformacion, IconoPropio } from "../componentes/Iconos";
 import { Pagina } from "../componentes/Pagina";
 import { avisoDeLlegada } from "../llegada";
 import { navegar } from "../enrutador";
+import { enlaceALaPolitica } from "../politica";
 import { textos } from "../textos/es.generated";
 
 const t = textos.privacidad.tarjetas;
@@ -31,7 +32,7 @@ const tarjetas: {
 // - desde el menú (`/cuenta/privacidad`): con Atrás y sin «Continuar». Mientras no exista PN-66, se abre con la entrada
 //   provisional «Cómo cuidamos tus datos» de PN-71 (nota del 2026-11-08 de 4.14, bug 260), así que Atrás vuelve a PN-71.
 //   Solo este modo lleva la Navegación lateral web (4.6, variante web): en el primer uso todavía no se usa la app.
-// Sin «Leer la política completa»: abre PN-68, que no está construida.
+// «Leer la política completa» (fila 10, Secundario) abre PN-68 (D-195), antes de «Continuar»; Atrás de PN-68 vuelve aquí.
 export function Privacidad({
   desdeElMenu = false,
 }: { desdeElMenu?: boolean } = {}) {
@@ -52,6 +53,13 @@ export function Privacidad({
           <p>{tarjeta.cuerpo}</p>
         </section>
       ))}
+      <BotonEnlace
+        href={enlaceALaPolitica(
+          desdeElMenu ? "/cuenta/privacidad" : "/privacidad",
+        )}
+      >
+        {textos.politica.entradas.leerCompleta}
+      </BotonEnlace>
       {!desdeElMenu && (
         <Boton alTocar={() => navegar("/autorizacion")}>
           {textos.privacidad.continuar}

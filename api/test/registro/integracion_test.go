@@ -36,7 +36,7 @@ import (
 const (
 	contrasena = "lluvia café tren azul"
 	// Las dos necesarias de la persona adulta, para llegar a `requiere_autorizacion`.
-	cuerpoAutorizar = `{"finalidades":["cuenta_y_acceso","funciones_financieras"],"version":"1.0"}`
+	cuerpoAutorizar = `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados"],"version":"1.1"}`
 	rutaMovimientos = "/api/v1/movimientos"
 	rutaCategorias  = "/api/v1/categorias"
 )
@@ -78,10 +78,13 @@ func nuevoServidorCon(t *testing.T, interpretador interpretacion.Interpretador) 
 	limitador := seguridad.NuevoLimitadorDeIntentos(reloj)
 	politica := seguridad.NuevaPoliticaDeContrasena()
 	correo := &correotest.Falso{}
-	cuentas := cuenta.NuevoServicio(cuenta.Dependencias{
+	cuentas, err := cuenta.NuevoServicio(cuenta.Dependencias{
 		Repo: pg.NuevoCuentas(pool), Correo: correo, Politica: politica, Hasher: hasheadorRapido{}, Reloj: reloj,
 		Limitador: limitador, Log: log,
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	entrar, err := autenticacion.NuevoServicio(autenticacion.Dependencias{
 		Repo: pg.NuevoAutenticacion(pool), Hasher: hasheadorRapido{}, Limitador: limitador, Reloj: reloj, Correo: correo,
 		Politica: politica, Log: log,

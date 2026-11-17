@@ -4,7 +4,8 @@ import { hoyEs14DeDiciembre, pantallas, type Pantalla } from "./pantallas";
 
 // Bug 233 (USA-008, S2): las pantallas web con sesión llevan la Navegación lateral web de E14-SDD 5.13, con
 // «Registrar» como acción principal arriba de los destinos (E14-MCO 4.2, punto 5). Desde 768 px; por debajo, el
-// diseño de Android, sin la barra. Solo los destinos que ya existen: hoy, Movimientos.
+// diseño de Android, sin la barra. Solo los destinos que ya existen: hoy, Movimientos y Presupuesto (nota del 2026-11-10
+// de E14-SDD 5.13; L17 de la US-77, punto 2).
 const barra = (page: Page) => page.getByRole("navigation");
 const enlace = (page: Page, nombre: string) =>
   barra(page).getByRole("link", { name: nombre, exact: true });
@@ -47,6 +48,7 @@ test.describe("Navegación lateral web en las pantallas con sesión (bug 233, E1
       await expect(barra(page).getByRole("link")).toHaveText([
         "Registrar",
         "Movimientos",
+        "Presupuesto",
       ]);
       await expect(enlace(page, "Registrar")).toHaveAttribute(
         "href",
@@ -58,6 +60,10 @@ test.describe("Navegación lateral web en las pantallas con sesión (bug 233, E1
       await expect(enlace(page, "Movimientos")).toHaveAttribute(
         "href",
         "/movimientos",
+      );
+      await expect(enlace(page, "Presupuesto")).toHaveAttribute(
+        "href",
+        "/presupuesto",
       );
 
       // El destino activo lleva aria-current; en las que no son destino, ninguno.
@@ -72,7 +78,7 @@ test.describe("Navegación lateral web en las pantallas con sesión (bug 233, E1
 
       await sinViolaciones(page);
 
-      // Se alcanza con el teclado y el foco se ve: «Registrar» y, con Tab, «Movimientos».
+      // Se alcanza con el teclado y el foco se ve: «Registrar» y, con Tab, «Movimientos» y «Presupuesto».
       await llegarConTeclado(page, enlace(page, "Registrar"));
       await expect(enlace(page, "Registrar")).toBeFocused();
       await expect(enlace(page, "Registrar")).toHaveCSS(
@@ -81,6 +87,8 @@ test.describe("Navegación lateral web en las pantallas con sesión (bug 233, E1
       );
       await page.keyboard.press("Tab");
       await expect(enlace(page, "Movimientos")).toBeFocused();
+      await page.keyboard.press("Tab");
+      await expect(enlace(page, "Presupuesto")).toBeFocused();
 
       // El corte es el de E14: a 768 px sigue; a 767 y a 360 px, el diseño de Android, sin la barra.
       await page.setViewportSize({ width: 768, height: 900 });

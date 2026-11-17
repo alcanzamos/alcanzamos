@@ -75,14 +75,30 @@ describe("PN-63 · Información de privacidad (primer uso)", () => {
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
   });
 
-  it("solo «Continuar»: sin Atrás y sin «Leer la política completa» (PN-68 no existe)", () => {
+  it("«Continuar» y «Leer la política completa» (fila 10, Secundario, antes de «Continuar»), sin Atrás", () => {
     render(<Privacidad />);
     expect(screen.getAllByRole("button")).toHaveLength(1);
-    expect(screen.queryByRole("link")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Atrás")).not.toBeInTheDocument();
+    const enlace = screen.getByRole("link", {
+      name: "Leer la política completa",
+    });
+    expect(enlace).toHaveClass("boton--secundario");
+    expect(enlace).toHaveAttribute("href", "/politica?desde=%2Fprivacidad");
     expect(
-      screen.queryByText("Leer la política completa"),
-    ).not.toBeInTheDocument();
+      enlace.compareDocumentPosition(
+        screen.getByRole("button", { name: "Continuar" }),
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(screen.getAllByRole("link")).toEqual([enlace]);
+  });
+
+  it("«Leer la política completa» abre PN-68 y Atrás vuelve a PN-63", () => {
+    render(<Privacidad />);
+    fireEvent.click(
+      screen.getByRole("link", { name: "Leer la política completa" }),
+    );
+    expect(window.location.pathname).toBe("/politica");
+    expect(window.location.search).toBe("?desde=%2Fprivacidad");
   });
 
   it("«Continuar» lleva a PN-64", () => {
@@ -136,20 +152,18 @@ describe("PN-63 · Información de privacidad desde el menú", () => {
     });
   });
 
-  it("lleva Atrás en la barra y no lleva «Continuar» ni otro botón", () => {
+  it("lleva Atrás y «Leer la política completa», y no lleva «Continuar» ni otro botón", () => {
     render(<Privacidad desdeElMenu />);
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.queryByText("Continuar")).not.toBeInTheDocument();
-    expect(within(screen.getByRole("main")).getAllByRole("link")).toHaveLength(
-      1,
-    );
-    expect(screen.getByRole("link", { name: "Atrás" })).toHaveAttribute(
-      "href",
-      "/cuenta/seguridad",
-    );
     expect(
-      screen.queryByText("Leer la política completa"),
-    ).not.toBeInTheDocument();
+      within(screen.getByRole("main"))
+        .getAllByRole("link")
+        .map((e) => e.getAttribute("href")),
+    ).toEqual(["/cuenta/seguridad", "/politica?desde=%2Fcuenta%2Fprivacidad"]);
+    expect(
+      screen.getByRole("link", { name: "Leer la política completa" }),
+    ).toHaveClass("boton--secundario");
   });
 
   it("Atrás vuelve a PN-71", () => {

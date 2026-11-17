@@ -24,13 +24,21 @@ export function archivosDe(carpeta) {
 
 const empiezaPor = (ruta, prefijo) => prefijo.every((p, i) => ruta[i] === p);
 
-/** Compara los usos con las hojas: claves que no existen y hojas que nadie usa. */
+/**
+ * Grupos de textos ya aprobados cuya pantalla todavía no se construye: no cuentan como «sin uso». Son los de PN-36
+ * (`solo_android.crearCuentaDelMenor`, aprobados el 2026-11-11, P-3 de SC-E21-25; la pantalla llega con I11). La historia
+ * que construya la pantalla quita su grupo de esta lista.
+ */
+export const RESERVADOS = [['crearCuentaDelMenor']];
+
+/** Compara los usos con las hojas: claves que no existen y hojas que nadie usa (salvo las de RESERVADOS). */
 export function comparar(hojas, usos) {
   const nombres = new Set(hojas.map((h) => h.join('.')));
   const noExisten = usos
     .filter((u) => !hojas.some((h) => empiezaPor(h, u) || empiezaPor(u, h)) && !nombres.has(u.join('.')))
     .map((u) => u.join('.'));
   const sinUso = hojas
+    .filter((h) => !RESERVADOS.some((r) => empiezaPor(h, r)))
     .filter((h) => !usos.some((u) => empiezaPor(h, u) || empiezaPor(u, h)))
     .map((h) => h.join('.'));
   return { noExisten: [...new Set(noExisten)], sinUso };

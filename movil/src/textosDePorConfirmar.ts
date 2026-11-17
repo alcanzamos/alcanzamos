@@ -1,5 +1,5 @@
 import type { Movimiento } from './api/movimientos';
-import type { Pendiente } from './api/repeticiones';
+import type { FechaPorConfirmar } from './api/repeticiones';
 import { formatearPesos } from './dinero';
 import { diaEnPalabras } from './fechas';
 import { montoHablado } from './montoHablado';
@@ -20,9 +20,10 @@ const tipoEnPalabras = {
  * Las líneas de una fila «Por confirmar»; la repetición no tiene nombre: la fila se titula con su categoría. ACC-004
  * (bug 231): dos fechas de la misma categoría y día solo se distinguen por el monto, así que el nombre de la fila
  * (`etiqueta`) y los de «Confirmar» y «Más» lo dicen con `montoHablado`. `centavos` es el monto que muestra la fila: el
- * habitual o el que la persona cambió en «Confirmar todos».
+ * habitual o el que la persona cambió en «Confirmar todos». PN-08 la usa también con una fecha de ingreso, que no trae
+ * la periodicidad.
  */
-export function textosDeFilaPorConfirmar(fila: Pendiente, centavos = BigInt(fila.monto_habitual_centavos)) {
+export function textosDeFilaPorConfirmar(fila: FechaPorConfirmar, centavos = BigInt(fila.monto_habitual_centavos)) {
   const principal = nombresDeCategoria[`c${fila.categoria_id}`] ?? '';
   const fecha = diaEnPalabras(fila.fecha) ?? fila.fecha;
   const tipo = tipoEnPalabras[fila.tipo];

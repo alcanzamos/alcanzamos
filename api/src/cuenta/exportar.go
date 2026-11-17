@@ -23,10 +23,21 @@ type MovimientoExportado struct {
 	Compartido    bool   // lo compartió con el hogar
 }
 
+// PresupuestoExportado es una fila de presupuestos.csv: un presupuesto propio de una categoría en un mes o, con la categoría
+// vacía y el monto en cero, un mes que la persona dejó en cero («Dejar el presupuesto en cero», PN-07; L6 (5) de la US-77).
+type PresupuestoExportado struct {
+	Periodo       string // AAAA-MM
+	Categoria     string // vacía en un mes dejado en cero
+	MontoCentavos int64
+}
+
 // RepositorioDeExportacion lee lo que «Descargar mis datos» entrega.
 type RepositorioDeExportacion interface {
 	// MovimientosDe devuelve los movimientos que la persona registró (`persona_id` suyo), o ErrNoExiste.
 	MovimientosDe(ctx context.Context, persona string) ([]MovimientoExportado, error)
+	// PresupuestosDe devuelve los presupuestos propios de la persona (`persona_id` suyo y sin hogar) y los meses que dejó
+	// en cero, por periodo y, en cada mes, la marca primero y las categorías en el orden del catálogo; o ErrNoExiste.
+	PresupuestosDe(ctx context.Context, persona string) ([]PresupuestoExportado, error)
 }
 
 // Exportador arma «Descargar mis datos» (RF-032, D-102).
@@ -44,11 +55,15 @@ func (e *Exportador) ZIP(ctx context.Context, persona string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ArmarZIP(filas)
+	presupuestos, err := e.repo.PresupuestosDe(ctx, persona)
+	if err != nil {
+		return nil, err
+	}
+	return ArmarZIP(filas, presupuestos)
 }
 
-// Archivos del ZIP, uno por tema (SC-E21-20), con la primera fila de nombres de columnas. Metas, deudas y presupuestos
-// van solo con ella hasta que existan esos temas (D-180).
+// Archivos del ZIP, uno por tema (SC-E21-20), con la primera fila de nombres de columnas. Metas y deudas van solo con ella
+// hasta que existan esos temas (D-180); los presupuestos llegaron con la US-77.
 var archivos = []struct {
 	nombre      string
 	encabezados []string
@@ -60,8 +75,8 @@ var archivos = []struct {
 }
 
 // ArmarZIP escribe los cuatro CSV en un ZIP: UTF-8 con marca de orden de bytes (para que Excel lea las tildes), montos en
-// pesos con dos decimales y punto, y fechas AAAA-MM-DD. Ningún id y nada de otras personas.
-func ArmarZIP(movimientos []MovimientoExportado) ([]byte, error) {
+// pesos con dos decimales y punto, fechas AAAA-MM-DD y meses AAAA-MM. Ningún id y nada de otras personas.
+func ArmarZIP(movimientos []MovimientoExportado, presupuestos []PresupuestoExportado) ([]byte, error) {
 	// Todo se escribe en memoria: un `bytes.Buffer` no falla al escribir, así que los errores se juntan y se miran una vez.
 	var salida bytes.Buffer
 	var errores error
@@ -72,12 +87,17 @@ func ArmarZIP(movimientos []MovimientoExportado) ([]byte, error) {
 		_, err = w.Write([]byte("\xEF\xBB\xBF"))
 		errores = errors.Join(errores, err)
 		filas := [][]string{a.encabezados}
-		if a.nombre == "movimientos.csv" {
+		switch a.nombre {
+		case "movimientos.csv":
 			for _, m := range movimientos {
 				filas = append(filas, []string{
 					m.Fecha, m.Tipo, pesos(m.MontoCentavos), segura(m.Categoria), m.Medio, segura(m.Descripcion),
 					segura(m.Meta), m.Sentido, siNo(m.Compartido),
 				})
+			}
+		case "presupuestos.csv":
+			for _, p := range presupuestos {
+				filas = append(filas, []string{p.Periodo, segura(p.Categoria), pesos(p.MontoCentavos)})
 			}
 		}
 		errores = errors.Join(errores, csv.NewWriter(w).WriteAll(filas))

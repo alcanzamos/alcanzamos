@@ -47,7 +47,7 @@ func TestElRegistroNoLlevaElCorreoConNingunaRespuestaDelServidorSMTP(t *testing.
 				CorreoSMTP: dir, CorreoRemitente: "no-responder@avisos.ejemplo.test",
 				CorreoPrivacidad: "privacidad@ejemplo.test", URLPublica: "https://app.ejemplo.test",
 			}, e.reloj)
-			svc := cuenta.NuevoServicio(cuenta.Dependencias{
+			svc := servicioDe(cuenta.Dependencias{
 				Repo: e.repo, Correo: smtp, Politica: seguridad.NuevaPoliticaDeContrasena(), Hasher: e.hasher,
 				Reloj: e.reloj, Limitador: e.limitador, Log: e.log(),
 			})

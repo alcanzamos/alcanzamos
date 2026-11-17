@@ -66,7 +66,7 @@ export function RecuperarAcceso({ navigation }: NativeStackScreenProps<Rutas, 'R
             alCambiar={setCorreo}
             error={error}
           />
-          <Boton deshabilitado={enviando} alTocar={() => void enviar()}>
+          <Boton ocupado={enviando} alTocar={() => void enviar()}>
             {textos.recuperarAcceso.enviar}
           </Boton>
         </>

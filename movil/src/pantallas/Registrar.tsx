@@ -153,23 +153,27 @@ export function FormularioDeMovimiento({
   async function enviar(confirmado = false) {
     if (enviando) return;
     const revisado = validarRegistro(borrador, categoriaId);
-    setAviso(null);
     if ('errores' in revisado) {
+      setAviso(null);
       setEnPaso(false);
       mostrar(revisado.errores);
       return;
     }
     setErrores({});
     if (conPaso && !confirmado) {
+      setAviso(null);
       setEnPaso(true);
       return;
     }
+    // El aviso anterior sigue en pantalla mientras se envía: «Intentar de nuevo» es parte de él y, si desaparece al
+    // tocarlo, TalkBack pierde el foco (bug 303). Se quita cuando llega la respuesta.
     setEnviando(true);
     const { solicitud } = revisado;
     const respuesta = corregir
       ? await corregirMovimiento(solicitud, corregir)
       : await guardarMovimiento(solicitud);
     setEnviando(false);
+    setAviso(null);
     if (respuesta.ok && corregir) {
       // Vuelve a PN-01: PN-02 y «Corregir» salen de la pila, así que el Atrás no vuelve al movimiento corregido.
       // Un aviso nuevo en cada vuelta: PN-01 lo anuncia aunque la vuelta anterior dijera lo mismo (ACC-004).
@@ -363,7 +367,7 @@ export function FormularioDeMovimiento({
             </View>
           ))}
         </View>
-        <Boton deshabilitado={enviando} alTocar={() => void enviar(true)}>
+        <Boton ocupado={enviando} alTocar={() => void enviar(true)}>
           {r.revisa.confirmar}
         </Boton>
         <Boton
@@ -376,7 +380,7 @@ export function FormularioDeMovimiento({
           {r.revisa.volver}
         </Boton>
         {aviso && (
-          <Boton variante="secundario" alTocar={() => void enviar(true)}>
+          <Boton variante="secundario" ocupado={enviando} alTocar={() => void enviar(true)}>
             {textos.acciones.intentarDeNuevo}
           </Boton>
         )}
@@ -401,7 +405,7 @@ export function FormularioDeMovimiento({
           <Nota>{r.cuadro.privacidad}</Nota>
           <Boton
             variante={conTexto && !borrador.delCuadro ? 'primario' : 'secundario'}
-            deshabilitado={interpretando}
+            ocupado={interpretando}
             alTocar={() => void llenar()}
           >
             {r.cuadro.llenar}
@@ -495,7 +499,7 @@ export function FormularioDeMovimiento({
       {errores.repeticion && <Aviso ref={avisoDeRepeticion} tipo="atencion" titulo={errores.repeticion} viva={false} />}
       <Boton
         variante={conTexto && !borrador.delCuadro ? 'secundario' : 'primario'}
-        deshabilitado={enviando}
+        ocupado={enviando}
         alTocar={() => void enviar()}
       >
         {corregir ? textos.movimientos.detalle.guardarCambios : conPaso ? r.revisarYGuardar : r.guardar}
@@ -506,7 +510,7 @@ export function FormularioDeMovimiento({
         </Boton>
       )}
       {aviso && (
-        <Boton variante="secundario" alTocar={() => void enviar()}>
+        <Boton variante="secundario" ocupado={enviando} alTocar={() => void enviar()}>
           {textos.acciones.intentarDeNuevo}
         </Boton>
       )}

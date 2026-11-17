@@ -3,8 +3,10 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import { SeguridadDeLaCuenta } from '../../src/pantallas/SeguridadDeLaCuenta';
 import type { DatosDeAviso } from '../../src/textos';
 import { anunciados, esperarAnuncio } from '../ayudas/anuncios';
+import { comprobarOcupado } from '../ayudas/ocupado';
 import { instalarFetchFalso, respuestaJson } from '../ayudas/fetchFalso';
 import { navegacionFalsa, propiedades } from '../ayudas/pantalla';
+import { tokens } from '../../src/tokens/tokens.generated';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
 
 jest.mock('expo-secure-store', () => jest.requireActual('../ayudas/secureStoreFalso').crearSecureStoreFalso());
@@ -132,9 +134,30 @@ describe('PN-71 · Seguridad de la cuenta (E14-PCP 4.14)', () => {
     });
 
     it('403 autorizacion_pendiente → PN-63', async () => {
-      instalarFetchFalso(respuestaJson(403, { error: 'autorizacion_pendiente' }));
+      instalarFetchFalso(
+        respuestaJson(403, { error: 'autorizacion_pendiente' }),
+        respuestaJson(200, { version: { numero: '1.1', fecha: '2026-11-12' }, modo: 'completo', finalidades: [] }),
+      );
       const navegacion = await mostrar();
       await waitFor(() => expect(navegacion.dispatch).toHaveBeenCalledWith(reinicio('InformacionDePrivacidad')));
+    });
+
+    // SC-E21-25, sección 5, paso 2: la cuenta de antes del cambio va directo a PN-64, con la tarjeta que le falta.
+    it('403 autorizacion_pendiente con el modo falta_una_aceptacion → PN-64', async () => {
+      const { pedidos } = instalarFetchFalso(
+        respuestaJson(403, { error: 'autorizacion_pendiente' }),
+        respuestaJson(200, {
+          version: { numero: '1.1', fecha: '2026-11-12' },
+          modo: 'falta_una_aceptacion',
+          finalidades: [{ codigo: 'transmision_a_encargados', tipo: 'necesaria', otorgada: false }],
+        }),
+      );
+      const navegacion = await mostrar();
+      await waitFor(() => expect(navegacion.dispatch).toHaveBeenCalledWith(reinicio('AutorizacionDeDatos')));
+      expect(pedidos.map((p) => p.url.replace('http://api.prueba:18090', ''))).toEqual([
+        '/api/v1/cuenta/seguridad',
+        '/api/v1/autorizaciones',
+      ]);
     });
 
     it('si se sale de la pantalla antes de que conteste el API, no actualiza nada', async () => {
@@ -171,6 +194,55 @@ describe('PN-71 · Seguridad de la cuenta (E14-PCP 4.14)', () => {
     });
   });
 
+  // Bug 303 (ACC-004, L8.2): «Cerrar sesión» manda un DELETE; mientras espera queda ocupado (se ve como deshabilitado, sigue
+  // habilitado para TalkBack con `busy`) y un segundo toque no manda otro pedido.
+  describe('«Cerrar sesión» mientras envía (bug 303)', () => {
+    function fetchConDeleteEnEspera() {
+      const pedidos: { url: string; init: RequestInit }[] = [];
+      let responder: (respuesta: Response | Error) => void = () => undefined;
+      global.fetch = jest.fn(async (url: string, init: RequestInit) => {
+        pedidos.push({ url, init });
+        if (init.method !== 'DELETE') return respuestaJson(200, { ingreso_anterior: null });
+        const respuesta = await new Promise<Response | Error>((r) => (responder = r));
+        if (respuesta instanceof Error) throw respuesta;
+        return respuesta;
+      }) as unknown as typeof fetch;
+      return { responder: (r: Response | Error) => act(async () => responder(r)), borrados: () => pedidos.filter((p) => p.init.method === 'DELETE') };
+    }
+
+    it('queda ocupado y habilitado para TalkBack, se ve como deshabilitado y el segundo toque no manda otro DELETE', async () => {
+      const { responder, borrados } = fetchConDeleteEnEspera();
+      const navegacion = await mostrar();
+      await screen.findByText('Este es tu primer ingreso.');
+      await fireEvent.press(screen.getByRole('button', { name: 'Cerrar sesión' }));
+
+      comprobarOcupado({ name: 'Cerrar sesión' });
+      expect(screen.getByText('Cerrar sesión')).toHaveStyle({ color: tokens.color.accion.deshabilitada.texto });
+      await fireEvent.press(screen.getByRole('button', { name: 'Cerrar sesión' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Cerrar sesión' }));
+      expect(borrados()).toHaveLength(1);
+      expect(navegacion.dispatch).not.toHaveBeenCalled();
+
+      await responder(respuestaJson(204));
+      await waitFor(() => expect(navegacion.dispatch).toHaveBeenCalledWith(reinicio('Entrar')));
+      expect(borrados()).toHaveLength(1);
+    });
+
+    it('sin conexión vuelve a quedar libre: sin «ocupado» y se puede intentar otra vez', async () => {
+      const { responder, borrados } = fetchConDeleteEnEspera();
+      await mostrar();
+      await screen.findByText('Este es tu primer ingreso.');
+      await fireEvent.press(screen.getByRole('button', { name: 'Cerrar sesión' }));
+      comprobarOcupado({ name: 'Cerrar sesión' });
+
+      await responder(new TypeError('Network request failed'));
+      expect(await screen.findByText('Sin conexión. Intenta de nuevo cuando vuelvas a tener internet.')).toBeOnTheScreen();
+      expect(screen.getByRole('button', { name: 'Cerrar sesión' }).props.accessibilityState).toEqual({ disabled: false });
+      await fireEvent.press(screen.getByRole('button', { name: 'Cerrar sesión' }));
+      expect(borrados()).toHaveLength(2);
+    });
+  });
+
   describe('«Borrar mi cuenta» (US-53)', () => {
     it('es un botón de texto debajo de «Cerrar sesión» que abre PN-69', async () => {
       instalarFetchFalso(respuestaJson(200, { ingreso_anterior: null }));
@@ -195,12 +267,19 @@ describe('PN-71 · Seguridad de la cuenta (E14-PCP 4.14)', () => {
       expect(navegacion.navigate).toHaveBeenCalledWith('InformacionDePrivacidad', { desdeElMenu: true });
     });
 
-    it('orden: «Movimientos», «Cómo cuidamos tus datos», «Cerrar sesión» y, última, «Borrar mi cuenta»', async () => {
+    it('orden: «Movimientos», «Presupuesto» (L3 de la US-77), «Cómo cuidamos tus datos», «Cerrar sesión» y, última, «Borrar mi cuenta»', async () => {
       instalarFetchFalso(respuestaJson(200, { ingreso_anterior: null }));
       await mostrar();
       await screen.findByText('Este es tu primer ingreso.');
       const botones = screen.getAllByRole('button');
-      const orden = ['Movimientos', 'Cómo cuidamos tus datos', 'Cerrar sesión', 'Borrar mi cuenta'];
+      const orden = [
+        'Movimientos',
+        'Presupuesto',
+        'Cómo cuidamos tus datos',
+        'Política de tratamiento y consultas',
+        'Cerrar sesión',
+        'Borrar mi cuenta',
+      ];
       expect(botones).toHaveLength(orden.length);
       orden.forEach((nombre, i) => expect(botones[i]).toBe(screen.getByRole('button', { name: nombre })));
     });
@@ -210,6 +289,21 @@ describe('PN-71 · Seguridad de la cuenta (E14-PCP 4.14)', () => {
       await mostrar();
       await screen.findByText('No pudimos cargar tu último ingreso.');
       expect(screen.getByRole('button', { name: 'Cómo cuidamos tus datos' })).toBeOnTheScreen();
+      expect(screen.getByRole('button', { name: 'Política de tratamiento y consultas' })).toBeOnTheScreen();
+    });
+  });
+
+  // D-195 (E14-PCP 4.14 y 4.16 T2 ter): mientras no exista PN-66, la entrada provisional a PN-68 va a un lado de la de PN-63.
+  describe('«Política de tratamiento y consultas» (D-195)', () => {
+    it('es un botón de texto que abre PN-68 y no pide nada más al API', async () => {
+      const { pedidos } = instalarFetchFalso(respuestaJson(200, { ingreso_anterior: null }));
+      const navegacion = await mostrar();
+      await screen.findByText('Este es tu primer ingreso.');
+      const politica = screen.getByRole('button', { name: 'Política de tratamiento y consultas' });
+      expect(politica).toHaveStyle({ alignSelf: 'flex-start' });
+      await fireEvent.press(politica);
+      expect(navegacion.navigate).toHaveBeenCalledWith('Politica');
+      expect(pedidos).toHaveLength(1);
     });
   });
 

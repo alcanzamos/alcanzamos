@@ -339,7 +339,7 @@ func leerDecision(d DecisionDeUnaFecha, prefijo string, campos map[string]string
 		leida.fecha = fecha
 	}
 	if texto := strings.TrimSpace(string(d.MontoCentavos)); texto != "" && texto != "null" {
-		if monto, codigo := leerMonto(d.MontoCentavos); codigo != "" {
+		if monto, codigo := LeerMonto(d.MontoCentavos); codigo != "" {
 			campos[prefijo+"monto_centavos"] = codigo
 		} else if d.Omitida {
 			campos[prefijo+"monto_centavos"] = MontoInvalido // «No pasó» no lleva monto

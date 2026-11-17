@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -40,6 +41,29 @@ func fotoDelMovimiento(t *testing.T, pool *pgxpool.Pool, id string) string {
 	return foto
 }
 
+// presupuestoDe siembra el presupuesto de Transporte del mes en curso (el de hoy en Colombia) de la persona y devuelve su id.
+func presupuestoDe(t *testing.T, pool *pgxpool.Pool, persona string) string {
+	t.Helper()
+	h := vHoy()
+	var id string
+	err := pool.QueryRow(context.Background(), `INSERT INTO presupuesto (persona_id, categoria_id, periodo, monto_asignado) VALUES ($1::uuid, 8, $2, 1000) RETURNING id::text`,
+		persona, time.Date(h.Year(), h.Month(), 1, 0, 0, 0, 0, time.UTC)).Scan(&id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
+// fotoDelPresupuesto es el monto guardado, o "borrado" si ya no está.
+func fotoDelPresupuesto(t *testing.T, pool *pgxpool.Pool, id string) string {
+	t.Helper()
+	var foto string
+	if err := pool.QueryRow(context.Background(), `SELECT monto_asignado::text FROM presupuesto WHERE id = $1::uuid`, id).Scan(&foto); err != nil {
+		return "borrado"
+	}
+	return foto
+}
+
 func sesionVale(t *testing.T, pool *pgxpool.Pool, token string) bool {
 	t.Helper()
 	huella, err := seguridad.HuellaDeToken(token)
@@ -53,9 +77,10 @@ func sesionVale(t *testing.T, pool *pgxpool.Pool, token string) bool {
 	return n == 1
 }
 
-// SEG-016 (a) a (d) en las tres rutas que cambian algo y no son POST (D-194): `PUT` y `DELETE /api/v1/movimientos/{id}` y
-// `DELETE /api/v1/sesiones/actual`. Cada rechazo responde su estado y su cuerpo exactos, sin `Set-Cookie`, y no cambia
-// nada: el movimiento queda igual o sin borrar y la sesión sigue valiendo. Con un cliente válido, la ruta sí actúa.
+// SEG-016 (a) a (d) en las cinco rutas que cambian algo y no son POST (D-194): `PUT` y `DELETE /api/v1/movimientos/{id}`,
+// `PUT` y `DELETE /api/v1/presupuestos/{id}` y `DELETE /api/v1/sesiones/actual`. Cada rechazo responde su estado y su
+// cuerpo exactos, sin `Set-Cookie`, y no cambia nada: el movimiento y el presupuesto quedan iguales o sin borrar y la
+// sesión sigue valiendo. Con un cliente válido, la ruta sí actúa.
 func TestSEG016PUTYDELETERechazadosNoCambianNada(t *testing.T) {
 	api, _, pool := apiArmadaCruda(t)
 	token, id := persona(t, pool, "laura@ejemplo.test", true, true)
@@ -64,10 +89,13 @@ func TestSEG016PUTYDELETERechazadosNoCambianNada(t *testing.T) {
 	if antes == "borrado" {
 		t.Fatal("el movimiento no se sembró")
 	}
+	pre := presupuestoDe(t, pool, id)
 
 	rutas := []struct{ metodo, ruta, cuerpo string }{
 		{"PUT", "/api/v1/movimientos/" + mov, cuerpoDeCorreccion},
 		{"DELETE", "/api/v1/movimientos/" + mov, ""},
+		{"PUT", "/api/v1/presupuestos/" + pre, `{"monto_centavos":9999}`},
+		{"DELETE", "/api/v1/presupuestos/" + pre, ""},
 		{"DELETE", "/api/v1/sesiones/actual", ""},
 	}
 	for _, r := range rutas {
@@ -99,6 +127,9 @@ func TestSEG016PUTYDELETERechazadosNoCambianNada(t *testing.T) {
 				if despues := fotoDelMovimiento(t, pool, mov); despues != antes {
 					t.Errorf("el movimiento cambió: %s, antes %s", despues, antes)
 				}
+				if despues := fotoDelPresupuesto(t, pool, pre); despues != "1000" {
+					t.Errorf("el presupuesto cambió: %s", despues)
+				}
 				if !sesionVale(t, pool, token) {
 					t.Error("la sesión ya no vale")
 				}
@@ -106,7 +137,8 @@ func TestSEG016PUTYDELETERechazadosNoCambianNada(t *testing.T) {
 		}
 	}
 
-	// Con las cabeceras de la web sí actúan, en este orden: PUT, DELETE del movimiento y cierre de sesión.
+	// Con las cabeceras de la web sí actúan, en este orden: PUT y DELETE del movimiento, PUT y DELETE del presupuesto y
+	// cierre de sesión.
 	web := []string{"Sec-Fetch-Site", "same-origin", "Content-Type", "application/json"}
 	if codigo, cuerpo := enviar(api, token, "PUT", rutas[0].ruta, rutas[0].cuerpo, web...); codigo != 200 || fotoDelMovimiento(t, pool, mov) == antes {
 		t.Errorf("PUT válido: %d %s", codigo, cuerpo)
@@ -114,12 +146,18 @@ func TestSEG016PUTYDELETERechazadosNoCambianNada(t *testing.T) {
 	if codigo, cuerpo := enviar(api, token, "DELETE", rutas[1].ruta, "", web...); codigo != 204 || fotoDelMovimiento(t, pool, mov) != "borrado" {
 		t.Errorf("DELETE válido del movimiento: %d %s", codigo, cuerpo)
 	}
-	if codigo, cuerpo := enviar(api, token, "DELETE", rutas[2].ruta, "", web...); codigo != 204 || sesionVale(t, pool, token) {
+	if codigo, cuerpo := enviar(api, token, "PUT", rutas[2].ruta, rutas[2].cuerpo, web...); codigo != 200 || fotoDelPresupuesto(t, pool, pre) != "9999" {
+		t.Errorf("PUT válido del presupuesto: %d %s", codigo, cuerpo)
+	}
+	if codigo, cuerpo := enviar(api, token, "DELETE", rutas[3].ruta, "", web...); codigo != 204 || fotoDelPresupuesto(t, pool, pre) != "borrado" {
+		t.Errorf("DELETE válido del presupuesto: %d %s", codigo, cuerpo)
+	}
+	if codigo, cuerpo := enviar(api, token, "DELETE", rutas[4].ruta, "", web...); codigo != 204 || sesionVale(t, pool, token) {
 		t.Errorf("DELETE válido de la sesión: %d %s", codigo, cuerpo)
 	}
 }
 
-// SEG-016 (b) y (c) en las tres rutas (D-194): con el Origin de URL_PUBLICA y con las cabeceras de Android sí actúan, y
+// SEG-016 (b) y (c) en las cinco rutas (D-194): con el Origin de URL_PUBLICA y con las cabeceras de Android sí actúan, y
 // el cierre de Android sin `Content-Type` da 415 y la sesión sigue (lo que el cliente evita mandándolo siempre).
 func TestSEG016PUTYDELETEPasanConOriginDeURLPublicaYConAndroid(t *testing.T) {
 	for nombre, cab := range map[string][]string{
@@ -139,6 +177,13 @@ func TestSEG016PUTYDELETEPasanConOriginDeURLPublicaYConAndroid(t *testing.T) {
 			}
 			if codigo, cuerpo := enviar(api, token, "DELETE", "/api/v1/movimientos/"+mov, "", c...); codigo != 204 || fotoDelMovimiento(t, pool, mov) != "borrado" {
 				t.Errorf("DELETE: %d %s", codigo, cuerpo)
+			}
+			pre := presupuestoDe(t, pool, id)
+			if codigo, cuerpo := enviar(api, token, "PUT", "/api/v1/presupuestos/"+pre, `{"monto_centavos":9999}`, c...); codigo != 200 || fotoDelPresupuesto(t, pool, pre) != "9999" {
+				t.Errorf("PUT del presupuesto: %d %s", codigo, cuerpo)
+			}
+			if codigo, cuerpo := enviar(api, token, "DELETE", "/api/v1/presupuestos/"+pre, "", c...); codigo != 204 || fotoDelPresupuesto(t, pool, pre) != "borrado" {
+				t.Errorf("DELETE del presupuesto: %d %s", codigo, cuerpo)
 			}
 			if codigo, cuerpo := enviar(api, token, "DELETE", "/api/v1/sesiones/actual", "", c...); codigo != 204 || sesionVale(t, pool, token) {
 				t.Errorf("cierre: %d %s", codigo, cuerpo)

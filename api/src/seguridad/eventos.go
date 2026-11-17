@@ -6,7 +6,7 @@ import (
 )
 
 // TipoDeEvento es el valor cerrado del campo evento_seguridad (E17-VTE 2.1, E11-DAR §7).
-// La alerta de producción cuenta por este valor: si cambia, cambia también `infra/produccion/alertas.tf`.
+// La alerta de producción cuenta por este valor: si cambia, cambia también `infra/azure/alertas.tf`.
 type TipoDeEvento string
 
 const (

@@ -11,3 +11,19 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
 
+
+// Las hojas inferiores se deslizan solas (`HojaInferior`) y con `useNativeDriver: true` Jest termina cada animación en el
+// primer cuadro. Para que las pruebas de las pantallas vean la hoja abrirse y cerrarse al instante, como antes, aquí
+// toda animación termina al empezar. Las pruebas del foco y de la hoja la toman a mano (`tests/ayudas/animacion.ts`).
+import { Animated } from 'react-native';
+
+beforeEach(() => {
+  jest.spyOn(Animated, 'timing').mockImplementation(
+    () =>
+      ({
+        start: (alTerminar?: (resultado: { finished: boolean }) => void) => alTerminar?.({ finished: true }),
+        stop: () => undefined,
+        reset: () => undefined,
+      }) as unknown as Animated.CompositeAnimation,
+  );
+});

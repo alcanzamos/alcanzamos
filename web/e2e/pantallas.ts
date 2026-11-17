@@ -1,5 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 import { responder, simularApi, sinPendientes } from "./ayudas";
+import { catalogoCompleto, catalogoLimitado } from "./datosDeAutorizacion";
+import { apiDeIngresos, apiDePresupuesto, casos } from "./datosDePresupuesto";
 
 // Todas las pantallas de la web, cada una con su API simulado: las recorren la prueba sin desplazamiento horizontal
 // (S13) y la de la Navegación lateral (bug 233).
@@ -140,7 +142,7 @@ const encabezado = (page: Page, nombre: string) =>
 /** Lo que la Navegación lateral web (E14-SDD 5.13) muestra en una pantalla con sesión. */
 export type Lateral = {
   /** El enlace con `aria-current="page"`; `null` cuando la pantalla no es un destino (E14-PTU 4.0). */
-  activo: "Movimientos" | "Registrar" | null;
+  activo: "Movimientos" | "Presupuesto" | "Registrar" | null;
   /** Secundario donde la pantalla ya tiene su Primario: un solo Primario por pantalla (E14-SDD 5.13). */
   registrar: "primario" | "secundario";
 };
@@ -230,21 +232,56 @@ export const pantallas: Pantalla[] = [
     nombre: "PN-64 /autorizacion",
     preparar: (page) =>
       simularApi(page, {
-        "GET /api/v1/autorizaciones": responder(200, {
-          version: { numero: "1.0", fecha: "2026-10-30" },
-          finalidades: [
-            { codigo: "cuenta_y_acceso", tipo: "necesaria", otorgada: false },
-            {
-              codigo: "funciones_financieras",
-              tipo: "necesaria",
-              otorgada: false,
-            },
-            { codigo: "avisos", tipo: "accesoria", otorgada: false },
-            { codigo: "horas_de_vida", tipo: "accesoria", otorgada: false },
-          ],
-        }),
+        "GET /api/v1/autorizaciones": responder(200, catalogoCompleto),
       }),
     abrir: abrirConTitulo("/autorizacion", "Tu autorización"),
+  },
+  {
+    nombre: "PN-64 /autorizacion en el modo «falta una aceptación»",
+    preparar: (page) =>
+      simularApi(page, {
+        "GET /api/v1/autorizaciones": responder(200, catalogoLimitado),
+      }),
+    abrir: abrirConTitulo("/autorizacion", "Tu autorización"),
+  },
+  {
+    nombre: "PN-64 /autorizacion con la hoja «¿No autorizas?» abierta",
+    preparar: (page) =>
+      simularApi(page, {
+        "GET /api/v1/autorizaciones": responder(200, catalogoLimitado),
+        "GET /api/v1/cuenta/borrado": responder(200, {
+          hogar: null,
+          menores: [{ id: "id-mateo", nombre: "Mateo" }],
+        }),
+      }),
+    abrir: async (page) => {
+      await page.goto("/autorizacion");
+      await page.getByRole("button", { name: "No autorizo" }).click();
+      await expect(
+        page.getByRole("dialog", { name: "¿No autorizas?" }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Borrar mi cuenta" }),
+      ).toBeVisible();
+    },
+  },
+  // PN-68 es pública: sin sesión, sin barra lateral. Con `?desde=` de una pantalla con sesión, la lleva (E14-PCP 4.11).
+  {
+    nombre: "PN-68 /politica (sin sesión)",
+    preparar: sinApi,
+    abrir: abrirConTitulo(
+      "/politica?desde=%2Fentrar",
+      "Política de tratamiento",
+    ),
+  },
+  {
+    nombre: "PN-68 /politica abierta desde PN-71 (con sesión)",
+    lateral: { activo: null, registrar: "primario" },
+    preparar: sinApi,
+    abrir: abrirConTitulo(
+      "/politica?desde=%2Fcuenta%2Fseguridad",
+      "Política de tratamiento",
+    ),
   },
   {
     nombre: "PN-69 /cuenta/borrar",
@@ -340,7 +377,7 @@ export const pantallas: Pantalla[] = [
           resultado: "propuesta",
           tipo: "gasto",
           monto_centavos: 4500000,
-          categoria: { id: 1, nombre: "Alimentación" },
+          categoria: null,
           fecha: "2026-12-13",
           varios_movimientos: true,
         }),
@@ -352,6 +389,8 @@ export const pantallas: Pantalla[] = [
         .getByLabel("Escribe el gasto o el ingreso")
         .fill("mercado 45 mil ayer y 12 mil de pasajes");
       await page.getByRole("button", { name: "Llenar el formulario" }).click();
+      // Con varios montos la categoría llega vacía y la persona la elige (D-196, paso 1).
+      await page.getByRole("radio", { name: "Alimentación" }).check();
       await page.getByRole("radio", { name: "Efectivo" }).check();
       await page.getByRole("button", { name: "Revisar y guardar" }).click();
       await expect(
@@ -377,6 +416,92 @@ export const pantallas: Pantalla[] = [
       await expect(encabezado(page, "Se repite")).toBeVisible();
       await page.getByRole("radio", { name: "Cada mes" }).check();
       await expect(page.getByRole("radio", { name: "Cada mes" })).toBeChecked();
+    },
+  },
+  // PN-06 y PN-07 son el destino «Presupuesto» (E14-PPA 4.1, variante web); PN-08 no es un destino (E14-PPA 1): lleva
+  // Barra superior con Atrás y la barra sin destino activo, como PN-03.
+  {
+    nombre: "PN-06 /presupuesto",
+    lateral: { activo: "Presupuesto", registrar: "primario" },
+    preparar: (page) => apiDePresupuesto(page, casos.laura()),
+    abrir: async (page) => {
+      await abrirConTitulo("/presupuesto", "Presupuesto de noviembre")(page);
+      await expect(
+        page.getByRole("button", { name: "Agregar otra categoría" }),
+      ).toBeVisible();
+    },
+  },
+  {
+    nombre: "PN-06 /presupuesto con la hoja «Poner presupuesto» abierta",
+    lateral: { activo: "Presupuesto", registrar: "primario" },
+    preparar: (page) => apiDePresupuesto(page, casos.laura()),
+    abrir: async (page) => {
+      await abrirConTitulo("/presupuesto", "Presupuesto de noviembre")(page);
+      await page
+        .getByRole("button", {
+          name: "Poner presupuesto a Arriendo o cuota de vivienda",
+        })
+        .click();
+      await page.getByRole("button", { name: "Guardar" }).click();
+      await expect(page.getByText("Falta el monto.")).toBeVisible();
+    },
+  },
+  {
+    nombre: "PN-07 /presupuesto con ingreso nulo",
+    lateral: { activo: "Presupuesto", registrar: "primario" },
+    preparar: (page) => apiDePresupuesto(page, casos.nulo()),
+    abrir: async (page) => {
+      await abrirConTitulo("/presupuesto", "Presupuesto de noviembre")(page);
+      await expect(
+        page.getByRole("button", { name: "Dejar el presupuesto en cero" }),
+      ).toBeVisible();
+    },
+  },
+  {
+    nombre: "PN-07 /presupuesto con ingreso bajo",
+    lateral: { activo: "Presupuesto", registrar: "primario" },
+    preparar: (page) => apiDePresupuesto(page, casos.bajo()),
+    abrir: async (page) => {
+      await abrirConTitulo("/presupuesto", "Presupuesto de noviembre")(page);
+      await expect(page.getByText(/Lo asignado supera por/)).toBeVisible();
+    },
+  },
+  {
+    nombre: "PN-08 /ingresos con una fecha por confirmar",
+    lateral: { activo: null, registrar: "primario" },
+    preparar: (page) => apiDeIngresos(page, 1),
+    abrir: async (page) => {
+      await abrirConTitulo("/ingresos", "Ingresos")(page);
+      await expect(
+        page.getByRole("button", {
+          name: "Confirmar Salario de $1.200.000 del 16 de noviembre de 2026",
+        }),
+      ).toBeVisible();
+    },
+  },
+  {
+    nombre: "PN-08 /ingresos?periodo=2026-10 (caso P, varias fuentes)",
+    lateral: { activo: null, registrar: "primario" },
+    preparar: (page) => apiDeIngresos(page),
+    abrir: async (page) => {
+      await abrirConTitulo("/ingresos?periodo=2026-10", "Ingresos")(page);
+      await expect(
+        page.getByRole("heading", {
+          level: 2,
+          name: "Trabajo independiente o ventas",
+        }),
+      ).toBeVisible();
+    },
+  },
+  {
+    nombre: "PN-08 «Confirmar todos» /ingresos?confirmar=todos",
+    lateral: { activo: null, registrar: "primario" },
+    preparar: (page) => apiDeIngresos(page, 2),
+    abrir: async (page) => {
+      await page.goto("/ingresos?confirmar=todos");
+      await expect(
+        page.getByRole("region", { name: "Confirmar todos" }),
+      ).toBeVisible();
     },
   },
   {

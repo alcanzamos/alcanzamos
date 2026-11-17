@@ -26,6 +26,7 @@ func (e *entornoDeAcceso) cuentaLista(t *testing.T, correo string) string {
 	verificar(t, e.pool, persona)
 	otorgar(t, e.pool, persona, persona, "cuenta_y_acceso")
 	otorgar(t, e.pool, persona, persona, "funciones_financieras")
+	otorgar(t, e.pool, persona, persona, "transmision_a_encargados")
 	return persona
 }
 

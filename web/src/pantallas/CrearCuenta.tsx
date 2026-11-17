@@ -8,6 +8,7 @@ import { IconoInformacion } from "../componentes/Iconos";
 import { Pagina } from "../componentes/Pagina";
 import { guardarCorreo, leerCorreo } from "../correoPendiente";
 import { navegar } from "../enrutador";
+import { enlaceALaPolitica } from "../politica";
 import { useFocoPendiente } from "../enfoque";
 import {
   avisoDeFallo,
@@ -101,6 +102,9 @@ export function CrearCuenta() {
       </form>
       <BotonEnlace href="/entrar">
         {textos.crearCuenta.yaTengoCuenta}
+      </BotonEnlace>
+      <BotonEnlace href={enlaceALaPolitica("/crear-cuenta")} variante="texto">
+        {textos.politica.entradas.deTratamientoDeDatos}
       </BotonEnlace>
       <p className="nota">
         <IconoInformacion />

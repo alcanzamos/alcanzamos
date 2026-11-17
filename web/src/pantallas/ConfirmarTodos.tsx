@@ -3,8 +3,7 @@ import { seguirPorAccesoNegado } from "../accesoNegado";
 import {
   decidir,
   type Decision,
-  type Pendiente,
-  type Pendientes,
+  type FechaPorConfirmar,
 } from "../api/repeticiones";
 import { Aviso } from "../componentes/Aviso";
 import { Boton } from "../componentes/Boton";
@@ -41,7 +40,8 @@ export function ConfirmarTodos({
   alTerminar,
   refrescar,
 }: {
-  datos: Pendientes;
+  /** Las de «Por confirmar» de PN-01 o las de ingreso del periodo de PN-08. */
+  datos: { pendientes: FechaPorConfirmar[] };
   atras: string;
   alVolver: () => void;
   alEmpezar: () => void;
@@ -60,8 +60,8 @@ export function ConfirmarTodos({
 
   useEffect(() => enfocar("titulo-confirmar-todos"), []);
 
-  const de = (fila: Pendiente) => elecciones[claveDe(fila)] ?? INICIAL;
-  const cambiar = (fila: Pendiente, cambios: Partial<Eleccion>) =>
+  const de = (fila: FechaPorConfirmar) => elecciones[claveDe(fila)] ?? INICIAL;
+  const cambiar = (fila: FechaPorConfirmar, cambios: Partial<Eleccion>) =>
     setElecciones({
       ...elecciones,
       [claveDe(fila)]: { ...de(fila), ...cambios },

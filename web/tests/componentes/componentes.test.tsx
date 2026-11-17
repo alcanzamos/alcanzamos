@@ -214,6 +214,50 @@ describe("Casilla", () => {
   });
 });
 
+describe("Casilla con ayuda", () => {
+  it("la ayuda va justo debajo de la casilla y la describe, junto con el error", () => {
+    render(
+      <Casilla
+        id="m"
+        texto="Autorizo los avisos."
+        ayuda="Pasan por Google."
+        marcada={false}
+        alCambiar={() => {}}
+        error="Falta marcar."
+      />,
+    );
+    const casilla = screen.getByRole("checkbox");
+    expect(casilla).toHaveAccessibleDescription(
+      "Falta marcar. Pasan por Google.",
+    );
+    const ayuda = screen.getByText("Pasan por Google.");
+    expect(ayuda).toHaveAttribute("id", "m-ayuda");
+    expect(ayuda).toHaveClass("ayuda");
+    expect(ayuda.closest(".casilla-grupo")).toContainElement(casilla);
+  });
+
+  it("sin error, solo la ayuda la describe; sin ayuda, nada nuevo", () => {
+    const { rerender } = render(
+      <Casilla
+        id="m"
+        texto="Autorizo."
+        ayuda="Una nota."
+        marcada={false}
+        alCambiar={() => {}}
+      />,
+    );
+    expect(screen.getByRole("checkbox")).toHaveAccessibleDescription(
+      "Una nota.",
+    );
+    rerender(
+      <Casilla id="m" texto="Autorizo." marcada={false} alCambiar={() => {}} />,
+    );
+    expect(screen.getByRole("checkbox")).not.toHaveAttribute(
+      "aria-describedby",
+    );
+  });
+});
+
 describe("MensajeDeEstado (E14-PCP 4.16 T11)", () => {
   it("es una región role=status y el aviso entra después de pintarse, sin tomar el foco", async () => {
     render(

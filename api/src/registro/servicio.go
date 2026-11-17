@@ -262,7 +262,7 @@ func validar(sol Solicitud, hoy time.Time) (Guardado, error) {
 		campos["tipo"] = TipoInvalido
 	}
 
-	if monto, codigo := leerMonto(sol.MontoCentavos); codigo != "" {
+	if monto, codigo := LeerMonto(sol.MontoCentavos); codigo != "" {
 		campos["monto_centavos"] = codigo
 	} else {
 		g.Monto = monto
@@ -340,8 +340,9 @@ func leerFecha(texto string) (time.Time, string) {
 	return fecha, ""
 }
 
-// leerMonto lee los centavos del JSON sin pasar por punto flotante (D-082): solo un entero positivo que quepa en int64.
-func leerMonto(crudo json.RawMessage) (int64, string) {
+// LeerMonto lee los centavos del JSON sin pasar por punto flotante (D-082): solo un entero positivo que quepa en int64.
+// Devuelve el código del campo si no vale. Lo comparten el registro y el presupuesto.
+func LeerMonto(crudo json.RawMessage) (int64, string) {
 	texto := strings.TrimSpace(string(crudo))
 	if texto == "" || texto == "null" {
 		return 0, MontoRequerido

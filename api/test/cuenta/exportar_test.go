@@ -60,7 +60,7 @@ func TestElZIPTrae_LosCuatroCSV_ConSusEncabezados_YLosDemasSoloEncabezados(t *te
 	datos, err := cuenta.ArmarZIP([]cuenta.MovimientoExportado{
 		{Fecha: "2026-11-02", Tipo: "gasto", MontoCentavos: 4500000, Categoria: "Alimentación", Medio: "efectivo", Descripcion: "mercado, con «tildes»", Compartido: false},
 		{Fecha: "2026-11-03", Tipo: "aporte", MontoCentavos: 12345, Medio: "transferencia", Meta: "Arriendo", Sentido: "salida", Compartido: true},
-	})
+	}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +91,7 @@ func TestElZIPTrae_LosCuatroCSV_ConSusEncabezados_YLosDemasSoloEncabezados(t *te
 }
 
 func TestSinMovimientosElZIPTrae_LosCuatroArchivosSoloConEncabezados(t *testing.T) {
-	datos, err := cuenta.ArmarZIP(nil)
+	datos, err := cuenta.ArmarZIP(nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +109,7 @@ func TestSinMovimientosElZIPTrae_LosCuatroArchivosSoloConEncabezados(t *testing.
 // Una descripción que empieza como una fórmula no se ejecuta al abrir el CSV en una hoja de cálculo.
 func TestUnaDescripcionConFormulaNoSeEjecutaEnLaHoja(t *testing.T) {
 	for _, texto := range []string{"=HYPERLINK(\"http://malo\")", "+1", "-1", "@SUMA(A1)", "\tcmd"} {
-		datos, err := cuenta.ArmarZIP([]cuenta.MovimientoExportado{{Fecha: "2026-11-02", Tipo: "gasto", MontoCentavos: 100, Medio: "efectivo", Descripcion: texto}})
+		datos, err := cuenta.ArmarZIP([]cuenta.MovimientoExportado{{Fecha: "2026-11-02", Tipo: "gasto", MontoCentavos: 100, Medio: "efectivo", Descripcion: texto}}, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -119,10 +119,40 @@ func TestUnaDescripcionConFormulaNoSeEjecutaEnLaHoja(t *testing.T) {
 	}
 }
 
+// presupuestos.csv (D-180 con la US-77; L6 (5)): las columnas de D-180, una fila por presupuesto propio y una por mes
+// dejado en cero, con la categoría vacía y el monto en cero, en el orden en que llegan del repositorio (por periodo y, en
+// cada mes, la marca primero y después las categorías en el orden del catálogo).
+func TestPresupuestosCSVTraeLosPresupuestosYLosMesesEnCero(t *testing.T) {
+	datos, err := cuenta.ArmarZIP(nil, []cuenta.PresupuestoExportado{
+		{Periodo: "2026-09"},
+		{Periodo: "2026-10", Categoria: "Alimentación", MontoCentavos: 30000000},
+		{Periodo: "2026-11", Categoria: "Transporte", MontoCentavos: 4000005},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	z := leerZIP(t, datos)
+	quiere := [][]string{
+		{"periodo", "categoria", "monto_asignado_en_pesos"},
+		{"2026-09", "", "0.00"},
+		{"2026-10", "Alimentación", "300000.00"},
+		{"2026-11", "Transporte", "40000.05"},
+	}
+	if !reflect.DeepEqual(z["presupuestos.csv"], quiere) {
+		t.Errorf("presupuestos.csv: %v, se esperaba %v", z["presupuestos.csv"], quiere)
+	}
+	for _, vacio := range []string{"movimientos.csv", "metas.csv", "deudas.csv"} {
+		if len(z[vacio]) != 1 {
+			t.Errorf("%s: %v", vacio, z[vacio])
+		}
+	}
+}
+
 type repoDeExportacionFalso struct {
-	filas []cuenta.MovimientoExportado
-	err   error
-	de    []string
+	filas        []cuenta.MovimientoExportado
+	presupuestos []cuenta.PresupuestoExportado
+	err, errP    error
+	de           []string
 }
 
 func (r *repoDeExportacionFalso) MovimientosDe(_ context.Context, persona string) ([]cuenta.MovimientoExportado, error) {
@@ -130,15 +160,28 @@ func (r *repoDeExportacionFalso) MovimientosDe(_ context.Context, persona string
 	return r.filas, r.err
 }
 
+func (r *repoDeExportacionFalso) PresupuestosDe(_ context.Context, persona string) ([]cuenta.PresupuestoExportado, error) {
+	r.de = append(r.de, "presupuestos de "+persona)
+	return r.presupuestos, r.errP
+}
+
 func TestElServicioArmaElZIPDeLaPersona(t *testing.T) {
-	repo := &repoDeExportacionFalso{filas: []cuenta.MovimientoExportado{{Fecha: "2026-11-02", Tipo: "gasto", MontoCentavos: 100, Medio: "efectivo"}}}
+	repo := &repoDeExportacionFalso{filas: []cuenta.MovimientoExportado{{Fecha: "2026-11-02", Tipo: "gasto", MontoCentavos: 100, Medio: "efectivo"}},
+		presupuestos: []cuenta.PresupuestoExportado{{Periodo: "2026-11", Categoria: "Transporte", MontoCentavos: 100}}}
 	datos, err := cuenta.NuevoExportador(repo).ZIP(context.Background(), "p1")
-	if err != nil || len(leerZIP(t, datos)["movimientos.csv"]) != 2 || !reflect.DeepEqual(repo.de, []string{"p1"}) {
+	if err != nil || !reflect.DeepEqual(repo.de, []string{"p1", "presupuestos de p1"}) {
 		t.Fatalf("%v %v", err, repo.de)
+	}
+	if z := leerZIP(t, datos); len(z["movimientos.csv"]) != 2 || len(z["presupuestos.csv"]) != 2 {
+		t.Errorf("filas: %v", z)
 	}
 	repo.err = cuenta.ErrNoExiste
 	if _, err := cuenta.NuevoExportador(repo).ZIP(context.Background(), "p1"); !errors.Is(err, cuenta.ErrNoExiste) {
 		t.Errorf("error %v", err)
+	}
+	repo.err, repo.errP = nil, cuenta.ErrNoExiste
+	if _, err := cuenta.NuevoExportador(repo).ZIP(context.Background(), "p1"); !errors.Is(err, cuenta.ErrNoExiste) {
+		t.Errorf("error de los presupuestos %v", err)
 	}
 }
 
@@ -172,7 +215,7 @@ func TestGetDatosEntregaElZIPSinGuardarCopiaNiRegistrarNada(t *testing.T) {
 		rr.Header().Get("Content-Disposition") != `attachment; filename="alcanzamos-mis-datos.zip"` || rr.Header().Get("X-Content-Type-Options") != "nosniff" {
 		t.Fatalf("%d %v", rr.Code, rr.Header())
 	}
-	if len(leerZIP(t, rr.Body.Bytes())) != 4 || !reflect.DeepEqual(repo.de, []string{personaQueBorra}) {
+	if len(leerZIP(t, rr.Body.Bytes())) != 4 || !reflect.DeepEqual(repo.de, []string{personaQueBorra, "presupuestos de " + personaQueBorra}) {
 		t.Error("el ZIP de la persona de la sesión")
 	}
 	if strings.Contains(registro.String(), "secreto") || strings.Contains(registro.String(), personaQueBorra) {

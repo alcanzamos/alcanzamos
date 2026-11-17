@@ -114,11 +114,42 @@ func TestInterpretarNuncaProponeUnaCategoriaQueLaPersonaNoVe(t *testing.T) {
 }
 
 func TestInterpretarConVariosMontosAvisaYSoloProponeElPrimero(t *testing.T) {
-	// Como el ejemplo de E14-PPN 3.1: el resumen toma el primer movimiento y el aviso dice que quedó otro.
+	// Como el ejemplo de E14-PPN 3.1: el resumen toma el primer movimiento y el aviso dice que quedó otro. Sin categoría
+	// (D-196, paso 1): la persona la elige.
 	_, resp, _ := interpretar(t, "mercado 45 mil y cine 12 mil")
-	const quiere = `{"resultado":"propuesta","tipo":"gasto","monto_centavos":4500000,"categoria":{"id":1,"nombre":"Alimentación"},"fecha":"2026-10-26","varios_movimientos":true}`
+	const quiere = `{"resultado":"propuesta","tipo":"gasto","monto_centavos":4500000,"categoria":null,"fecha":"2026-10-26","varios_movimientos":true}`
 	if resp != quiere {
 		t.Errorf("%s, se esperaba %s", resp, quiere)
+	}
+}
+
+// D-196, paso 1 (provisional hasta la US-68): con «mercado 45 mil ayer y 12 mil de pasajes» el motor da el monto y la
+// fecha del primer movimiento y la categoría del segundo («Transporte»). Con más de un monto la categoría va vacía y la
+// persona la elige; el monto, la fecha y el aviso siguen siendo los del primero. Con un solo monto no cambia nada.
+func TestInterpretarConMasDeUnMontoDejaLaCategoriaVacia(t *testing.T) {
+	conTransporte := append(catalogoVisible(), registro.Categoria{ID: 8, Nombre: "Transporte", Tipo: registro.Gasto})
+	h := apiCon(t, &repoFalso{categorias: conTransporte}, hoy, motorReal(t), sinLog())
+	casos := []struct{ texto, quiere string }{
+		{"mercado 45 mil ayer y 12 mil de pasajes", `{"resultado":"propuesta","tipo":"gasto","monto_centavos":4500000,"categoria":null,"fecha":"2026-10-25","varios_movimientos":true}`},
+		{"mercado 45 mil ayer", `{"resultado":"propuesta","tipo":"gasto","monto_centavos":4500000,"categoria":{"id":1,"nombre":"Alimentación"},"fecha":"2026-10-25","varios_movimientos":false}`},
+		{"12 mil de pasajes", `{"resultado":"propuesta","tipo":"gasto","monto_centavos":1200000,"categoria":{"id":8,"nombre":"Transporte"},"fecha":"2026-10-26","varios_movimientos":false}`},
+		// Con un total explícito el texto es un solo movimiento (E15 5.15): la categoría se propone.
+		{"mercado y aseo en total 60 mil", `{"resultado":"propuesta","tipo":"gasto","monto_centavos":6000000,"categoria":{"id":1,"nombre":"Alimentación"},"fecha":"2026-10-26","varios_movimientos":false}`},
+	}
+	for _, c := range casos {
+		if codigo, resp, _ := post(h, rutaInterpretacion, `{"texto":"`+c.texto+`"}`); codigo != 200 || resp != c.quiere {
+			t.Errorf("%q: %d %s, se esperaba %s", c.texto, codigo, resp, c.quiere)
+		}
+	}
+	// La regla es del servicio, no del motor: con cualquier interpretador que sugiera una categoría, el texto con dos
+	// montos va sin ella, y el mismo interpretador con un texto de un monto sí la propone.
+	falso := interpretacion.InterpretadorFalso{Respuesta: respuestaDeRegistro(interpretacion.Gasto, "Alimentación")}
+	h = apiCon(t, &repoFalso{categorias: conTransporte}, hoy, falso, sinLog())
+	if _, resp, _ := post(h, rutaInterpretacion, `{"texto":"almuerzo 15 mil y taxi 8 mil"}`); !strings.Contains(resp, `"categoria":null`) || !strings.Contains(resp, `"varios_movimientos":true`) {
+		t.Errorf("con el falso y dos montos: %s", resp)
+	}
+	if _, resp, _ := post(h, rutaInterpretacion, `{"texto":"almuerzo 15 mil"}`); !strings.Contains(resp, `"categoria":{"id":1,"nombre":"Alimentación"}`) {
+		t.Errorf("con el falso y un monto: %s", resp)
 	}
 }
 
