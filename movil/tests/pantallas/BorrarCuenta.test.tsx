@@ -5,6 +5,7 @@ import { BorrarCuenta } from '../../src/pantallas/BorrarCuenta';
 import { anunciados, esperarAnuncio, esperarSinAnuncios, focoDeTalkBack, limpiarAnuncios, nombreDe } from '../ayudas/anuncios';
 import { instalarFetchFalso, respuestaJson } from '../ayudas/fetchFalso';
 import { navegacionFalsa, propiedades } from '../ayudas/pantalla';
+import { comprobarOcupado } from '../ayudas/ocupado';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
 import { campo } from '../ayudas/campos';
 
@@ -335,6 +336,7 @@ describe('PN-69 · Borrar la cuenta (E14-PCP 4.12)', () => {
     await escribir();
     await borrar();
     await borrar();
+    comprobarOcupado({ name: 'Borrar mi cuenta' });
     await waitFor(() => expect(falso.fetchFalso).toHaveBeenCalledTimes(2));
     await soltar(respuestaJson(200, {}));
     await waitFor(() => expect(navegacion.dispatch).toHaveBeenCalled());
@@ -376,13 +378,13 @@ describe('PN-69 · Borrar la cuenta (E14-PCP 4.12)', () => {
       expect(anunciados()).toHaveLength(1);
     });
 
-    it('mientras prepara, el botón dice «Preparando tu archivo…», está deshabilitado y no pide dos veces', async () => {
+    it('mientras prepara, el botón dice «Preparando tu archivo…», está ocupado (sigue habilitado para TalkBack) y no pide dos veces', async () => {
       let soltar: (v: { ok: boolean }) => void = () => {};
       descarga.resultado = new Promise((r) => (soltar = r)) as never;
       await abrir(sinHogar);
       await descargar();
       const preparando = await screen.findByRole('button', { name: 'Preparando tu archivo…' });
-      expect(preparando.props.accessibilityState).toEqual({ disabled: true });
+      comprobarOcupado({ name: 'Preparando tu archivo…' });
       expect(screen.getByRole('button', { name: 'Borrar mi cuenta' })).toBeOnTheScreen();
       await fireEvent.press(preparando);
       await soltar({ ok: true });

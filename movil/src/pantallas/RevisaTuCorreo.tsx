@@ -94,12 +94,12 @@ export function RevisaTuCorreo({ navigation, route }: Pantalla59) {
             alCambiar={setNuevoCorreo}
             error={errorDeCorreo}
           />
-          <Boton deshabilitado={enEspera || ocupado} alTocar={() => void reenviar(nuevoCorreo)}>
+          <Boton deshabilitado={enEspera} ocupado={ocupado} alTocar={() => void reenviar(nuevoCorreo)}>
             {textos.acciones.reenviarElCorreo}
           </Boton>
         </>
       ) : (
-        <Boton variante="secundario" deshabilitado={enEspera || ocupado} alTocar={alTocarReenviar}>
+        <Boton variante="secundario" deshabilitado={enEspera} ocupado={ocupado} alTocar={alTocarReenviar}>
           {textos.acciones.reenviarElCorreo}
         </Boton>
       )}

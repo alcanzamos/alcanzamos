@@ -7,6 +7,7 @@ import { nombreDe } from '../ayudas/anuncios';
 import { navegacionFalsa, propiedades } from '../ayudas/pantalla';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
 import { campo, quizasCampo } from '../ayudas/campos';
+import { comprobarOcupado } from '../ayudas/ocupado';
 
 jest.mock('expo-secure-store', () => jest.requireActual('../ayudas/secureStoreFalso').crearSecureStoreFalso());
 const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crearSecureStoreFalso>;
@@ -20,7 +21,7 @@ async function mostrar(correo: string | null = 'laura@ejemplo.com') {
   return navegacion;
 }
 
-const boton = (nombre: string, extra: { disabled?: boolean } = {}) =>
+const boton = (nombre: string, extra: { disabled?: boolean; busy?: boolean } = {}) =>
   screen.getByRole('button', { name: nombre, ...extra });
 
 const ACEPTADO = { estado: 'verificacion_pendiente' };
@@ -201,7 +202,8 @@ describe('PN-59 · Revisa tu correo, Android (E14-PCP 4.2, D-172, D-184)', () =>
       global.fetch = fetchFalso as unknown as typeof fetch;
       await mostrar();
       await fireEvent.press(boton('Reenviar el correo'));
-      await fireEvent.press(boton('Reenviar el correo', { disabled: true }));
+      await fireEvent.press(boton('Reenviar el correo', { busy: true }));
+      comprobarOcupado({ name: 'Reenviar el correo' });
       expect(fetchFalso).toHaveBeenCalledTimes(1);
       await act(async () => responder(respuestaJson(202, ACEPTADO)));
     });
@@ -253,6 +255,19 @@ describe('PN-59 · Revisa tu correo, Android (E14-PCP 4.2, D-172, D-184)', () =>
       ).toBeOnTheScreen();
       expect(quizasCampo('Correo electrónico')).not.toBeOnTheScreen();
       expect(boton('Reenviar el correo', { disabled: true })).toBeOnTheScreen();
+    });
+
+    it('un segundo toque mientras manda la dirección escrita no repite el pedido y el botón queda ocupado (bug 303)', async () => {
+      let responder: (respuesta: Response) => void = () => undefined;
+      const fetchFalso = jest.fn(() => new Promise<Response>((resolver) => (responder = resolver)));
+      global.fetch = fetchFalso as unknown as typeof fetch;
+      await abrirFormulario();
+      await fireEvent.changeText(campo('Correo electrónico'), 'otro@ejemplo.com');
+      await fireEvent.press(boton('Reenviar el correo'));
+      await fireEvent.press(boton('Reenviar el correo', { busy: true }));
+      comprobarOcupado({ name: 'Reenviar el correo' });
+      expect(fetchFalso).toHaveBeenCalledTimes(1);
+      await act(async () => responder(respuestaJson(202, ACEPTADO)));
     });
 
     it('con la dirección escrita, «Ya elegí mi contraseña» y «Usar otro correo» la llevan', async () => {

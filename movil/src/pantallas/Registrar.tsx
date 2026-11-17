@@ -363,7 +363,7 @@ export function FormularioDeMovimiento({
             </View>
           ))}
         </View>
-        <Boton deshabilitado={enviando} alTocar={() => void enviar(true)}>
+        <Boton ocupado={enviando} alTocar={() => void enviar(true)}>
           {r.revisa.confirmar}
         </Boton>
         <Boton
@@ -401,7 +401,7 @@ export function FormularioDeMovimiento({
           <Nota>{r.cuadro.privacidad}</Nota>
           <Boton
             variante={conTexto && !borrador.delCuadro ? 'primario' : 'secundario'}
-            deshabilitado={interpretando}
+            ocupado={interpretando}
             alTocar={() => void llenar()}
           >
             {r.cuadro.llenar}
@@ -495,7 +495,7 @@ export function FormularioDeMovimiento({
       {errores.repeticion && <Aviso ref={avisoDeRepeticion} tipo="atencion" titulo={errores.repeticion} viva={false} />}
       <Boton
         variante={conTexto && !borrador.delCuadro ? 'secundario' : 'primario'}
-        deshabilitado={enviando}
+        ocupado={enviando}
         alTocar={() => void enviar()}
       >
         {corregir ? textos.movimientos.detalle.guardarCambios : conPaso ? r.revisarYGuardar : r.guardar}

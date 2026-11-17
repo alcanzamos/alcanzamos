@@ -9,6 +9,7 @@ import { navegacionFalsa, propiedades } from '../ayudas/pantalla';
 import { fijarHoy } from '../ayudas/reloj';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
 import { buscarCampo, campo, quizasCampo } from '../ayudas/campos';
+import { comprobarOcupado } from '../ayudas/ocupado';
 
 jest.mock('expo-secure-store', () => jest.requireActual('../ayudas/secureStoreFalso').crearSecureStoreFalso());
 const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crearSecureStoreFalso>;
@@ -442,7 +443,7 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
       await guardar();
       await guardar();
       expect(guardados(pedidos)).toHaveLength(1);
-      expect(screen.getByRole('button', { name: 'Guardar' })).toBeDisabled();
+      comprobarOcupado({ name: 'Guardar' });
       await act(async () => terminar(respuestaJson(201, creado)));
     });
   });

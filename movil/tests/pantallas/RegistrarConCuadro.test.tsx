@@ -20,6 +20,7 @@ import {
   nombreDe,
 } from "../ayudas/anuncios";
 import { respuestaJson } from "../ayudas/fetchFalso";
+import { comprobarOcupado } from "../ayudas/ocupado";
 import { navegacionFalsa, propiedades } from "../ayudas/pantalla";
 import { fijarHoy } from "../ayudas/reloj";
 import type { crearSecureStoreFalso } from "../ayudas/secureStoreFalso";
@@ -776,11 +777,28 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
       await escribir("mercado 45 mil");
       await tocar("Llenar el formulario");
       await tocar("Llenar el formulario");
+      // Bug 303: mientras interpreta, el botón queda ocupado y habilitado para TalkBack, no deshabilitado.
+      comprobarOcupado({ name: "Llenar el formulario" });
       expect(interpretaciones(pedidos)).toHaveLength(1);
       await act(async () => soltar(respuestaJson(200, propuesta)));
       await screen.findByText(
         "Llenamos el formulario con tu texto. Cambia lo que quieras.",
       );
+    });
+  });
+
+  // Bug 303 (228.2): «Confirmar y guardar» de «Revisa y confirma» se deshabilitaba al enviar y el foco de TalkBack saltaba a
+  // «Navegar hacia arriba». Queda ocupado y un segundo toque no manda nada.
+  describe("«Revisa y confirma»: «Confirmar y guardar» (bug 303, 228.2)", () => {
+    it("mientras guarda queda ocupado, habilitado para TalkBack, y un segundo toque no guarda otro movimiento", async () => {
+      let soltar: (r: Response) => void = () => undefined;
+      const pedidos = api({ guardar: () => new Promise<Response>((resolver) => (soltar = resolver)) });
+      await irAlPaso();
+      await tocar("Confirmar y guardar");
+      await tocar("Confirmar y guardar");
+      comprobarOcupado({ name: "Confirmar y guardar" });
+      expect(guardados(pedidos)).toHaveLength(1);
+      await act(async () => soltar(respuestaJson(201, creado)));
     });
   });
 });

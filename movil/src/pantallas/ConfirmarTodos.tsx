@@ -9,6 +9,7 @@ import { Aviso } from '../componentes/Aviso';
 import { Boton, BotonDeTexto } from '../componentes/Boton';
 import { Casilla } from '../componentes/Casilla';
 import { cifras } from '../componentes/Cifras';
+import { HojaQueSale } from '../componentes/HojaQueSale';
 import { Pantalla } from '../componentes/Pantalla';
 import { Texto } from '../componentes/Texto';
 import { formatearPesos } from '../dinero';
@@ -141,33 +142,34 @@ export function ConfirmarTodos({ navigation, route }: NativeStackScreenProps<Rut
         <Texto variante="ayuda">{t.todos.aclaracion}</Texto>
       </Pantalla>
       <View style={[estilos.fijo, { paddingBottom: margenes.bottom + tokens.espacio['4'] }]}>
-        <Boton deshabilitado={guardando || nadaQueGuardar} alTocar={() => void guardar()}>
+        <Boton deshabilitado={nadaQueGuardar} ocupado={guardando} alTocar={() => void guardar()}>
           {textoDeGuardar}
         </Boton>
       </View>
-      {hoja?.tipo === 'mas' && (
-        <HojaDeMas
-          fila={hoja.fila}
-          conIncluir={de(hoja.fila).omitida}
-          alCerrar={() => setHoja(null)}
-          alElegir={(opcion) => {
-            if (opcion === 'monto') return setHoja({ tipo: 'monto', fila: hoja.fila });
-            cambiar(hoja.fila, opcion === 'no_paso' ? { omitida: true } : INICIAL);
-            setHoja(null);
-          }}
-        />
-      )}
-      {hoja?.tipo === 'monto' && (
-        <HojaDeMonto
-          fila={hoja.fila}
-          textoDelBoton={t.hoja.listo}
-          alCerrar={() => setHoja(null)}
-          alConfirmar={(centavos) => {
-            cambiar(hoja.fila, { monto: centavos === BigInt(hoja.fila.monto_habitual_centavos) ? null : centavos });
-            setHoja(null);
-          }}
-        />
-      )}
+      <HojaQueSale>
+        {hoja?.tipo === 'mas' ? (
+          <HojaDeMas
+            fila={hoja.fila}
+            conIncluir={de(hoja.fila).omitida}
+            alCerrar={() => setHoja(null)}
+            alElegir={(opcion) => {
+              if (opcion === 'monto') return setHoja({ tipo: 'monto', fila: hoja.fila });
+              cambiar(hoja.fila, opcion === 'no_paso' ? { omitida: true } : INICIAL);
+              setHoja(null);
+            }}
+          />
+        ) : hoja?.tipo === 'monto' ? (
+          <HojaDeMonto
+            fila={hoja.fila}
+            textoDelBoton={t.hoja.listo}
+            alCerrar={() => setHoja(null)}
+            alConfirmar={(centavos) => {
+              cambiar(hoja.fila, { monto: centavos === BigInt(hoja.fila.monto_habitual_centavos) ? null : centavos });
+              setHoja(null);
+            }}
+          />
+        ) : null}
+      </HojaQueSale>
     </View>
   );
 }

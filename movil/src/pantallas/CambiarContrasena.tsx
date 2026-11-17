@@ -71,7 +71,7 @@ export function CambiarContrasena({ navigation }: NativeStackScreenProps<Rutas, 
         alCambiar={setNueva}
         error={errores.nueva}
       />
-      <Boton deshabilitado={enviando} alTocar={() => void enviar()}>
+      <Boton ocupado={enviando} alTocar={() => void enviar()}>
         {textos.acciones.guardarLaContrasena}
       </Boton>
       <Boton variante="secundario" alTocar={() => navigation.goBack()}>

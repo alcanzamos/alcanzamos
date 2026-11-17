@@ -1,4 +1,7 @@
-import { Linking, StyleSheet, Text } from 'react-native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useEffect, useRef } from 'react';
+import { Linking, StyleSheet, Text, type HostInstance } from 'react-native';
+import { useLlevarFoco } from '../anuncios';
 import { Boton } from '../componentes/Boton';
 import { FilaDeFinalidad } from '../componentes/FilaDeFinalidad';
 import { Pantalla } from '../componentes/Pantalla';
@@ -7,6 +10,7 @@ import { Nota, Texto } from '../componentes/Texto';
 import { Vinetas } from '../componentes/Vinetas';
 import { diaEnPalabras } from '../fechas';
 import { estiloDeTipografia } from '../fuentes';
+import type { Rutas } from '../navegacion/rutas';
 import { VERSION_DE_LA_POLITICA } from '../politica';
 import { finalidadesDeE14 } from '../textos';
 import { formatear, textos } from '../textos/es.generated';
@@ -55,11 +59,24 @@ function Grupo({ titulo, filas }: { titulo: string; filas: Fila[] }) {
 // abre y su Atrás, el de la barra nativa o el del sistema, vuelve ahí. El título lo pone la barra. «Escribir al correo»
 // abre la aplicación de correo del dispositivo con la dirección escrita. Sin la nota del menor (fila 8): la cuenta de un
 // menor se construye en I11 y esta pantalla no sabe quién la abre.
-export function Politica() {
+// Foco (bug 303, 67.1): al abrirse, TalkBack tenía el foco en «Navegar hacia arriba». El título es el de la barra nativa y
+// la app no le puede llevar el foco, así que va a lo primero que dice la pantalla, la versión, que TalkBack lee justo
+// después del título. Se pide cuando la transición de apertura de la pila termina (`transitionEnd`): durante la
+// transición Android todavía manda el foco a la barra. `navigation` falta cuando la pantalla se prueba suelta.
+export function Politica({ navigation }: Partial<NativeStackScreenProps<Rutas, 'Politica'>>) {
   const fecha = diaEnPalabras(VERSION_DE_LA_POLITICA.fecha);
+  const llevarFoco = useLlevarFoco();
+  const version = useRef<HostInstance>(null);
+  useEffect(
+    () =>
+      navigation?.addListener('transitionEnd', (evento) => {
+        if (!evento.data.closing) llevarFoco(version);
+      }),
+    [navigation, llevarFoco],
+  );
   return (
     <Pantalla conBarra>
-      <Nota>
+      <Nota refDelTexto={version}>
         {formatear(t.version, {
           numero: VERSION_DE_LA_POLITICA.numero,
           fecha: fecha ?? VERSION_DE_LA_POLITICA.fecha,

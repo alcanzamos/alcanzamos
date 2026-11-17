@@ -57,6 +57,25 @@ export const focoDeTalkBack = (): Vista | undefined => focosDeTalkBack()[0];
 export const nombreDe = (vista: Vista | undefined) =>
   (vista?.props.accessibilityLabel ?? vista?.props.placeholder) as string | undefined;
 
+/** El texto de los hijos de una vista (elementos de React), para nombrar la vista que recibió el foco. */
+const textoDeHijos = (hijos: unknown): string => {
+  if (typeof hijos === 'string' || typeof hijos === 'number') return String(hijos);
+  if (Array.isArray(hijos)) return hijos.map(textoDeHijos).join('');
+  if (hijos && typeof hijos === 'object' && 'props' in hijos)
+    return textoDeHijos((hijos as { props: { children?: unknown } }).props.children);
+  return '';
+};
+
+/** El rol y el nombre de una vista a la que se llevó el foco de TalkBack: su `accessibilityLabel` o su texto. */
+export const describirFoco = (vista: Vista | undefined) =>
+  vista && {
+    rol: vista.props.accessibilityRole as string | undefined,
+    nombre: nombreDe(vista) ?? textoDeHijos(vista.props.children),
+  };
+
+/** El rol y el nombre de la última vista a la que se llevó el foco de TalkBack (`sendAccessibilityEvent`). */
+export const enfocada = () => describirFoco(focosDeTalkBack().at(-1));
+
 /** Espera lo que tarda un anuncio y comprueba que ninguna región viva dijo nada (con relojes reales). */
 export async function esperarSinAnuncios() {
   await new Promise((listo) => setTimeout(listo, ESPERA_DEL_ANUNCIO_MS + 100));

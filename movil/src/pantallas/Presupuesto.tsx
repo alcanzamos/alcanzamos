@@ -20,6 +20,7 @@ import { Aviso } from '../componentes/Aviso';
 import { Boton, BotonDeTexto } from '../componentes/Boton';
 import { cifras } from '../componentes/Cifras';
 import { HojaDeElecciones } from '../componentes/HojaDeElecciones';
+import { HojaQueSale } from '../componentes/HojaQueSale';
 import { MarcaDeOculta } from '../componentes/MarcaDeOculta';
 import { Pantalla } from '../componentes/Pantalla';
 import { Tarjeta } from '../componentes/Tarjeta';
@@ -214,8 +215,8 @@ export function Presupuesto({ navigation, route }: NativeStackScreenProps<Rutas,
   // Un 404 o un 409 dice que la hoja tenía datos viejos: el presupuesto ya no existe, el mes cambió o la categoría tiene
   // uno compartido (L17 de la US-77, punto 1). La hoja se cierra, la pantalla se vuelve a pedir y el aviso queda en ella,
   // arriba de «Por categoría», con el foco de TalkBack, como en la web: repetir exige abrir la hoja otra vez, con lo que
-  // entonces se ve. No se anuncia aparte (`viva={false}`): TalkBack lo lee al recibir el foco, como el error de la
-  // repetición en Registrar. Otro fallo (500, sin conexión) deja la hoja abierta con lo escrito y el aviso dentro, que
+  // entonces se ve. Además lo dice la región viva de la pantalla (bug 303, 6.9): el foco puede no llegar (Android lo
+  // mandaba a «Navegar hacia arriba») y el error no debe quedar sin leerse. Otro fallo (500, sin conexión) deja la hoja abierta con lo escrito y el aviso dentro, que
   // se dice por la región viva de la hoja.
   const fallarEnLaHoja = (respuesta: Fallo) => {
     const aviso = avisoDeFallo(respuesta, avisosDePresupuesto.errorAlGuardar());
@@ -316,11 +317,11 @@ export function Presupuesto({ navigation, route }: NativeStackScreenProps<Rutas,
             )}
             {avisoDeEnCero && <Aviso {...avisoDeEnCero} />}
             {ofreceEnCero && (
-              <BotonDeTexto deshabilitado={enviando} alTocar={() => void enCero()}>
+              <BotonDeTexto ocupado={enviando} alTocar={() => void enCero()}>
                 {t.resumen.dejarEnCero}
               </BotonDeTexto>
             )}
-            {avisoDePantalla && <Aviso ref={refDelAvisoDePantalla} {...avisoDePantalla} viva={false} />}
+            {avisoDePantalla && <Aviso ref={refDelAvisoDePantalla} {...avisoDePantalla} />}
             <PorCategoria datos={datos} alAbrir={abrir} />
             {datos.editable && (
               <Boton ref={agregarOtra} variante="secundario" alTocar={() => setVerOtras(true)}>
@@ -348,26 +349,27 @@ export function Presupuesto({ navigation, route }: NativeStackScreenProps<Rutas,
           abrir({ tipo: 'monto', categoriaId, presupuesto: null, abridor: agregarOtra });
         }}
       />
-      {hoja?.tipo === 'monto' && (
-        <HojaDeMontoDelPresupuesto
-          titulo={formatear(hoja.presupuesto ? t.hoja.tituloCorregir : t.hoja.titulo, { categoria: categoriaDeLaHoja })}
-          mes={mesEnMinuscula(hoja.periodo)}
-          montoInicial={hoja.presupuesto ? formatearPesos(BigInt(hoja.presupuesto.monto_centavos)) : ''}
-          aviso={avisoDeHoja}
-          enviando={enviando}
-          alGuardar={guardar}
-          alCerrar={cerrar}
-        />
-      )}
-      {hoja?.tipo === 'quitar' && (
-        <HojaDeQuitar
-          categoria={categoriaDeLaHoja}
-          aviso={avisoDeHoja}
-          enviando={enviando}
-          alQuitar={() => void quitar()}
-          alCerrar={cerrar}
-        />
-      )}
+      <HojaQueSale>
+        {hoja?.tipo === 'monto' ? (
+          <HojaDeMontoDelPresupuesto
+            titulo={formatear(hoja.presupuesto ? t.hoja.tituloCorregir : t.hoja.titulo, { categoria: categoriaDeLaHoja })}
+            mes={mesEnMinuscula(hoja.periodo)}
+            montoInicial={hoja.presupuesto ? formatearPesos(BigInt(hoja.presupuesto.monto_centavos)) : ''}
+            aviso={avisoDeHoja}
+            enviando={enviando}
+            alGuardar={guardar}
+            alCerrar={cerrar}
+          />
+        ) : hoja?.tipo === 'quitar' ? (
+          <HojaDeQuitar
+            categoria={categoriaDeLaHoja}
+            aviso={avisoDeHoja}
+            enviando={enviando}
+            alQuitar={() => void quitar()}
+            alCerrar={cerrar}
+          />
+        ) : null}
+      </HojaQueSale>
     </View>
   );
 }

@@ -118,7 +118,7 @@ export function DetalleDeMovimiento({ navigation, route }: NativeStackScreenProp
             </View>
             <Texto>{b.quePasa}</Texto>
             {m.recurrente?.vuelve_a_pendiente && <Texto>{d.volveraPorConfirmar}</Texto>}
-            <Boton variante="destructivo" deshabilitado={borrando} alTocar={() => void borrar()}>
+            <Boton variante="destructivo" ocupado={borrando} alTocar={() => void borrar()}>
               {b.confirmar}
             </Boton>
             <Boton variante="secundario" alTocar={() => setVerBorrar(false)}>

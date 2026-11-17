@@ -64,7 +64,7 @@ export function CrearCuenta({ navigation, route }: NativeStackScreenProps<Rutas,
         alCambiar={setCorreo}
         error={errorDeCorreo}
       />
-      <Boton deshabilitado={enviando} alTocar={() => void enviar()}>
+      <Boton ocupado={enviando} alTocar={() => void enviar()}>
         {textos.crearCuenta.crear}
       </Boton>
       {aviso === avisos.errorAlCrearCuenta && (

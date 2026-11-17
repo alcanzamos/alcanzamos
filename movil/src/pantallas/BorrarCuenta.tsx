@@ -172,11 +172,11 @@ export function BorrarCuenta({ navigation }: NativeStackScreenProps<Rutas, 'Borr
             alCambiar={setContrasena}
             error={errores.contrasena}
           />
-          <BotonDeTexto deshabilitado={descarga.fase === 'preparando'} alTocar={() => void descargar()}>
+          <BotonDeTexto ocupado={descarga.fase === 'preparando'} alTocar={() => void descargar()}>
             {descarga.fase === 'preparando' ? textos.descargarMisDatos.preparando : textos.descargarMisDatos.boton}
           </BotonDeTexto>
           <Texto variante="ayuda">{textos.descargarMisDatos.ayuda}</Texto>
-          <Boton variante="destructivo" deshabilitado={enviando} alTocar={() => void enviar()}>
+          <Boton variante="destructivo" ocupado={enviando} alTocar={() => void enviar()}>
             {t.borrarMiCuenta}
           </Boton>
           <Boton variante="secundario" alTocar={() => navigation.goBack()}>

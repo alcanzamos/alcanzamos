@@ -8,7 +8,8 @@ import { Aviso } from '../componentes/Aviso';
 import { Boton, BotonDeTexto } from '../componentes/Boton';
 import { Casilla } from '../componentes/Casilla';
 import { FilaDeFinalidad } from '../componentes/FilaDeFinalidad';
-import { Pantalla } from '../componentes/Pantalla';
+import { HojaQueSale } from '../componentes/HojaQueSale';
+import { Pantalla, type ControlDePantalla } from '../componentes/Pantalla';
 import { Tarjeta } from '../componentes/Tarjeta';
 import { Nota, Texto } from '../componentes/Texto';
 import { diaEnPalabras } from '../fechas';
@@ -93,7 +94,9 @@ export function AutorizacionDeDatos({ navigation }: NativeStackScreenProps<Rutas
   const casillaNecesarias = useRef<HostInstance>(null);
   const casillaTransmision = useRef<HostInstance>(null);
   const botonNoAutorizo = useRef<HostInstance>(null);
-  const avisarErrores = useAvisarErrores();
+  const pantalla = useRef<ControlDePantalla>(null);
+  // Con la pantalla, el foco de un error espera a que la casilla con error esté a la vista (bug 304, 67.3).
+  const avisarErrores = useAvisarErrores(pantalla);
   const llevarFoco = useLlevarFoco();
 
   useEffect(() => {
@@ -185,7 +188,7 @@ export function AutorizacionDeDatos({ navigation }: NativeStackScreenProps<Rutas
   const completo = catalogo?.modo === 'completo';
 
   return (
-    <Pantalla conBarra>
+    <Pantalla ref={pantalla} conBarra>
       {estado.fase === 'error' && (
         <>
           <Aviso {...estado.aviso} />
@@ -267,24 +270,27 @@ export function AutorizacionDeDatos({ navigation }: NativeStackScreenProps<Rutas
           )}
           <Nota>{formatear(textos.autorizacion.version, { numero: catalogo.version, fecha: catalogo.fecha })}</Nota>
           <BotonDeTexto alTocar={() => navigation.navigate('Politica')}>{textos.politica.entradas.leerCompleta}</BotonDeTexto>
-          <Boton deshabilitado={enviando} alTocar={() => void enviar()}>
+          <Boton ocupado={enviando} alTocar={() => void enviar()}>
             {textos.autorizacion.autorizar}
           </Boton>
-          <Boton ref={botonNoAutorizo} variante="secundario" deshabilitado={enviando} alTocar={() => void noAutorizo()}>
+          <Boton ref={botonNoAutorizo} variante="secundario" ocupado={enviando} alTocar={() => void noAutorizo()}>
             {textos.autorizacion.noAutorizo}
           </Boton>
         </>
       )}
-      {hoja && (
-        <HojaNoAutorizo
-          navigation={navigation}
-          alCerrar={() => {
-            setHoja(false);
-            // Al cerrar la hoja (Volver y decidir, Cerrar, el velo o el Atrás), el foco vuelve al botón que la abrió.
-            llevarFoco(botonNoAutorizo);
-          }}
-        />
-      )}
+      <HojaQueSale>
+        {hoja && (
+          <HojaNoAutorizo
+            navigation={navigation}
+            alCerrar={() => {
+              setHoja(false);
+              // Al cerrar la hoja (Volver y decidir, Cerrar, el velo o el Atrás), el foco vuelve al botón que la abrió,
+              // cuando termina de cerrarse (`useLlevarFoco`).
+              llevarFoco(botonNoAutorizo);
+            }}
+          />
+        )}
+      </HojaQueSale>
     </Pantalla>
   );
 }

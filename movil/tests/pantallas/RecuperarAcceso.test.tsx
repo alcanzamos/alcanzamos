@@ -5,6 +5,7 @@ import { instalarFetchFalso, respuestaJson } from '../ayudas/fetchFalso';
 import { anunciados, esperarAnuncio, esperarSinAnuncios, focoDeTalkBack, nombreDe } from '../ayudas/anuncios';
 import { navegacionFalsa, propiedades } from '../ayudas/pantalla';
 import { campo, quizasCampo } from '../ayudas/campos';
+import { comprobarOcupado } from '../ayudas/ocupado';
 
 async function mostrar() {
   const navegacion = navegacionFalsa();
@@ -161,6 +162,7 @@ describe('PN-61 · Recuperar el acceso: pedir el enlace (E14-PCP 4.4)', () => {
     await escribir('laura@ejemplo.com');
     await enviar();
     await enviar();
+    comprobarOcupado({ name: 'Enviar el enlace' });
     expect(fetchFalso).toHaveBeenCalledTimes(1);
     await act(async () => responder(respuestaJson(202, {})));
   });

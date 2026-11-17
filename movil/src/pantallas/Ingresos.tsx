@@ -1,7 +1,8 @@
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useCallback, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useRef, useState, type Ref } from 'react';
+import { Pressable, StyleSheet, Text, View, type HostInstance } from 'react-native';
+import { useLlevarFoco } from '../anuncios';
 import {
   fechasPorConfirmar,
   listarIngresos,
@@ -61,6 +62,10 @@ export function Ingresos({ navigation, route }: NativeStackScreenProps<Rutas, 'I
   // Al volver de «Confirmar todos», del formulario o de PN-01 se pide el periodo otra vez.
   useFocusEffect(cargar);
 
+  // Después de confirmar (bug 303, 8.3) la fecha cambia de «Por confirmar» a «Registrado» al recargar y el botón se va;
+  // el foco de TalkBack va al título del total, que siempre está, y no a «Navegar hacia arriba».
+  const llevarFoco = useLlevarFoco();
+  const tituloDelTotal = useRef<HostInstance>(null);
   const control = usePorConfirmar({
     navigation,
     alEmpezar: () => navigation.setParams({ aviso: undefined }),
@@ -68,6 +73,7 @@ export function Ingresos({ navigation, route }: NativeStackScreenProps<Rutas, 'I
     alTerminar: (aviso) => {
       navigation.setParams({ aviso });
       cargar();
+      llevarFoco(tituloDelTotal);
     },
     refrescar: cargar,
   });
@@ -119,6 +125,7 @@ export function Ingresos({ navigation, route }: NativeStackScreenProps<Rutas, 'I
           />
           <Total
             datos={datos}
+            refDelTitulo={tituloDelTotal}
             alConfirmarTodos={
               // «Confirmar todos» solo con dos o más fechas (D-093); con una, la fila trae su «Confirmar».
               pendientes.length > 1
@@ -163,12 +170,20 @@ export function Ingresos({ navigation, route }: NativeStackScreenProps<Rutas, 'I
 
 // «Entran este mes» (fila 3): registrado más esperado; si el periodo ya terminó, «Entraron este mes». Sin comparar con
 // otro periodo (RNF-017). Con dos o más fechas por confirmar suma el Botón de texto «Confirmar todos» (D-093).
-function Total({ datos, alConfirmarTodos }: { datos: IngresosDelPeriodo; alConfirmarTodos?: () => void }) {
+function Total({
+  datos,
+  refDelTitulo,
+  alConfirmarTodos,
+}: {
+  datos: IngresosDelPeriodo;
+  refDelTitulo: Ref<HostInstance>;
+  alConfirmarTodos?: () => void;
+}) {
   const { total } = datos;
   const titulo = datos.periodo < datos.periodo_actual ? i.total.entraron : i.total.entran;
   const hablado = [titulo, pesosHablados(total.entran_centavos)].join(', ');
   return (
-    <Tarjeta titulo={titulo}>
+    <Tarjeta titulo={titulo} refDelTitulo={refDelTitulo}>
       <Text accessibilityLabel={hablado} accessibilityHint={undefined} style={estilos.montoGrande}>
         {cifras(pesos(total.entran_centavos), true)}
       </Text>
