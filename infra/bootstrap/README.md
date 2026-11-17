@@ -22,7 +22,11 @@ La cuenta de almacenamiento admite solo de 3 a 24 letras minúsculas y números,
    - Emisor: `https://vstoken.dev.azure.com/<ID de la organización>`.
    - Sujeto: `sc://alcanzamos/alcanzamos/sc-alcanzamos-<prod|uat>-mxc` (o el de la variable `conexion_de_servicio`).
    - Permisos: «Contributor» **solo sobre el grupo** y «Storage Blob Data Contributor» solo sobre la cuenta del estado.
-5. **Identidad del API**, con «Key Vault Secrets User» y «Communication and Email Service Owner» sobre el grupo. Este último es el rol que indica Microsoft para enviar correo con Entra ID. Con el primero, Container Apps lee del Key Vault el token `read:packages` para bajar la imagen privada de ghcr.io (D-200 (9)(a)). Se crea aquí para que el pipeline no pueda asignar roles.
+5. **Identidad del API**, con «Key Vault Secrets User» y un **rol propio para enviar correo**, los dos sobre el grupo. Con el primero, Container Apps lee del Key Vault el token `read:packages` para bajar la imagen privada de ghcr.io (D-200 (9)(a)). Se crea aquí para que el pipeline no pueda asignar roles.
+   - **Rol propio `rol-envia-correo-alcanzamos-<prod|uat>-mxc`** (`azurerm_role_definition.envia_correo`): exactamente dos acciones, `Microsoft.Communication/CommunicationServices/Read` y `Microsoft.Communication/CommunicationServices/Write`, sin acciones de datos, y asignable solo al grupo del ambiente. Son las que pide el [ejemplo oficial de Microsoft con identidad administrada](https://learn.microsoft.com/en-us/samples/azure-samples/communication-services-dotnet-quickstarts/email-sample-send-email-with-managed-identity/) (Contributor o un rol propio con esas dos).
+   - **Por qué no «Communication and Email Service Owner»** (mínimo privilegio, D-204): además de `CommunicationServices/write` da `ListKeys/action` y `RegenerateKey/action` (acceso a las claves) y escrituras en `EmailServices` y `Domains`, que el API no debe tener. El API envía con Entra ID (`Authorization: Bearer`, alcance `https://communication.azure.com/.default`), sin claves.
+   - **Alcance: el grupo, como antes.** El recurso de Communication Services lo crea `infra/azure` después de este bootstrap, así que su ID no existe aquí. La asignación se queda en el bootstrap para que el pipeline no necesite permisos para asignar roles (D-119). El grupo es del proyecto y de un solo ambiente.
+   - **Sin confirmar:** el rol solo se confirma con un envío real en UAT (pendiente). Si ese envío pide otra acción, se agrega con su fuente y se registra. No se ha creado ningún recurso: según L12 de la US-79, nada se crea en Azure hasta la sesión de diseño de la arquitectura de la infraestructura, y este cambio es solo de código, sin aplicar.
 
 ## Primer despliegue de cada ambiente (orden)
 
@@ -51,7 +55,7 @@ La cuenta de almacenamiento admite solo de 3 a 24 letras minúsculas y números,
 
 ## Validación
 
-Sin credenciales y sin aplicar. `tofu test` hace solo plan, con los proveedores simulados (`tests/ambientes.tftest.hcl`): comprueba los nombres de cada ambiente, que producción conserve los suyos y que se rechace un ambiente desconocido.
+Sin credenciales y sin aplicar. `tofu test` hace solo plan, con los proveedores simulados (`tests/ambientes.tftest.hcl`): comprueba los nombres de cada ambiente, que producción conserve los suyos y que se rechace un ambiente desconocido. `tests/rol_correo.tftest.hcl` comprueba que el rol de correo tenga exactamente las dos acciones, que la identidad del API reciba ese rol y no «Communication and Email Service Owner», y que las demás asignaciones no cambien.
 
 ```sh
 cd infra/bootstrap

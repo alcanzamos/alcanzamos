@@ -154,7 +154,7 @@ Conclusión: la suscripción de estudiante permite `mexicocentral`, y ahí está
 No bloquean la US-44.
 
 1. **Red de PostgreSQL.** Llevar el riesgo de la regla `0.0.0.0` a E11-EIP y calcular, con fuente, el costo de la red virtual. Lo decide el dueño antes de crear el servidor: esa elección no se cambia después en el mismo servidor.
-2. **Rol mínimo para enviar correo** en lugar de «Communication and Email Service Owner» sobre todo el grupo. Se define en la US-45.
+2. **Rol mínimo para enviar correo** en lugar de «Communication and Email Service Owner» sobre todo el grupo. Ya está definido en el código de [`infra/bootstrap/`](../bootstrap/README.md): un rol propio con solo `CommunicationServices/Read` y `Write` (D-204). Sigue pendiente confirmarlo con un envío real en UAT; no se ha aplicado, porque no se crean recursos hasta la sesión de diseño de la arquitectura (US-79, L12).
 3. **Comprobar con `list-skus`** que PostgreSQL 18 y la zona 1 existen en México Central, en cada suscripción: las cuotas y los servicios de la región se comparan al desplegar UAT (D-200 (8)). En la de UAT ya se comprobó la región, PostgreSQL 18 y B1ms (ver «Región en Azure for Students»); falta la zona. La zona de PostgreSQL y el tenant de Entra ID de la suscripción de UAT se comprueban al desplegar (S11; US-79 T5 y T6).
 4. **Costos en ADR-006:** Communication Services, la regla de alerta y la retención de 90 días.
 5. **Probar que el aviso de la alerta llega** a `andres@alcanzamos.co` (O-5).

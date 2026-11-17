@@ -51,10 +51,32 @@ resource "azurerm_role_assignment" "api_lee_secretos" {
   principal_id         = azurerm_user_assigned_identity.api.principal_id
 }
 
-# Rol que indica Microsoft para enviar correo con Entra ID
-# (learn.microsoft.com/azure/communication-services/quickstarts/email/send-email-smtp/smtp-authentication).
+# Rol propio de mínimo privilegio para enviar correo con Microsoft Entra ID (D-204, US-79 L9 y L10).
+# El ejemplo oficial con identidad administrada pide Contributor o un rol propio con
+# Microsoft.Communication/CommunicationServices/Read y /Write
+# (learn.microsoft.com/en-us/samples/azure-samples/communication-services-dotnet-quickstarts/email-sample-send-email-with-managed-identity/).
+# Se evita «Communication and Email Service Owner»: suma ListKeys y RegenerateKey (acceso a las claves) y escrituras en
+# EmailServices y Domains, que el API no debe tener. Sin acciones de datos: el ejemplo oficial solo pide Read y Write; si el
+# envío real en UAT demuestra que hacen falta, se agregan citando la fuente. Se confirma solo con ese envío real en UAT.
+# Alcance: el grupo del ambiente. El recurso de Communication Services lo crea infra/azure después de este bootstrap, así que
+# su ID aún no existe aquí; y la asignación se queda en el bootstrap para que el pipeline no necesite asignar roles.
+resource "azurerm_role_definition" "envia_correo" {
+  name        = "rol-envia-correo-${local.sufijo}"
+  scope       = azurerm_resource_group.principal.id
+  description = "Enviar correo con Communication Services y Entra ID, sin acceso a claves ni a EmailServices o Domains (D-204)."
+
+  permissions {
+    actions = [
+      "Microsoft.Communication/CommunicationServices/Read",
+      "Microsoft.Communication/CommunicationServices/Write",
+    ]
+  }
+
+  assignable_scopes = [azurerm_resource_group.principal.id]
+}
+
 resource "azurerm_role_assignment" "api_envia_correo" {
-  scope                = azurerm_resource_group.principal.id
-  role_definition_name = "Communication and Email Service Owner"
-  principal_id         = azurerm_user_assigned_identity.api.principal_id
+  scope              = azurerm_resource_group.principal.id
+  role_definition_id = azurerm_role_definition.envia_correo.role_definition_resource_id
+  principal_id       = azurerm_user_assigned_identity.api.principal_id
 }
