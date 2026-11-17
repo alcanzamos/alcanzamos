@@ -7,10 +7,8 @@
 # - Failed: una revisión falla (lo mismo que haría fallar un PR: cualquier vulnerabilidad alta o crítica de npm, o una
 #   que el código de api/ alcanza con un arreglo de 7 días o más, sin arreglo o sin fecha), o un paso de instalación falla.
 # - Partially succeeded: una revisión solo advierte. Un paso que imprime `##vso[task.logissue type=warning]…` y sale con 0
-#   termina con `##vso[task.complete result=SucceededWithIssues;]`. Hoy advierte solo la de Go (pruebas/vulnerabilidades.py),
-#   con un arreglo de menos de 7 días: mientras main siga en Go 1.27.3, GO-2026-6859 (arreglada en go1.27.4, publicado el
-#   2026-11-10) deja la corrida en Partially succeeded hasta el 2026-11-18 a las 00:00 UTC; desde entonces la deja en
-#   Failed, hasta que entre el #112 (Go 1.27.4).
+#   termina con `##vso[task.complete result=SucceededWithIssues;]`. Pasa, por ejemplo, con una vulnerabilidad que el código
+#   alcanza y cuyo arreglo tiene menos de 7 días (pruebas/vulnerabilidades.py, D-201).
 # - Succeeded: sin hallazgos; no llega correo.
 # Lo que ya está aceptado no avisa: una vulnerabilidad solo de módulo que el código no llama (govulncheck la informa y
 # sale con 0) y una excepción vigente de movil/auditoria-excepciones.json. Una excepción vencida sí falla.
