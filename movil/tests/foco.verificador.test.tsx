@@ -132,3 +132,27 @@ it('«Intentar de nuevo» al crear la cuenta quita el aviso y el botón cuando l
 
   expect(screen.queryByRole('button', { name: 'Intentar de nuevo' })).not.toBeOnTheScreen();
 });
+
+// Prueba de regresión de la verificación independiente del 2026-11-17: el foco espera a la última hoja y sale una vez.
+it.each([false, true])('espera a la última hoja y luego enfoca una sola vez; retenida=%s', async (retenida) => {
+  const { rerender } = await render(<Escena abierta segunda retenida={retenida} />);
+  await terminarAnimaciones();
+
+  await rerender(<Escena abierta={false} segunda retenida={retenida} />);
+  await terminarAnimaciones();
+  await cuadro();
+  expect(focosDeTalkBack()).toEqual([]);
+
+  await rerender(<Escena abierta={false} retenida={retenida} />);
+  await cuadro();
+  expect(focosDeTalkBack()).toEqual([]);
+
+  await terminarAnimaciones();
+  expect(focosDeTalkBack()).toEqual([]);
+  await cuadro();
+  expect(focosDeTalkBack()).toHaveLength(1);
+  expect(focosDeTalkBack()[0]!.props.accessibilityLabel).toBe('Fondo');
+
+  await cuadro();
+  expect(focosDeTalkBack()).toHaveLength(1);
+});
