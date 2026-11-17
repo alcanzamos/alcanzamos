@@ -1,8 +1,9 @@
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type HostInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useLlevarFoco } from '../anuncios';
 import { listarMovimientos, type Listado, type Movimiento } from '../api/movimientos';
 import { listarPendientes, type Pendientes } from '../api/repeticiones';
 import { reiniciarBorrador } from '../borradorDeRegistro';
@@ -62,6 +63,13 @@ export function Movimientos({ navigation, route }: NativeStackScreenProps<Rutas,
   const [verMeses, setVerMeses] = useState(false);
   const [verTodas, setVerTodas] = useState(false);
   const margenes = useSafeAreaInsets();
+  // A dónde va el foco de TalkBack después de confirmar una fecha (bug 303, 231.3): la fila desaparece al recargar y
+  // Android le quita el foco; va al título «Por confirmar» mientras siga ahí y, si era la última fecha, a lo primero de la
+  // lista, el nombre del filtro de periodo. Siempre a algo que sigue en pantalla, nunca a «Navegar hacia arriba».
+  const llevarFoco = useLlevarFoco();
+  const tituloDePorConfirmar = useRef<HostInstance>(null);
+  const filtroDePeriodo = useRef<HostInstance>(null);
+  const despuesDeConfirmar = useRef(false);
 
   // Cada pedido lleva su número: solo el último pinta (un filtro nuevo no se pisa con la respuesta del anterior).
   const ultimo = useRef(0);
@@ -72,6 +80,10 @@ export function Movimientos({ navigation, route }: NativeStackScreenProps<Rutas,
       if (numero !== ultimo.current) return;
       if (lista.ok && porConfirmar.ok) {
         setEstado({ fase: 'listo', datos: lista.cuerpo, pendientes: porConfirmar.cuerpo });
+        if (despuesDeConfirmar.current) {
+          despuesDeConfirmar.current = false;
+          if (porConfirmar.cuerpo.pendientes.length === 0) llevarFoco(filtroDePeriodo);
+        }
         // Una fecha registrada de PN-08 abre su PN-02 sobre esta lista, como en la web; si no está, queda la lista.
         const elegido = abrir ? lista.cuerpo.movimientos.find((fila) => fila.id === abrir) : undefined;
         if (abrir) navigation.setParams({ movimiento: undefined });
@@ -82,7 +94,7 @@ export function Movimientos({ navigation, route }: NativeStackScreenProps<Rutas,
           setEstado({ fase: 'error', aviso: avisoDeFallo(fallo, avisos.errorAlCargarMovimientos) });
       }
     });
-  }, [navigation, periodo, categoria, abrir]);
+  }, [navigation, periodo, categoria, abrir, llevarFoco]);
   // Al volver de PN-02 o del formulario se pide la lista otra vez: lo corregido o borrado ya cambió.
   useFocusEffect(cargar);
 
@@ -130,12 +142,16 @@ export function Movimientos({ navigation, route }: NativeStackScreenProps<Rutas,
         {porConfirmar && porConfirmar.pendientes.length > 0 && !categoria && (
           <PorConfirmar
             datos={porConfirmar}
+            refDelTitulo={tituloDePorConfirmar}
             navigation={navigation}
             alEmpezar={() => navigation.setParams({ aviso: undefined })}
-            // Después de confirmar se vuelve a pedir lo pendiente y la lista, sin vaciar la pantalla.
+            // Después de confirmar se vuelve a pedir lo pendiente y la lista, sin vaciar la pantalla. El foco va ya al título
+            // (la fila que se confirmó se va al recargar), y otra vez a la lista si con esta fecha se acabaron las pendientes.
             alTerminar={(aviso) => {
               navigation.setParams({ aviso });
+              despuesDeConfirmar.current = true;
               cargar();
+              llevarFoco(tituloDePorConfirmar);
             }}
             refrescar={cargar}
           />
@@ -143,6 +159,7 @@ export function Movimientos({ navigation, route }: NativeStackScreenProps<Rutas,
         {datos && (
           <>
             <ChipsDeEleccion
+              ref={filtroDePeriodo}
               etiqueta={m.periodo}
               enFila
               opciones={periodos.map((p) => ({ valor: p, etiqueta: mesEnPalabras(p) ?? p }))}

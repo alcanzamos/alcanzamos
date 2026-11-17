@@ -1,5 +1,7 @@
-import type { ReactNode } from 'react';
+import { useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
+  Animated,
+  Easing,
   KeyboardAvoidingView,
   Modal,
   Pressable,
@@ -13,6 +15,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { estiloDeTipografia } from '../fuentes';
 import { textos } from '../textos/es.generated';
 import { tokens } from '../tokens/tokens.generated';
+import { hojaVisible } from '../estadoDeHojas';
+import { SalidaDeHoja } from './HojaQueSale';
 import { IconoCerrar } from './Iconos';
 import { RegionDeAnuncios } from './RegionDeAnuncios';
 
@@ -25,7 +29,12 @@ import { RegionDeAnuncios } from './RegionDeAnuncios';
 // `desplazable` es para la hoja con mucho contenido (la de «No autorizo» de PN-54: explicación, descarga, contraseña y dos
 // botones): la hoja no pasa de la fracción de la ventana que dice `ALTO_MAXIMO`, el contenido se desplaza dentro de ella
 // y el teclado no impide tocar los botones. El encabezado y la región viva quedan fuera de lo que se desplaza.
+// La hoja se desliza sola (el `Modal` va con `animationType="none"`): en Android el cierre de la ventana del `Modal` no
+// avisa cuándo termina (`onDismiss` es solo de iOS), y `useLlevarFoco` tiene que esperar a que termine para pedir el
+// foco (bug 303). Mientras la hoja está en pantalla, `Pantalla` oculta su contenido a TalkBack (`estadoDeHojas.ts`,
+// bug 304): `accessibilityViewIsModal` es solo de iOS, y en Android TalkBack leía lo de atrás.
 const ALTO_MAXIMO = 0.9;
+export const DURACION_DE_LA_HOJA_MS = 250;
 
 export function HojaInferior({
   visible,
@@ -42,15 +51,54 @@ export function HojaInferior({
 }) {
   const margenes = useSafeAreaInsets();
   const { height } = useWindowDimensions();
+  const salida = useContext(SalidaDeHoja);
+  const abierta = visible && (salida?.abierta ?? true);
+  const [dibujada, setDibujada] = useState(abierta);
+  const [posicion] = useState(() => new Animated.Value(height));
+  const enPantalla = useRef(abierta);
+  // Al abrirse se dibuja ya, en este mismo cuadro: la animación la mete desde fuera de la pantalla.
+  if (abierta && !dibujada) setDibujada(true);
+
+  // Entra al abrirse y sale al cerrarse; el `Modal` se quita cuando termina de salir.
+  useEffect(() => {
+    const animar = (hasta: number, easing: (valor: number) => number, alTerminar?: (terminada: boolean) => void) => {
+      const animacion = Animated.timing(posicion, { toValue: hasta, duration: DURACION_DE_LA_HOJA_MS, easing, useNativeDriver: true });
+      animacion.start(({ finished }) => alTerminar?.(finished));
+      return animacion;
+    };
+    if (abierta) {
+      enPantalla.current = true;
+      const entrada = animar(0, Easing.out(Easing.cubic));
+      return () => entrada.stop();
+    }
+    if (!enPantalla.current) return;
+    const salir = animar(height, Easing.in(Easing.cubic), (terminada) => {
+      if (!terminada) return;
+      enPantalla.current = false;
+      setDibujada(false);
+      salida?.alSalir();
+    });
+    return () => salir.stop();
+  }, [abierta, height, posicion, salida]);
+
+  const seDibuja = abierta || dibujada;
+  useEffect(() => (seDibuja ? hojaVisible() : undefined), [seDibuja]);
+
   return (
-    <Modal transparent animationType="slide" visible={visible} onRequestClose={alCerrar}>
-      <KeyboardAvoidingView behavior="padding" style={estilos.velo} accessibilityViewIsModal>
+    <Modal transparent animationType="none" visible={seDibuja} onRequestClose={alCerrar}>
+      <KeyboardAvoidingView
+        behavior="padding"
+        pointerEvents={abierta ? 'auto' : 'none'}
+        style={estilos.velo}
+        accessibilityViewIsModal
+      >
         <Pressable accessible={false} importantForAccessibility="no" style={estilos.fuera} onPress={alCerrar} />
-        <View
+        <Animated.View
           style={[
             estilos.hoja,
             { paddingBottom: margenes.bottom + tokens.espacio['4'] },
             desplazable && { maxHeight: height * ALTO_MAXIMO },
+            { transform: [{ translateY: posicion }] },
           ]}
         >
           <View style={estilos.encabezado}>
@@ -82,7 +130,7 @@ export function HojaInferior({
             children
           )}
           <RegionDeAnuncios />
-        </View>
+        </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
   );

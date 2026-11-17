@@ -17,6 +17,7 @@ import {
 } from '../ayudas/movimientosFalsos';
 import { fijarHoy } from '../ayudas/reloj';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
+import { comprobarOcupado } from '../ayudas/ocupado';
 
 jest.mock('expo-secure-store', () => jest.requireActual('../ayudas/secureStoreFalso').crearSecureStoreFalso());
 const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crearSecureStoreFalso>;
@@ -225,6 +226,7 @@ describe('PN-02 · Detalle de un movimiento, Android (E14-PRR 4.2)', () => {
       const boton = await screen.findByRole('button', { name: 'Borrar el movimiento' });
       await fireEvent.press(boton);
       await fireEvent.press(boton);
+      comprobarOcupado({ name: 'Borrar el movimiento' });
       expect(de(pedidos, 'DELETE')).toHaveLength(1);
       await act(async () => soltar(respuestaJson(204)));
       await screen.findByText('Listo, borramos el gasto de $45.000.');

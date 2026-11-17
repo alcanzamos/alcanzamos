@@ -114,7 +114,7 @@ export function HojaNoAutorizo({
       {estado.fase === 'error' && <Aviso {...estado.aviso} />}
       <Texto>{t.explicacion}</Texto>
       <Texto variante="ayuda">{t.antesDescarga}</Texto>
-      <BotonDeTexto deshabilitado={descarga.fase === 'preparando'} alTocar={() => void descargar()}>
+      <BotonDeTexto ocupado={descarga.fase === 'preparando'} alTocar={() => void descargar()}>
         {descarga.fase === 'preparando' ? textos.descargarMisDatos.preparando : textos.descargarMisDatos.boton}
       </BotonDeTexto>
       <Texto variante="ayuda">{textos.descargarMisDatos.ayuda}</Texto>
@@ -154,7 +154,7 @@ export function HojaNoAutorizo({
       )}
       <Boton alTocar={alCerrar}>{t.volver}</Boton>
       {estado.fase === 'listo' && (
-        <Boton variante="destructivo" deshabilitado={enviando} alTocar={() => void enviar()}>
+        <Boton variante="destructivo" ocupado={enviando} alTocar={() => void enviar()}>
           {borrar.borrarMiCuenta}
         </Boton>
       )}

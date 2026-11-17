@@ -8,6 +8,7 @@ import { apiFalsa, BASE, celular, energia, listado, pendiente, pendientes } from
 import { fijarHoy } from '../ayudas/reloj';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
 import { buscarCampo, campo, quizasCampo } from '../ayudas/campos';
+import { comprobarOcupado } from '../ayudas/ocupado';
 
 jest.mock('expo-secure-store', () => jest.requireActual('../ayudas/secureStoreFalso').crearSecureStoreFalso());
 const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crearSecureStoreFalso>;
@@ -339,6 +340,7 @@ describe('«Confirmar todos», Android (E14-PRR 4.8, US-60)', () => {
       await abrirTodos();
       await fireEvent.press(guardar('Guardar 2 movimientos'));
       await fireEvent.press(guardar('Guardar 2 movimientos'));
+      comprobarOcupado({ name: 'Guardar 2 movimientos' });
       soltar(resultado(2, 0));
       await screen.findByText('Listo, guardamos 2 movimientos.');
       expect(publicaciones(pedidos)).toHaveLength(1);

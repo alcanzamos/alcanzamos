@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { reiniciarBorrador } from '../../src/borradorDeRegistro';
 import { Navegacion } from '../../src/navegacion/Navegacion';
+import { enfocada, focosDeTalkBack, limpiarAnuncios } from '../ayudas/anuncios';
+import { animacionesAMano, terminarAnimaciones } from '../ayudas/animacion';
 import { instalarAtras } from '../ayudas/atras';
 import { respuestaJson } from '../ayudas/fetchFalso';
 import {
@@ -17,6 +19,7 @@ import {
 import { fijarHoy } from '../ayudas/reloj';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
 import { buscarCampo, campo, quizasCampo } from '../ayudas/campos';
+import { comprobarOcupado } from '../ayudas/ocupado';
 
 jest.mock('expo-secure-store', () => jest.requireActual('../ayudas/secureStoreFalso').crearSecureStoreFalso());
 const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crearSecureStoreFalso>;
@@ -222,10 +225,47 @@ describe('PN-01 · «Por confirmar», Android (E14-PRR 4.1, US-60)', () => {
       const boton = await screen.findByRole('button', { name: CONFIRMAR_SALARIO });
       await fireEvent.press(boton);
       await fireEvent.press(screen.getByRole('button', { name: CONFIRMAR_SALARIO }));
-      expect(screen.getByRole('button', { name: CONFIRMAR_SALARIO, disabled: true })).toBeOnTheScreen();
+      comprobarOcupado({ name: CONFIRMAR_SALARIO });
       soltar(confirmado());
       await screen.findByText('Listo, confirmamos tu ingreso de $1.200.000.');
       expect(pedidos.filter((p) => p.metodo === 'POST')).toHaveLength(1);
+    });
+
+    // Bug 303 (231.3): al confirmar, la fila desaparece al recargar y Android le quitaba el foco a TalkBack, que saltaba a
+    // «Navegar hacia arriba». El foco va a un lugar fijo.
+    it('ACC-004 (bug 303, 231.3): al confirmar, el foco va al título «Por confirmar», que sigue ahí, y no a la fila que se va', async () => {
+      let confirmada = false;
+      apiFalsa(respuestaJson, {
+        pendientes: () => pendientes(...(confirmada ? [energia] : [energia, salario])),
+        publicar: () => {
+          confirmada = true;
+          return confirmado();
+        },
+      });
+      await abrirLista();
+      limpiarAnuncios();
+      await fireEvent.press(await screen.findByRole('button', { name: CONFIRMAR_SALARIO }));
+      expect(await screen.findByText('Listo, confirmamos tu ingreso de $1.200.000.')).toBeOnTheScreen();
+      await waitFor(() => expect(enfocada()).toEqual({ rol: 'header', nombre: 'Por confirmar' }));
+      await waitFor(() => expect(screen.queryByRole('button', { name: CONFIRMAR_SALARIO })).not.toBeOnTheScreen());
+      expect(focosDeTalkBack()).toHaveLength(1);
+    });
+
+    it('ACC-004 (bug 303): al confirmar la última fecha, la tarjeta se va y el foco queda en «Periodo», el primer control de la lista', async () => {
+      let hayPendiente = true;
+      apiFalsa(respuestaJson, {
+        lista: listado({ movimientos: [gastoDeAyer] }),
+        pendientes: () => pendientes(...(hayPendiente ? [salario] : [])),
+        publicar: () => {
+          hayPendiente = false;
+          return confirmado();
+        },
+      });
+      await abrirLista();
+      limpiarAnuncios();
+      await fireEvent.press(await screen.findByRole('button', { name: CONFIRMAR_SALARIO }));
+      await waitFor(() => expect(screen.queryByRole('header', { name: 'Por confirmar' })).not.toBeOnTheScreen());
+      await waitFor(() => expect(enfocada()).toEqual({ rol: undefined, nombre: 'Periodo' }));
     });
 
     it('un error deja la fila como estaba y dice «No pudimos confirmar el movimiento.»', async () => {
@@ -386,6 +426,103 @@ describe('PN-01 · «Por confirmar», Android (E14-PRR 4.1, US-60)', () => {
         cuerpo: '{"fecha":"2026-11-16"}',
       });
       await waitFor(() => expect(screen.queryByRole('header', { name: 'Por confirmar' })).not.toBeOnTheScreen());
+    });
+
+    it('«Cambiar el monto» → «Confirmar»: mientras guarda queda ocupado, un segundo toque no manda nada (bug 303)', async () => {
+      let soltar: (r: Response) => void = () => undefined;
+      const pedidos = apiFalsa(respuestaJson, {
+        pendientes: pendientes(salario),
+        publicar: () => new Promise<Response>((resolver) => (soltar = resolver)),
+      });
+      await abrirLista();
+      await abrirMas();
+      await fireEvent.press(screen.getByRole('button', { name: 'Cambiar el monto' }));
+      await screen.findByRole('header', { name: '¿Cuánto llegó?' });
+      await fireEvent.press(screen.getByRole('button', { name: 'Confirmar' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Confirmar', busy: true }));
+      comprobarOcupado({ name: 'Confirmar' });
+      soltar(confirmado());
+      await screen.findByText('Listo, confirmamos tu ingreso de $1.200.000.');
+      expect(pedidos.filter((p) => p.metodo === 'POST')).toHaveLength(1);
+    });
+
+    it('«No pasó» de su hoja: mientras guarda queda ocupado, un segundo toque no manda nada (bug 303)', async () => {
+      let soltar: (r: Response) => void = () => undefined;
+      const pedidos = apiFalsa(respuestaJson, {
+        pendientes: pendientes(salario),
+        publicar: () => new Promise<Response>((resolver) => (soltar = resolver)),
+      });
+      await abrirLista();
+      await abrirMas();
+      await fireEvent.press(screen.getByRole('button', { name: 'No pasó' }));
+      await screen.findByRole('header', { name: '¿Esta fecha no pasó?' });
+      await fireEvent.press(screen.getByRole('button', { name: 'No pasó' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'No pasó', busy: true }));
+      comprobarOcupado({ name: 'No pasó' });
+      soltar(respuestaJson(204));
+      await screen.findByText('Listo, ya no contamos esa fecha.');
+      expect(pedidos.filter((p) => p.metodo === 'POST')).toHaveLength(1);
+    });
+
+    // Bug 303 (S1.1): con la hoja saliendo, Android todavía tiene su ventana encima y el foco se perdía.
+    it('ACC-004 (bug 303): «Cambiar el monto» → «Confirmar»: el foco no se pide mientras la hoja se cierra, y llega al título cuando termina', async () => {
+      animacionesAMano();
+      let confirmada = false;
+      apiFalsa(respuestaJson, {
+        pendientes: () => pendientes(...(confirmada ? [energia] : [energia, salario])),
+        publicar: () => {
+          confirmada = true;
+          return confirmado();
+        },
+      });
+      await abrirLista();
+      await abrirMas();
+      await fireEvent.press(screen.getByRole('button', { name: 'Cambiar el monto' }));
+      await screen.findByRole('header', { name: '¿Cuánto llegó?' });
+      limpiarAnuncios();
+      await fireEvent.press(screen.getByRole('button', { name: 'Confirmar' }));
+      await screen.findByText('Listo, confirmamos tu ingreso de $1.200.000.');
+      expect(screen.getByRole('header', { name: '¿Cuánto llegó?' })).toBeOnTheScreen();
+      await new Promise((listo) => setTimeout(listo, 100));
+      expect(focosDeTalkBack()).toEqual([]);
+      await terminarAnimaciones();
+      await waitFor(() => expect(enfocada()).toEqual({ rol: 'header', nombre: 'Por confirmar' }));
+    });
+
+    // Verificación del 2026-11-17: con la última fecha, `Movimientos` quita toda la sección con su hoja saliendo. La hoja
+    // se va sin terminar su animación: no puede quedar contada como en pantalla, ni ocultar la pantalla a TalkBack, y el
+    // foco llega una sola vez a «Periodo».
+    it('ACC-004 (bug 303): «Cambiar el monto» → «Confirmar» con la última fecha: la hoja se va con la sección, el foco llega a «Periodo» y la pantalla no queda oculta', async () => {
+      animacionesAMano();
+      let hayPendiente = true;
+      apiFalsa(respuestaJson, {
+        lista: listado({ movimientos: [gastoDeAyer] }),
+        pendientes: () => pendientes(...(hayPendiente ? [salario] : [])),
+        publicar: () => {
+          hayPendiente = false;
+          return confirmado();
+        },
+      });
+      await abrirLista();
+      await abrirMas();
+      await fireEvent.press(screen.getByRole('button', { name: 'Cambiar el monto' }));
+      await screen.findByRole('header', { name: '¿Cuánto llegó?' });
+      await terminarAnimaciones();
+      limpiarAnuncios();
+      await fireEvent.press(screen.getByRole('button', { name: 'Confirmar' }));
+      await waitFor(() => expect(screen.queryByRole('header', { name: 'Por confirmar' })).not.toBeOnTheScreen());
+
+      await waitFor(() => expect(enfocada()).toEqual({ rol: undefined, nombre: 'Periodo' }));
+      expect(screen.queryByRole('header', { name: '¿Cuánto llegó?' })).not.toBeOnTheScreen();
+      expect(focosDeTalkBack()).toHaveLength(1);
+      await terminarAnimaciones();
+      expect(focosDeTalkBack()).toHaveLength(1);
+      const ocultosConElFiltro = screen.container.queryAll(
+        (vista) =>
+          vista.props.importantForAccessibility === 'no-hide-descendants' &&
+          vista.queryAll((hijo) => hijo.props.accessibilityLabel === 'Periodo').length > 0,
+      );
+      expect(ocultosConElFiltro.length).toBe(0);
     });
 
     it('«Ahora no» en la hoja «No pasó» no manda nada', async () => {

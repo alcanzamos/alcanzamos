@@ -8,6 +8,7 @@ import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
 import { instalarFetchFalso, respuestaJson } from '../ayudas/fetchFalso';
 import { navegacionFalsa, propiedades } from '../ayudas/pantalla';
 import { campo, quizasCampo } from '../ayudas/campos';
+import { comprobarOcupado } from '../ayudas/ocupado';
 
 jest.mock('expo-secure-store', () => jest.requireActual('../ayudas/secureStoreFalso').crearSecureStoreFalso());
 const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crearSecureStoreFalso>;
@@ -141,7 +142,7 @@ describe('PN-58 · Crear la cuenta, Android (E14-PCP 4.1)', () => {
       );
     });
 
-    it('un segundo toque mientras envía no repite el pedido y deja el botón deshabilitado', async () => {
+    it('un segundo toque mientras envía no repite el pedido y deja el botón ocupado, no deshabilitado', async () => {
       let responder: (respuesta: Response) => void = () => undefined;
       const fetchFalso = jest.fn(() => new Promise<Response>((resolver) => (responder = resolver)));
       global.fetch = fetchFalso as unknown as typeof fetch;
@@ -150,7 +151,7 @@ describe('PN-58 · Crear la cuenta, Android (E14-PCP 4.1)', () => {
       await crear();
       await crear();
       expect(fetchFalso).toHaveBeenCalledTimes(1);
-      expect(screen.getByRole('button', { name: 'Crear cuenta', disabled: true })).toBeOnTheScreen();
+      comprobarOcupado({ name: 'Crear cuenta' });
       await act(async () => responder(respuestaJson(202, { estado: 'verificacion_pendiente' })));
     });
   });

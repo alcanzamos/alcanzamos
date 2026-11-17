@@ -9,6 +9,7 @@ import { navegacionFalsa, propiedades } from '../ayudas/pantalla';
 import { fijarHoy } from '../ayudas/reloj';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
 import { buscarCampo, campo, quizasCampo } from '../ayudas/campos';
+import { comprobarOcupado } from '../ayudas/ocupado';
 
 jest.mock('expo-secure-store', () => jest.requireActual('../ayudas/secureStoreFalso').crearSecureStoreFalso());
 const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crearSecureStoreFalso>;
@@ -442,8 +443,50 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
       await guardar();
       await guardar();
       expect(guardados(pedidos)).toHaveLength(1);
-      expect(screen.getByRole('button', { name: 'Guardar' })).toBeDisabled();
+      comprobarOcupado({ name: 'Guardar' });
       await act(async () => terminar(respuestaJson(201, creado)));
+    });
+
+    // Bug 303 (ACC-004): «Intentar de nuevo» tiene el foco de TalkBack al tocarlo; si desaparece al empezar a enviar, el foco
+    // salta a «Navegar hacia arriba». Sigue en pantalla y ocupado mientras envía, y el aviso se quita con la respuesta.
+    it('«Intentar de nuevo» sigue en pantalla y ocupado mientras guarda, un segundo toque no manda nada y el aviso se quita con la respuesta', async () => {
+      let soltar: (r: Response) => void = () => undefined;
+      let intentos = 0;
+      const pedidos = api(() =>
+        intentos++ === 0 ? respuestaJson(500, { error: 'interno' }) : new Promise<Response>((r) => (soltar = r)),
+      );
+      await abrir();
+      await escribirMonto('45.000');
+      await elegir('Otros gastos');
+      await elegir('Efectivo');
+      await guardar();
+      expect(await screen.findByText('No pudimos guardar tu gasto.')).toBeOnTheScreen();
+
+      await fireEvent.press(screen.getByRole('button', { name: 'Intentar de nuevo' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Intentar de nuevo' }));
+
+      expect(guardados(pedidos)).toHaveLength(2);
+      comprobarOcupado({ name: 'Intentar de nuevo' });
+      await act(async () => soltar(respuestaJson(500, { error: 'interno' })));
+      expect(screen.getByText('No pudimos guardar tu gasto.')).toBeOnTheScreen();
+    });
+
+    it('«Intentar de nuevo» quita el aviso y el botón cuando llega una respuesta buena', async () => {
+      let soltar: (r: Response) => void = () => undefined;
+      let intentos = 0;
+      api(() => (intentos++ === 0 ? respuestaJson(500, { error: 'interno' }) : new Promise<Response>((r) => (soltar = r))));
+      await abrir();
+      await escribirMonto('45.000');
+      await elegir('Otros gastos');
+      await elegir('Efectivo');
+      await guardar();
+      await screen.findByText('No pudimos guardar tu gasto.');
+      await fireEvent.press(screen.getByRole('button', { name: 'Intentar de nuevo' }));
+      expect(screen.getByText('No pudimos guardar tu gasto.')).toBeOnTheScreen();
+      await act(async () => soltar(respuestaJson(422, { error: 'datos_invalidos', campos: { monto_centavos: 'monto_no_positivo' } })));
+
+      expect(screen.queryByText('No pudimos guardar tu gasto.')).not.toBeOnTheScreen();
+      expect(screen.queryByRole('button', { name: 'Intentar de nuevo' })).not.toBeOnTheScreen();
     });
   });
 

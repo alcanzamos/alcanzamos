@@ -1,5 +1,6 @@
 import { CommonActions } from '@react-navigation/native';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { ScrollView, View } from 'react-native';
 import { AutorizacionDeDatos } from '../../src/pantallas/AutorizacionDeDatos';
 import {
   esperarAnuncio,
@@ -13,6 +14,8 @@ import { campo } from '../ayudas/campos';
 import { instalarFetchFalso, respuestaJson } from '../ayudas/fetchFalso';
 import { navegacionFalsa, propiedades } from '../ayudas/pantalla';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
+import { tokens } from '../../src/tokens/tokens.generated';
+import { comprobarOcupado } from '../ayudas/ocupado';
 
 const descarga = { resultado: { ok: true } as { ok: boolean; estado?: number; codigo?: string; campos?: object }, llamadas: 0 };
 jest.mock('../../src/api/descarga', () => ({
@@ -269,6 +272,45 @@ describe('PN-64 · Autorización de datos (E14-PCP 4.7)', () => {
       await esperarSinAnuncios();
     });
 
+    // Bug 304 (67.3): la casilla con error puede estar fuera de la ventana; el foco de TalkBack iba a ella y la pantalla
+    // no se movía hasta donde la persona tenía que autorizar. Primero se desplaza, y el foco llega cuando ya está a la vista.
+    it('ACC-004 (bug 304, 67.3): sin nada marcado, la pantalla se desplaza hasta la primera casilla con error y recién entonces le lleva el foco', async () => {
+      // Los métodos del ScrollView y de la vista son `jest.fn` del preset: se prestan solo para este pedido.
+      const desplazar = jest.spyOn(ScrollView.prototype, 'scrollTo');
+      jest.spyOn(ScrollView.prototype, 'getInnerViewRef').mockReturnValueOnce({} as never);
+      let medida: (() => void) | undefined;
+      const medir = jest.spyOn(View.prototype, 'measureLayout').mockImplementationOnce(((_relativa: unknown, alMedir: (...medidas: number[]) => void) => {
+        medida = () => alMedir(0, 900, 300, 48);
+      }) as never);
+      await mostrar();
+      limpiarAnuncios();
+      await fireEvent.press(boton('Autorizar y continuar'));
+      await screen.findByText('Falta tu autorización para lo necesario.');
+      // La casilla se midió, pero todavía no hay dónde ir: el foco espera.
+      expect(medir).toHaveBeenCalledTimes(1);
+      expect(desplazar).not.toHaveBeenCalled();
+      expect(focosDeTalkBack()).toEqual([]);
+      await act(async () => medida!());
+      expect(desplazar).toHaveBeenCalledWith({ y: 900 - tokens.espacio['4'], animated: false });
+      expect(nombreDe(focoDeTalkBack())).toBe(`${NECESARIAS}, Falta tu autorización para lo necesario.`);
+      expect(focosDeTalkBack()).toHaveLength(1);
+    });
+
+    it('ACC-004 (bug 304): si la pantalla se va mientras se desplaza, el foco ya no se pide', async () => {
+      jest.spyOn(ScrollView.prototype, 'getInnerViewRef').mockReturnValueOnce({} as never);
+      let medida: (() => void) | undefined;
+      jest.spyOn(View.prototype, 'measureLayout').mockImplementationOnce(((_relativa: unknown, alMedir: (...medidas: number[]) => void) => {
+        medida = () => alMedir(0, 900, 300, 48);
+      }) as never);
+      await mostrar();
+      limpiarAnuncios();
+      await fireEvent.press(boton('Autorizar y continuar'));
+      await screen.findByText('Falta tu autorización para lo necesario.');
+      await screen.unmount();
+      await act(async () => medida!());
+      expect(focosDeTalkBack()).toEqual([]);
+    });
+
     it('marcar lo necesario quita el error; desmarcarlo no lo vuelve a poner', async () => {
       await mostrar();
       await fireEvent.press(boton('Autorizar y continuar'));
@@ -323,8 +365,10 @@ describe('PN-64 · Autorización de datos (E14-PCP 4.7)', () => {
       await screen.findByText(NECESARIAS);
       await marcarLasNecesarias();
       await fireEvent.press(boton('Autorizar y continuar'));
-      await fireEvent.press(screen.getByRole('button', { name: 'Autorizar y continuar', disabled: true }));
-      await fireEvent.press(screen.getByRole('button', { name: 'No autorizo', disabled: true }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Autorizar y continuar', busy: true }));
+      await fireEvent.press(screen.getByRole('button', { name: 'No autorizo', busy: true }));
+      comprobarOcupado({ name: 'Autorizar y continuar' });
+      comprobarOcupado({ name: 'No autorizo' });
       expect(global.fetch).toHaveBeenCalledTimes(2);
       responder(respuestaJson(500));
       await screen.findByText('No pudimos guardar tu autorización.');
@@ -396,6 +440,22 @@ describe('PN-64 · Autorización de datos (E14-PCP 4.7)', () => {
       expect(pedidos[1]?.init.body).toBeUndefined();
       expect((pedidos[1]?.init.headers as Record<string, string>).Authorization).toBe('Bearer tk-limitada');
       expect(almacen.guardado.has('sesion')).toBe(false);
+    });
+
+    // Bug 303: «No autorizo» se deshabilitaba al mandar el rechazo y el foco de TalkBack saltaba a «Navegar hacia arriba».
+    it('mientras manda el rechazo queda ocupado, habilitado para TalkBack, y un segundo toque no lo manda otra vez (bug 303)', async () => {
+      let responder: (respuesta: Response) => void = () => undefined;
+      const catalogoListo = respuestaJson(200, catalogo());
+      let n = 0;
+      global.fetch = jest.fn(() => (n++ === 0 ? Promise.resolve(catalogoListo) : new Promise<Response>((r) => (responder = r)))) as unknown as typeof fetch;
+      await render(<AutorizacionDeDatos {...propiedades('AutorizacionDeDatos', navegacionFalsa())} />);
+      await screen.findByText(NECESARIAS);
+      await fireEvent.press(boton('No autorizo'));
+      await fireEvent.press(screen.getByRole('button', { name: 'No autorizo', busy: true }));
+      comprobarOcupado({ name: 'No autorizo' });
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+      responder(respuestaJson(500));
+      await screen.findByText('Todavía no pudimos borrar tu correo. Intenta de nuevo.');
     });
 
     it('sin conexión se queda, conserva el token y dice «Todavía no pudimos borrar tu correo. Intenta de nuevo.»', async () => {
@@ -669,7 +729,8 @@ describe('PN-64 · Autorización de datos (E14-PCP 4.7)', () => {
       expect(screen.queryByRole('header', { name: '¿No autorizas?' })).not.toBeOnTheScreen();
       expect(screen.getByRole('checkbox', { name: TRANSMISION })).toBeOnTheScreen();
       expect(navegacion.dispatch).not.toHaveBeenCalled();
-      expect(textoDeBoton(focosDeTalkBack().at(-1))).toBe('No autorizo');
+      // El foco se pide cuando la hoja termina de cerrarse y la pantalla se dibujó (`useLlevarFoco`), no en el mismo toque.
+      await waitFor(() => expect(textoDeBoton(focosDeTalkBack().at(-1))).toBe('No autorizo'));
     });
 
     it('el ícono Cerrar y el Atrás del sistema también la cierran y llevan el foco a «No autorizo»', async () => {
@@ -677,14 +738,14 @@ describe('PN-64 · Autorización de datos (E14-PCP 4.7)', () => {
       limpiarAnuncios();
       await fireEvent.press(screen.getByRole('button', { name: 'Cerrar' }));
       expect(screen.queryByRole('header', { name: '¿No autorizas?' })).not.toBeOnTheScreen();
-      expect(textoDeBoton(focosDeTalkBack().at(-1))).toBe('No autorizo');
+      await waitFor(() => expect(textoDeBoton(focosDeTalkBack().at(-1))).toBe('No autorizo'));
       // Se puede abrir otra vez y el Atrás del sistema (requestClose) la cierra.
       await fireEvent.press(boton('No autorizo'));
       await screen.findByRole('header', { name: '¿No autorizas?' });
       limpiarAnuncios();
       await fireEvent(screen.getByRole('header', { name: '¿No autorizas?' }), 'requestClose');
       await waitFor(() => expect(screen.queryByRole('header', { name: '¿No autorizas?' })).not.toBeOnTheScreen());
-      expect(textoDeBoton(focosDeTalkBack().at(-1))).toBe('No autorizo');
+      await waitFor(() => expect(textoDeBoton(focosDeTalkBack().at(-1))).toBe('No autorizo'));
     });
 
     it('«Borrar mi cuenta» manda la contraseña, sin menores que confirmar, y va a PN-60 con «Borramos tu cuenta.»', async () => {
@@ -773,7 +834,8 @@ describe('PN-64 · Autorización de datos (E14-PCP 4.7)', () => {
       await waitFor(() => expect(borrar()).toBeEnabled());
       await escribir();
       await fireEvent.press(borrar());
-      await fireEvent.press(screen.getByRole('button', { name: 'Borrar mi cuenta', disabled: true }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Borrar mi cuenta', busy: true }));
+      comprobarOcupado({ name: 'Borrar mi cuenta' });
       expect(enviados).toBe(1);
       responder(respuestaJson(200, { estado: 'cuenta_borrada' }));
       await waitFor(() => expect(navegacion.dispatch).toHaveBeenCalled());
@@ -793,13 +855,14 @@ describe('PN-64 · Autorización de datos (E14-PCP 4.7)', () => {
         expect(navegacion.dispatch).not.toHaveBeenCalled();
       });
 
-      it('mientras prepara queda deshabilitado con «Preparando tu archivo…» y «Borrar mi cuenta» sigue disponible', async () => {
+      it('mientras prepara queda ocupado (no deshabilitado) con «Preparando tu archivo…» y «Borrar mi cuenta» sigue disponible', async () => {
         let terminar: (resultado: { ok: boolean }) => void = () => undefined;
         await abrirLaHoja();
         descarga.resultado = new Promise((r) => (terminar = r)) as never;
         await fireEvent.press(screen.getByRole('button', { name: 'Descargar mis datos' }));
-        expect(await screen.findByRole('button', { name: 'Preparando tu archivo…', disabled: true })).toBeOnTheScreen();
-        await fireEvent.press(screen.getByRole('button', { name: 'Preparando tu archivo…', disabled: true }));
+        expect(await screen.findByRole('button', { name: 'Preparando tu archivo…', busy: true })).toBeOnTheScreen();
+        await fireEvent.press(screen.getByRole('button', { name: 'Preparando tu archivo…', busy: true }));
+        comprobarOcupado({ name: 'Preparando tu archivo…' });
         expect(descarga.llamadas).toBe(1);
         expect(borrar()).toBeEnabled();
         terminar({ ok: true });

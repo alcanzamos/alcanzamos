@@ -65,7 +65,7 @@ export function HojaDeMontoDelPresupuesto({
         error={error}
       />
       {aviso && <Aviso {...aviso} />}
-      <Boton deshabilitado={enviando} alTocar={() => void guardar()}>
+      <Boton ocupado={enviando} alTocar={() => void guardar()}>
         {t.hoja.guardar}
       </Boton>
       <Boton variante="secundario" alTocar={alCerrar}>
@@ -93,7 +93,7 @@ export function HojaDeQuitar({
     <HojaInferior visible titulo={formatear(t.quitar.titulo, { categoria })} alCerrar={alCerrar}>
       <Texto>{t.quitar.explicacion}</Texto>
       {aviso && <Aviso {...aviso} />}
-      <Boton deshabilitado={enviando} alTocar={alQuitar}>
+      <Boton ocupado={enviando} alTocar={alQuitar}>
         {t.quitar.confirmar}
       </Boton>
       <Boton variante="secundario" alTocar={alCerrar}>

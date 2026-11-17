@@ -1,9 +1,10 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
+import { AccessibilityInfo } from 'react-native';
 import type { PresupuestoDelPeriodo } from '../../src/api/presupuesto';
 import { reiniciarBorrador } from '../../src/borradorDeRegistro';
 import { Navegacion } from '../../src/navegacion/Navegacion';
 import { tokens } from '../../src/tokens/tokens.generated';
-import { esperarAnuncio, focoDeTalkBack, focosDeTalkBack, limpiarAnuncios, nombreDe } from '../ayudas/anuncios';
+import { enfocada, esperarAnuncio, focoDeTalkBack, focosDeTalkBack, limpiarAnuncios, nombreDe } from '../ayudas/anuncios';
 import { atras, instalarAtras } from '../ayudas/atras';
 import { buscarCampo, campo, quizasCampo } from '../ayudas/campos';
 import { respuestaJson } from '../ayudas/fetchFalso';
@@ -23,6 +24,7 @@ import {
 } from '../ayudas/presupuestoFalso';
 import { fijarHoy } from '../ayudas/reloj';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
+import { comprobarOcupado } from '../ayudas/ocupado';
 
 jest.mock('expo-secure-store', () => jest.requireActual('../ayudas/secureStoreFalso').crearSecureStoreFalso());
 const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crearSecureStoreFalso>;
@@ -43,25 +45,6 @@ async function abrirPresupuesto() {
 /** Lo que TalkBack lee de un elemento agrupado: su nombre accesible. */
 const leido = (texto: string | RegExp) => screen.getByLabelText(texto);
 
-/** El texto de los hijos de una vista (elementos de React), para nombrar la vista que recibió el foco. */
-const textoDeHijos = (hijos: unknown): string => {
-  if (typeof hijos === 'string' || typeof hijos === 'number') return String(hijos);
-  if (Array.isArray(hijos)) return hijos.map(textoDeHijos).join('');
-  if (hijos && typeof hijos === 'object' && 'props' in hijos)
-    return textoDeHijos((hijos as { props: { children?: unknown } }).props.children);
-  return '';
-};
-
-/** El rol y el nombre de la última vista a la que se llevó el foco de TalkBack (`sendAccessibilityEvent`). */
-const enfocada = () => {
-  const vista = focosDeTalkBack().at(-1);
-  return (
-    vista && {
-      rol: vista.props.accessibilityRole,
-      nombre: nombreDe(vista) ?? textoDeHijos(vista.props.children),
-    }
-  );
-};
 const AVISO_ENFOCADO = { rol: 'alert', nombre: 'No pudimos guardar el presupuesto.Tus datos están a salvo. Intenta de nuevo.' };
 
 /** El aviso de error que queda en la pantalla, con la hoja ya cerrada (L17 de la US-77, punto 1). */
@@ -394,17 +377,30 @@ describe('PN-06 y PN-07 · Presupuesto, Android (E14-PPA 4.1 y 4.2, US-77)', () 
       expect(lecturasDelPresupuesto(pedidos)).toBe(1);
     });
 
-    it('mientras guarda, «Guardar» queda deshabilitado y no se manda dos veces', async () => {
+    it('mientras guarda, «Guardar» queda ocupado y no se manda dos veces', async () => {
       let soltar: (r: Response) => void = () => undefined;
       const pedidos = apiDelPresupuesto(respuestaJson, { poner: () => new Promise<Response>((r) => (soltar = r)) });
       await abrirPresupuesto();
       await fireEvent.changeText(await abrirPoner(), '400000');
       await fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
       await fireEvent.press(screen.getByRole('button', { name: 'Guardar' }));
-      expect(screen.getByRole('button', { name: 'Guardar', disabled: true })).toBeOnTheScreen();
+      comprobarOcupado({ name: 'Guardar' });
       soltar(respuestaJson(201, {}));
       await screen.findByText('Listo, guardamos tu presupuesto de Arriendo o cuota de vivienda.');
       expect(pedidos.filter((p) => p.metodo === 'POST')).toHaveLength(1);
+    });
+
+    it('«Quitar presupuesto»: mientras quita queda ocupado y un segundo toque no manda nada (bug 303)', async () => {
+      let soltar: (r: Response) => void = () => undefined;
+      const pedidos = apiDelPresupuesto(respuestaJson, { quitar: () => new Promise<Response>((r) => (soltar = r)) });
+      await abrirPresupuesto();
+      await fireEvent.press(screen.getByRole('button', { name: 'Quitar el presupuesto de Transporte' }));
+      await fireEvent.press(await screen.findByRole('button', { name: 'Quitar presupuesto' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Quitar presupuesto', busy: true }));
+      comprobarOcupado({ name: 'Quitar presupuesto' });
+      soltar(respuestaJson(204));
+      await screen.findByText('Listo, quitamos tu presupuesto de Transporte.');
+      expect(pedidos.filter((p) => p.metodo === 'DELETE')).toHaveLength(1);
     });
 
     it('«Corregir» abre «Corregir el presupuesto de Transporte» con el monto escrito y guarda con PUT', async () => {
@@ -570,6 +566,21 @@ describe('PN-06 y PN-07 · Presupuesto, Android (E14-PPA 4.1 y 4.2, US-77)', () 
       });
       await waitFor(() => expect(screen.queryByRole('button', { name: 'Dejar el presupuesto en cero' })).not.toBeOnTheScreen());
       expect(screen.getByText(NULO)).toBeOnTheScreen();
+    });
+
+    it('«Dejar el presupuesto en cero»: mientras guarda queda ocupado y un segundo toque no manda nada (bug 303)', async () => {
+      let soltar: (r: Response) => void = () => undefined;
+      const pedidos = apiDelPresupuesto(respuestaJson, {
+        presupuesto: () => nulo(false),
+        enCero: () => new Promise<Response>((resolver) => (soltar = resolver)),
+      });
+      await abrirPresupuesto();
+      await fireEvent.press(screen.getByRole('button', { name: 'Dejar el presupuesto en cero' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Dejar el presupuesto en cero', busy: true }));
+      comprobarOcupado({ name: 'Dejar el presupuesto en cero' });
+      soltar(respuestaJson(204));
+      await esperarAnuncio(EN_CERO);
+      expect(pedidos.filter((p) => p.ruta === '/api/v1/presupuestos/en-cero')).toHaveLength(1);
     });
 
     it('con el mes ya en cero (`en_cero: true`) no ofrece el botón y la tarjeta sigue igual (L17 de la US-77, punto 5)', async () => {
@@ -782,6 +793,24 @@ describe('PN-06 y PN-07 · Presupuesto, Android (E14-PPA 4.1 y 4.2, US-77)', () 
         },
       );
     });
+
+    // Bug 303 (6.9): el aviso solo se leía si el foco llegaba a él, y Android lo mandaba a «Navegar hacia arriba». Ahora
+    // también lo dice la región viva, sin depender del foco.
+    it.each(Object.entries(acciones))(
+      'ACC-004 (bug 303, 6.9): «%s» con datos viejos: el error se anuncia por la región viva aunque el foco no llegue a él',
+      async (accion, a) => {
+        apiDelPresupuesto(respuestaJson, { [accion]: () => respuestaJson(409, { error: 'periodo_no_editable' }) });
+        await abrirPresupuesto();
+        await fireEvent.press(screen.getByRole('button', { name: a.abridor }));
+        if (a.monto) await fireEvent.changeText(await buscarCampo(MONTO), a.monto);
+        // El foco no llega: el evento no hace nada (como cuando TalkBack lo manda a otro lado).
+        jest.mocked(AccessibilityInfo.sendAccessibilityEvent).mockImplementation(() => undefined);
+        await fireEvent.press(await screen.findByRole('button', { name: a.confirmar }));
+        await waitFor(() => expect(screen.queryByRole('header', { name: a.hoja })).not.toBeOnTheScreen());
+        await esperarAnuncio('No pudimos guardar el presupuesto. Tus datos están a salvo. Intenta de nuevo.');
+        expect(avisoEnLaPantalla()).toBeOnTheScreen();
+      },
+    );
 
     it('el aviso se va con la siguiente escritura', async () => {
       let respuesta = () => respuestaJson(404, { error: 'no_encontrado' });

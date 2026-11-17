@@ -1,11 +1,12 @@
 import type { NavigationProp } from '@react-navigation/native';
-import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { useState, type Ref } from 'react';
+import { StyleSheet, Text, View, type HostInstance } from 'react-native';
 import type { Respuesta } from '../api/cliente';
 import { confirmarFecha, omitirFecha, type FechaPorConfirmar, type Pendientes } from '../api/repeticiones';
 import { Aviso } from '../componentes/Aviso';
 import { Boton, BotonDeTexto } from '../componentes/Boton';
 import { cifras } from '../componentes/Cifras';
+import { HojaQueSale } from '../componentes/HojaQueSale';
 import { Tarjeta } from '../componentes/Tarjeta';
 import { Texto } from '../componentes/Texto';
 import { formatearPesos } from '../dinero';
@@ -87,7 +88,7 @@ export function AccionesPorConfirmar({ fila, control }: { fila: FechaPorConfirma
       <Boton
         variante="secundario"
         nombre={t.nombreDeConfirmar}
-        deshabilitado={control.enviando}
+        ocupado={control.enviando}
         alTocar={() => void control.confirmar(fila)}
       >
         {p.confirmar}
@@ -102,38 +103,43 @@ export function AccionesPorConfirmar({ fila, control }: { fila: FechaPorConfirma
 /** Las hojas de la fila abierta: «Más», «Cambiar el monto» y «No pasó» (`HojasDeFecha.tsx`). */
 export function HojasPorConfirmar({ control }: { control: ControlDePorConfirmar }) {
   const { hoja, setHoja, enviando, confirmar, noPaso } = control;
-  if (hoja?.tipo === 'mas')
-    return (
-      <HojaDeMas
-        fila={hoja.fila}
-        alCerrar={() => setHoja(null)}
-        alElegir={(opcion) => setHoja({ tipo: opcion === 'monto' ? 'monto' : 'no_paso', fila: hoja.fila })}
-      />
-    );
-  if (hoja?.tipo === 'monto')
-    return (
-      <HojaDeMonto
-        fila={hoja.fila}
-        textoDelBoton={p.hoja.confirmar}
-        enviando={enviando}
-        alCerrar={() => setHoja(null)}
-        alConfirmar={(centavos) => void confirmar(hoja.fila, centavos)}
-      />
-    );
-  if (hoja?.tipo === 'no_paso')
-    return <HojaDeNoPaso enviando={enviando} alCerrar={() => setHoja(null)} alConfirmar={() => void noPaso(hoja.fila)} />;
-  return null;
+  const alCerrar = () => setHoja(null);
+  return (
+    <HojaQueSale>
+      {hoja?.tipo === 'mas' ? (
+        <HojaDeMas
+          fila={hoja.fila}
+          alCerrar={alCerrar}
+          alElegir={(opcion) => setHoja({ tipo: opcion === 'monto' ? 'monto' : 'no_paso', fila: hoja.fila })}
+        />
+      ) : hoja?.tipo === 'monto' ? (
+        <HojaDeMonto
+          fila={hoja.fila}
+          textoDelBoton={p.hoja.confirmar}
+          enviando={enviando}
+          alCerrar={alCerrar}
+          alConfirmar={(centavos) => void confirmar(hoja.fila, centavos)}
+        />
+      ) : hoja?.tipo === 'no_paso' ? (
+        <HojaDeNoPaso enviando={enviando} alCerrar={alCerrar} alConfirmar={() => void noPaso(hoja.fila)} />
+      ) : null}
+    </HojaQueSale>
+  );
 }
 
 // La sección «Por confirmar» de PN-01 (E14-PRR 4.1, D-091 a D-093): una fila por fecha que ya llegó, con «Confirmar» a
 // la vista y «Más» (D-092) para «Cambiar el monto» y «No pasó». Con más de una fecha, el resumen y «Confirmar todos».
 // Qué fechas hay lo decide el API (E17-ECO 4.7): aquí solo se muestran y se mandan las decisiones.
-export function PorConfirmar({ datos, ...alTerminar }: AlTerminar & { datos: Pendientes }) {
+export function PorConfirmar({
+  datos,
+  refDelTitulo,
+  ...alTerminar
+}: AlTerminar & { datos: Pendientes; refDelTitulo?: Ref<HostInstance> }) {
   const control = usePorConfirmar(alTerminar);
   const { pendientes, resumen } = datos;
 
   return (
-    <Tarjeta titulo={p.titulo}>
+    <Tarjeta titulo={p.titulo} refDelTitulo={refDelTitulo}>
       <Texto variante="ayuda">{pendientes.length > 1 ? p.textoVarias : p.textoUna}</Texto>
       {pendientes.length > 1 && (
         <>

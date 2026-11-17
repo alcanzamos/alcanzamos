@@ -31,6 +31,7 @@ export function SeguridadDeLaCuenta({ navigation, route }: NativeStackScreenProp
   const [estado, setEstado] = useState<Estado>({ fase: 'cargando' });
   const [intento, setIntento] = useState(0);
   const [sinConexion, setSinConexion] = useState(false);
+  const [cerrando, setCerrando] = useState(false);
   const llegada = route.params?.aviso ?? avisoDeLlegada(route.params?.llegada);
 
   useEffect(() => {
@@ -53,11 +54,18 @@ export function SeguridadDeLaCuenta({ navigation, route }: NativeStackScreenProp
     };
   }, [intento, navigation]);
 
+  // Mientras el DELETE está en el aire el botón queda ocupado (bug 303): se ve deshabilitado, sigue habilitado para TalkBack
+  // y el segundo toque no manda otro pedido.
   async function salir() {
-    const respuesta = await cerrarSesion();
-    // Solo la falta de conexión se queda: cualquier otra respuesta saca a la persona (y borra el token).
-    if (!respuesta.ok && respuesta.estado === 0) setSinConexion(true);
-    else reemplazarPila(navigation, 'Entrar');
+    setCerrando(true);
+    try {
+      const respuesta = await cerrarSesion();
+      // Solo la falta de conexión se queda: cualquier otra respuesta saca a la persona (y borra el token).
+      if (!respuesta.ok && respuesta.estado === 0) setSinConexion(true);
+      else reemplazarPila(navigation, 'Entrar');
+    } finally {
+      setCerrando(false);
+    }
   }
 
   const fecha = estado.fase === 'listo' && estado.ingreso ? fechaEnPalabras(estado.ingreso) : null;
@@ -114,7 +122,7 @@ export function SeguridadDeLaCuenta({ navigation, route }: NativeStackScreenProp
         {textos.privacidad.titulo}
       </BotonDeTexto>
       <BotonDeTexto alTocar={() => navigation.navigate('Politica')}>{textos.politica.entradas.yConsultas}</BotonDeTexto>
-      <BotonDeTexto alTocar={() => void salir()}>{textos.acciones.cerrarSesion}</BotonDeTexto>
+      <BotonDeTexto ocupado={cerrando} alTocar={() => void salir()}>{textos.acciones.cerrarSesion}</BotonDeTexto>
       <BotonDeTexto alTocar={() => navigation.navigate('BorrarCuenta')}>{textos.borrarCuenta.borrarMiCuenta}</BotonDeTexto>
     </Pantalla>
   );

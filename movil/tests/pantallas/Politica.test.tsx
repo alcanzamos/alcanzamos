@@ -1,7 +1,8 @@
-import { render, screen, fireEvent, within } from '@testing-library/react-native';
+import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react-native';
 import { Linking } from 'react-native';
 import { Politica } from '../../src/pantallas/Politica';
 import { VERSION_DE_LA_POLITICA } from '../../src/politica';
+import { describirFoco, focoDeTalkBack, focosDeTalkBack, limpiarAnuncios } from '../ayudas/anuncios';
 import { instalarFetchFalso } from '../ayudas/fetchFalso';
 
 // PN-68 · Política de tratamiento (E14-PCP 4.11, RF-059, RF-060): informa, sin formulario y sin sesión. Los textos son de
@@ -196,6 +197,59 @@ describe('PN-68 · lo que dice', () => {
     await mostrar();
     expect(screen.queryByRole('alert')).not.toBeOnTheScreen();
     expect(screen.queryByRole('button', { name: 'Intentar de nuevo' })).not.toBeOnTheScreen();
+  });
+});
+
+// Bug 303 (67.1): al abrir PN-68 el foco de TalkBack estaba en «Navegar hacia arriba». El título es el de la barra nativa y la
+// app no le puede llevar el foco: va a lo primero que dice la pantalla, la versión, justo después del título. Se pide cuando
+// la transición de apertura termina (`transitionEnd` de la pila), no antes: durante la transición Android todavía mueve el
+// foco a la barra.
+describe('PN-68 · el foco al abrir (bug 303, 67.1)', () => {
+  type Oyente = (evento: { data: { closing: boolean } }) => void;
+  function pila() {
+    const oyentes = new Map<string, Oyente>();
+    const quitar = jest.fn();
+    const navigation = {
+      addListener: jest.fn((evento: string, oyente: Oyente) => {
+        oyentes.set(evento, oyente);
+        return quitar;
+      }),
+    };
+    return { navigation, oyentes, quitar };
+  }
+  const mostrarEnLaPila = (navigation: unknown) =>
+    render(<Politica {...({ navigation } as unknown as Parameters<typeof Politica>[0])} />);
+  const terminar = (oyentes: Map<string, Oyente>, closing = false) =>
+    act(async () => {
+      oyentes.get('transitionEnd')!({ data: { closing } });
+    });
+
+  beforeEach(() => limpiarAnuncios());
+
+  it('no pide el foco mientras dura la transición; al terminar de abrirse, lo lleva a la versión', async () => {
+    const { navigation, oyentes } = pila();
+    await mostrarEnLaPila(navigation);
+    await new Promise((listo) => setTimeout(listo, 50));
+    expect(focosDeTalkBack()).toEqual([]);
+    await terminar(oyentes);
+    await waitFor(() => expect(focosDeTalkBack()).toHaveLength(1));
+    expect(describirFoco(focoDeTalkBack())?.nombre).toBe('Versión 1.1 del 12 de noviembre de 2026.');
+  });
+
+  it('al cerrarse la pantalla (transición de salida) no pide el foco', async () => {
+    const { navigation, oyentes } = pila();
+    await mostrarEnLaPila(navigation);
+    await terminar(oyentes, true);
+    await new Promise((listo) => setTimeout(listo, 50));
+    expect(focosDeTalkBack()).toEqual([]);
+  });
+
+  it('deja de escuchar la pila al salir de la pantalla', async () => {
+    const { navigation, quitar } = pila();
+    const { unmount } = await mostrarEnLaPila(navigation);
+    expect(navigation.addListener).toHaveBeenCalledWith('transitionEnd', expect.any(Function));
+    await unmount();
+    expect(quitar).toHaveBeenCalledTimes(1);
   });
 });
 

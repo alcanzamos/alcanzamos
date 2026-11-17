@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View } from 'react-native';
+import type { Ref } from 'react';
+import { StyleSheet, Text, View, type HostInstance } from 'react-native';
 import { estiloDeTipografia } from '../fuentes';
 import { tokens } from '../tokens/tokens.generated';
 import { cifras } from './Cifras';
@@ -23,12 +24,15 @@ export function Texto({
   );
 }
 
-// «Tipografía pequeña, ícono Información» de E14-PCP (PN-58 fila 10, PN-59 fila 3): una nota con su ícono.
-export function Nota({ children }: { children: string }) {
+// «Tipografía pequeña, ícono Información» de E14-PCP (PN-58 fila 10, PN-59 fila 3): una nota con su ícono. `refDelTexto` es
+// para llevarle el foco de TalkBack (`useLlevarFoco`).
+export function Nota({ children, refDelTexto }: { children: string; refDelTexto?: Ref<HostInstance> }) {
   return (
     <View style={estilos.nota}>
       <IconoInformacion color={tokens.color.estado.informacion.icono} />
-      <Text style={estilos.textoDeNota}>{cifras(children)}</Text>
+      <Text ref={refDelTexto} style={estilos.textoDeNota}>
+        {cifras(children)}
+      </Text>
     </View>
   );
 }

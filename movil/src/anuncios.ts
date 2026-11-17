@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { AccessibilityInfo, type HostInstance } from 'react-native';
+import type { ControlDePantalla } from './componentes/Pantalla';
+import { cuandoNoHayHojas, hayHojaVisible } from './estadoDeHojas';
 
 // Lo que TalkBack dice sin que la persona mueva el foco (ACC-004, bugs 225 y 226), sin funciones obsoletas de Android
 // (L2 y L6 del dueño, sesión 4 del celular):
@@ -60,16 +62,27 @@ export type ErrorDeCampo = { error?: string; campo?: RefObject<HostInstance | nu
  * (`sendAccessibilityEvent(campo, 'focus')`), y el campo lee su error porque lo lleva en su nombre («Monto, Falta el
  * monto.»). No hay anuncio aparte. El foco se mueve después de que la pantalla dibuja los errores, para que TalkBack
  * lea el campo ya con el suyo, y se vuelve a mover en cada intento, aunque los errores sean los mismos (así se lee de
- * nuevo). Un primer error sin `campo` no mueve el foco.
+ * nuevo). Un primer error sin `campo` no mueve el foco. Con `pantalla` (la referencia de `Pantalla`, bug 304) primero
+ * se desplaza la pantalla hasta el campo y el foco se pide cuando ya está a la vista: una casilla fuera de la ventana
+ * (PN-64) no recibía el foco donde la persona lo veía.
  */
-export function useAvisarErrores() {
+export function useAvisarErrores(pantalla?: RefObject<ControlDePantalla | null>) {
   const [pedido, setPedido] = useState<{ campo: RefObject<HostInstance | null> }>();
   useEffect(() => {
     const campo = pedido?.campo.current;
     if (!campo) return;
-    campo.focus();
-    AccessibilityInfo.sendAccessibilityEvent(campo, 'focus');
-  }, [pedido]);
+    let vigente = true;
+    const enfocar = () => {
+      if (!vigente) return;
+      campo.focus();
+      AccessibilityInfo.sendAccessibilityEvent(campo, 'focus');
+    };
+    if (pantalla?.current) pantalla.current.desplazarHasta(campo, enfocar);
+    else enfocar();
+    return () => {
+      vigente = false;
+    };
+  }, [pedido, pantalla]);
   return useCallback((errores: ErrorDeCampo[]) => {
     const campo = errores.find((e) => e.error)?.campo;
     // Un objeto nuevo en cada intento: el efecto corre otra vez aunque el campo sea el mismo.
@@ -78,16 +91,39 @@ export function useAvisarErrores() {
 }
 
 /**
- * El foco de TalkBack al cerrar una hoja (L17 de la US-77, punto 3, como la web): devuelve `llevarFoco(vista)`, que lo
- * lleva a esa vista con `sendAccessibilityEvent(vista, 'focus')` después de que la pantalla dibuja lo nuevo (la hoja ya
- * cerrada, el aviso que aparece). Al cancelar, al botón que abrió la hoja; después de guardar, al título; con un aviso
- * que la persona tiene que leer, al aviso. Si la vista ya no está (el botón se fue al recargar), el foco no se mueve.
+ * El foco de TalkBack después de una acción que cambia la pantalla (L17 de la US-77, punto 3; bugs 303 y 304): devuelve
+ * `llevarFoco(vista)`, que lo lleva a esa vista con `sendAccessibilityEvent(vista, 'focus')`. Al cancelar una hoja, al
+ * botón que la abrió; después de guardar o confirmar, a un título que sigue ahí; con un aviso que la persona tiene que
+ * leer, al aviso. Si la vista ya no está (el botón se fue al recargar), el foco no se mueve.
+ *
+ * Se pide cuando pasaron los dos eventos de los que depende, no tras una espera: (1) no hay ninguna hoja en pantalla,
+ * ni abierta ni saliendo (`HojaInferior`; con una hoja saliendo, Android todavía tiene su ventana encima y TalkBack
+ * mandaba el foco a «Navegar hacia arriba»; una salida interrumpida porque la hoja se abrió de nuevo no cuenta como
+ * terminada); (2) el cuadro siguiente al dibujo, cuando la pantalla ya tiene lo nuevo con su diseño
+ * (`requestAnimationFrame` es el cuadro, no un retraso; `InteractionManager` está obsoleto en React Native 0.88). Justo
+ * antes de enviar el foco se vuelve a mirar que no haya hojas: si se abrió una en ese cuadro, se espera a que se cierre.
+ * Un pedido nuevo reemplaza al anterior, y si la pantalla se va antes, el foco no se pide.
  */
 export function useLlevarFoco() {
   const [pedido, setPedido] = useState<{ vista: RefObject<HostInstance | null> }>();
   useEffect(() => {
-    const vista = pedido?.vista.current;
-    if (vista) AccessibilityInfo.sendAccessibilityEvent(vista, 'focus');
+    if (!pedido) return;
+    let cuadro: number | undefined;
+    let cancelarEspera = () => {};
+    const pedir = () => {
+      cancelarEspera = cuandoNoHayHojas(() => {
+        cuadro = requestAnimationFrame(() => {
+          if (hayHojaVisible()) return pedir();
+          const vista = pedido.vista.current;
+          if (vista) AccessibilityInfo.sendAccessibilityEvent(vista, 'focus');
+        });
+      });
+    };
+    pedir();
+    return () => {
+      cancelarEspera();
+      if (cuadro !== undefined) cancelAnimationFrame(cuadro);
+    };
   }, [pedido]);
   // Un objeto nuevo en cada pedido: el efecto corre otra vez aunque la vista sea la misma.
   return useCallback((vista: RefObject<HostInstance | null>) => setPedido({ vista }), []);

@@ -88,7 +88,7 @@ export function Entrar({ navigation, route }: NativeStackScreenProps<Rutas, 'Ent
         error={errores.contrasena}
       />
       <BotonDeTexto alTocar={() => navigation.navigate('RecuperarAcceso')}>{textos.entrar.olvidaste}</BotonDeTexto>
-      <Boton deshabilitado={enviando} alTocar={() => void enviar()}>
+      <Boton ocupado={enviando} alTocar={() => void enviar()}>
         {textos.entrar.entrar}
       </Boton>
       <Boton variante="secundario" alTocar={() => navigation.navigate('Edad')}>

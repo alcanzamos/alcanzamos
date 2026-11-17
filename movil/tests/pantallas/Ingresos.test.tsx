@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { reiniciarBorrador } from '../../src/borradorDeRegistro';
 import { Navegacion } from '../../src/navegacion/Navegacion';
-import { esperarAnuncio, limpiarAnuncios } from '../ayudas/anuncios';
+import { enfocada, esperarAnuncio, focosDeTalkBack, limpiarAnuncios } from '../ayudas/anuncios';
 import { atras, instalarAtras } from '../ayudas/atras';
 import { respuestaJson } from '../ayudas/fetchFalso';
 import { listado, movimiento } from '../ayudas/movimientosFalsos';
@@ -16,6 +16,7 @@ import {
 } from '../ayudas/presupuestoFalso';
 import { fijarHoy } from '../ayudas/reloj';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
+import { comprobarOcupado } from '../ayudas/ocupado';
 
 jest.mock('expo-secure-store', () => jest.requireActual('../ayudas/secureStoreFalso').crearSecureStoreFalso());
 const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crearSecureStoreFalso>;
@@ -215,6 +216,34 @@ describe('PN-08 · Ingresos del periodo, Android (E14-PPA 4.3, US-77)', () => {
       });
       await waitFor(() => expect(screen.queryByRole('button', { name: CONFIRMAR_SALARIO })).not.toBeOnTheScreen());
       expect(pedidosDeIngresos(pedidos)).toHaveLength(2);
+    });
+
+    // Bug 303 (8.3): al confirmar, la fila se va al recargar y Android le quitaba el foco a TalkBack, que saltaba a
+    // «Navegar hacia arriba» antes de decir «Listo, confirmamos…».
+    it('ACC-004 (bug 303, 8.3): «Confirmar» queda ocupado mientras guarda, un segundo toque no manda nada y el foco va al título «Entran este mes»', async () => {
+      let confirmada = false;
+      let soltar: (r: Response) => void = () => undefined;
+      const pedidos = apiDelPresupuesto(respuestaJson, {
+        ingresos: () => (confirmada ? ingresosDe([fuente(17, [ingreso(), ingreso({ fecha: '2026-11-16' })])]) : conUnaPorConfirmar),
+        publicar: () =>
+          new Promise<Response>((resolver) => {
+            soltar = (r) => {
+              confirmada = true;
+              resolver(r);
+            };
+          }),
+      });
+      await abrirIngresos();
+      await fireEvent.press(screen.getByRole('button', { name: CONFIRMAR_SALARIO }));
+      await fireEvent.press(screen.getByRole('button', { name: CONFIRMAR_SALARIO, busy: true }));
+      comprobarOcupado({ name: CONFIRMAR_SALARIO });
+      expect(focosDeTalkBack()).toEqual([]);
+      soltar(respuestaJson(201, movimiento({ tipo: 'ingreso', monto_centavos: '120000000', categoria_id: 17 })));
+      await esperarAnuncio('Listo, confirmamos tu ingreso de 1200000 pesos.');
+      expect(pedidos.filter((p) => p.metodo === 'POST')).toHaveLength(1);
+      expect(enfocada()).toEqual({ rol: 'header', nombre: 'Entran este mes' });
+      expect(focosDeTalkBack()).toHaveLength(1);
+      await waitFor(() => expect(screen.queryByRole('button', { name: CONFIRMAR_SALARIO })).not.toBeOnTheScreen());
     });
 
     it('un error al confirmar dice «No pudimos confirmar el movimiento.» y la fecha sigue', async () => {

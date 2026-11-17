@@ -7,6 +7,7 @@ import { esperarSinAnuncios, focoDeTalkBack, nombreDe, regionesVivas } from '../
 import { navegacionFalsa, propiedades } from '../ayudas/pantalla';
 import type { crearSecureStoreFalso } from '../ayudas/secureStoreFalso';
 import { campo } from '../ayudas/campos';
+import { comprobarOcupado } from '../ayudas/ocupado';
 
 jest.mock('expo-secure-store', () => jest.requireActual('../ayudas/secureStoreFalso').crearSecureStoreFalso());
 const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crearSecureStoreFalso>;
@@ -162,6 +163,7 @@ describe('PN-60 · Iniciar sesión, Android (E14-PCP 4.3)', () => {
       await llenar();
       await entrar();
       await entrar();
+      comprobarOcupado({ name: 'Iniciar sesión' });
       expect(fetchFalso).toHaveBeenCalledTimes(1);
       await act(async () => responder(respuestaJson(200, { estado: 'activa', token: 'x' })));
     });
