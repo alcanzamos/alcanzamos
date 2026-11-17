@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { AccessibilityInfo, type HostInstance } from 'react-native';
 import type { ControlDePantalla } from './componentes/Pantalla';
-import { cuandoNoHayHojasSaliendo } from './estadoDeHojas';
+import { cuandoNoHayHojas, hayHojaVisible } from './estadoDeHojas';
 
 // Lo que TalkBack dice sin que la persona mueva el foco (ACC-004, bugs 225 y 226), sin funciones obsoletas de Android
 // (L2 y L6 del dueño, sesión 4 del celular):
@@ -96,25 +96,32 @@ export function useAvisarErrores(pantalla?: RefObject<ControlDePantalla | null>)
  * botón que la abrió; después de guardar o confirmar, a un título que sigue ahí; con un aviso que la persona tiene que
  * leer, al aviso. Si la vista ya no está (el botón se fue al recargar), el foco no se mueve.
  *
- * Se pide cuando pasaron los dos eventos de los que depende, no tras una espera: (1) la animación de cierre de la hoja
- * (`HojaInferior`; con una hoja saliendo, Android todavía tiene su ventana encima y TalkBack mandaba el foco a «Navegar
- * hacia arriba»); (2) el cuadro siguiente al dibujo, cuando la pantalla ya tiene lo nuevo con su diseño (`requestAnimationFrame`
- * es el cuadro, no un retraso; `InteractionManager` está obsoleto en React Native 0.88). Un pedido nuevo reemplaza al
- * anterior, y si la pantalla se va antes, el foco no se pide.
+ * Se pide cuando pasaron los dos eventos de los que depende, no tras una espera: (1) no hay ninguna hoja en pantalla,
+ * ni abierta ni saliendo (`HojaInferior`; con una hoja saliendo, Android todavía tiene su ventana encima y TalkBack
+ * mandaba el foco a «Navegar hacia arriba»; una salida interrumpida porque la hoja se abrió de nuevo no cuenta como
+ * terminada); (2) el cuadro siguiente al dibujo, cuando la pantalla ya tiene lo nuevo con su diseño
+ * (`requestAnimationFrame` es el cuadro, no un retraso; `InteractionManager` está obsoleto en React Native 0.88). Justo
+ * antes de enviar el foco se vuelve a mirar que no haya hojas: si se abrió una en ese cuadro, se espera a que se cierre.
+ * Un pedido nuevo reemplaza al anterior, y si la pantalla se va antes, el foco no se pide.
  */
 export function useLlevarFoco() {
   const [pedido, setPedido] = useState<{ vista: RefObject<HostInstance | null> }>();
   useEffect(() => {
     if (!pedido) return;
     let cuadro: number | undefined;
-    const cancelar = cuandoNoHayHojasSaliendo(() => {
-      cuadro = requestAnimationFrame(() => {
-        const vista = pedido.vista.current;
-        if (vista) AccessibilityInfo.sendAccessibilityEvent(vista, 'focus');
+    let cancelarEspera = () => {};
+    const pedir = () => {
+      cancelarEspera = cuandoNoHayHojas(() => {
+        cuadro = requestAnimationFrame(() => {
+          if (hayHojaVisible()) return pedir();
+          const vista = pedido.vista.current;
+          if (vista) AccessibilityInfo.sendAccessibilityEvent(vista, 'focus');
+        });
       });
-    });
+    };
+    pedir();
     return () => {
-      cancelar();
+      cancelarEspera();
       if (cuadro !== undefined) cancelAnimationFrame(cuadro);
     };
   }, [pedido]);

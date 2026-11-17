@@ -68,7 +68,7 @@ export function CrearCuenta({ navigation, route }: NativeStackScreenProps<Rutas,
         {textos.crearCuenta.crear}
       </Boton>
       {aviso === avisos.errorAlCrearCuenta && (
-        <Boton variante="secundario" alTocar={() => void enviar()}>
+        <Boton variante="secundario" ocupado={enviando} alTocar={() => void enviar()}>
           {textos.acciones.intentarDeNuevo}
         </Boton>
       )}

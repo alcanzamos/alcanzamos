@@ -489,6 +489,42 @@ describe('PN-01 · «Por confirmar», Android (E14-PRR 4.1, US-60)', () => {
       await waitFor(() => expect(enfocada()).toEqual({ rol: 'header', nombre: 'Por confirmar' }));
     });
 
+    // Verificación del 2026-11-17: con la última fecha, `Movimientos` quita toda la sección con su hoja saliendo. La hoja
+    // se va sin terminar su animación: no puede quedar contada como en pantalla, ni ocultar la pantalla a TalkBack, y el
+    // foco llega una sola vez a «Periodo».
+    it('ACC-004 (bug 303): «Cambiar el monto» → «Confirmar» con la última fecha: la hoja se va con la sección, el foco llega a «Periodo» y la pantalla no queda oculta', async () => {
+      animacionesAMano();
+      let hayPendiente = true;
+      apiFalsa(respuestaJson, {
+        lista: listado({ movimientos: [gastoDeAyer] }),
+        pendientes: () => pendientes(...(hayPendiente ? [salario] : [])),
+        publicar: () => {
+          hayPendiente = false;
+          return confirmado();
+        },
+      });
+      await abrirLista();
+      await abrirMas();
+      await fireEvent.press(screen.getByRole('button', { name: 'Cambiar el monto' }));
+      await screen.findByRole('header', { name: '¿Cuánto llegó?' });
+      await terminarAnimaciones();
+      limpiarAnuncios();
+      await fireEvent.press(screen.getByRole('button', { name: 'Confirmar' }));
+      await waitFor(() => expect(screen.queryByRole('header', { name: 'Por confirmar' })).not.toBeOnTheScreen());
+
+      await waitFor(() => expect(enfocada()).toEqual({ rol: undefined, nombre: 'Periodo' }));
+      expect(screen.queryByRole('header', { name: '¿Cuánto llegó?' })).not.toBeOnTheScreen();
+      expect(focosDeTalkBack()).toHaveLength(1);
+      await terminarAnimaciones();
+      expect(focosDeTalkBack()).toHaveLength(1);
+      const ocultosConElFiltro = screen.container.queryAll(
+        (vista) =>
+          vista.props.importantForAccessibility === 'no-hide-descendants' &&
+          vista.queryAll((hijo) => hijo.props.accessibilityLabel === 'Periodo').length > 0,
+      );
+      expect(ocultosConElFiltro.length).toBe(0);
+    });
+
     it('«Ahora no» en la hoja «No pasó» no manda nada', async () => {
       const pedidos = apiFalsa(respuestaJson, { pendientes: pendientes(salario) });
       await abrirLista();

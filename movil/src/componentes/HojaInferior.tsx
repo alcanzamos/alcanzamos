@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { estiloDeTipografia } from '../fuentes';
 import { textos } from '../textos/es.generated';
 import { tokens } from '../tokens/tokens.generated';
-import { hojaSaliendo, hojaVisible } from '../estadoDeHojas';
+import { hojaVisible } from '../estadoDeHojas';
 import { SalidaDeHoja } from './HojaQueSale';
 import { IconoCerrar } from './Iconos';
 import { RegionDeAnuncios } from './RegionDeAnuncios';
@@ -72,18 +72,13 @@ export function HojaInferior({
       return () => entrada.stop();
     }
     if (!enPantalla.current) return;
-    const yaTermino = hojaSaliendo();
     const salir = animar(height, Easing.in(Easing.cubic), (terminada) => {
-      yaTermino();
       if (!terminada) return;
       enPantalla.current = false;
       setDibujada(false);
       salida?.alSalir();
     });
-    return () => {
-      salir.stop();
-      yaTermino();
-    };
+    return () => salir.stop();
   }, [abierta, height, posicion, salida]);
 
   const seDibuja = abierta || dibujada;

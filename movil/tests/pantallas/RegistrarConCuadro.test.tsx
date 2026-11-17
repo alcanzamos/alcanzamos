@@ -800,5 +800,37 @@ describe("El cuadro de lenguaje natural, Android (E14-PPN 3.1, filas 3 a 5)", ()
       expect(guardados(pedidos)).toHaveLength(1);
       await act(async () => soltar(respuestaJson(201, creado)));
     });
+
+    it("«Intentar de nuevo» sigue en pantalla y ocupado mientras guarda, un segundo toque no manda nada y el aviso se quita con la respuesta", async () => {
+      let soltar: (r: Response) => void = () => undefined;
+      let intentos = 0;
+      const pedidos = api({
+        guardar: () =>
+          intentos++ === 0
+            ? respuestaJson(500, { error: "error_interno" })
+            : new Promise<Response>((resolver) => (soltar = resolver)),
+      });
+      await irAlPaso();
+      await tocar("Confirmar y guardar");
+      await screen.findByText("No pudimos guardar tu gasto.");
+
+      await tocar("Intentar de nuevo");
+      await tocar("Intentar de nuevo");
+
+      expect(guardados(pedidos)).toHaveLength(2);
+      expect(screen.getByText("No pudimos guardar tu gasto.")).toBeOnTheScreen();
+      comprobarOcupado({ name: "Intentar de nuevo" });
+      await act(async () =>
+        soltar(
+          respuestaJson(422, {
+            error: "datos_invalidos",
+            campos: { monto_centavos: "monto_no_positivo" },
+          }),
+        ),
+      );
+
+      expect(screen.queryByText("No pudimos guardar tu gasto.")).not.toBeOnTheScreen();
+      expect(screen.queryByRole("button", { name: "Intentar de nuevo" })).not.toBeOnTheScreen();
+    });
   });
 });
