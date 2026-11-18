@@ -26,7 +26,9 @@ Nada de esto se aplica mientras siga la pausa de D-204.
 
    El correo es la variable `correos_de_alerta`. Los presupuestos por grupo de recursos van en `infra/azure` (T9).
 
-Todos los recursos llevan `lifecycle { prevent_destroy = true }`: un `tofu destroy` o quitar un bloque falla en el plan. Quitar la política exige quitar antes `prevent_destroy` a propósito, con un cambio revisado.
+Todos los recursos llevan `prevent_destroy = true`: mientras el bloque permanezca en la configuración, OpenTofu rechaza planes que lo destruyan. Eliminar el bloque también elimina esa protección; cualquier retirada de recursos exige revisión explícita.
+
+**Grupos administrados y la política de etiquetas.** La política de etiquetas no tiene exclusiones. Un grupo que Azure crea por su cuenta y sin etiquetas puede ser rechazado: `ME_…` (Container Apps con perfiles de carga de trabajo), `NetworkWatcherRG` o `DefaultResourceGroup-…`. No se puede comprobar sin Azure. Se mira en el primer despliegue de UAT. Si pasa, se suman exclusiones exactas con `not_scopes`, con el ID de cada grupo y una revisión. Nunca una exclusión amplia de los grupos del proyecto.
 
 ## Proveedores: cómo se registran, y confirmado en la documentación
 
