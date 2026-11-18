@@ -8,10 +8,6 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "= 5.11.0"
     }
-    azuread = {
-      source  = "hashicorp/azuread"
-      version = "= 3.10.0"
-    }
   }
 
   # Estado local, un archivo por ambiente (uat.tfstate, produccion.tfstate):
@@ -24,5 +20,3 @@ provider "azurerm" {
   subscription_id                 = var.subscription_id
   resource_provider_registrations = "none"
 }
-
-provider "azuread" {}

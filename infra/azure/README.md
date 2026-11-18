@@ -6,7 +6,7 @@ Es el mismo código para los dos ambientes, sin copiar la carpeta: solo cambian 
 
 | Ambiente | Suscripción | Datos | Variables |
 |---|---|---|---|
-| `uat` | Azure for Students | Financieros inventados; solo las cuentas y los buzones del dueño | [`uat.tfvars.example`](uat.tfvars.example) |
+| `uat` | Pago por uso, la misma que producción (D-205 (11)) | Financieros inventados; solo las cuentas y los buzones del dueño | [`uat.tfvars.example`](uat.tfvars.example) |
 | `produccion` | Pago por uso (D-200 (7)) | Reales | [`produccion.tfvars.example`](produccion.tfvars.example) |
 
 El desarrollo sigue en local ([`infra/local/`](../local/README.md)).
@@ -37,7 +37,7 @@ Se declaran en `ambiente.tf` (más `subscription_id`, `imagen_api` y las de ghcr
 | Variable | Producción | UAT | Notas |
 |---|---|---|---|
 | `ambiente` | `produccion` | `uat` | Solo esos dos valores. Forma los nombres y la etiqueta `ambiente` |
-| `subscription_id` | Pago por uso | Azure for Students | Sin valor por defecto |
+| `subscription_id` | Pago por uso | Pago por uso, la misma | Sin valor por defecto. Una sola suscripción para los dos ambientes (D-205 (11)) |
 | `dominio_de_correo` | `avisos.alcanzamos.co` | `avisos-uat.alcanzamos.co` | Se rechaza el de producción en UAT y otro en producción |
 | `imagen_api` | El digest probado en UAT | El digest que construye el pipeline | Solo por digest: `ghcr.io/alcanzamos/alcanzamos-api@sha256:<64 hex>` (D-200 (8)(b)). La pasa el pipeline de despliegue; una etiqueta (`:1.0.0`, `:latest`, o etiqueta y digest juntos) se rechaza |
 | `ghcr_usuario` | Usuario de GitHub del token | Igual | Dueño del token `read:packages`. Sin valor por defecto; no puede ir vacío |

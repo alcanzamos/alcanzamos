@@ -1,14 +1,17 @@
-# Un bootstrap por ambiente, cada uno en su suscripción (D-200 (8)): mismos nombres que infra/azure.
+# Un bootstrap por ambiente, los dos en la misma suscripción de pago por uso, cada uno con su grupo, su estado
+# y su identidad de pipeline (D-205 (11), E11-INF 2.17): mismos nombres que infra/azure.
 locals {
   abreviatura = {
     uat        = "uat"
     produccion = "prod"
   }
-  sufijo = "alcanzamos-${local.abreviatura[var.ambiente]}-mxc"
-  # Cuenta del estado: única en todo Azure, de 3 a 24 letras minúsculas y números. Producción conserva la aprobada.
+  # East US 2 (D-208): sufijo -eus2.
+  region = "eus2"
+  sufijo = "alcanzamos-${local.abreviatura[var.ambiente]}-${local.region}"
+  # Cuenta del estado: única en todo Azure, de 3 a 24 letras minúsculas y números.
   cuenta_de_estado = {
-    uat        = "stalcanzamostfuatmxc"
-    produccion = "stalcanzamostfmxc"
+    uat        = "stalcanzamostfuateus2"
+    produccion = "stalcanzamostfeus2"
   }
   etiquetas = {
     proyecto = "alcanzamos"
@@ -18,7 +21,6 @@ locals {
   # Proveedores aprobados por el dueño (O-14, D-076).
   proveedores = [
     "Microsoft.App",
-    "Microsoft.Communication",
     "Microsoft.DBforPostgreSQL",
     "Microsoft.Insights",
     "Microsoft.KeyVault",
