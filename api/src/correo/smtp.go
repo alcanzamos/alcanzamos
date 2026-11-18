@@ -37,22 +37,32 @@ type SMTP struct {
 	privacidad string
 	urlPublica string
 	reloj      reloj.Reloj
+	// credenciales va detrás de un puntero a propósito: fmt recorre los campos no exportados de un SMTP copiado por
+	// valor sin llamar sus métodos, y con un puntero solo imprime una dirección. Así ninguna forma de imprimir el
+	// adaptador (valor o puntero, %v, %+v, %#v, slog) deja ver la contraseña. nil si no hay credenciales.
+	credenciales *credenciales
+	raices       *x509.CertPool // raíces de confianza para TLS; nil usa las del sistema
+}
+
+// credenciales son el usuario y la contraseña del SMTP. Nunca se copian ni se imprimen: solo cifrarYAutenticar las lee.
+type credenciales struct {
 	usuario    string
 	contrasena config.Secreto
-	raices     *x509.CertPool // raíces de confianza para TLS; nil usa las del sistema
 }
 
 // NuevoSMTP arma el adaptador con la configuración ya validada.
 func NuevoSMTP(c config.Config, r reloj.Reloj) *SMTP {
-	return &SMTP{
+	s := &SMTP{
 		direccion:  c.CorreoSMTP,
 		remitente:  c.CorreoRemitente,
 		privacidad: c.CorreoPrivacidad,
 		urlPublica: c.URLPublica,
 		reloj:      r,
-		usuario:    c.CorreoUsuario,
-		contrasena: c.CorreoContrasena,
 	}
+	if c.CorreoUsuario != "" {
+		s.credenciales = &credenciales{usuario: c.CorreoUsuario, contrasena: c.CorreoContrasena}
+	}
+	return s
 }
 
 // ConRaicesDeConfianza reemplaza las raíces que validan el certificado del servidor (las pruebas usan un certificado
@@ -62,13 +72,13 @@ func (s *SMTP) ConRaicesDeConfianza(raices *x509.CertPool) *SMTP {
 	return s
 }
 
-// String no imprime la contraseña: fmt no puede ocultar un campo no exportado por sí solo.
-func (s *SMTP) String() string {
-	return "correo.SMTP{" + s.direccion + ", con credenciales: " + strconv.FormatBool(s.usuario != "") + "}"
+// String no imprime la contraseña, ni por valor ni por puntero (receptor por valor).
+func (s SMTP) String() string {
+	return "correo.SMTP{" + s.direccion + ", con credenciales: " + strconv.FormatBool(s.credenciales != nil) + "}"
 }
 
 // GoString hace lo mismo para %#v.
-func (s *SMTP) GoString() string { return s.String() }
+func (s SMTP) GoString() string { return s.String() }
 
 // EnviarVerificacion manda el mensaje de verificación. No registra el destino, el token ni el cuerpo.
 func (s *SMTP) EnviarVerificacion(ctx context.Context, destino, token string) error {
@@ -282,7 +292,7 @@ func (s *SMTP) enviar(ctx context.Context, destino string, mensaje []byte) error
 // obligatorio: sin él no se manda AUTH, ni la contraseña, ni el mensaje. La contraseña solo se lee aquí, y no sale en
 // ningún error.
 func (s *SMTP) cifrarYAutenticar(cliente *smtp.Client, host string) error {
-	conCredenciales := s.usuario != ""
+	conCredenciales := s.credenciales != nil
 	ofrece, _ := cliente.Extension("STARTTLS")
 	if !ofrece && conCredenciales {
 		// Extension oculta si el EHLO falló; Noop devuelve ese error para no confundirlo con «sin STARTTLS».
@@ -305,7 +315,7 @@ func (s *SMTP) cifrarYAutenticar(cliente *smtp.Client, host string) error {
 	if ofreceAuth, _ := cliente.Extension("AUTH"); !ofreceAuth {
 		return errorDeConfiguracion("autenticar con el servidor de correo", "el servidor no ofrece AUTH")
 	}
-	if err := cliente.Auth(smtp.PlainAuth("", s.usuario, s.contrasena.Revelar(), host)); err != nil {
+	if err := cliente.Auth(smtp.PlainAuth("", s.credenciales.usuario, s.credenciales.contrasena.Revelar(), host)); err != nil {
 		return respuesta("autenticar con el servidor de correo", etapaAUTH, err)
 	}
 	return nil

@@ -48,6 +48,8 @@ type guion struct {
 	respuestaDATA     string // la que sigue a «DATA»; 354 por defecto
 	respuestaFin      string // la que sigue al punto final; 250 por defecto
 	cortarEnMAIL      bool
+	certParaOtroHost  bool   // el certificado es de confianza pero no es válido para 127.0.0.1
+	versionMaximaTLS  uint16 // 0: la del servidor por defecto
 }
 
 // vistoPorElServidor es lo que el servidor falso observó.
@@ -94,6 +96,12 @@ func (v *vistoPorElServidor) huboComando(prefijo string) bool {
 // certificadoAutofirmado devuelve el certificado del servidor (válido para 127.0.0.1) y el conjunto de raíces que lo acepta.
 func certificadoAutofirmado(t *testing.T) (tls.Certificate, *x509.CertPool) {
 	t.Helper()
+	return certificadoPara(t, net.ParseIP("127.0.0.1"))
+}
+
+// certificadoPara es un certificado autofirmado válido solo para la IP dada.
+func certificadoPara(t *testing.T, ip net.IP) (tls.Certificate, *x509.CertPool) {
+	t.Helper()
 	clave, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		t.Fatal(err)
@@ -107,7 +115,7 @@ func certificadoAutofirmado(t *testing.T) (tls.Certificate, *x509.CertPool) {
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
 		IsCA:                  true,
-		IPAddresses:           []net.IP{net.ParseIP("127.0.0.1")},
+		IPAddresses:           []net.IP{ip},
 	}
 	der, err := x509.CreateCertificate(rand.Reader, plantilla, plantilla, &clave.PublicKey, clave)
 	if err != nil {
@@ -127,6 +135,13 @@ func certificadoAutofirmado(t *testing.T) (tls.Certificate, *x509.CertPool) {
 func servidorConAUTH(t *testing.T, g guion) (string, *vistoPorElServidor, *x509.CertPool) {
 	t.Helper()
 	cert, raices := certificadoAutofirmado(t)
+	if g.certParaOtroHost {
+		cert, raices = certificadoPara(t, net.ParseIP("10.20.30.40"))
+	}
+	cfgTLS := &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}
+	if g.versionMaximaTLS != 0 {
+		cfgTLS.MinVersion, cfgTLS.MaxVersion = tls.VersionTLS10, g.versionMaximaTLS
+	}
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -139,7 +154,7 @@ func servidorConAUTH(t *testing.T, g guion) (string, *vistoPorElServidor, *x509.
 			if err != nil {
 				return
 			}
-			go atenderConAUTH(c, g, visto, &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12})
+			go atenderConAUTH(c, g, visto, cfgTLS)
 		}
 	}()
 	return l.Addr().String(), visto, raices

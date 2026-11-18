@@ -75,9 +75,13 @@ const (
 func respuesta(contexto string, en etapa, err error) error {
 	var e *textproto.Error
 	var red net.Error
+	var op *net.OpError
 	switch {
 	case errors.As(err, &e):
 		return &ErrorDeEnvio{Categoria: categoriaDelCodigo(en, e.Code), Codigo: e.Code, Paso: contexto}
+	case en == etapaTLS && errors.As(err, &op) && op.Op == "remote error":
+		// Una alerta de TLS del servidor (versión no admitida, certificado rechazado…) es un fallo de cifrado, no de red.
+		return &ErrorDeEnvio{Categoria: ErrAutenticacion, Paso: contexto, detalle: "el servidor rechazó la negociación de TLS"}
 	case errors.Is(err, io.EOF), errors.Is(err, io.ErrUnexpectedEOF), errors.Is(err, context.DeadlineExceeded),
 		errors.Is(err, context.Canceled), errors.As(err, &red):
 		return &ErrorDeEnvio{Categoria: ErrTransitorio, Paso: contexto, causa: err}
