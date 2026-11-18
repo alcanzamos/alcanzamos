@@ -2,10 +2,15 @@
 # Cada mañana corre govulncheck en api/ y `npm audit` de producción en web/ y movil/, con las mismas versiones fijadas
 # (plantillas/pasos/) y los mismos comandos que los PR. Una vulnerabilidad se publica aunque el código no cambie: el PR
 # solo la ve si alguien abre uno; esta corrida la ve al día siguiente.
+# También corre gitleaks sobre TODO el historial de main (T22 de infra-d205, L18): el PR revisa solo sus commits
+# (`origin/main..HEAD`, plantillas/comun.yml) y esta corrida revisa el resto, con el mismo paso y la misma imagen fijada por
+# digest (plantillas/pasos/gitleaks.yml). Un secreto en el historial de main deja la corrida en Failed.
 #
 # Resultado de la corrida, que es lo que dispara el correo (README, «Revisión diaria»):
 # - Failed: una revisión falla (lo mismo que haría fallar un PR: cualquier vulnerabilidad alta o crítica de npm, o una
-#   que el código de api/ alcanza con un arreglo de 7 días o más, sin arreglo o sin fecha), o un paso de instalación falla.
+#   que el código de api/ alcanza con un arreglo de 7 días o más, sin arreglo o sin fecha), gitleaks encuentra un secreto
+#   en el historial de main (o no puede revisarlo: clon superficial, historial vacío, 0 commits revisados), o un paso de
+#   instalación falla.
 # - Partially succeeded: una revisión solo advierte. Un paso que imprime `##vso[task.logissue type=warning]…` y sale con 0
 #   termina con `##vso[task.complete result=SucceededWithIssues;]`. Pasa, por ejemplo, con una vulnerabilidad que el código
 #   alcanza y cuyo arreglo tiene menos de 7 días (pruebas/vulnerabilidades.py, D-201).
@@ -13,7 +18,7 @@
 # Lo que ya está aceptado no avisa: una vulnerabilidad solo de módulo que el código no llama (govulncheck la informa y
 # sale con 0) y una excepción vigente de movil/auditoria-excepciones.json. Una excepción vencida sí falla.
 #
-# No usa secretos ni conexiones de servicio. Gasta unos 1 a 1,6 minutos por corrida (README, «Minutos»).
+# No usa secretos ni conexiones de servicio. Gasta unos 1,4 a 2,3 minutos por corrida (README, «Minutos»; gitleaks es una estimación hasta la primera corrida).
 trigger: none
 # Sin `pr`, Azure corre un pipeline de GitHub en todo PR. Este no corre en ninguno.
 pr: none
@@ -108,3 +113,20 @@ jobs:
           fi
         workingDirectory: movil
         displayName: Vulnerabilidades de movil (npm audit, producción, altas o críticas, con excepciones documentadas)
+
+  # Historial completo de main: el PR solo revisa sus commits, así que esto es lo que revisa todo lo demás. `HEAD` es el
+  # commit de main que Azure baja para la corrida programada. El paso falla si el clon es superficial, si el historial
+  # está vacío o si gitleaks revisa 0 commits (plantillas/pasos/gitleaks.yml); no tiene `condition` ni `continueOnError`.
+  - job: gitleaks
+    displayName: gitleaks (historial completo de main)
+    timeoutInMinutes: 10
+    pool:
+      vmImage: ubuntu-24.04
+    steps:
+      # fetchDepth: 0 es obligatorio: con un clon superficial gitleaks revisaría solo los commits que bajó.
+      - checkout: self
+        fetchDepth: 0
+
+      - template: plantillas/pasos/gitleaks.yml
+        parameters:
+          rango: HEAD

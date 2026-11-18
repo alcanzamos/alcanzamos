@@ -1,0 +1,70 @@
+# Paso de gitleaks (secretos en commits), con la imagen fijada por digest.
+# Lo usan plantillas/comun.yml (el PR y la etapa comun del control único) y revision-diaria.yml (la revisión diaria):
+# la imagen y las comprobaciones viven una sola vez, así que el PR y la revisión diaria buscan con lo mismo.
+#
+# Qué revisa lo decide quien lo usa, con `rango` (el valor de `--log-opts` de gitleaks, que se lo pasa a `git log`):
+# - PR (plantillas/comun.yml): `origin/main..HEAD`, solo los commits del PR. El PR se prueba sobre su commit de fusión con
+#   main (refs/pull/<n>/merge, primer padre = punta de main): el rango es lo que el PR suma, más el commit de fusión.
+# - Revisión diaria (revision-diaria.yml): `HEAD`, todo el historial de main.
+# Antes se revisaba todo lo que bajaba el agente, incluidas las ramas de otros PR: un texto falso en la rama de otro PR
+# (L18 de odd/tasks/infra-d205.md, corridas 718 y 719) hacía fallar a todos los PR.
+#
+# Necesita el repositorio en la carpeta de trabajo con `fetchDepth: 0` (un rango sobre un clon superficial da un resultado
+# falso). El agente baja todas las ramas a refs/remotes/origin/*, así que `origin/main` existe; no se hace `git fetch`
+# porque Azure quita las credenciales después del checkout (`persistCredentials: false`) y no se deja el token en
+# `.git/config`, que el contenedor lee.
+#
+# No puede pasar en silencio. gitleaks sale con 0 y «0 commits scanned» si la referencia del rango no existe (comprobado
+# con v8.30.1: «origin/otra..HEAD» da «ERR … stderr is not empty», «0 commits scanned» y código 0) o si el rango está
+# vacío; por eso el script falla por su cuenta si:
+# - el clon es superficial;
+# - un extremo del rango no existe como commit;
+# - el rango no tiene ningún commit;
+# - gitleaks no informa cuántos commits revisó, o revisó 0 habiendo commits que no son de fusión (gitleaks no mira el diff
+#   de un commit de fusión: por eso «2 commits» de un PR pueden aparecer como «1 commits scanned»).
+# Sin `|| true`, sin `condition` y sin `continueOnError`. Un secreto sale con código 1 de gitleaks y falla el paso.
+# Lee .gitleaks.toml (raíz) del repositorio revisado. `--redact` no imprime el valor del secreto.
+parameters:
+  # Etiqueta v8.30.1 (imagen del 2026-03-21), digest del índice multiarquitectura resuelto el 2026-10-24 en ghcr.io.
+  # Cambiar la etiqueta obliga a cambiar también el digest. Es la única vez que se escribe la imagen: pruebas/filtros.py
+  # falla si otro YAML nombra una imagen de gitleaks o si esta deja de ir fijada por digest.
+  - name: imagen
+    type: string
+    default: ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+  # Obligatorio y sin valor por defecto: quien usa el paso elige qué revisa.
+  - name: rango
+    type: string
+
+steps:
+  - script: |
+      set -euo pipefail
+      cd "$FUENTES"
+      fallo() {
+        echo "##vso[task.logissue type=error]gitleaks: $1"
+        exit 1
+      }
+      [ "$(git rev-parse --is-shallow-repository)" = false ] \
+        || fallo "el clon es superficial: un rango sobre él da un resultado falso (el checkout necesita fetchDepth: 0)"
+      # Cada extremo del rango («a..b» tiene dos, «HEAD» uno) debe existir como commit.
+      for ref in ${GITLEAKS_RANGO//../ }; do
+        git rev-parse --verify --quiet "$ref^{commit}" > /dev/null \
+          || fallo "la referencia $ref del rango $GITLEAKS_RANGO no existe en este clon"
+      done
+      total=$(git rev-list --count "$GITLEAKS_RANGO")
+      sin_fusiones=$(git rev-list --count --no-merges "$GITLEAKS_RANGO")
+      [ "$total" -ge 1 ] || fallo "el rango $GITLEAKS_RANGO no tiene ningún commit: no hay nada que revisar y no se acepta como correcto"
+      echo "gitleaks: rango $GITLEAKS_RANGO, $total commits ($sin_fusiones sin contar fusiones)"
+      salida="$TEMPORAL/gitleaks.txt"
+      docker run --rm -v "$FUENTES":/repo:ro "$GITLEAKS_IMAGEN" git /repo --no-banner --redact --log-opts="$GITLEAKS_RANGO" 2>&1 | tee "$salida"
+      revisados=$(sed -e 's/\x1b\[[0-9;]*m//g' "$salida" | sed -n 's/.* \([0-9][0-9]*\) commits scanned.*/\1/p' | tail -n 1)
+      [ -n "$revisados" ] || fallo "gitleaks no informó cuántos commits revisó"
+      if [ "$revisados" -eq 0 ] && [ "$sin_fusiones" -ge 1 ]; then
+        fallo "gitleaks revisó 0 commits y el rango $GITLEAKS_RANGO tiene $sin_fusiones: no revisó nada"
+      fi
+      echo "gitleaks: revisó $revisados commits del rango $GITLEAKS_RANGO y no encontró secretos"
+    env:
+      FUENTES: $(Build.SourcesDirectory)
+      TEMPORAL: $(Agent.TempDirectory)
+      GITLEAKS_IMAGEN: ${{ parameters.imagen }}
+      GITLEAKS_RANGO: ${{ parameters.rango }}
+    displayName: Sin secretos en ${{ parameters.rango }} (gitleaks)

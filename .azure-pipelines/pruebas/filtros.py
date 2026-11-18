@@ -19,11 +19,20 @@ la etapa final `control`, que corre solo si todas quedaron bien; si alguna falla
 Un pipeline programado (con `schedules:`) se acepta solo si está en PROGRAMADOS, y entonces no sigue D-183 sino su
 propia regla: `trigger: none`, `pr: none` y una sola programación diaria sobre `main` con `always: true` (sin eso Azure
 no la corre si `main` no cambió). No entra en la simulación de los filtros: no corre en ningún PR.
+
+gitleaks (T22 de infra-d205, L18): el PR revisa solo sus commits (`origin/main..HEAD`) y la revisión diaria revisa el historial
+completo de `main` (`HEAD`), con el mismo paso (`plantillas/pasos/gitleaks.yml`) y la misma imagen fijada por digest, definida
+una sola vez. Ninguna de las dos puede pasar en silencio: la prueba comprueba la forma de los YAML (sin `|| true`, sin `condition`,
+sin `continueOnError`, `set -euo pipefail`) y corre el script del paso con un `docker` falso sobre repositorios de ejemplo
+(sin la referencia, con el rango vacío, con un clon superficial, con gitleaks que revisa 0 commits o que encuentra algo).
 """
 import re
 import importlib.util
+import os
 import pathlib
+import subprocess
 import sys
+import tempfile
 
 RAIZ = pathlib.Path(__file__).resolve().parents[2]
 CARPETA = RAIZ / ".azure-pipelines"
@@ -58,6 +67,8 @@ ESPERADO = {
     ".azure-pipelines/plantillas/pasos/go.yml": {"comun", "api"},
     ".azure-pipelines/plantillas/pasos/vulnerabilidades.yml": {"comun", "api"},
     ".azure-pipelines/plantillas/pasos/node.yml": {"comun", "web", "movil"},
+    # El paso de gitleaks lo usan `comun` (el PR) y la revisión diaria; `comun` corre siempre y esta prueba lo comprueba.
+    ".azure-pipelines/plantillas/pasos/gitleaks.yml": {"comun"},
     ".azure-pipelines/revision-diaria.yml": {"comun"},
     ".azure-pipelines/pruebas/cobertura.py": {"comun", "api"},
     ".azure-pipelines/pruebas/vulnerabilidades.py": {"comun", "api"},
@@ -514,6 +525,272 @@ def revisar_mutaciones(texto, carpetas):
     return fallas
 
 
+# --- gitleaks por PR y por día (T22, L18) -------------------------------------------------------------------------------
+PASO_GITLEAKS = "plantillas/pasos/gitleaks.yml"
+IMAGEN_GITLEAKS = re.compile(r"ghcr\.io/gitleaks/gitleaks:v\d+\.\d+\.\d+@sha256:[0-9a-f]{64}")
+# Lo que haría pasar a gitleaks en silencio. Se busca en el YAML sin comentarios.
+SILENCIOSOS = ("|| true", "||true", "continueOnError", "condition:", "failOnStderr: false", "set +e", "|| :")
+
+
+def sin_comentarios(texto):
+    return "\n".join(l for l in texto.splitlines() if not l.lstrip().startswith("#"))
+
+
+def script_del_paso(texto):
+    """El cuerpo del único `- script: |` de un paso de plantilla, sin la sangría; None si no hay uno solo."""
+    lineas = texto.splitlines()
+    inicios = [i for i, l in enumerate(lineas) if l == "  - script: |"]
+    if len(inicios) != 1:
+        return None
+    cuerpo = []
+    for l in lineas[inicios[0] + 1:]:
+        if l.strip() and not l.startswith("      "):
+            break
+        cuerpo.append(l[6:])
+    return "\n".join(cuerpo) + "\n"
+
+
+def trabajo(texto, nombre):
+    """Las líneas de `  - job: <nombre>` hasta el siguiente trabajo, o None."""
+    lineas = texto.splitlines()
+    for i, l in enumerate(lineas):
+        if l == f"  - job: {nombre}":
+            fin = next((j for j in range(i + 1, len(lineas)) if lineas[j].startswith("  - job: ")), len(lineas))
+            return "\n".join(lineas[i:fin])
+    return None
+
+
+def revisar_gitleaks(textos):
+    """`textos`: {ruta relativa a .azure-pipelines: texto}. Devuelve la lista de fallas de la forma de los YAML."""
+    fallas = []
+    paso = textos.get(PASO_GITLEAKS)
+    if paso is None:
+        return [f"falta {PASO_GITLEAKS} (el paso de gitleaks que comparten el PR y la revisión diaria)"]
+    limpio = sin_comentarios(paso)
+    # La imagen se define una sola vez, por digest, en el paso; ningún otro YAML nombra una imagen de gitleaks.
+    imagenes = {ruta: re.findall(r"ghcr\.io/gitleaks/gitleaks\S*", sin_comentarios(t)) for ruta, t in textos.items()}
+    imagenes = {r: i for r, i in imagenes.items() if i}
+    if list(imagenes) != [PASO_GITLEAKS] or len(imagenes[PASO_GITLEAKS]) != 1:
+        fallas.append(f"la imagen de gitleaks se define una sola vez, en {PASO_GITLEAKS}; aparece en {imagenes}")
+    elif not IMAGEN_GITLEAKS.fullmatch(imagenes[PASO_GITLEAKS][0]):
+        fallas.append(f"la imagen de gitleaks debe ir fijada por etiqueta y digest sha256 de 64 hex: {imagenes[PASO_GITLEAKS][0]}")
+    script = script_del_paso(paso)
+    if script is None:
+        return fallas + [f"{PASO_GITLEAKS}: debe tener un solo `- script: |`"]
+    sin_script = limpio.replace(sin_comentarios(script), "")
+    for malo in SILENCIOSOS:
+        if malo in limpio:
+            fallas.append(f"{PASO_GITLEAKS}: `{malo}` dejaría pasar a gitleaks en silencio")
+    if "set -euo pipefail" not in script.splitlines():
+        fallas.append(f"{PASO_GITLEAKS}: el script debe empezar con `set -euo pipefail` (sin pipefail, `| tee` esconde el código de gitleaks)")
+    for debe, por_que in (
+        ('--log-opts="$GITLEAKS_RANGO"', "gitleaks revisa solo el rango que se le pasa"),
+        ('"$GITLEAKS_IMAGEN" git /repo', "gitleaks corre con la imagen del parámetro"),
+        (":/repo:ro", "el repositorio entra de solo lectura"),
+        ("docker run --rm", "el contenedor se borra solo"),
+        ("is-shallow-repository", "un clon superficial no sirve para un rango"),
+        ("rev-parse --verify", "cada extremo del rango debe existir (gitleaks sale con 0 si no existe)"),
+        ('total=$(git rev-list --count "$GITLEAKS_RANGO")', "un rango vacío debe fallar (gitleaks sale con 0 sin revisar nada)"),
+        ("rev-list --count --no-merges", "gitleaks no mira el diff de las fusiones: se cuentan aparte"),
+        (r"\) commits scanned", "si gitleaks revisó 0 commits habiendo commits, debe fallar"),
+    ):
+        if debe not in script:
+            fallas.append(f"{PASO_GITLEAKS}: falta `{debe}` ({por_que})")
+    if "name: rango" not in limpio or "default:" in limpio.split("name: rango", 1)[1].split("- name:")[0]:
+        fallas.append(f"{PASO_GITLEAKS}: el parámetro `rango` es obligatorio (sin valor por defecto: quien usa el paso elige qué revisa)")
+    # El PR: `comun` revisa solo sus commits. Con fetchDepth 0 (un rango necesita la historia) y sin el paso viejo.
+    comun = textos.get("plantillas/comun.yml", "")
+    limpio_comun = sin_comentarios(comun)
+    if "- template: pasos/gitleaks.yml\n        parameters:\n          rango: origin/main..HEAD\n" not in limpio_comun + "\n":
+        fallas.append("plantillas/comun.yml: debe usar pasos/gitleaks.yml con `rango: origin/main..HEAD` (solo los commits del PR)")
+    if "checkout: self\n        fetchDepth: 0\n" not in limpio_comun:
+        fallas.append("plantillas/comun.yml: el checkout necesita `fetchDepth: 0` (un rango sin la historia da un resultado falso)")
+    if "gitleaks" in limpio_comun.replace("pasos/gitleaks.yml", "").replace("displayName", ""):
+        fallas.append("plantillas/comun.yml: gitleaks no va en línea ni con su propia imagen; solo el paso compartido")
+    # La revisión diaria: el historial completo de main con el mismo paso.
+    diaria = textos.get("../revision-diaria.yml", "")
+    job = trabajo(diaria, "gitleaks")
+    if job is None:
+        fallas.append("revision-diaria.yml: falta el trabajo `gitleaks` (el historial completo se revisa cada día)")
+    else:
+        limpio_job = sin_comentarios(job)
+        if "      - template: plantillas/pasos/gitleaks.yml\n        parameters:\n          rango: HEAD\n" not in limpio_job + "\n":
+            fallas.append("revision-diaria.yml: el trabajo gitleaks debe usar plantillas/pasos/gitleaks.yml con `rango: HEAD` (todo el historial de main)")
+        if "checkout: self\n        fetchDepth: 0\n" not in limpio_job:
+            fallas.append("revision-diaria.yml: el trabajo gitleaks necesita `fetchDepth: 0` (el historial completo)")
+        for malo in SILENCIOSOS:
+            if malo in limpio_job:
+                fallas.append(f"revision-diaria.yml: el trabajo gitleaks no puede llevar `{malo}`")
+    return fallas
+
+
+def textos_gitleaks():
+    claves = {
+        PASO_GITLEAKS: CARPETA / PASO_GITLEAKS,
+        "plantillas/comun.yml": CARPETA / "plantillas" / "comun.yml",
+        "../revision-diaria.yml": CARPETA / "revision-diaria.yml",
+    }
+    textos = {k: v.read_text(encoding="utf-8") for k, v in claves.items() if v.is_file()}
+    # El resto de los YAML: ninguno puede nombrar una imagen de gitleaks.
+    for ruta in sorted(CARPETA.rglob("*.yml")):
+        rel = ruta.relative_to(CARPETA).as_posix()
+        if rel not in textos and not any(ruta == v for v in claves.values()):
+            textos[rel] = ruta.read_text(encoding="utf-8")
+    return textos
+
+
+# Cambios que la revisión de gitleaks debe rechazar: (archivo, texto, reemplazo).
+MUTACIONES_GITLEAKS = (
+    (PASO_GITLEAKS, "set -euo pipefail", "set -eu"),
+    (PASO_GITLEAKS, '--log-opts="$GITLEAKS_RANGO"', "--redact"),
+    (PASO_GITLEAKS, ":/repo:ro", ":/repo"),
+    (PASO_GITLEAKS, "--log-opts=\"$GITLEAKS_RANGO\" 2>&1 | tee", "--log-opts=\"$GITLEAKS_RANGO\" 2>&1 || true | tee"),
+    (PASO_GITLEAKS, "    displayName:", "    condition: false\n    displayName:"),
+    (PASO_GITLEAKS, "    displayName:", "    continueOnError: true\n    displayName:"),
+    (PASO_GITLEAKS, "is-shallow-repository", "rev-parse"),
+    (PASO_GITLEAKS, 'total=$(git rev-list --count "$GITLEAKS_RANGO")', 'total=$(git rev-list "$GITLEAKS_RANGO" | wc -l)'),
+    (PASO_GITLEAKS, "rev-list --count --no-merges", "rev-list --count"),
+    (PASO_GITLEAKS, r"\) commits scanned", r"\) commits"),
+    (PASO_GITLEAKS, "@sha256:", "@sha257:"),
+    (PASO_GITLEAKS, "  - name: rango\n    type: string\n", "  - name: rango\n    type: string\n    default: HEAD\n"),
+    ("plantillas/comun.yml", "rango: origin/main..HEAD", "rango: HEAD"),
+    ("plantillas/comun.yml", "        fetchDepth: 0\n", "        fetchDepth: 50\n"),
+    ("plantillas/comun.yml", "      - template: pasos/gitleaks.yml\n", "      - script: docker run ghcr.io/gitleaks/gitleaks:latest git /repo\n      - template: pasos/gitleaks.yml\n"),
+    ("../revision-diaria.yml", "rango: HEAD", "rango: HEAD~1..HEAD"),
+    ("../revision-diaria.yml", "  - job: gitleaks\n", "  - job: gitleaks\n    condition: false\n"),
+    ("../revision-diaria.yml", "  - job: gitleaks\n", "  - job: gitleaks2\n"),
+)
+
+
+def revisar_mutaciones_gitleaks(textos):
+    fallas = []
+    for archivo, viejo, nuevo in MUTACIONES_GITLEAKS:
+        texto = textos.get(archivo, "")
+        if texto.count(viejo) < 1:
+            fallas.append(f"mutación sin su texto en {archivo}: {viejo!r}")
+            continue
+        mutados = dict(textos)
+        mutados[archivo] = texto.replace(viejo, nuevo, 1)
+        if not revisar_gitleaks(mutados):
+            fallas.append(f"la revisión de gitleaks no detecta el cambio en {archivo}: {viejo!r} -> {nuevo!r}")
+    return fallas
+
+
+DOCKER_FALSO = """#!/usr/bin/env bash
+printf '%s\\n' "$@" > "$DOCKER_ARGS"
+printf '%s\\n' "$FALSO_SALIDA"
+exit "${FALSO_CODIGO:-0}"
+"""
+
+
+def git(cwd, *args):
+    entorno = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull,
+               "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.invalid",
+               "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@example.invalid"}
+    subprocess.run(["git", *args], cwd=cwd, env=entorno, check=True, capture_output=True)
+
+
+def repo_de_ejemplo(destino, origin_main=True, commits_del_pr=2):
+    """main con 2 commits; origin/main en el segundo; el PR suma `commits_del_pr` commits y un commit de fusión al final."""
+    git(destino, "init", "-q", "-b", "main")
+    for n in (1, 2):
+        (destino / "a.txt").write_text(f"base {n}\n")
+        git(destino, "add", "-A")
+        git(destino, "commit", "-q", "-m", f"base {n}")
+    if origin_main:
+        git(destino, "update-ref", "refs/remotes/origin/main", "HEAD")
+    git(destino, "checkout", "-q", "-b", "pr")
+    for n in range(commits_del_pr):
+        (destino / f"pr{n}.txt").write_text(f"pr {n}\n")
+        git(destino, "add", "-A")
+        git(destino, "commit", "-q", "-m", f"pr {n}")
+
+
+def correr_paso(raiz_repo, script, rango, salida_falsa, codigo=0, bin_falso=None, args=None):
+    """Corre el script del paso con un `docker` falso. Devuelve (código, salida, argumentos que recibió docker o None)."""
+    entorno = {**os.environ, "PATH": f"{bin_falso}{os.pathsep}{os.environ['PATH']}", "GITLEAKS_RANGO": rango,
+               "GITLEAKS_IMAGEN": "ghcr.io/gitleaks/gitleaks:v0.0.0@sha256:" + "0" * 64, "FUENTES": str(raiz_repo),
+               "TEMPORAL": str(bin_falso), "DOCKER_ARGS": str(args), "FALSO_SALIDA": salida_falsa, "FALSO_CODIGO": str(codigo),
+               "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull}
+    r = subprocess.run(["bash", "-c", script], cwd=raiz_repo, env=entorno, capture_output=True, text=True)
+    recibido = args.read_text().splitlines() if args.is_file() else None
+    return r.returncode, r.stdout + r.stderr, recibido
+
+
+def probar_script_gitleaks(script):
+    """Corre el script del paso con un docker falso. Devuelve la lista de fallas. Cada caso dice qué debe pasar."""
+    fallas = []
+    if script is None:
+        return [f"{PASO_GITLEAKS}: sin script que probar"]
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        bin_falso = tmp / "bin"
+        bin_falso.mkdir()
+        (bin_falso / "docker").write_text(DOCKER_FALSO)
+        (bin_falso / "docker").chmod(0o755)
+        args = tmp / "docker-args.txt"
+        ok = "INF 2 commits scanned.\nINF no leaks found"
+        contador = []
+
+        def caso(nombre, cuando, rango, salida, codigo, debe_pasar, llama_a_docker, esperado_en_args=(), mensaje=""):
+            contador.append(nombre)
+            carpeta = tmp / f"caso{len(contador)}"
+            carpeta.mkdir()
+            if args.is_file():
+                args.unlink()
+            cuando(carpeta)
+            repo = carpeta / "r"
+            if not repo.is_dir():
+                repo = carpeta
+            rc, texto, recibido = correr_paso(repo, script, rango, salida, codigo, bin_falso, args)
+            bien = (rc == 0) == debe_pasar and (recibido is not None) == llama_a_docker
+            bien = bien and all(x in (recibido or []) for x in esperado_en_args) and mensaje in texto
+            print(f"{'ok' if bien else 'FALLA':5} gitleaks (paso): {nombre}: código {rc}, docker {'llamado' if recibido is not None else 'no llamado'}")
+            if not bien:
+                fallas.append(f"gitleaks (paso): {nombre}: código {rc}, docker {recibido}\n{texto}")
+
+        def normal(c):
+            repo_de_ejemplo(c)
+
+        def sin_origin_main(c):
+            repo_de_ejemplo(c, origin_main=False)
+
+        def rango_vacio(c):
+            repo_de_ejemplo(c)
+            git(c, "checkout", "-q", "main")
+
+        def superficial(c):
+            repo_de_ejemplo(c)
+            subprocess.run(["git", "clone", "-q", "--depth", "1", "--no-local", "--branch", "pr", f"file://{c}", str(c / "r")],
+                           check=True, capture_output=True, env={**os.environ, "GIT_CONFIG_GLOBAL": os.devnull})
+
+        def completo(c):
+            repo_de_ejemplo(c)
+            git(c, "checkout", "-q", "main")
+
+        rango_pr = "origin/main..HEAD"
+        caso("PR con 2 commits: gitleaks recibe solo el rango", normal, rango_pr, ok, 0, True, True,
+             (f"--log-opts={rango_pr}", "git", "/repo", "--redact", "--no-banner"))
+        caso("gitleaks encuentra un secreto (código 1): el paso falla", normal, rango_pr, "INF 2 commits scanned.\nWRN leaks found: 1", 1, False, True,
+             mensaje="leaks found: 1")
+        caso("falta origin/main: el paso falla sin llamar a gitleaks", sin_origin_main, rango_pr, ok, 0, False, False,
+             mensaje="la referencia origin/main del rango origin/main..HEAD no existe")
+        caso("rango vacío (HEAD ya está en origin/main): el paso falla", rango_vacio, rango_pr, ok, 0, False, False,
+             mensaje="no tiene ningún commit")
+        caso("clon superficial: el paso falla", superficial, rango_pr, ok, 0, False, False, mensaje="el clon es superficial")
+        caso("gitleaks revisó 0 commits habiendo commits: el paso falla", normal, rango_pr, "INF 0 commits scanned.\nINF no leaks found", 0, False, True,
+             mensaje="gitleaks revisó 0 commits")
+        caso("gitleaks no informa cuántos commits revisó: el paso falla", normal, rango_pr, "INF no leaks found", 0, False, True,
+             mensaje="gitleaks no informó cuántos commits revisó")
+        caso("una referencia inexistente en el rango: el paso falla sin llamar a gitleaks", normal, "origin/otra..HEAD", ok, 0, False, False,
+             mensaje="la referencia origin/otra del rango origin/otra..HEAD no existe")
+        caso("revisión diaria: HEAD revisa todo el historial de main", completo, "HEAD", "INF 2 commits scanned.", 0, True, True,
+             ("--log-opts=HEAD",))
+        caso("revisión diaria con un secreto (código 1): el paso falla", completo, "HEAD", "INF 2 commits scanned.\nWRN leaks found: 1", 1, False, True,
+             mensaje="leaks found: 1")
+    return fallas
+
+
 def main():
     textos = {p.stem: p.read_text(encoding="utf-8") for p in sorted(CARPETA.glob("*.yml"))}
     pipelines = {n: filtros_pr(t) for n, t in textos.items()}
@@ -561,6 +838,15 @@ def main():
     print(f"{'ok' if not programados else 'FALLA':5} programados ({', '.join(sorted(PROGRAMADOS))}): trigger y pr none, "
           "una programación diaria solo sobre main con always: true")
     fallas += programados
+    textos_g = textos_gitleaks()
+    paso_g = textos_g.get(PASO_GITLEAKS)
+    gitleaks = revisar_gitleaks(textos_g) + revisar_mutaciones_gitleaks(textos_g) + (
+        probar_script_gitleaks(script_del_paso(paso_g)) if paso_g is not None else [])
+    for falla in gitleaks:
+        print(f"FALLA {falla}")
+    print(f"{'ok' if not gitleaks else 'FALLA':5} gitleaks (T22): el PR revisa solo sus commits, la revisión diaria todo el historial, "
+          "con el mismo paso y la misma imagen por digest, y ninguna de las dos pasa en silencio")
+    fallas += gitleaks
     plantillas = revisar_plantillas()
     for falla in plantillas:
         print(f"FALLA {falla}")

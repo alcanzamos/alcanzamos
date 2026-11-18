@@ -1,4 +1,4 @@
-# Trabajo de `comun`: secretos (gitleaks), título del PR (commitlint) y prueba de los filtros y del control único.
+# Trabajo de `comun`: secretos (gitleaks, solo los commits del PR), título del PR (commitlint) y prueba de los filtros y del control único.
 # Lo usan comun.yml y la etapa comun del control único (control.yml, D-177): los pasos
 # viven una sola vez. Qué hace cada paso y cuándo corre el pipeline: en comun.yml y en el README de esta carpeta.
 jobs:
@@ -6,9 +6,6 @@ jobs:
     pool:
       vmImage: ubuntu-24.04
     variables:
-      # Etiqueta v8.30.1 (imagen del 2026-03-21), digest del índice multiarquitectura resuelto el 2026-10-24 en ghcr.io.
-      # Cambiar la etiqueta obliga a cambiar también el digest.
-      GITLEAKS_IMAGEN: ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
       NODE_VERSION: 24.22.1
       # SHA-256 fijado a mano desde https://nodejs.org/dist/v24.22.1/SHASUMS256.txt (consultado el 2026-10-22).
       # Cambiar la versión obliga a cambiar también esta suma, plantillas/pasos/node.yml (web, movil y la revisión diaria)
@@ -24,11 +21,14 @@ jobs:
       - checkout: self
         fetchDepth: 0
 
-      - script: >
-          docker run --rm -v "$(Build.SourcesDirectory)":/repo:ro
-          $(GITLEAKS_IMAGEN)
-          git /repo --no-banner --redact
-        displayName: Sin secretos en el historial (gitleaks)
+      # gitleaks revisa solo los commits del PR: el PR se prueba sobre su commit de fusión con main y `origin/main..HEAD` es
+      # lo que suma. Antes revisaba todo el historial que bajaba el agente, también el de las ramas de otros PR, y un texto
+      # falso en la rama de otro PR hacía fallar a todos (L18). El historial completo de main lo revisa la revisión diaria
+      # (revision-diaria.yml). La imagen y las comprobaciones (rango vacío, referencia ausente, clon superficial) viven en
+      # plantillas/pasos/gitleaks.yml, que también usa la revisión diaria.
+      - template: pasos/gitleaks.yml
+        parameters:
+          rango: origin/main..HEAD
 
       # Se descarga el tarball oficial y se verifica antes de descomprimirlo.
       - script: |
