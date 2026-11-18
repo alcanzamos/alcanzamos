@@ -67,6 +67,13 @@ ESPERADO = {
     "web/src/PantallaPrueba.tsx": {"comun", "web", "api"},
     "web/package.json": {"comun", "web", "api"},
     "web/tests/dinero.test.ts": {"comun", "web", "api"},
+    # web/servidor es un módulo de Go aparte (el servidor de ca-web): sus pruebas corren en la etapa api (plantillas/api.yml),
+    # que ya corre con cualquier cambio de web/*; la etapa web, con web/*, también.
+    "web/servidor/go.mod": {"comun", "web", "api"},
+    "web/servidor/main.go": {"comun", "web", "api"},
+    "web/servidor/.golangci.yml": {"comun", "web", "api"},
+    "web/servidor/internal/servidor/manejador.go": {"comun", "web", "api"},
+    "web/servidor/internal/servidor/manejador_test.go": {"comun", "web", "api"},
     ".azure-pipelines/web.yml": {"comun", "web"},
     ".azure-pipelines/plantillas/web.yml": {"comun", "web"},
     # Estos casos protegen S11 (D-161): `comun` usa web/scripts/antiguedad*.mjs para commitlint y no filtra por ruta (corre con
@@ -289,6 +296,52 @@ def revisar_plantillas():
             plantilla = linea.strip()[len("- template: "):]
             if linea.strip().startswith("- template: ") and not (CARPETA / plantilla).is_file():
                 fallas.append(f"{p.name}: falta la plantilla {plantilla}")
+    return fallas
+
+
+# Pasos de Go que plantillas/api.yml debe correr en cada módulo de Go aparte (uno por go.mod que no sea el del API).
+PASOS_GO = ("test -z \"$(gofmt -l .)\"", "go vet ./...", "golangci-lint", "go test -race ./...")
+
+
+def modulos_go():
+    """Carpetas (relativas a la raíz del repositorio, con «/») que tienen un go.mod."""
+    modulos = []
+    for ruta in sorted(RAIZ.rglob("go.mod")):
+        partes = ruta.relative_to(RAIZ).parts
+        if not {"node_modules", ".git", "dist", "vendor"} & set(partes):
+            modulos.append("/".join(partes[:-1]))
+    return modulos
+
+
+def revisar_modulos_go(plantilla, modulos, filtros_api):
+    """Todo módulo de Go aparte (cada go.mod que no sea el de `api`) tiene sus pasos en plantillas/api.yml, y su
+    carpeta dispara la etapa api. Si no, sus pruebas no correrían en ningún PR. Devuelve la lista de fallas."""
+    fallas = []
+    for carpeta in modulos:
+        if not carpeta or carpeta == "api":
+            continue
+        if not any(coincide(f, f"{carpeta}/go.mod") for f in filtros_api):
+            fallas.append(f"{carpeta}: tiene go.mod y su carpeta no dispara la etapa api")
+        # Cada paso se busca dentro de su bloque: el `script` y el `workingDirectory` de esa carpeta.
+        bloques = [b for b in plantilla.split("      - script:")[1:] if f"workingDirectory: {carpeta}\n" in b]
+        for paso in PASOS_GO:
+            if not any(paso in b for b in bloques):
+                fallas.append(f"{carpeta}: plantillas/api.yml no corre `{paso}` con workingDirectory: {carpeta}")
+    return fallas
+
+
+def revisar_mutaciones_modulos_go(plantilla, modulos, filtros_api):
+    """La revisión de los módulos de Go detecta que falte un paso o que el módulo no dispare la etapa api."""
+    fallas = []
+    if not any(m for m in modulos if m and m != "api"):
+        return ["no hay ningún módulo de Go aparte con el que probar la revisión (web/servidor)"]
+    for paso in PASOS_GO:
+        if paso not in plantilla:
+            fallas.append(f"mutación sin su texto en plantillas/api.yml: {paso!r}")
+        elif not revisar_modulos_go(plantilla.replace(paso, "echo omitido"), modulos, filtros_api):
+            fallas.append(f"la revisión de módulos de Go no detecta que falte `{paso}`")
+    if not revisar_modulos_go(plantilla, modulos, [f for f in filtros_api if not f.startswith("web/")]):
+        fallas.append("la revisión de módulos de Go no detecta que la carpeta no dispare la etapa api")
     return fallas
 
 
@@ -566,6 +619,13 @@ def main():
         print(f"FALLA {falla}")
     print(f"{'ok' if not plantillas else 'FALLA':5} cada pipeline corre su plantilla y las plantillas existen")
     fallas += plantillas
+    plantilla_api = (CARPETA / "plantillas" / "api.yml").read_text(encoding="utf-8")
+    modulos = revisar_modulos_go(plantilla_api, modulos_go(), por_carpeta["api"] or [])
+    modulos += revisar_mutaciones_modulos_go(plantilla_api, modulos_go(), por_carpeta["api"] or [])
+    for falla in modulos:
+        print(f"FALLA {falla}")
+    print(f"{'ok' if not modulos else 'FALLA':5} cada módulo de Go aparte (web/servidor) corre sus pruebas en plantillas/api.yml")
+    fallas += modulos
     sin_caso = set(por_carpeta) - set().union(*ESPERADO.values())
     if sin_caso:
         fallas.append(f"pipelines sin caso en ESPERADO: {sorted(sin_caso)}")

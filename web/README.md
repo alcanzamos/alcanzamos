@@ -181,6 +181,45 @@ npx playwright install chromium            # en Linux, si faltan librerías: npx
 
 `npm run e2e` compila la app y levanta `vite preview` en `127.0.0.1:4173` (si ya hay uno, lo reutiliza). Con el API simulado en `page.route` (`e2e/ayudas.ts`: un pedido sin manejador hace fallar la prueba), comprueba cero violaciones de axe-core, la CSP exacta, el logo propio, la columna de 560 px y que no haya pedidos a otros orígenes.
 
+## Servidor de ca-web (`web/servidor/`)
+
+Servidor de archivos estáticos de la web separada del API (infra-d205, T14; E11-INF 2.16). Es un módulo de Go aparte (`web/servidor/go.mod`, Go 1.27.4 como el API), solo con la biblioteca estándar. Sirve la carpeta que deja `npm run build` (`web/dist`) y se ejecuta como el Container App `ca-web`. Hasta que lleguen la imagen (T13) y el API sin la web (T17), el API sigue sirviendo la web embebida.
+
+### Cómo se corre
+
+Desde `web/`, con la web compilada (`npm run build`) y el API de desarrollo en otro puerto:
+
+```
+cd servidor
+API_URL=http://localhost:8080 PERMITIR_API_LOCAL=true DIRECTORIO_WEB=../dist PUERTO=5173 go run .
+```
+
+Las pruebas, desde `web/servidor/`: `go test -race ./...`. También corren `gofmt`, `go vet` y `golangci-lint` (la configuración es `web/servidor/.golangci.yml`; el binario es el que fija `api/go.mod`: `"$(go -C ../../api tool -n golangci-lint)" run`). En CI corren en la etapa `api` de `.azure-pipelines/plantillas/api.yml`, que ya corre con cualquier cambio de `web/*`.
+
+### Variables de entorno
+
+- `API_URL` (obligatoria): la URL del API de este ambiente, `https://api.alcanzamos.co` o `https://api-uat.alcanzamos.co`. Debe ser solo un origen: `https://`, un host de nombre DNS y, si hace falta, un puerto; sin usuario, ruta, consulta ni fragmento (una barra final se quita). Si falta o no cumple, el servidor **no arranca**: escribe `error: API_URL …` en stderr y sale con código 1. No repite el valor recibido.
+- `PERMITIR_API_LOCAL` (solo desarrollo): con el valor exacto `true`, `API_URL` puede ser `http://localhost`, `http://127.0.0.1` o `http://[::1]` (con puerto). Cualquier otro valor, o ningún otro host con `http://`, se rechaza. **Nunca se define en Azure ni en la imagen.**
+- `PUERTO` (por defecto `8080`): el puerto de escucha, de 0 a 65535 (0: el sistema elige uno). Es el puerto de destino (target port) de la entrada de `ca-web`. La imagen final corre sin privilegios (`nonroot`), así que no sirve un puerto menor de 1024.
+- `DIRECTORIO_WEB` (por defecto `dist`, relativo a la carpeta donde corre): la carpeta con la web compilada. Debe tener `index.html`, o el servidor no arranca. La imagen la fija a donde copia la web.
+
+### Qué responde
+
+- `/config.json`: lo arma el servidor al arrancar, `{"url_api":"<origen de API_URL>"}`, con `Cache-Control: no-store`. Tapa a cualquier `config.json` de la carpeta. La web lo lee antes de montar (T16).
+- `/salud`: `{"estado":"ok"}` con `Cache-Control: no-store`, para las sondas de vida y de arranque de Container Apps.
+- `/assets/*` existente: `Cache-Control: public, max-age=31536000, immutable` (el nombre lleva el hash del contenido).
+- `index.html` y cualquier otro archivo existente: `Cache-Control: no-cache`.
+- Toda otra ruta `GET` o `HEAD`, también un archivo de `assets/` que no existe y una ruta `/api/…`, devuelve `index.html` con `no-cache` (aplicación de una página), como el API de hoy (`api/src/servidor/estatico.go`). Otro método responde 405 con `Allow: GET, HEAD`. Sin `index.html` en la carpeta, 404.
+- Cabeceras en toda respuesta, errores incluidos:
+  - `Content-Security-Policy: default-src 'self'; connect-src 'self' <origen de API_URL>; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'`. Es la política de hoy del API (`api/src/servidor/servidor.go`) más el `connect-src` con el origen exacto del API. `web/vite.config.ts` y `web/e2e/csp.spec.ts` la repiten sin el API: si cambia aquí, debe cambiar allá.
+  - `X-Content-Type-Options: nosniff`.
+  - El API de hoy no manda más cabeceras de seguridad para la web (ni `Referrer-Policy`, ni `X-Frame-Options`, ni HSTS): `frame-ancestors 'none'` ya cubre el encuadre y el TLS lo termina la entrada de Container Apps.
+
+### Registro y apagado
+
+- No registra peticiones ni direcciones IP: el registro (JSON, en stdout) solo dice que arrancó (puerto, carpeta y origen del API) y que se apagó. El registro de errores de `net/http`, que trae la dirección del cliente, se descarta.
+- Con `SIGTERM` o `SIGINT` deja de aceptar conexiones, deja terminar las peticiones en curso (hasta 10 s) y sale con código 0.
+
 ## Reglas que se hacen cumplir
 
 - `strict` en TypeScript; ESLint prohíbe `any` explícito y `@ts-ignore` sin descripción.
