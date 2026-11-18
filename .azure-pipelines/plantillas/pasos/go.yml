@@ -4,7 +4,7 @@
 # que corre, así que el PR y la revisión diaria deben usar la misma.
 # Los parámetros no se pasan desde quien usa la plantilla: su valor por defecto es la versión fijada.
 parameters:
-  # Cambiar la versión obliga a cambiar también la suma, api/Dockerfile y api/go.mod.
+  # Cambiar la versión obliga a cambiar también la suma, api/Dockerfile, api/go.mod y web/servidor/go.mod.
   - name: version
     type: string
     default: 1.27.4

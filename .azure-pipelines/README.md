@@ -100,6 +100,8 @@ Cada corrida gasta minutos del cupo gratuito (1.800 por mes, D-116). Para que ca
 - **Los PR encadenados** (con base en otra rama) no corren hasta que su base es `main`.
 - **Cambios chicos del mismo componente** van juntos en un PR, bajo el tope de unas 600 líneas.
 
+**Módulos de Go aparte.** Cada `go.mod` que no es el de `api/` (hoy, `web/servidor`) tiene que correr en `plantillas/api.yml` cuatro pasos en su carpeta: `gofmt -l`, `go vet ./...`, `golangci-lint run` y `go test -race ./...`. `pruebas/filtros.py` lee cada paso y rechaza un comando reemplazado por `echo`, comentado, seguido de `|| true`, en otra carpeta, o apagado con `condition`, `enabled: false` o `continueOnError: true`. También exige que el filtro de la etapa `api` cubra el código del módulo, no solo su `go.mod`. Los casos están en `pruebas/filtros_regresion.py`, que corre desde `filtros.py`.
+
 `pruebas/filtros.py` comprueba que cada pipeline tenga `trigger: none` y `pr.drafts: false`, también `control.yml`. La única excepción es la revisión diaria (`revision-diaria.yml`), que no corre en ningún PR: tiene `pr: none` y su propia comprobación (sección «Revisión diaria»).
 
 Ojo: hasta que el dueño cambie la protección (sección «Control único»), el único check obligatorio para fusionar es `comun`. Los de `api`, `web`, `movil`, `infra` y `reglas` hay que mirarlos antes de fusionar. Después, el único check obligatorio es `control`, que ya incluye los de las carpetas que cambiaron.
