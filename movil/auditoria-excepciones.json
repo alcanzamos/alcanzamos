@@ -1,1 +1,33 @@
-[]
+[
+  {
+    "ghsa": "GHSA-fc5q-39xc-vjpf",
+    "paquete": "picomatch",
+    "rutas": [
+      "expo > @expo/metro > metro > jest-worker > jest-util > picomatch",
+      "expo > @expo/metro > metro > metro-file-map > jest-worker > jest-util > picomatch",
+      "expo > @expo/metro > metro > metro-file-map > micromatch > picomatch",
+      "expo > @expo/metro > metro-config > metro > jest-worker > jest-util > picomatch",
+      "expo > @expo/metro > metro-config > metro > metro-file-map > jest-worker > jest-util > picomatch",
+      "expo > @expo/metro > metro-config > metro > metro-file-map > micromatch > picomatch",
+      "expo > @expo/metro > metro-file-map > jest-worker > jest-util > picomatch",
+      "expo > @expo/metro > metro-file-map > micromatch > picomatch",
+      "expo > @expo/metro > metro-transform-worker > metro > jest-worker > jest-util > picomatch",
+      "expo > @expo/metro > metro-transform-worker > metro > metro-file-map > jest-worker > jest-util > picomatch",
+      "expo > @expo/metro > metro-transform-worker > metro > metro-file-map > micromatch > picomatch",
+      "expo > babel-preset-expo > @react-native/babel-plugin-codegen > @react-native/codegen > tinyglobby > fdir > picomatch",
+      "expo > babel-preset-expo > @react-native/babel-plugin-codegen > @react-native/codegen > tinyglobby > picomatch",
+      "react-native > @react-native/codegen > tinyglobby > fdir > picomatch",
+      "react-native > @react-native/codegen > tinyglobby > picomatch",
+      "react-native > tinyglobby > fdir > picomatch",
+      "react-native > tinyglobby > picomatch"
+    ],
+    "rutas_intermitentes": [
+      "react-native > @react-native/community-cli-plugin > metro > jest-worker > jest-util > picomatch",
+      "react-native > @react-native/community-cli-plugin > metro > metro-file-map > jest-worker > jest-util > picomatch",
+      "react-native > @react-native/community-cli-plugin > metro > metro-file-map > micromatch > picomatch"
+    ],
+    "motivo": "picomatch convierte patrones de archivos (globs) en expresiones regulares. El aviso es un ReDoS alto: un patrón con extglobs repetidos de una sola rama puede dejar la CPU ocupada (afecta hasta la 4.0.7). No tiene versión corregida: la «corrección» que ofrece npm es bajar a react-native 0.83.10, y GitHub actualizó el aviso el 2026-11-17 (informe de la revisión diaria 717, main 905f696). Llega por 17 caminos, todos de compilación: Metro (por @expo/metro, con jest-worker, jest-util y micromatch), el codegen de React Native y tinyglobby (con fdir). En algunas corridas de npm audit (con el mismo lockfile) llegan 3 caminos más, por @react-native/community-cli-plugin: están en rutas_intermitentes (cambio a D-150, D-209). Corren en la máquina de desarrollo y en el pipeline, no en la app que se instala: ningún archivo de src/ importa picomatch y `npm run comprobar-bundle` falla si sus marcas aparecen en el paquete de JavaScript. Aprobada en D-209 con el mismo patrón de D-150. Se revisa en el cierre de I07 (2026-11-23); cuando haya versión corregida se sube y se quita la excepción.",
+    "revisado": "2026-11-18",
+    "revisar_antes_de": "2026-11-23"
+  }
+]

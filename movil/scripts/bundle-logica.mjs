@@ -10,11 +10,25 @@
 // - argparse y caniuse-lite (D-182): las excepciones de licencia son permanentes porque «no van en la app», y esto lo
 //   comprueba el pipeline. argparse: los nombres de clase y de método (`ArgumentParser`, `ArgumentError`, `add_argument`);
 //   caniuse-lite: su nombre y la ruta de su desempaquetador de datos.
+// - picomatch (D-209, con el patrón de D-150): la excepción de auditoría de GHSA-fc5q-39xc-vjpf se apoya en que solo lo
+//   usan Metro, el codegen de React Native y tinyglobby en compilación. Además del nombre, tres mensajes de error que son
+//   texto literal en `lib/picomatch.js` y `lib/parse.js` y están igual en la 2.3.2 y en la 4.0.7 (las dos versiones
+//   instaladas): `Expected pattern to be a non-empty string`, `exceeds maximum allowed length` (la parte fija de
+//   `Input length: ${len}, exceeds maximum allowed length: ${max}`) y `to match literal characters` (cola de
+//   `Missing ${type}: "${char}" - use ...`). Se eligieron mensajes y no nombres de función porque la minificación
+//   renombra los identificadores y deja las cadenas.
 export const MARCAS_POR_PAQUETE = {
   "node-forge": ["node_modules/node-forge", "node-forge", "RSASSA-PKCS1-V1_5", "1.2.840.113549"],
   zod: ["node_modules/zod", "ZodError", "invalid_type", "too_small", "invalid_enum_value"],
   argparse: ["node_modules/argparse", "ArgumentParser", "ArgumentError", "add_argument"],
   "caniuse-lite": ["node_modules/caniuse-lite", "caniuse-lite"],
+  picomatch: [
+    "node_modules/picomatch",
+    "picomatch",
+    "Expected pattern to be a non-empty string",
+    "exceeds maximum allowed length",
+    "to match literal characters",
+  ],
 };
 
 // Se conserva para quien use solo las marcas de node-forge.

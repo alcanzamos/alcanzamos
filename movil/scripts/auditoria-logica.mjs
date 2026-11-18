@@ -5,6 +5,10 @@
 // nombre de otro paquete vulnerable del que depende. Solo los objetos son avisos; los nombres son propagación.
 // Falla todo aviso alto o crítico que no esté en `auditoria-excepciones.json`, y toda excepción que ya no se
 // reporte, cuyo camino de dependencias haya cambiado o cuya fecha `revisar_antes_de` (D-150) ya pasó.
+//
+// `rutas` son los caminos que el informe debe traer siempre: falta uno y falla. `rutas_intermitentes` (opcional,
+// D-209, cambio a D-150) son caminos que npm audit informa en unas corridas y en otras no con el mismo lockfile:
+// pueden estar o no estar. Un camino que no está en ninguna de las dos listas falla. Vencen con `revisar_antes_de`.
 
 const GRAVES = new Set(["high", "critical"]);
 
@@ -68,6 +72,23 @@ export function validarExcepciones(excepciones) {
         (Array.isArray(valor) && (valor.length === 0 || valor.some((r) => typeof r !== "string" || r.trim() === "")));
       if (vacio) errores.push(`la excepción ${i + 1} no tiene «${campo}»`);
     }
+    if (e?.rutas_intermitentes !== undefined) {
+      const lista = e.rutas_intermitentes;
+      if (!Array.isArray(lista) || lista.length === 0 || lista.some((r) => typeof r !== "string" || r.trim() === "")) {
+        errores.push(`la excepción ${i + 1} tiene «rutas_intermitentes» que no es una lista de rutas`);
+      } else {
+        const repetidas = [...new Set(lista.filter((r, j) => lista.indexOf(r) !== j))];
+        if (repetidas.length > 0) {
+          errores.push(`la excepción ${i + 1} repite en «rutas_intermitentes»: ${repetidas.join("; ")}`);
+        }
+        const solapadas = [...new Set(lista.filter((r) => Array.isArray(e.rutas) && e.rutas.includes(r)))];
+        if (solapadas.length > 0) {
+          errores.push(
+            `la excepción ${i + 1} tiene en «rutas_intermitentes» rutas que ya están en «rutas»: ${solapadas.join("; ")}`,
+          );
+        }
+      }
+    }
     for (const campo of ["revisado", "revisar_antes_de"]) {
       if (typeof e?.[campo] === "string" && e[campo].trim() !== "" && !FECHA.test(e[campo])) {
         errores.push(`la excepción ${i + 1} tiene «${campo}» que no es una fecha AAAA-MM-DD`);
@@ -101,7 +122,8 @@ export function revisar(informe, excepciones, hoy = hoyUtc()) {
       );
       continue;
     }
-    const nuevas = aviso.caminos.filter((c) => !excepcion.rutas.includes(c));
+    const intermitentes = excepcion.rutas_intermitentes ?? [];
+    const nuevas = aviso.caminos.filter((c) => !excepcion.rutas.includes(c) && !intermitentes.includes(c));
     const perdidas = excepcion.rutas.filter((r) => !aviso.caminos.includes(r));
     if (nuevas.length > 0 || perdidas.length > 0) {
       fallas.push(

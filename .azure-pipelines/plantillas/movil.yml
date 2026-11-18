@@ -61,7 +61,8 @@ jobs:
         displayName: Pruebas unitarias con cobertura (mínimo 50 % de líneas; el resumen final lista las que fallan)
 
       # ADR-003, condición 4: vulnerabilidades altas o críticas en producción. Las únicas aceptadas están en
-      # movil/auditoria-excepciones.json, una por una y con su motivo; la excepción que deja de reportarse hace fallar.
+      # movil/auditoria-excepciones.json, una por una y con su motivo (hoy picomatch, D-209, con revisión antes del
+      # 2026-11-23); la excepción que deja de reportarse hace fallar.
       # revision-diaria.yml corre el mismo `npm run auditoria` cada día sobre main.
       - script: npm run auditoria
         workingDirectory: movil
@@ -73,8 +74,9 @@ jobs:
         workingDirectory: movil
         displayName: Licencias de producción compatibles con AGPLv3 (con excepciones por paquete)
 
-      # D-150: node-forge (excepción de la auditoría) no debe entrar en la app. Genera el paquete de JavaScript de Android
-      # en una carpeta temporal y falla si lo encuentra. Tarda unos segundos (medido: 3 a 6 s).
+      # D-150: node-forge (excepción de la auditoría) no debe entrar en la app; lo mismo vale para zod, argparse,
+      # caniuse-lite y, desde D-209, picomatch (excepción de GHSA-fc5q-39xc-vjpf). Genera el paquete de JavaScript de
+      # Android en una carpeta temporal y falla si encuentra alguno. Tarda unos segundos (medido: 3 a 11 s).
       - script: npm run comprobar-bundle
         workingDirectory: movil
-        displayName: node-forge no está en el paquete de la app (expo export)
+        displayName: node-forge, zod, argparse, caniuse-lite y picomatch no están en el paquete de la app (expo export)

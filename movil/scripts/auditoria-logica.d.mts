@@ -9,6 +9,8 @@ export interface Excepcion {
   ghsa: string;
   paquete: string;
   rutas: string[];
+  /** Opcional (D-209): caminos que npm audit informa en unas corridas y en otras no; vencen con `revisar_antes_de`. */
+  rutas_intermitentes?: string[];
   motivo: string;
   revisado: string;
   revisar_antes_de: string;

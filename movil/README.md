@@ -494,27 +494,37 @@ Versiones fijadas sin `~` ni `^`, verificadas en el registro de npm el 2026-10-2
 
 ### Vulnerabilidades (`npm run auditoria`)
 
-**Desde D-182 (expo 58.0.22, `@expo/cli` 58.1.18) `zod` ya no llega por `expo`: `auditoria-excepciones.json` está vacío y la auditoría pasa sin excepciones. `npm ls zod` solo lo muestra por `eslint-plugin-react-hooks`, que es de desarrollo. Lo que sigue es la historia de la excepción.** Antes, `npm audit --omit=dev --audit-level=high` falla con el aviso de `zod` (abajo). En vez de silenciarlo para todo el proyecto, `scripts/auditoria.mjs` corre `npm audit --omit=dev --json` y falla con:
+**Excepción vigente (D-209, 2026-11-18): `picomatch`, GHSA-fc5q-39xc-vjpf.** Es un ReDoS alto en `picomatch` hasta la 4.0.7, sin versión corregida (GitHub lo actualizó el 2026-11-17; la revisión diaria 717 sobre `main` 905f696 falló solo en esta auditoría). Llega por 17 caminos, todos de compilación: Metro (`@expo/metro`, con `jest-worker`, `jest-util` y `micromatch`), el codegen de React Native y `tinyglobby` (con `fdir`); en algunas corridas `npm audit` informa 3 más, por `@react-native/community-cli-plugin` (abajo). `auditoria-excepciones.json` tiene una sola entrada, con las 17 rutas exactas, `revisado` 2026-11-18 y `revisar_antes_de` **2026-11-23** (el cierre de I07), con el patrón de D-150. Si `npm audit` informa una ruta que no está en `rutas` ni en `rutas_intermitentes`, o deja de informar una de `rutas`, la auditoría falla y la excepción se revisa; si pasa el 2026-11-23, también.
+
+**`rutas_intermitentes` (campo opcional de cada excepción; D-209, cambio a D-150).** Con el mismo lockfile, `npm audit --omit=dev --json` da resultados distintos: de seis corridas del 2026-11-18, tres dieron 26 paquetes y 17 caminos, y tres dieron 27 paquetes y 20 caminos; en esas tres aparece `@react-native/community-cli-plugin` (con `effects: ["react-native"]`). El script da siempre lo mismo para el mismo informe; lo que varía es `npm audit`. Por eso una excepción puede traer `rutas_intermitentes`, una lista de rutas que **pueden estar o no estar** en el informe:
+
+- `rutas` se sigue exigiendo exacta: falla si falta una, y falla si aparece una que no está en `rutas` ni en `rutas_intermitentes`.
+- `rutas_intermitentes` es de cada excepción, no una lista general, y vence con el `revisar_antes_de` de esa excepción.
+- Se valida como `rutas` (lista de textos no vacíos) y además falla si repite una ruta o si una ruta ya está en `rutas`.
+- Hoy tiene solo las 3 rutas por `@react-native/community-cli-plugin`: `react-native > @react-native/community-cli-plugin > metro > jest-worker > jest-util > picomatch`, `… > metro > metro-file-map > jest-worker > jest-util > picomatch` y `… > metro > metro-file-map > micromatch > picomatch`. Que `picomatch` no vaya en la app lo comprueba `npm run comprobar-bundle` (más abajo). Cuando salga una versión corregida se sube y se quita la excepción.
+
+**Historia: desde D-182 (expo 58.0.22, `@expo/cli` 58.1.18) `zod` ya no llega por `expo` y la auditoría pasó sin excepciones hasta D-209. `npm ls zod` solo lo muestra por `eslint-plugin-react-hooks`, que es de desarrollo. Lo que sigue explica el mecanismo con la excepción de `zod`.** Antes, `npm audit --omit=dev --audit-level=high` falla con el aviso de `zod` (abajo). En vez de silenciarlo para todo el proyecto, `scripts/auditoria.mjs` corre `npm audit --omit=dev --json` y falla con:
 
 - todo aviso alto o crítico que no esté en `auditoria-excepciones.json`;
 - toda excepción que ya no se reporta (quedó obsoleta: se quita);
 - toda excepción cuyo camino de dependencias cambió, por ejemplo si el paquete pasa a ser una dependencia directa de la app;
 - toda excepción cuya fecha `revisar_antes_de` pasó (hoy en UTC, después de esa fecha). El dueño la renueva en el cierre de cada iteración (D-150), y también se revisa al subir de versión de Expo. La fecha actual es **2026-11-12** (D-182; antes 2026-11-05, el fin de I05).
 
-Cada excepción trae el GHSA, el paquete, las rutas de dependencias (que muestran que el paquete llega solo por las herramientas de construcción), el motivo, la fecha de revisión y `revisar_antes_de`.
+Cada excepción trae el GHSA, el paquete, las rutas de dependencias (que muestran que el paquete llega solo por las herramientas de construcción), el motivo, la fecha de revisión y `revisar_antes_de`, y opcionalmente `rutas_intermitentes` (D-209).
 
-### `node-forge`, `zod`, `argparse` y `caniuse-lite` no entran en la app (`npm run comprobar-bundle`)
+### `node-forge`, `zod`, `argparse`, `caniuse-lite` y `picomatch` no entran en la app (`npm run comprobar-bundle`)
 
-La excepción de `zod` (y, antes de D-166, la de `node-forge`) se apoya en que ningún archivo de la app los importa; el script sigue comprobando los dos. Desde D-182 también comprueba `argparse` y `caniuse-lite`: sus excepciones de licencia son permanentes y «no van en la app» lo prueba el pipeline. `scripts/comprobar-bundle.mjs` lo comprueba: corre `npx expo export --platform android` en una carpeta temporal fuera del repositorio y busca en el paquete de JavaScript el nombre y cadenas propias de cada paquete, porque Metro no deja las rutas de los módulos (`MARCAS_POR_PAQUETE` en `scripts/bundle-logica.mjs`):
+La excepción de `picomatch` (D-209), la de `zod` y, antes de D-166, la de `node-forge` se apoyan en que ningún archivo de la app los importa; el script comprueba los tres. Desde D-182 también comprueba `argparse` y `caniuse-lite`: sus excepciones de licencia son permanentes y «no van en la app» lo prueba el pipeline. `scripts/comprobar-bundle.mjs` lo comprueba: corre `npx expo export --platform android` en una carpeta temporal fuera del repositorio y busca en el paquete de JavaScript el nombre y cadenas propias de cada paquete, porque Metro no deja las rutas de los módulos (`MARCAS_POR_PAQUETE` en `scripts/bundle-logica.mjs`):
 
 - `node-forge`: `RSASSA-PKCS1-V1_5` y el prefijo de OID `1.2.840.113549`.
 - `zod`: `ZodError`, `invalid_type`, `too_small` e `invalid_enum_value` (valores de datos, que sobreviven a la minificación y aparecen en el bytecode de Hermes).
 - `argparse`: `node_modules/argparse`, `ArgumentParser`, `ArgumentError` y `add_argument`.
 - `caniuse-lite`: `node_modules/caniuse-lite` y `caniuse-lite`.
+- `picomatch` (D-209): `node_modules/picomatch`, `picomatch` y tres mensajes de error que son texto literal de su código y están igual en la 2.3.2 y en la 4.0.7 (las dos que instala el árbol): `Expected pattern to be a non-empty string`, `exceeds maximum allowed length` y `to match literal characters`. Se eligen mensajes y no nombres de función porque la minificación renombra los identificadores y deja las cadenas.
 
-Falla, nombrando el paquete, si aparecen en algún archivo o si no se generó ningún paquete. Probado con un `import` temporal de cada paquete: falla; sin él, pasa (D-150, D-154).
+Falla, nombrando el paquete, si aparecen en algún archivo o si no se generó ningún paquete. Probado con un `import` temporal de cada paquete: falla; sin él, pasa (D-150, D-154). `picomatch` (D-209): el 2026-11-18, con una entrada temporal que importa las dos versiones, la comprobación falla tanto con el JavaScript minificado como con el bytecode de Hermes (`hermesc`), y con el paquete real de la app pasa.
 
-Tarda de 3 a 6 segundos (medido el 2026-10-24, Expo 58.0.19, Node 24.22.1 en el pipeline y 26.12.0 en el portátil, caché caliente), así que es un paso del pipeline.
+Con `picomatch` midió 10,9 s el 2026-11-18 (`expo export`, caché fría, Node 26.13.1, npm 12.2.1). Antes tardaba de 3 a 6 segundos (medido el 2026-10-24, Expo 58.0.19, Node 24.22.1 en el pipeline y 26.12.0 en el portátil, caché caliente), así que es un paso del pipeline.
 
 ### Licencias (`npm run licencias`)
 

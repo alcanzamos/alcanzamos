@@ -1,5 +1,5 @@
 # Pipeline de movil/: ESLint, tipos, tokens y textos sin diff, pruebas con cobertura, vulnerabilidades y licencias de
-# producción y comprobación de que node-forge no entra en el paquete de la app.
+# producción y comprobación de que node-forge, zod, argparse, caniuse-lite y picomatch no entran en el paquete de la app.
 # No usa conexión de servicio ni secretos. Corre cuando cambia movil/, diseno/ (tokens, textos y fuentes), este archivo o su plantilla
 # (ADR-001, filtros por carpeta). No compila el paquete de Android (eso lo hace EAS en la entrega, E17): solo exporta
 # el paquete de JavaScript para revisarlo.

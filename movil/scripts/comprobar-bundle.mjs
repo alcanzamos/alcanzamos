@@ -1,5 +1,5 @@
-// Comprueba que node-forge, zod, argparse y caniuse-lite no entran en el paquete de JavaScript de la app (D-150, D-154, D-182): genera el paquete de Android con
-// `expo export` en una carpeta temporal fuera del repositorio y falla si aparece. Sin dependencias.
+// Comprueba que node-forge, zod, argparse, caniuse-lite y picomatch no entran en el paquete de JavaScript de la app
+// (D-150, D-154, D-182, D-209): genera el paquete de Android con `expo export` en una carpeta temporal fuera del repositorio y falla si aparece. Sin dependencias.
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";

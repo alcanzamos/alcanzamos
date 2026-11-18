@@ -98,3 +98,42 @@ describe("revisarArchivos", () => {
     expect(revisarArchivos([]).fallas[0]).toContain("no generó ningún paquete");
   });
 });
+
+describe("marcas de picomatch (D-209)", () => {
+  const marcas = MARCAS_POR_PAQUETE.picomatch;
+
+  it("encuentra el nombre y las cadenas propias, en texto o en bytes", () => {
+    const texto =
+      "x node_modules/picomatch/lib/parse.js, Expected pattern to be a non-empty string, " +
+      "Input length: 9, exceeds maximum allowed length: 8 y to match literal characters";
+    expect(buscarMarcas(texto, marcas)).toEqual([
+      "node_modules/picomatch",
+      "picomatch",
+      "Expected pattern to be a non-empty string",
+      "exceeds maximum allowed length",
+      "to match literal characters",
+    ]);
+    expect(buscarMarcas(new TextEncoder().encode("\0ÿexceeds maximum allowed length"), marcas)).toEqual([
+      "exceeds maximum allowed length",
+    ]);
+  });
+
+  it("no encuentra nada en un paquete sin picomatch", () => {
+    expect(buscarMarcas("function a(){return 1}var b='hola'", marcas)).toEqual([]);
+  });
+
+  it("falla y nombra el paquete si picomatch está en el paquete de la app", () => {
+    const { fallas } = revisarArchivos([
+      { nombre: "a.hbc", contenido: "limpio" },
+      { nombre: "b.hbc", contenido: "throw new TypeError('Expected pattern to be a non-empty string')" },
+    ]);
+    expect(fallas).toEqual([
+      "b.hbc contiene picomatch (marcas: Expected pattern to be a non-empty string)",
+    ]);
+  });
+
+  it("pasa con un paquete limpio y las otras excepciones siguen vigiladas", () => {
+    expect(revisarArchivos([{ nombre: "index.hbc", contenido: "limpio" }])).toEqual({ fallas: [], revisados: 1 });
+    expect(Object.keys(MARCAS_POR_PAQUETE)).toEqual(["node-forge", "zod", "argparse", "caniuse-lite", "picomatch"]);
+  });
+});
