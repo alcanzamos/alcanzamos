@@ -258,3 +258,16 @@ run "rechaza_nombre_de_secreto_de_correo_invalido" {
 
   expect_failures = [var.correo_nombre_del_secreto]
 }
+
+# El secreto del correo y el del registro de imágenes no pueden ser el mismo: cada app leería la contraseña equivocada.
+run "correo_y_registro_no_comparten_secreto" {
+  command = plan
+
+  variables {
+    ambiente                  = "uat"
+    dominio_de_correo         = "avisos-uat.alcanzamos.co"
+    correo_nombre_del_secreto = "ghcr-lectura"
+  }
+
+  expect_failures = [var.correo_nombre_del_secreto]
+}

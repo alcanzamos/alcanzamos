@@ -72,6 +72,11 @@ variable "correo_nombre_del_secreto" {
     condition     = can(regex("^[a-z0-9]([a-z0-9-]{0,125}[a-z0-9])?$", var.correo_nombre_del_secreto))
     error_message = "El nombre del secreto va en minúsculas, números y guiones, sin guion al inicio ni al final (Key Vault y Container Apps)."
   }
+
+  validation {
+    condition     = var.correo_nombre_del_secreto != var.ghcr_nombre_del_secreto
+    error_message = "El secreto del correo no puede ser el mismo que el del registro de imágenes (ghcr_nombre_del_secreto)."
+  }
 }
 
 variable "admin_postgres_object_id" {
