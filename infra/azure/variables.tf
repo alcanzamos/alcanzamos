@@ -38,6 +38,42 @@ variable "ghcr_nombre_del_secreto" {
   }
 }
 
+# Correo por Zoho CPaaS (D-205 (6), US-80): SMTP autenticado contra smtp.zeptomail.com:587 después de STARTTLS. Servidor y puerto
+# son fijos en aplicacion.tf. La contraseña (el «Send Mail Token» del agente de envío del ambiente) vive en el Key Vault y la
+# carga el dueño por la entrada estándar; el valor nunca pasa por OpenTofu ni por el estado.
+variable "correo_remitente" {
+  description = "Remitente de los correos (CORREO_REMITENTE): no-responder@avisos-uat.alcanzamos.co en UAT y no-responder@avisos.alcanzamos.co en producción (D-120). Sin valor, se arma con dominio_de_correo; si se pasa, tiene que ser de ese dominio."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.correo_remitente == null || can(regex("^[a-z0-9][a-z0-9._-]*@${replace(var.dominio_de_correo, ".", "\\.")}$", var.correo_remitente))
+    error_message = "El remitente es <usuario>@<dominio_de_correo>, en minúsculas y del mismo dominio de correo del ambiente."
+  }
+}
+
+variable "correo_usuario" {
+  description = "Usuario de SMTP del agente de envío de Zoho CPaaS (CORREO_USUARIO). Siempre es emailapikey; no es un secreto."
+  type        = string
+  default     = "emailapikey"
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9][A-Za-z0-9._-]*$", var.correo_usuario))
+    error_message = "El usuario de SMTP no puede ir vacío: letras, números, punto, guion y guion bajo."
+  }
+}
+
+variable "correo_nombre_del_secreto" {
+  description = "Nombre del secreto del Key Vault del ambiente con la contraseña de SMTP de Zoho CPaaS. También nombra el secreto en Container Apps y es el que CORREO_CONTRASENA referencia."
+  type        = string
+  default     = "correo-contrasena"
+
+  validation {
+    condition     = can(regex("^[a-z0-9]([a-z0-9-]{0,125}[a-z0-9])?$", var.correo_nombre_del_secreto))
+    error_message = "El nombre del secreto va en minúsculas, números y guiones, sin guion al inicio ni al final (Key Vault y Container Apps)."
+  }
+}
+
 variable "admin_postgres_object_id" {
   description = "Object ID en Entra ID de quien administra PostgreSQL. Sin contraseñas."
   type        = string

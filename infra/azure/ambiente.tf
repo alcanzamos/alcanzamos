@@ -10,9 +10,9 @@ variable "ambiente" {
   }
 }
 
-# Un dominio por ambiente: un dominio solo pertenece a un Email Communication Service (D-200 (8)).
+# Un dominio por ambiente: es el del remitente y el que se verifica en el agente de Zoho CPaaS (D-205 (6), E11-INF 2.14).
 variable "dominio_de_correo" {
-  description = "Dominio propio de envío: avisos.alcanzamos.co en producción (D-113) y avisos-uat.alcanzamos.co en UAT (S5)."
+  description = "Dominio propio del remitente: avisos.alcanzamos.co en producción (D-113) y avisos-uat.alcanzamos.co en UAT (S5)."
   type        = string
 
   validation {

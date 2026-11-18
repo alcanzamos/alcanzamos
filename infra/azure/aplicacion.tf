@@ -14,13 +14,21 @@ locals {
     PGUSER           = data.azurerm_user_assigned_identity.api.name
     PGSSLMODE        = "verify-full"
     AZURE_CLIENT_ID  = data.azurerm_user_assigned_identity.api.client_id
-    CORREO_ENDPOINT  = "https://${azurerm_communication_service.correo.hostname}"
-    CORREO_REMITENTE = "${azurerm_email_communication_service_domain_sender_username.avisos.name}@${azurerm_email_communication_service_domain.avisos.from_sender_domain}"
+    CORREO_SMTP      = "smtp.zeptomail.com:587"
+    CORREO_USUARIO   = var.correo_usuario
+    CORREO_REMITENTE = local.correo_remitente
   }
+
+  # Remitente aprobado (D-120): no-responder@<dominio de correo del ambiente>, salvo que se pase otro del mismo dominio.
+  correo_remitente = coalesce(var.correo_remitente, "no-responder@${var.dominio_de_correo}")
 
   # Token read:packages de ghcr.io en el Key Vault del ambiente (D-200 (9)(a)). Sin versión: Container Apps toma la
   # última, así renovar el token es solo cargar una versión nueva. El dueño carga el valor; OpenTofu no lo conoce.
   ghcr_secreto_en_key_vault = "${azurerm_key_vault.secretos.vault_uri}secrets/${var.ghcr_nombre_del_secreto}"
+
+  # Contraseña de SMTP de Zoho CPaaS (US-80), también en el Key Vault del ambiente y sin versión. El dueño carga el valor
+  # (README); OpenTofu no lo conoce, y el API la recibe en CORREO_CONTRASENA como referencia al secreto, nunca por valor.
+  correo_secreto_en_key_vault = "${azurerm_key_vault.secretos.vault_uri}secrets/${var.correo_nombre_del_secreto}"
 }
 
 resource "azurerm_container_app" "api" {
@@ -39,6 +47,12 @@ resource "azurerm_container_app" "api" {
   secret {
     name                = var.ghcr_nombre_del_secreto
     key_vault_secret_id = local.ghcr_secreto_en_key_vault
+    identity            = data.azurerm_user_assigned_identity.api.id
+  }
+
+  secret {
+    name                = var.correo_nombre_del_secreto
+    key_vault_secret_id = local.correo_secreto_en_key_vault
     identity            = data.azurerm_user_assigned_identity.api.id
   }
 
@@ -64,6 +78,12 @@ resource "azurerm_container_app" "api" {
           name  = env.key
           value = env.value
         }
+      }
+
+      # La contraseña va solo como referencia al secreto de arriba, nunca con valor.
+      env {
+        name        = "CORREO_CONTRASENA"
+        secret_name = var.correo_nombre_del_secreto
       }
     }
   }
@@ -101,6 +121,12 @@ resource "azurerm_container_app_job" "tareas" {
     identity            = data.azurerm_user_assigned_identity.api.id
   }
 
+  secret {
+    name                = var.correo_nombre_del_secreto
+    key_vault_secret_id = local.correo_secreto_en_key_vault
+    identity            = data.azurerm_user_assigned_identity.api.id
+  }
+
   registry {
     server               = "ghcr.io"
     username             = var.ghcr_usuario
@@ -125,6 +151,12 @@ resource "azurerm_container_app_job" "tareas" {
           name  = env.key
           value = env.value
         }
+      }
+
+      # La contraseña va solo como referencia al secreto de arriba, nunca con valor.
+      env {
+        name        = "CORREO_CONTRASENA"
+        secret_name = var.correo_nombre_del_secreto
       }
     }
   }
