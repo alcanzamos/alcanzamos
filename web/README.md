@@ -179,7 +179,16 @@ Los navegadores no vienen con `npm ci`. Una sola vez por máquina:
 npx playwright install chromium            # en Linux, si faltan librerías: npx playwright install --with-deps chromium
 ```
 
-`npm run e2e` compila la app y levanta `vite preview` en `127.0.0.1:4173` (si ya hay uno, lo reutiliza). Con el API simulado en `page.route` (`e2e/ayudas.ts`: un pedido sin manejador hace fallar la prueba), comprueba cero violaciones de axe-core, la CSP exacta, el logo propio, la columna de 560 px y que no haya pedidos a otros orígenes.
+`npm run e2e` compila la app y levanta `vite preview` en `127.0.0.1:4173` (si ya hay uno, lo reutiliza). Con el API simulado en `page.route` (`e2e/ayudas.ts`: un pedido sin manejador hace fallar la prueba), comprueba cero violaciones de axe-core, la CSP exacta (con el origen del API en `connect-src`), el logo propio, la columna de 560 px y que no haya pedidos a otros orígenes. `e2e/configuracion.spec.ts` fija que `/config.json` se lee antes del primer pedido al API y que, sin él, la web falla a la vista. Ojo: la app monta cuando llega `/config.json`, así que una prueba que use el teclado justo después de `page.goto` espera primero a que exista una pantalla (como `e2e/cuenta.spec.ts`).
+
+## La web en tiempo de ejecución: `/config.json` (infra-d205, T16)
+
+La imagen de la web se compila una vez y sirve a UAT y a producción (D-200 (8b)), así que la URL del API **no se fija al compilar**. `src/main.tsx` llama a `arrancar` (`src/arranque.tsx`), que lee `/config.json` del mismo origen que la web (`{"url_api":"https://api.alcanzamos.co"}`, sin caché; lo arma `ca-web` desde `API_URL`) y **solo después monta la app**. `src/configuracion.ts` valida que `url_api` sea una URL `http:` o `https:` y se queda con su origen (sin barra final).
+
+- **Todo pedido al API usa ese origen:** `pedir` (`src/api/cliente.ts`) y la descarga del ZIP de «Descargar mis datos» (`descargarMisDatos`, `src/api/cuentas.ts`) arman la URL con `urlDelApi(ruta)`. Las rutas del código siguen siendo `/api/v1/…`; nadie escribe el origen.
+- **`credentials: "include"`** en los dos `fetch`: la cookie de sesión (`__Host-sesion`, que no cambia) viaja al API aunque sea otro origen (`app.alcanzamos.co` → `api.alcanzamos.co`). El API tiene que responder con CORS para el origen exacto de la web y `Access-Control-Allow-Credentials: true` (infra-d205, T17); mientras tanto, la web de `ca-web` y el API de hoy no se pueden usar juntos en orígenes distintos.
+- **Si `/config.json` no llega** (sin red, un 4xx o 5xx, un cuerpo que no es JSON, sin `url_api` o con una URL que no es `http(s)`), la app **no se monta**: se ve una página con el título «Sin conexión. Intenta de nuevo cuando vuelvas a tener internet.» (el texto de E14-PCP 4.16 T10, de `diseno/textos/es.json`; no hay texto propio) con el foco en el título, para que el lector de pantalla lo anuncie, y el botón «Intentar de nuevo», que vuelve a leer el archivo sin recargar la página. No se hace ningún pedido al API.
+- **Desarrollo local (`npm run dev`) y `vite preview`:** `vite.config.ts` tiene un plugin (`config-en-ejecucion`) que sirve `/config.json` con la misma forma y sin caché. Por omisión el origen del API es **el de la propia web** (lo que usa Playwright, que simula el API con `page.route`, y lo que el `npm run dev` de antes hacía sin saberlo). Para hablar con el API local: `URL_API=http://localhost:8080 npm run dev` (el API necesita CORS con credenciales para `http://localhost:5173`, T17). `vite preview` manda además la CSP con `connect-src 'self' <ese origen>`.
 
 ## Servidor de ca-web (`web/servidor/`)
 
@@ -212,7 +221,7 @@ Las pruebas, desde `web/servidor/`: `go test -race ./...`. También corren `gofm
 - `index.html` y cualquier otro archivo existente: `Cache-Control: no-cache`.
 - Toda otra ruta `GET` o `HEAD` fuera de `/assets/`, también una ruta `/api/…`, devuelve `index.html` con `no-cache` (aplicación de una página), como el API de hoy (`api/src/servidor/estatico.go`), salvo en `assets/`, que da 404 (arriba). Otro método responde 405 con `Allow: GET, HEAD`. Sin `index.html` en la carpeta, 404.
 - Cabeceras en toda respuesta, errores incluidos:
-  - `Content-Security-Policy: default-src 'self'; connect-src 'self' <origen de API_URL>; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'`. Es la política de hoy del API (`api/src/servidor/servidor.go`) más el `connect-src` con el origen exacto del API. `web/vite.config.ts` y `web/e2e/csp.spec.ts` la repiten sin el API: si cambia aquí, debe cambiar allá.
+  - `Content-Security-Policy: default-src 'self'; connect-src 'self' <origen de API_URL>; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'`. Es la política de hoy del API (`api/src/servidor/servidor.go`) más el `connect-src` con el origen exacto del API. `web/vite.config.ts` (`politicaCSP`, que usa `vite preview`) y `web/e2e/csp.spec.ts` la repiten, con el origen del API que ahí es el de la propia web: si cambia aquí, debe cambiar allá.
   - `X-Content-Type-Options: nosniff`.
   - El API de hoy no manda más cabeceras de seguridad para la web (ni `Referrer-Policy`, ni `X-Frame-Options`, ni HSTS): `frame-ancestors 'none'` ya cubre el encuadre y el TLS lo termina la entrada de Container Apps.
 

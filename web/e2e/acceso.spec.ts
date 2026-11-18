@@ -169,6 +169,8 @@ test.describe("PN-60 · Iniciar sesión", () => {
       }),
     });
     await page.goto("/entrar");
+    // La app monta cuando llega /config.json: sin esta espera el Tab puede llegar antes de que exista el formulario.
+    await expect(page.getByLabel("Correo electrónico")).toBeVisible();
     await page.keyboard.press("Tab");
     await expect(page.getByLabel("Correo electrónico")).toBeFocused();
     await page.keyboard.type("laura@ejemplo.com");
