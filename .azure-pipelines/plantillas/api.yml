@@ -106,6 +106,7 @@ jobs:
         workingDirectory: api
         displayName: go build
 
-      # Contexto: la raíz del monorepo (la imagen compila web/ con Node y la embebe en el binario).
+      # Contexto: la raíz del monorepo (el .dockerignore de la raíz lo comparten las dos imágenes). La imagen ya no lleva la web:
+      # la de ca-web se construye en plantillas/web.yml (T13). Solo se construye: no se publica (pruebas/filtros.py lo comprueba).
       - script: docker build --file api/Dockerfile --tag alcanzamos-api:$(Build.BuildId) .
         displayName: La imagen se construye

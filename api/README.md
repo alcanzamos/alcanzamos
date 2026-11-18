@@ -1,6 +1,6 @@
 # api/
 
-API de Alcanzamos: monolito modular en Go con la biblioteca estándar (ADR-002). Incluye el motor de reglas en Go (ADR-005), las migraciones en `api/migraciones/` y la web embebida en la imagen (ADR-004).
+API de Alcanzamos: monolito modular en Go con la biblioteca estándar (ADR-002). Incluye el motor de reglas en Go (ADR-005), las migraciones en `api/migraciones/`. La web ya no va en la imagen del API: la sirve `ca-web`, con su propia imagen (`web/Dockerfile`). Hasta la tarea T17 el API conserva las rutas de la web, con un `index.html` de relleno.
 
 - Archivo de construcción: `go.mod` en esta carpeta.
 - Reglas: estándar de codificación (E17-ECO), pruebas con `go test -race`; las de integración usan `//go:build integration`.
@@ -25,7 +25,7 @@ docker run --rm -p 127.0.0.1:8080:8080 alcanzamos-api:dev
 
 ## Rutas y web embebida (ADR-004)
 
-Un solo origen: la web y el API comparten dominio, sin CORS. No hay dominio fijo en el código (D-129).
+Hoy el API todavía sirve la web en el mismo origen, sin CORS (D-129); con la web separada (E11-INF 2.16) eso cambia en T17. No hay dominio fijo en el código.
 
 | Ruta | Respuesta |
 |---|---|
@@ -35,7 +35,7 @@ Un solo origen: la web y el API comparten dominio, sin CORS. No hay dominio fijo
 | Cualquier otro `GET`/`HEAD` | `index.html` con 200 y `Cache-Control: no-cache` (aplicación de una página) |
 | Otro método fuera de `/salud` y `/api/` | 405 con `Allow: GET, HEAD` |
 
-- Paquete `src/web`: `//go:embed` de `src/web/estatico/`. En el repositorio esa carpeta solo tiene un `index.html` de relleno ("la web no está compilada"), para que `go build` y `go test` pasen sin compilar la web. El `Dockerfile` lo sobrescribe con el `web/dist` real. Un `npm run build` local no toca esa carpeta, así que no deja cambios en git (`web/dist` está ignorado).
+- Paquete `src/web`: `//go:embed` de `src/web/estatico/`, que solo tiene un `index.html` de relleno ("la web ya no va en este binario"). Desde T13 el `Dockerfile` ya no lo sobrescribe con `web/dist`: la web real es la imagen de `ca-web`. El paquete y las rutas de la web se quitan en T17.
 - Las respuestas de la web llevan `X-Content-Type-Options: nosniff`.
 - **Content-Security-Policy** en todas las respuestas (web, `/api/`, `/salud`, errores 404 y 405), puesta por un envoltorio del manejador en `src/servidor` con una sola constante (`politicaCSP`):
 
@@ -53,7 +53,7 @@ Un solo origen: la web y el API comparten dominio, sin CORS. No hay dominio fijo
 
   La prueba `TestContentSecurityPolicyEnTodasLasRespuestas` verifica el valor exacto. `vite preview` (que usa Playwright) repite el mismo texto en `web/vite.config.ts` y `web/e2e/csp.spec.ts` lo compara y falla ante cualquier violación; no hay un origen único posible porque Go no puede embeber archivos fuera de su módulo, así que son dos literales que hay que mantener iguales.
 - La cookie de sesión es `__Host-sesion`, con `SameSite=Strict` (D-083); ver [Sesiones](#sesiones-us-49).
-- Para ver la web real sin Docker: `cp -r web/dist/. api/src/web/estatico/` y `go run ./src/cmd/api` (no confirmar ese cambio).
+- Para ver la web real: `ca-web` (`web/servidor`, ver [`web/README.md`](../web/README.md#servidor-de-ca-web-webservidor)) con `API_URL` apuntando a este API. Ya no se copia `web/dist` a `src/web/estatico/`.
 
 ## Configuración
 
@@ -926,8 +926,9 @@ Cuerpo: `{"texto": "gasté 15 mil en almuerzo ayer"}`. Hasta **280 caracteres** 
 
 ## Imagen
 
-- Tres etapas: `node:24.22.1-alpine3.24` (digest `sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53`, índice multiarquitectura, resuelto el 2026-10-22; mismo Node que `.azure-pipelines/web.yml`) hace `npm ci` y `npm run build` en `web/` (necesita `diseno/`); `golang:1.27.4-alpine3.24` (digest `sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf`, índice multiarquitectura, resuelto el 2026-11-11) copia ese `web/dist` a `src/web/estatico/` y compila un binario estático con la web embebida; `gcr.io/distroless/static-debian13:nonroot` lo ejecuta, fijada por digest `sha256:18f4cc26c9ffa7f20a359298be7deadac5c607c8e03a02b8119f1a5fc2f82c99` (índice multiarquitectura subido el 2026-10-23, D-161; se usa el más nuevo que cumple 7 días de antigüedad).
-- El contexto es la raíz del monorepo; el `.dockerignore` de la raíz deja pasar solo `api/`, `web/` y `diseno/`.
+- Dos etapas (infra-d205 T13: la etapa de Node y la web embebida pasaron a la imagen de `ca-web`, ver [`web/README.md`](../web/README.md#imagen-de-ca-web)): `golang:1.27.4-alpine3.24` (digest `sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf`, índice multiarquitectura, resuelto el 2026-11-11; su imagen de linux/amd64 se publicó el 2026-11-10) compila un binario estático; `gcr.io/distroless/static-debian13:nonroot` lo ejecuta, fijada por digest `sha256:18f4cc26c9ffa7f20a359298be7deadac5c607c8e03a02b8119f1a5fc2f82c99` (índice multiarquitectura subido el 2026-10-23, D-161; se usa el más nuevo que cumple 7 días de antigüedad: el del 2026-11-12 todavía no los cumple).
+- **El binario sigue embebiendo `src/web/estatico/`, ahora solo con el `index.html` de relleno.** El API todavía sirve la web en `/` (`servidor.go`, `estatico.go`) y `src/web` es parte de esa ruta: quitar el `//go:embed` obliga a quitar las rutas de la web, y eso es la tarea T17 (que también cambia CORS, CSRF y la CSP del API). Hasta T17, en la imagen del API `/` responde ese relleno, no la web: la web real la sirve `ca-web`.
+- El contexto es la raíz del monorepo; el `.dockerignore` de la raíz lo comparten las imágenes del API y de la web y deja pasar `api/`, `web/`, `diseno/` y el logo de `marca/`. La imagen del API solo copia `api/`. El pipeline (`plantillas/api.yml`) la construye sin publicarla, así que un `Dockerfile` roto falla el PR.
 - Distroless no trae shell, así que no hay `HEALTHCHECK` ni comandos en forma de shell; la salud se consulta por `/salud` desde fuera.
 - Corre como usuario 65532 (nonroot), sin root. El `ENTRYPOINT` es el binario.
 - Go 1.27.4 (go.dev, 2026-11-11; SHA-256 del tarball `7226736c2339719cda28fbf3a54d71aa63bcefe376e98cef00034268dab24840`, fijado en `.azure-pipelines/plantillas/pasos/go.yml`). Corrige GO-2026-6859 (net/http), que afectaba a 1.27.3.
@@ -1082,7 +1083,7 @@ docker run --rm --network alcanzamos-local_default \
   alcanzamos-api:dev tareas
 ```
 
-La imagen es la misma, con la web incluida.
+La imagen es la misma (ya no lleva la web: esa es la imagen de `ca-web`).
 
 ## Medición de O-10
 

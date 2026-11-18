@@ -1,6 +1,6 @@
 # web/
 
-App web en Vite + React + TypeScript (ADR-004). Se compila a `web/dist` y se sirve desde el API, en un solo dominio y sin CORS.
+App web en Vite + React + TypeScript (ADR-004). Se compila a `web/dist` y la sirve `ca-web` (`web/servidor/`, con su propia imagen, `web/Dockerfile`), separada del API. Hasta la tarea T17 el API conserva sus rutas de la web (un `index.html` de relleno), sin la web compilada.
 
 - Archivo de construcción: `package.json` en esta carpeta.
 - Reglas: estándar de codificación (E17-ECO), ESLint con `typescript-eslint` y complementos de accesibilidad, Prettier por defecto.
@@ -50,12 +50,12 @@ Base de la US-57 (Vite, React, TypeScript, tokens, fuentes propias, CSP) y, desd
   - **Junto a la barra:** a 768 px quedan 528 px para el contenido. Las dos columnas de PN-01 empiezan en 1008 px (`126ch`: 768 de contenido más los 240 de la barra); antes, una pantalla a la vez, como por debajo de 768. El formulario sigue en dos columnas desde 768 px; sus columnas, la lista y los campos llevan `minmax(0, 1fr)` para no crecer más que su columna.
   - **Pruebas:** `e2e/navegacionLateral.spec.ts` recorre las pantallas de `e2e/pantallas.ts` (la misma lista que `e2e/sinDesplazamiento.spec.ts`): con sesión, la barra de 240 px, «Registrar» primero y su variante, los destinos, `aria-current`, axe, el teclado y el foco visible, a 768 px sí y a 767 y 360 px no; sin sesión, ninguna barra. `tests/componentes/NavegacionLateral.test.tsx` prueba el componente.
 - **Columna de antes de entrar** (`Pagina`): 560 px por el token `--tamano-columna-contenido` (`dimension.tamano.columna-contenido`, D-152), el título como `h1` y, en PN-58 y PN-60, el Logo horizontal en color de 40 px con el texto alternativo «Alcanzamos».
-- **Logo** (D-152): se importa de `marca/logo-horizontal-color.svg` (`../marca/...`). En la imagen del API entra solo ese archivo, no la carpeta `marca/`. Sigue bajo la política de marca (`TRADEMARK.md`), no bajo la AGPLv3, también dentro de la web.
+- **Logo** (D-152): se importa de `marca/logo-horizontal-color.svg` (`../marca/...`). En la imagen de la web (`web/Dockerfile`) entra solo ese archivo, no la carpeta `marca/`. Sigue bajo la política de marca (`TRADEMARK.md`), no bajo la AGPLv3, también dentro de la web.
 - **Números en Figtree** (D-123, `src/componentes/Cifras.tsx`): cada número de un texto va en un `span.cifra` (Figtree, `tabular-nums`, sin `ss02`).
 - **Pantalla de prueba de la US-57 (`PantallaPrueba`):** se quitó. Servía para comprobar tipografía, tokens y foco, y esas comprobaciones ahora las hacen las pantallas reales (axe, foco visible, CSP). `src/dinero.ts` se queda: la usarán las pantallas con montos.
 - `tests/`: las pruebas de Vitest, en espejo de `src/` (D-145, E17-ECO 4.1 bis); `tests/preparar.ts` es su preparación. Cada prueba tiene **15 s** de límite (`testTimeout` en `vite.config.ts`; Vitest usa 5 s por omisión): las de `tests/eslint/` corren ESLint 10 dentro de la prueba y, con cobertura y la máquina cargada, pasaban los 5 s al azar. Las pruebas de Playwright siguen en `e2e/`.
 - `src/estilos/tokens.css`: variables CSS **generadas** desde `diseno/tokens/alcanzamos.tokens.json` (no se edita a mano). No incluye la paleta primitiva: las hojas solo pueden usar tokens semánticos (`--color-*`).
-- La sirve el API: `web/dist` se embebe en la imagen (`embed` y `http.FileServerFS`), la web en `/` y el API en `/api/`. Ver [`api/README.md`](../api/README.md).
+- La sirve `ca-web`: `web/dist` se copia a la imagen de la web (`web/Dockerfile`, ver «Imagen de ca-web») y la lee `web/servidor/`. El API ya no la embebe en su imagen (T13); sus rutas de la web se quitan en T17. Ver [`api/README.md`](../api/README.md).
 
 ### Registro de movimientos (US-51, D-164)
 
@@ -183,7 +183,7 @@ npx playwright install chromium            # en Linux, si faltan librerías: npx
 
 ## Servidor de ca-web (`web/servidor/`)
 
-Servidor de archivos estáticos de la web separada del API (infra-d205, T14; E11-INF 2.16). Es un módulo de Go aparte (`web/servidor/go.mod`, Go 1.27.4 como el API), solo con la biblioteca estándar. Sirve la carpeta que deja `npm run build` (`web/dist`) y se ejecuta como el Container App `ca-web`. Hasta que lleguen la imagen (T13) y el API sin la web (T17), el API sigue sirviendo la web embebida.
+Servidor de archivos estáticos de la web separada del API (infra-d205, T14; E11-INF 2.16). Es un módulo de Go aparte (`web/servidor/go.mod`, Go 1.27.4 como el API), solo con la biblioteca estándar. Sirve la carpeta que deja `npm run build` (`web/dist`) y se ejecuta como el Container App `ca-web`. La imagen es `web/Dockerfile` (T13, ver «Imagen de ca-web»). Hasta que llegue el API sin la web (T17), el API sigue con sus rutas de la web, con un relleno.
 
 ### Cómo se corre
 
@@ -220,6 +220,24 @@ Las pruebas, desde `web/servidor/`: `go test -race ./...`. También corren `gofm
 
 - No registra peticiones ni direcciones IP: el registro (JSON, en stdout) solo dice que arrancó (puerto, carpeta y origen del API) y que se apagó. El registro de errores de `net/http`, que trae la dirección del cliente, se descarta.
 - Con `SIGTERM` o `SIGINT` deja de aceptar conexiones, deja terminar las peticiones en curso (hasta 10 s) y sale con código 0.
+
+### Imagen de ca-web (`web/Dockerfile`)
+
+Infra-d205 T13 (E11-INF 2.16). Se construye una vez y el mismo digest pasa de UAT a producción: la URL del API no queda fija, la pone `API_URL` al arrancar. Contexto: la raíz del monorepo (el `.dockerignore` de la raíz lo comparten las imágenes del API y de la web).
+
+```
+docker build -f web/Dockerfile -t alcanzamos-web:dev .
+docker run --rm -p 127.0.0.1:8080:8080 -e API_URL=https://api-uat.alcanzamos.co alcanzamos-web:dev
+```
+
+- Tres etapas. **Node** (`node:24.22.1-alpine3.24`, el mismo Node que `.azure-pipelines/web.yml`, con npm 12.2.1 verificado por su SHA-512) hace `npm ci` y `npm run build` con `web/.npmrc`; necesita `diseno/` (tokens, textos y fuentes) y el logo `marca/logo-horizontal-color.svg`, igual que lo hacía la etapa de Node del API. **Go** (`golang:1.27.4-alpine3.24`, la misma versión que el API) compila `web/servidor` con `CGO_ENABLED=0`, sin dependencias que bajar. La base final es `gcr.io/distroless/static-debian13:nonroot`: sin shell, con el binario en `/servidor` y la web compilada en `/web`.
+- `DIRECTORIO_WEB=/web` y `PUERTO=8080` van fijos en la imagen; `EXPOSE 8080`; corre como `65532:65532` (nonroot). `API_URL` **no** se fija: sin ella el servidor no arranca (código 1).
+- Sin `HEALTHCHECK` (distroless no trae shell): la salud se consulta en `/salud`, que son las sondas de `ca-web`.
+- `plantillas/web.yml` la construye en cada PR que toca `web/`, `diseno/` o el logo, sin publicarla: un `Dockerfile` roto falla el PR. `pruebas/filtros.py` comprueba que ese paso corra y no publique. El paquete `ghcr.io/alcanzamos/alcanzamos-web` lo publica el despliegue por etiqueta (T10), no esta tarea.
+- **Regla de los 7 días (D-201).** Cada base está fijada por el digest del índice multiarquitectura y todas tienen más de 7 días de publicadas (comprobado el 2026-11-18). Las fechas salen del registro, no de la etiqueta, y hay que repetirlas al cambiar un digest:
+  - `node:24.22.1-alpine3.24`, digest `sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53`: publicada el 2026-10-22 (`tag_last_pushed` 02:40 UTC; las imágenes por plataforma, el 2026-10-21 y el 2026-10-22). Se comprobó con la API de etiquetas de Docker Hub (`hub.docker.com/v2/repositories/library/node/tags/24.22.1-alpine3.24`) y con el `created` de la configuración de cada plataforma (`docker buildx imagetools inspect <imagen>@<digest> --format '{{json .Image}}'`).
+  - `golang:1.27.4-alpine3.24`, digest `sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf`: su imagen de linux/amd64 (`sha256:ea30e25680a5…`) se publicó el 2026-11-10 (18:30 UTC); el índice se resolvió el 2026-11-11 (`api/Dockerfile` lo trae desde el #112). Mismas dos comprobaciones (`last_pushed` de cada plataforma en Docker Hub y `created`). La etiqueta hoy apunta a otro índice (`sha256:70bd7ddea8b6…`, del 2026-11-16, con solo 2 días): **no** se usa.
+  - `gcr.io/distroless/static-debian13:nonroot`, digest `sha256:18f4cc26c9ffa7f20a359298be7deadac5c607c8e03a02b8119f1a5fc2f82c99`: subida el 2026-10-23 (22:06 UTC), según `timeUploadedMs` del manifiesto en `https://gcr.io/v2/distroless/static-debian13/tags/list`. El `created` de distroless es `1970-01-01` (construcción reproducible): no sirve como fecha. El `nonroot` de hoy (`sha256:aafe993665bf…`) se subió el 2026-11-12, con 6 días: **no** se usa todavía (cumple el 2026-11-19).
 
 ## Reglas que se hacen cumplir
 
@@ -288,7 +306,7 @@ npm --version   # 12.2.1
 
 npm 12.2.1 pide Node `^22.22.2 || ^24.15.0 || >=26`. Con un gestor de versiones de Node (mise, nvm), npm se instala dentro de esa versión de Node: al cambiar o reinstalar Node hay que repetir los pasos. Los pipelines y la imagen de Docker descargan el tarball del registro y verifican su SHA-512 antes de instalarlo.
 
-`web/.npmrc` fija las reglas y se aplica igual en local, en `.azure-pipelines/web.yml` y en `api/Dockerfile` (que lo copia antes de `npm ci`); no se repiten en la línea de comandos:
+`web/.npmrc` fija las reglas y se aplica igual en local, en `.azure-pipelines/web.yml` y en `web/Dockerfile` (que lo copia antes de `npm ci`); no se repiten en la línea de comandos:
 
 | Opción                                | Efecto                                                                                                                                |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
@@ -360,5 +378,5 @@ Todas fijadas exactamente (sin `^` ni `~`) y verificadas en el registro de npm (
 | `@types/react`                    | 19.3.0      | Última; igual que `movil/`                                                                                                                                                                                                                                         |
 | `@types/react-dom`                | 19.3.0      | Última; de la misma serie que `react-dom`                                                                                                                                                                                                                          |
 | `@types/node`                     | 24.19.2     | Última de la serie 24, la del Node del pipeline                                                                                                                                                                                                                    |
-| npm (pipeline, Docker, `engines`) | 12.2.1      | registro de npm, 2026-10-24; requiere Node `^22.22.2 \|\| ^24.15.0 \|\| >=26`; SHA-512 del tarball fijado en `.azure-pipelines/web.yml` y `api/Dockerfile`                                                                                                         |
+| npm (pipeline, Docker, `engines`) | 12.2.1      | registro de npm, 2026-10-24; requiere Node `^22.22.2 \|\| ^24.15.0 \|\| >=26`; SHA-512 del tarball fijado en `.azure-pipelines/web.yml` y `web/Dockerfile`                                                                                                         |
 | Node (pipeline)                   | 24.22.1 LTS | nodejs.org; SHA-256 del tarball fijado en `.azure-pipelines/web.yml`                                                                                                                                                                                               |
