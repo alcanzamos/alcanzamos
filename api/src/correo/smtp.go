@@ -4,17 +4,16 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/hex"
-	"errors"
 	"fmt"
-	"io"
 	"mime"
 	"mime/quotedprintable"
 	"net"
 	"net/mail"
 	"net/smtp"
-	"net/textproto"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,14 +24,22 @@ import (
 
 const plazoDeEnvio = 30 * time.Second
 
-// SMTP envía por un servidor SMTP con la biblioteca estándar (Mailpit en local, D-120).
-// Usa STARTTLS si el servidor lo ofrece. Todavía no autentica: el proveedor de producción está por definir (O-4).
+// SMTP envía por un servidor SMTP con la biblioteca estándar: Mailpit en local, sin credenciales (D-120), y Zoho CPaaS
+// en Azure, en `smtp.zeptomail.com:587` (D-205 (6), US-80).
+//
+// Sin credenciales usa STARTTLS si el servidor lo ofrece y no autentica. Con credenciales (`CORREO_USUARIO` y
+// `CORREO_CONTRASENA`) **STARTTLS es obligatorio**: si el servidor no lo ofrece o falla, no se manda AUTH ni el mensaje
+// (así quitar STARTTLS de la respuesta no degrada la conexión), y se autentica con AUTH PLAIN, que solo viaja ya cifrado.
+// Los errores son *ErrorDeEnvio: categoría y código, nunca el texto del servidor ni la contraseña.
 type SMTP struct {
 	direccion  string
 	remitente  string
 	privacidad string
 	urlPublica string
 	reloj      reloj.Reloj
+	usuario    string
+	contrasena config.Secreto
+	raices     *x509.CertPool // raíces de confianza para TLS; nil usa las del sistema
 }
 
 // NuevoSMTP arma el adaptador con la configuración ya validada.
@@ -43,8 +50,25 @@ func NuevoSMTP(c config.Config, r reloj.Reloj) *SMTP {
 		privacidad: c.CorreoPrivacidad,
 		urlPublica: c.URLPublica,
 		reloj:      r,
+		usuario:    c.CorreoUsuario,
+		contrasena: c.CorreoContrasena,
 	}
 }
+
+// ConRaicesDeConfianza reemplaza las raíces que validan el certificado del servidor (las pruebas usan un certificado
+// autofirmado). Solo agrega confianza: la verificación del certificado y del nombre sigue activa.
+func (s *SMTP) ConRaicesDeConfianza(raices *x509.CertPool) *SMTP {
+	s.raices = raices
+	return s
+}
+
+// String no imprime la contraseña: fmt no puede ocultar un campo no exportado por sí solo.
+func (s *SMTP) String() string {
+	return "correo.SMTP{" + s.direccion + ", con credenciales: " + strconv.FormatBool(s.usuario != "") + "}"
+}
+
+// GoString hace lo mismo para %#v.
+func (s *SMTP) GoString() string { return s.String() }
 
 // EnviarVerificacion manda el mensaje de verificación. No registra el destino, el token ni el cuerpo.
 func (s *SMTP) EnviarVerificacion(ctx context.Context, destino, token string) error {
@@ -216,7 +240,7 @@ func (s *SMTP) enviar(ctx context.Context, destino string, mensaje []byte) error
 	}
 	conexion, err := (&net.Dialer{}).DialContext(ctx, "tcp", s.direccion)
 	if err != nil {
-		return fmt.Errorf("conectar con el servidor de correo: %w", err)
+		return respuesta("conectar con el servidor de correo", etapaOtra, err)
 	}
 	if limite, ok := ctx.Deadline(); ok {
 		// En una conexión TCP recién abierta SetDeadline no falla; y si fallara, el primer paso del diálogo devuelve el error.
@@ -225,52 +249,64 @@ func (s *SMTP) enviar(ctx context.Context, destino string, mensaje []byte) error
 	cliente, err := smtp.NewClient(conexion, host)
 	if err != nil {
 		conexion.Close() //nolint:errcheck // ya se devuelve el error de saludar
-		return respuesta("saludar al servidor de correo", err)
+		return respuesta("saludar al servidor de correo", etapaOtra, err)
 	}
 	defer cliente.Close() //nolint:errcheck // tras Quit la conexión ya está cerrada; si se sale antes, ya se devuelve el error de ese paso
 
-	if ofrece, _ := cliente.Extension("STARTTLS"); ofrece {
-		if err := cliente.StartTLS(&tls.Config{ServerName: host, MinVersion: tls.VersionTLS12}); err != nil {
-			return respuesta("iniciar TLS con el servidor de correo", err)
-		}
+	if err := s.cifrarYAutenticar(cliente, host); err != nil {
+		return err
 	}
 	if err := cliente.Mail(s.remitente); err != nil {
-		return respuesta("remitente rechazado", err)
+		return respuesta("remitente rechazado", etapaOtra, err)
 	}
 	if err := cliente.Rcpt(destino); err != nil {
-		return respuesta("destinatario rechazado", err)
+		return respuesta("destinatario rechazado", etapaDestinatario, err)
 	}
 	w, err := cliente.Data()
 	if err != nil {
-		return respuesta("iniciar el cuerpo del mensaje", err)
+		return respuesta("iniciar el cuerpo del mensaje", etapaOtra, err)
 	}
 	if _, err := w.Write(mensaje); err != nil {
-		return fmt.Errorf("escribir el mensaje: %w", err)
+		return respuesta("escribir el mensaje", etapaOtra, err)
 	}
 	if err := w.Close(); err != nil {
-		return respuesta("el servidor no aceptó el mensaje", err)
+		return respuesta("el servidor no aceptó el mensaje", etapaOtra, err)
 	}
-	if err := cliente.Quit(); err != nil {
-		return respuesta("cerrar el diálogo con el servidor de correo", err)
-	}
+	// El 250 a DATA cuenta como enviado (D-204 (2), D-205 (6)): un QUIT que falla, o una conexión que se corta, no es
+	// un error del envío. Devolverlo haría reenviar un mensaje ya aceptado.
+	cliente.Quit() //nolint:errcheck // el mensaje ya está aceptado; ver el comentario de arriba
 	return nil
 }
 
-// respuesta envuelve un error del diálogo SMTP sin el texto que mandó el servidor: ese texto suele repetir la dirección
-// del destinatario y los errores se registran (NM-03, E17 3.13). Un error con código deja solo el código; uno de la
-// red o de la conexión cerrada se conserva, porque no trae texto del servidor; cualquier otro (una línea sin código,
-// una respuesta que la biblioteca no entiende) se reemplaza por un texto fijo. Así ningún texto del servidor llega
-// al registro, sea cual sea su respuesta.
-func respuesta(contexto string, err error) error {
-	var e *textproto.Error
-	var red net.Error
-	switch {
-	case errors.As(err, &e):
-		return fmt.Errorf("%s: el servidor respondió %d", contexto, e.Code)
-	case errors.Is(err, io.EOF), errors.Is(err, io.ErrUnexpectedEOF), errors.Is(err, context.DeadlineExceeded),
-		errors.Is(err, context.Canceled), errors.As(err, &red):
-		return fmt.Errorf("%s: %w", contexto, err)
-	default:
-		return fmt.Errorf("%s: respuesta del servidor no válida", contexto)
+// cifrarYAutenticar negocia STARTTLS y, si hay credenciales, se autentica con AUTH PLAIN. Con credenciales, STARTTLS es
+// obligatorio: sin él no se manda AUTH, ni la contraseña, ni el mensaje. La contraseña solo se lee aquí, y no sale en
+// ningún error.
+func (s *SMTP) cifrarYAutenticar(cliente *smtp.Client, host string) error {
+	conCredenciales := s.usuario != ""
+	ofrece, _ := cliente.Extension("STARTTLS")
+	if !ofrece && conCredenciales {
+		// Extension oculta si el EHLO falló; Noop devuelve ese error para no confundirlo con «sin STARTTLS».
+		if err := cliente.Noop(); err != nil {
+			return respuesta("saludar al servidor de correo", etapaOtra, err)
+		}
+		return errorDeConfiguracion("iniciar TLS con el servidor de correo", "el servidor no ofrece STARTTLS: con credenciales no se envía sin cifrar")
 	}
+	if ofrece {
+		if err := cliente.StartTLS(&tls.Config{ServerName: host, MinVersion: tls.VersionTLS12, RootCAs: s.raices}); err != nil {
+			return respuesta("iniciar TLS con el servidor de correo", etapaTLS, err)
+		}
+	}
+	if !conCredenciales {
+		return nil
+	}
+	if _, cifrado := cliente.TLSConnectionState(); !cifrado {
+		return errorDeConfiguracion("iniciar TLS con el servidor de correo", "la conexión no quedó cifrada")
+	}
+	if ofreceAuth, _ := cliente.Extension("AUTH"); !ofreceAuth {
+		return errorDeConfiguracion("autenticar con el servidor de correo", "el servidor no ofrece AUTH")
+	}
+	if err := cliente.Auth(smtp.PlainAuth("", s.usuario, s.contrasena.Revelar(), host)); err != nil {
+		return respuesta("autenticar con el servidor de correo", etapaAUTH, err)
+	}
+	return nil
 }
