@@ -33,7 +33,7 @@ Todos los recursos llevan `prevent_destroy = true`: mientras el bloque permanezc
 
 ## Etiquetas: se agregan o se heredan
 
-**Por qué `Modify` y no `Deny`.** Con `Deny`, Azure rechazaba los grupos que crea por su cuenta y sin etiquetas: `ME_…` (grupo administrado de Container Apps con perfiles de carga de trabajo), `NetworkWatcherRG` (al crear la primera red virtual) y otros (`DefaultResourceGroup-…`). Con `Modify`, la etiqueta se agrega en la misma solicitud y nada se rechaza. No hace falta ninguna exclusión (`not_scopes`). No se puede comprobar sin Azure: se mira en el primer despliegue de UAT que `ME_…` y `NetworkWatcherRG` salen con las dos etiquetas.
+**Por qué `Modify` y no `Deny`.** Con `Deny`, Azure podía rechazar los grupos que crea por su cuenta y sin etiquetas: `ME_…` (grupo administrado de Container Apps con perfiles de carga de trabajo), `NetworkWatcherRG` (al crear la primera red virtual) y otros (`DefaultResourceGroup-…`). Con `Modify`, la etiqueta se agrega en la misma solicitud y ningún grupo se rechaza por no tener estas etiquetas. No hace falta ninguna exclusión (`not_scopes`). No se puede comprobar sin Azure: se mira en el primer despliegue de UAT que `ME_…` y `NetworkWatcherRG` salen con las dos etiquetas.
 
 ### Definiciones usadas (citadas de `Azure/azure-policy`, rama `master`, `built-in-policies/policyDefinitions/Tags/`)
 
@@ -132,7 +132,7 @@ tofu apply -var="subscription_id=<suscripción de pago por uso>" -var='correos_d
 
 ## Riesgos conocidos al aplicar
 
-- **Etiquetas y grupos que crea Azure.** Con `Modify`, `ME_…` y `NetworkWatcherRG` no se rechazan, pero nacen con `ambiente = compartido` (ver «Valor de las etiquetas en los grupos»). Se comprueba en el primer despliegue de UAT (T5, T7). Una identidad con Contributor en la suscripción es el costo de `Modify`.
+- **Etiquetas y grupos que crea Azure.** Con `Modify`, `ME_…` y `NetworkWatcherRG` no deberían rechazarse, y se espera que nazcan con `ambiente = compartido` (ver «Valor de las etiquetas en los grupos»). Se comprueba en el primer despliegue de UAT (T5, T7). Una identidad con Contributor en la suscripción es el costo de `Modify`.
 - **Cambiar la definición de una asignación ya aplicada la reemplaza,** y `prevent_destroy` lo rechaza. Esta versión no afecta nada porque nada se ha aplicado (pausa de D-204); si algún día una asignación ya aplicada cambia de definición, hay que quitar la protección en un cambio revisado.
 - La política no valida el valor de las etiquetas, solo que existan.
 
