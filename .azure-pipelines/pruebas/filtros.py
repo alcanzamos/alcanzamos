@@ -56,6 +56,8 @@ ESPERADO = {
     "api/test/seguridad/limitador_test.go": {"comun", "api"},
     "api/test/pgtest/pgtest.go": {"comun", "api"},
     "api/Dockerfile": {"comun", "api"},
+    # El .dockerignore de la raíz lo comparten las dos imágenes (contexto: la raíz del monorepo): decide qué entra en cada build.
+    ".dockerignore": {"comun", "api", "web"},
     # La imagen de ca-web (T13): la construye plantillas/web.yml; web/* ya dispara también la etapa api (web/servidor).
     "web/Dockerfile": {"comun", "web", "api"},
     "api/.golangci.yml": {"comun", "api"},
@@ -505,29 +507,46 @@ def dockerfiles():
     return sorted(f"{d.name}/Dockerfile" for d in RAIZ.iterdir() if (d / "Dockerfile").is_file())
 
 
+def publica(orden):
+    """La orden de `docker build` publica o exporta la imagen: `--push` en cualquier forma (`--push=true` también), `--output`/`-o`
+    (`type=registry`) o `--cache-to` (el caché sube al registro)."""
+    return any(a == "-o" or a.startswith(("--push", "--output", "--cache-to", "-o=")) for a in orden)
+
+
 def construye_la_imagen(dockerfile):
     """Predicado para `ejecuta`: la orden es `docker build --file <dockerfile> ... .` desde la raíz del monorepo (el contexto
-    de todas las imágenes) y no publica nada: sin `--push` ni `--output`, que se queda sin docker push (T13, E11-INF 2.16)."""
+    de todas las imágenes) y no publica nada (`publica`), y ninguna orden anterior del paso cambia de carpeta ni hace
+    `docker push` (T13, E11-INF 2.16)."""
     def es_la_orden(orden, antes):
-        return (orden[:2] == ["docker", "build"] and orden[-1] == "." and "--push" not in orden
-                and not any(a.startswith(("--output", "-o")) for a in orden)
+        return (orden[:2] == ["docker", "build"] and orden[-1] == "." and not publica(orden)
+                and not any(re.match(r"(cd|pushd|docker push)\b", a) for a in antes)
                 and any(a == "--file" and i + 1 < len(orden) and orden[orden.index(a) + 1] == dockerfile
                         for i, a in enumerate(orden)))
     return es_la_orden
 
 
+# `workingDirectory` de un paso que deja el `docker build` en la raíz del repositorio (donde el contexto `.` es el monorepo).
+DESDE_LA_RAIZ = ("", ".", "./", "$(Build.SourcesDirectory)", "$(System.DefaultWorkingDirectory)")
+
+
 def revisar_imagenes(plantillas):
-    """Cada Dockerfile del repositorio se construye de verdad en plantillas/<carpeta>.yml (docker build, sin publicar):
-    así un Dockerfile roto falla el PR. Se leen los pasos, no el texto suelto, como en `revisar_modulos_go`.
-    `plantillas` es {carpeta: texto}. Devuelve la lista de fallas."""
+    """Cada Dockerfile del repositorio se construye de verdad en plantillas/<carpeta>.yml (docker build, sin publicar y desde la
+    raíz del repositorio): así un Dockerfile roto falla el PR. Se leen los pasos, no el texto suelto, como en
+    `revisar_modulos_go`. `plantillas` es {carpeta: texto}. Devuelve la lista de fallas."""
     fallas = []
     for dockerfile in dockerfiles():
         carpeta = dockerfile.split("/")[0]
         if carpeta not in plantillas:
             fallas.append(f"{dockerfile}: no hay plantillas/{carpeta}.yml que construya la imagen")
-        elif not any(ejecuta(p, construye_la_imagen(dockerfile)) for p in pasos_de(plantillas[carpeta])):
-            fallas.append(f"{dockerfile}: plantillas/{carpeta}.yml no ejecuta `docker build --file {dockerfile} ... .` como última "
-                          "orden de un paso (sin condition, enabled: false ni continueOnError que lo apaguen, y sin --push)")
+            continue
+        texto = plantillas[carpeta]
+        if re.search(r"^\s+(condition|enabled)\s*:", texto.split("steps:")[0], re.M):
+            fallas.append(f"{dockerfile}: plantillas/{carpeta}.yml: el job tiene condition o enabled y puede apagar la construcción")
+        elif not any(ejecuta(p, construye_la_imagen(dockerfile)) and limpiar(p.get("workingDirectory", "")) in DESDE_LA_RAIZ
+                     for p in pasos_de(texto)):
+            fallas.append(f"{dockerfile}: plantillas/{carpeta}.yml no ejecuta `docker build --file {dockerfile} ... .` desde la raíz del "
+                          "repositorio (sin workingDirectory ni cd) como última orden de un paso, sin condition, enabled: false ni "
+                          "continueOnError que lo apaguen, y sin publicar (--push, --output, --cache-to)")
     return fallas
 
 
@@ -546,6 +565,11 @@ def revisar_mutaciones_imagenes(plantillas):
             "con `|| true`": linea + " || true",
             "con echo": linea.replace("docker build", "echo omitido # docker build"),
             "con --push": linea.replace(orden, orden + "--push "),
+            "con --push=true": linea.replace(orden, orden + "--push=true "),
+            "con --output": linea.replace(orden, orden + "--output type=registry "),
+            "con workingDirectory": linea + f"\n{sangria}  workingDirectory: {carpeta}",
+            "tras un cd": linea.replace("docker build", f"cd {carpeta} && docker build"),
+            "con condition en el job": None,
             "con otro Dockerfile": linea.replace(f"--file {dockerfile}", "--file otra/Dockerfile"),
             "con otro contexto": linea.rstrip()[:-1] + "otra",
             "con condition: false": linea + f"\n{sangria}  condition: false",
@@ -553,7 +577,11 @@ def revisar_mutaciones_imagenes(plantillas):
             "con continueOnError: true": linea + f"\n{sangria}  continueOnError: true",
         }
         for descripcion, nueva in cambios.items():
-            if not revisar_imagenes({**plantillas, carpeta: texto.replace(linea, nueva)}):
+            if nueva is None:  # el job entero apagado: se agrega `condition: false` tras el `- job:`
+                rota = re.sub(r"(^\s*- job:.*$)", r"\1\n    condition: false", texto, count=1, flags=re.M)
+            else:
+                rota = texto.replace(linea, nueva)
+            if rota == texto or not revisar_imagenes({**plantillas, carpeta: rota}):
                 fallas.append(f"la revisión de imágenes no detecta el `docker build` de {dockerfile} {descripcion}")
     return fallas
 

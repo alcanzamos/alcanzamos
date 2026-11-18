@@ -25,7 +25,7 @@ docker run --rm -p 127.0.0.1:8080:8080 alcanzamos-api:dev
 
 ## Rutas y web embebida (ADR-004)
 
-Hoy el API todavía sirve la web en el mismo origen, sin CORS (D-129); con la web separada (E11-INF 2.16) eso cambia en T17. No hay dominio fijo en el código.
+Hoy el código del API todavía tiene las rutas de la web en el mismo origen, sin CORS (D-129); con la web separada (E11-INF 2.16) eso cambia en T17. Desde T13 la imagen del API ya no lleva la web real (solo el `index.html` de relleno): la web va en la imagen de `ca-web`, y esa web separada todavía no funciona de punta a punta hasta que T16 (la web lee `/config.json` y llama al API por su URL, con credenciales) y T17 (CORS y CSRF para el origen de la web) estén fusionadas. No hay dominio fijo en el código.
 
 | Ruta | Respuesta |
 |---|---|
@@ -53,7 +53,7 @@ Hoy el API todavía sirve la web en el mismo origen, sin CORS (D-129); con la we
 
   La prueba `TestContentSecurityPolicyEnTodasLasRespuestas` verifica el valor exacto. `vite preview` (que usa Playwright) repite el mismo texto en `web/vite.config.ts` y `web/e2e/csp.spec.ts` lo compara y falla ante cualquier violación; no hay un origen único posible porque Go no puede embeber archivos fuera de su módulo, así que son dos literales que hay que mantener iguales.
 - La cookie de sesión es `__Host-sesion`, con `SameSite=Strict` (D-083); ver [Sesiones](#sesiones-us-49).
-- Para ver la web real: `ca-web` (`web/servidor`, ver [`web/README.md`](../web/README.md#servidor-de-ca-web-webservidor)) con `API_URL` apuntando a este API. Ya no se copia `web/dist` a `src/web/estatico/`.
+- Para ver la web real: `ca-web` (`web/servidor`, ver [`web/README.md`](../web/README.md#servidor-de-ca-web-webservidor)) con `API_URL` apuntando a este API. Ya no se copia `web/dist` a `src/web/estatico/`. Mientras no estén T16 y T17, ese par no funciona de punta a punta (la web sigue llamando a su propio origen y el API no manda CORS); no es un entorno utilizable.
 
 ## Configuración
 

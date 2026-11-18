@@ -19,6 +19,7 @@ pr:
       - web/*
       - diseno/*
       - marca/logo-horizontal-color.svg
+      - .dockerignore
       - .azure-pipelines/api.yml
       - .azure-pipelines/plantillas/api.yml
       - .azure-pipelines/plantillas/pasos/go.yml
