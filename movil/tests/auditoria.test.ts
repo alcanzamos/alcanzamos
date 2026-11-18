@@ -270,6 +270,19 @@ describe("excepción de picomatch (D-209)", () => {
     ];
     return { vulnerabilities: vulnerabilidades };
   }
+  it.each([1, 2, 3, 4, 5, 6])(
+    "acepta el subconjunto intermitente %s sin perder rutas obligatorias",
+    (mascara) => {
+      const opcionales = INTERMITENTES.filter((_, indice) => (mascara & (1 << indice)) !== 0);
+      const resultado = revisar(informeDeRutas([...picomatch.rutas, ...opcionales]), real, "2026-11-23");
+      expect(resultado.fallas).toEqual([]);
+      expect(resultado.aceptados).toHaveLength(1);
+      // El informe se arma desde el grafo: con el nodo de community-cli-plugin aparecen sus tres caminos juntos.
+      // Lo que importa es que pasa y que las rutas obligatorias siguen todas.
+      expect(resultado.aceptados[0].caminos).toEqual(expect.arrayContaining(picomatch.rutas));
+    },
+  );
+
 
   it("está completa: 17 rutas exactas, 3 intermitentes, fechas de D-209 y el motivo cita la decisión", () => {
     expect(validarExcepciones(real)).toEqual([]);
