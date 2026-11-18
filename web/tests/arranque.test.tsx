@@ -48,7 +48,7 @@ describe("arranque de la web", () => {
     ]);
   });
 
-  it("si no puede leer la configuración falla a la vista, con el foco en el título y sin llamar al API", async () => {
+  it("si no puede leer la configuración falla a la vista, lo anuncia en la región viva y no llama al API", async () => {
     const pedidos: string[] = [];
     vi.stubGlobal(
       "fetch",
@@ -58,11 +58,19 @@ describe("arranque de la web", () => {
       }),
     );
     await arrancar(nuevaRaiz());
-    const titulo = await within(raiz).findByRole("heading", { level: 1 });
-    expect(titulo).toHaveTextContent(
-      "Sin conexión. Intenta de nuevo cuando vuelvas a tener internet.",
-    );
-    expect(titulo).toHaveFocus();
+    expect(
+      await within(raiz).findByRole("heading", {
+        level: 1,
+        name: "Alcanzamos",
+      }),
+    ).toBeInTheDocument();
+    // El aviso entra por la región viva de siempre (`role="status"`, MensajeDeEstado) y el foco no se mueve: se anuncia solo.
+    const region = within(raiz).getByRole("status");
+    expect(
+      await within(region).findByText(
+        "Sin conexión. Intenta de nuevo cuando vuelvas a tener internet.",
+      ),
+    ).toBeInTheDocument();
     expect(within(raiz).getByRole("main")).toBeInTheDocument();
     expect(
       within(raiz).queryByRole("heading", { name: "Inicia sesión" }),

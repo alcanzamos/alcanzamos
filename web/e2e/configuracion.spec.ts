@@ -51,8 +51,11 @@ test("sin /config.json la web no monta la app: falla a la vista, sin violaciones
     sirve ? ruta.fallback() : ruta.fulfill({ status: 502, body: "" }),
   );
   await page.goto("/entrar");
-  const titulo = page.getByRole("heading", { level: 1, name: sinConexion });
-  await expect(titulo).toBeFocused();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Alcanzamos",
+  );
+  // Va por la región viva (`role="status"`), no por el título: el lector de pantalla lo anuncia sin mover el foco.
+  await expect(page.getByRole("status")).toHaveText(sinConexion);
   await expect(
     page.getByRole("heading", { name: "Inicia sesión" }),
   ).toHaveCount(0);
@@ -64,4 +67,21 @@ test("sin /config.json la web no monta la app: falla a la vista, sin violaciones
     page.getByRole("heading", { level: 1, name: "Inicia sesión" }),
   ).toBeVisible();
   expect(apis).toEqual([]);
+});
+
+// `vite preview` no es ca-web: arma el origen del API con el encabezado Host, que manda quien pide. Solo acepta un Host
+// de bucle local; con otro (aquí una IP de la red) responde 421 y no sirve ni `config.json` ni la CSP con ese origen.
+test("vite preview no arma /config.json ni la CSP con un Host que no es de bucle local", async ({
+  request,
+}) => {
+  test.skip(
+    Boolean(process.env.URL_API),
+    "con URL_API el origen no sale del Host",
+  );
+  const respuesta = await request.get("/config.json", {
+    headers: { Host: "10.1.2.3:4173" },
+  });
+  expect(respuesta.status()).toBe(421);
+  expect(respuesta.headers()["content-security-policy"]).toBeUndefined();
+  expect(await respuesta.text()).not.toContain("10.1.2.3");
 });

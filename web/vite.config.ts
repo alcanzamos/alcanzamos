@@ -11,15 +11,26 @@ const politicaCSP = (origenDelApi: string) =>
   `default-src 'self'; connect-src 'self' ${origenDelApi}; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'`;
 
 // La web lee /config.json al arrancar (src/configuracion.ts). En producción lo arma ca-web desde API_URL; aquí lo arman
-// `vite dev` y `vite preview` (Playwright) con la misma forma y sin caché. El origen del API es `URL_API` si está
-// definida (p. ej. `URL_API=http://localhost:8080 npm run dev` para hablar con el API local; el API tiene que
+// `vite dev` y `vite preview` (Playwright) con la misma forma y sin caché. **Solo para desarrollo y pruebas: `vite
+// preview` no es ca-web** (ca-web es web/servidor/ y no lee nunca el encabezado Host). El origen del API es `URL_API`
+// si está definida (p. ej. `URL_API=http://localhost:8080 npm run dev` para hablar con el API local; el API tiene que
 // permitir el origen de la web con CORS y credenciales) y, si no, el mismo origen de la web: es lo que usa Playwright,
-// que simula el API con `page.route`.
-function origenDelApi(pedido: IncomingMessage): string {
+// que simula el API con `page.route`. Ese origen sale del encabezado Host, que manda quien hace el pedido; para que no
+// pueda meter un origen ajeno en `config.json` ni en el `connect-src` de la CSP, solo se acepta un Host de bucle local
+// (localhost, 127.0.0.1, [::1]); con cualquier otro y sin `URL_API`, el servidor responde 421.
+const hostsDeBucleLocal = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+function origenDelApi(pedido: IncomingMessage): string | null {
   const definido = process.env.URL_API?.trim();
-  return definido
-    ? new URL(definido).origin
-    : `http://${pedido.headers.host ?? "localhost"}`;
+  if (definido) return new URL(definido).origin;
+  try {
+    const { hostname, origin } = new URL(
+      `http://${pedido.headers.host ?? "localhost"}`,
+    );
+    return hostsDeBucleLocal.has(hostname) ? origin : null;
+  } catch {
+    return null;
+  }
 }
 
 const configEnEjecucion: Plugin = {
@@ -39,6 +50,13 @@ function servirConfig(conCSP: boolean) {
     siguiente: () => void,
   ) => {
     const origen = origenDelApi(pedido);
+    if (origen === null) {
+      respuesta.statusCode = 421;
+      respuesta.setHeader("Content-Type", "text/plain; charset=utf-8");
+      return void respuesta.end(
+        "Host no permitido: usa localhost o define URL_API\n",
+      );
+    }
     if (conCSP) {
       respuesta.setHeader("Content-Security-Policy", politicaCSP(origen));
     }
