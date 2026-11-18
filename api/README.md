@@ -1077,7 +1077,7 @@ Agregadas con la conexión por identidad administrada (D-204 (1), US-79; verific
 | `github.com/google/uuid` | v1.6.0 (2024-01-23) | BSD de 3 cláusulas |
 | `github.com/pkg/browser` | v0.0.0-20240102092130-5ac0b6a4141c (2024-01-02) | BSD de 2 cláusulas |
 
-`azidentity` es la última versión estable (la v1.14.1 ya aparecía en el grafo de módulos; `azcore` es directa porque `src/bd` la importa). `kylelemons/godebug` v1.1.0 (2019) queda solo en `go.mod`: no se compila. `govulncheck` (`go tool govulncheck ./...`) no encuentra vulnerabilidades que el código alcance, antes ni después de agregarlas.
+`azidentity` es la última versión estable (la v1.14.1 ya aparecía en el grafo de módulos; `azcore` es directa porque `src/bd` la importa). `kylelemons/godebug` v1.1.0 (2019, licencia Apache 2.0) queda solo en `go.mod`: no se compila en el binario. `govulncheck` (`go tool govulncheck ./...`) no encuentra vulnerabilidades que el código alcance, antes ni después de agregarlas.
 
 Herramienta (directiva `tool`): `golang.org/x/vuln` v1.9.0 (2026-10-11, BSD de 3 cláusulas), que sube `golang.org/x/mod` a v0.42.0 (2026-10-09) y `golang.org/x/tools` a v0.52.0 (2026-10-10) y suma `golang.org/x/telemetry` (2026-10-10), todos con más de 7 días.
 

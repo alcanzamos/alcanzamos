@@ -140,7 +140,7 @@ func configurarIdentidad(entorno func(string) string, nueva NuevaFuente) (*pgxpo
 	cfg.BeforeConnect = func(ctx context.Context, c *pgx.ConnConfig) error {
 		token, err := fuente.Token(ctx)
 		if err != nil {
-			return fmt.Errorf("obtener el token de Entra ID para PostgreSQL: %w", err)
+			return errorDeToken{causa: err}
 		}
 		if token == "" {
 			return errors.New("obtener el token de Entra ID para PostgreSQL: llegó vacío")
@@ -150,3 +150,21 @@ func configurarIdentidad(entorno func(string) string, nueva NuevaFuente) (*pgxpo
 	}
 	return cfg, nil
 }
+
+// errorDeToken es el error de pedir el token: su texto solo dice la categoría (falló, cancelado o tiempo agotado) y nunca
+// copia el mensaje del SDK, que puede traer el cuerpo de una respuesta remota; ese texto llega al registro por pgx y app.go.
+// La causa sigue disponible con errors.Is y errors.As para quien necesite distinguirla (cancelación, tiempo agotado).
+type errorDeToken struct{ causa error }
+
+func (e errorDeToken) Error() string {
+	categoria := "falló"
+	switch {
+	case errors.Is(e.causa, context.Canceled):
+		categoria = "cancelado"
+	case errors.Is(e.causa, context.DeadlineExceeded):
+		categoria = "tiempo agotado"
+	}
+	return "obtener el token de Entra ID para PostgreSQL: " + categoria
+}
+
+func (e errorDeToken) Unwrap() error { return e.causa }
