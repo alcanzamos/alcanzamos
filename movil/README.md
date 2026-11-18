@@ -508,7 +508,7 @@ Versiones fijadas sin `~` ni `^`, verificadas en el registro de npm el 2026-10-2
 - todo aviso alto o crítico que no esté en `auditoria-excepciones.json`;
 - toda excepción que ya no se reporta (quedó obsoleta: se quita);
 - toda excepción cuyo camino de dependencias cambió, por ejemplo si el paquete pasa a ser una dependencia directa de la app;
-- toda excepción cuya fecha `revisar_antes_de` pasó (hoy en UTC, después de esa fecha). El dueño la renueva en el cierre de cada iteración (D-150), y también se revisa al subir de versión de Expo. La fecha actual es **2026-11-12** (D-182; antes 2026-11-05, el fin de I05).
+- toda excepción cuya fecha `revisar_antes_de` pasó (hoy en UTC, después de esa fecha). El dueño la renueva en el cierre de cada iteración (D-150), y también se revisa al subir de versión de Expo. La fecha vigente es **2026-11-23**, el cierre de I07 (D-209). Antes fue 2026-11-05, el fin de I05, y después 2026-11-12 (D-182).
 
 Cada excepción trae el GHSA, el paquete, las rutas de dependencias (que muestran que el paquete llega solo por las herramientas de construcción), el motivo, la fecha de revisión y `revisar_antes_de`, y opcionalmente `rutas_intermitentes` (D-209).
 
