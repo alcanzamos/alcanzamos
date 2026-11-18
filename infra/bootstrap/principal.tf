@@ -18,21 +18,6 @@ locals {
     ambiente = var.ambiente
     origen   = "opentofu"
   }
-  # Proveedores aprobados por el dueño (O-14, D-076).
-  proveedores = [
-    "Microsoft.App",
-    "Microsoft.DBforPostgreSQL",
-    "Microsoft.Insights",
-    "Microsoft.KeyVault",
-    "Microsoft.ManagedIdentity",
-    "Microsoft.OperationalInsights",
-    "Microsoft.Storage",
-  ]
-}
-
-resource "azurerm_resource_provider_registration" "proveedores" {
-  for_each = toset(local.proveedores)
-  name     = each.value
 }
 
 resource "azurerm_resource_group" "principal" {

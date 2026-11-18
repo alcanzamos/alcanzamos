@@ -15,6 +15,8 @@ terraform {
   backend "local" {}
 }
 
+# Los proveedores de recursos no se registran aquí: con una sola suscripción, los dos bootstraps serían dueños del
+# mismo registro. Los registra infra/suscripcion, una sola vez, antes de este bootstrap.
 provider "azurerm" {
   features {}
   subscription_id                 = var.subscription_id

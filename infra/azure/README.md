@@ -170,12 +170,12 @@ No bloquean la US-44.
 Consultadas el 2026-10-22:
 
 - OpenTofu 1.13.2 (publicada el 2026-10-21): `https://github.com/opentofu/opentofu/releases`.
-- Proveedor `hashicorp/azurerm` 5.11.0 (2026-10-23): `https://github.com/hashicorp/terraform-provider-azurerm/releases`. Desde la versión 5 no registra proveedores de recursos por su cuenta.
-- Proveedor `hashicorp/azuread` 3.10.0 (2026-09-24), solo en `bootstrap`.
+- Proveedor `hashicorp/azurerm` 5.11.0 (2026-10-23): `https://github.com/hashicorp/terraform-provider-azurerm/releases`. Desde la versión 5 el valor por defecto de `resource_provider_registrations` es `none`; `versiones.tf` lo fija en `none` de forma explícita. Los proveedores los registra `infra/suscripcion`, una sola vez, con la cuenta del dueño (D-205 (11)); la identidad del pipeline no puede registrarlos.
+- Sin proveedor `azuread` en ninguna raíz (D-049, D-205 (1)).
 
 ## Validación
 
-Sin credenciales y sin aplicar. `tofu test` hace solo plan, con el proveedor simulado (`tests/ambientes.tftest.hcl`): comprueba los nombres, las etiquetas, los tamaños y el dominio de correo de cada ambiente, los valores de UAT (S11), que producción conserve sus nombres y que se rechacen un ambiente desconocido, un dominio de otro ambiente y una retención del Key Vault fuera de 7 a 90 días. `tests/registro.tftest.hcl` comprueba, en los dos ambientes, que el API y el trabajo programado bajen la imagen de ghcr.io con el token del Key Vault leído con la identidad del API, que la imagen se acepte solo por digest (se rechazan `:1.0.0`, `:v0.1.0`, `:latest`, etiqueta con digest, un digest corto, en mayúsculas o de otro algoritmo y otra imagen) y que el usuario de ghcr.io y el nombre del secreto sean válidos.
+Sin credenciales y sin aplicar. `tofu test` hace solo plan, con el proveedor simulado (`tests/ambientes.tftest.hcl`): comprueba los nombres, las etiquetas, los tamaños y el dominio de correo de cada ambiente, los valores de UAT (S11), que producción conserve sus nombres (`tests/proveedores.tftest.hcl` comprueba además que no hay recursos de registro de proveedores y que el proveedor lleva `resource_provider_registrations = "none"`) y que se rechacen un ambiente desconocido, un dominio de otro ambiente y una retención del Key Vault fuera de 7 a 90 días. `tests/registro.tftest.hcl` comprueba, en los dos ambientes, que el API y el trabajo programado bajen la imagen de ghcr.io con el token del Key Vault leído con la identidad del API, que la imagen se acepte solo por digest (se rechazan `:1.0.0`, `:v0.1.0`, `:latest`, etiqueta con digest, un digest corto, en mayúsculas o de otro algoritmo y otra imagen) y que el usuario de ghcr.io y el nombre del secreto sean válidos.
 
 ```sh
 cd infra/azure

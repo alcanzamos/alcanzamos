@@ -17,7 +17,7 @@ Lo que se crea **una sola vez por ambiente, con la cuenta del dueño**, antes de
 
 La cuenta de almacenamiento admite solo de 3 a 24 letras minúsculas y números, y su nombre es único en todo Azure: UAT agrega `uat`.
 
-1. **Registro de los proveedores de recursos** (O-14, D-076): `Microsoft.App`, `Microsoft.DBforPostgreSQL`, `Microsoft.Insights`, `Microsoft.KeyVault`, `Microsoft.ManagedIdentity`, `Microsoft.OperationalInsights` y `Microsoft.Storage`. Ya no se registra `Microsoft.Communication`: el correo sale por Zoho CPaaS (D-205).
+1. **Sin registro de proveedores de recursos.** Los dos bootstraps comparten la suscripción, y un recurso de registro en cada estado sería un dueño doble: el segundo `apply` choca, y destruir un bootstrap desregistraría los del otro. Los registra [`infra/suscripcion`](../suscripcion/README.md), una sola vez, con la configuración del proveedor (`resource_providers_to_register`). Aquí el proveedor lleva `resource_provider_registrations = "none"` y no hay recursos `azurerm_resource_provider_registration`. Nunca se registran a mano con `az provider register`.
 2. **Grupo de recursos** del ambiente, en East US 2.
 3. **Estado remoto:** la cuenta de almacenamiento del ambiente, con el contenedor `tfstate`, sin claves compartidas.
 4. **Identidad del pipeline:** una identidad administrada asignada por el usuario, con una credencial federada para Azure DevOps (*workload identity federation*). **Sin secretos y sin proveedor `azuread`:** no pide permisos de directorio en Entra (D-049, D-205 (1)).
@@ -29,11 +29,12 @@ La cuenta de almacenamiento admite solo de 3 a 24 letras minúsculas y números,
 
 ## Primer despliegue de cada ambiente (orden)
 
-1. El dueño corre `tofu apply -var="ambiente=<uat|produccion>"` en `infra/bootstrap/` con su cuenta, en la suscripción de pago por uso (ver «Dónde queda su estado»). Necesita el ID de la organización de Azure DevOps.
-2. En Azure DevOps crea la conexión de servicio `sc-alcanzamos-<prod|uat>-eus2`: tipo Azure Resource Manager, identidad federada, con el `client_id` y el `tenant_id` de las salidas.
-3. Con la salida `backend`, el pipeline de despliegue aplica `infra/azure/` (ver «Estado de cada ambiente» en su [README](../azure/README.md)). La primera vez, primero solo el Key Vault; el dueño carga ahí el token `read:packages` de ghcr.io y después se aplica todo («Acceso a la imagen privada» en ese README).
-4. En PostgreSQL, el administrador de Entra ID crea el rol de la identidad del API, con los permisos mínimos.
-5. En la suscripción de Azure for Students, que ya no se usa, se borran los recursos de la prueba R-9 (`rg-alcanzamos-prueba-r9` y `sc-alcanzamos-prueba-r9`).
+1. **Antes de cualquier bootstrap,** el dueño aplica `infra/suscripcion` una sola vez (proveedores, política P1 y presupuestos de la suscripción). Sin eso, Azure rechaza crear la cuenta de almacenamiento y las identidades.
+2. El dueño corre `tofu apply -var="ambiente=<uat|produccion>"` en `infra/bootstrap/` con su cuenta, en la suscripción de pago por uso (ver «Dónde queda su estado»). Necesita el ID de la organización de Azure DevOps.
+3. En Azure DevOps crea la conexión de servicio `sc-alcanzamos-<prod|uat>-eus2`: tipo Azure Resource Manager, identidad federada, con el `client_id` y el `tenant_id` de las salidas.
+4. Con la salida `backend`, el pipeline de despliegue aplica `infra/azure/` (ver «Estado de cada ambiente» en su [README](../azure/README.md)). La primera vez, primero solo el Key Vault; el dueño carga ahí el token `read:packages` de ghcr.io y después se aplica todo («Acceso a la imagen privada» en ese README).
+5. En PostgreSQL, el administrador de Entra ID crea el rol de la identidad del API, con los permisos mínimos.
+6. En la suscripción de Azure for Students, que ya no se usa, se borran los recursos de la prueba R-9 (`rg-alcanzamos-prueba-r9` y `sc-alcanzamos-prueba-r9`).
 
 ## Dónde queda su estado y cómo se respalda
 
@@ -52,7 +53,7 @@ La cuenta de almacenamiento admite solo de 3 a 24 letras minúsculas y números,
 
 ## Validación
 
-Sin credenciales y sin aplicar. `tofu test` hace solo plan, con los proveedores simulados. Comprueba los nombres de cada ambiente, la región `eastus2`, que el pipeline tenga solo «Contributor» sobre su grupo y «Storage Blob Data Contributor» sobre su estado, la credencial federada, las cinco identidades de carga con sus salidas, que no haya `azuread` ni `Microsoft.Communication`, y que se rechace un ambiente desconocido (`tests/*.tftest.hcl`).
+Sin credenciales y sin aplicar. `tofu test` hace solo plan, con los proveedores simulados. Comprueba los nombres de cada ambiente, la región `eastus2`, que el pipeline tenga solo «Contributor» sobre su grupo y «Storage Blob Data Contributor» sobre su estado, la credencial federada, las cinco identidades de carga con sus salidas, que no haya `azuread` ni `Microsoft.Communication`, que no haya recursos de registro de proveedores y el proveedor lleve `resource_provider_registrations = "none"`, que el pipeline no tenga más roles que esos dos y que se rechace un ambiente desconocido (`tests/*.tftest.hcl`).
 
 ```sh
 cd infra/bootstrap

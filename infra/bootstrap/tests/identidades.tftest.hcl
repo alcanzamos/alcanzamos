@@ -199,12 +199,8 @@ run "sin_communication_services" {
   }
 
   assert {
-    condition = alltrue([
-      length(azurerm_resource_provider_registration.proveedores) == 7,
-      !contains(keys(azurerm_resource_provider_registration.proveedores), "Microsoft.Communication"),
-      contains(keys(azurerm_resource_provider_registration.proveedores), "Microsoft.ManagedIdentity"),
-    ])
-    error_message = "Microsoft.Communication ya no se registra."
+    condition     = !anytrue([for f in fileset(path.module, "*.tf") : strcontains(file("${path.module}/${f}"), "Microsoft.Communication")])
+    error_message = "Microsoft.Communication ya no aparece: el correo sale por Zoho CPaaS (D-205)."
   }
 
   assert {
