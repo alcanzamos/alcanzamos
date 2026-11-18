@@ -1,3 +1,5 @@
+# Esta revisión guarda contra apagar un paso por accidente, no contra un sabotaje deliberado (un `exit` oculto en
+# `eval`, una variable armada con `printf`, etc.): eso lo cubre la revisión humana de todo cambio en .azure-pipelines.
 """Prueba de los filtros por carpeta (ADR-001, E17-ECO Q-11) y del control único (D-177).
 
 Lee los `paths.include` de la sección `pr` de cada pipeline y comprueba, con archivos de ejemplo,
@@ -366,6 +368,20 @@ def ordenes_de(paso):
     return ordenes
 
 
+def sale_antes(paso):
+    """Algún `exit` o `return` suelto en una línea del script que no es la última orden (también tras `&&`, `||`, `;`, `(`,
+    `command` o `builtin`), o una línea que no se lee. Los comentarios no cuentan."""
+    lineas = [l for l in paso.get("script", []) if l.strip() and not l.strip().startswith("#")]
+    for linea in lineas[:-1]:
+        lector = shlex.shlex(linea, posix=True, punctuation_chars=True)
+        try:
+            if {"exit", "return"} & set(lector):
+                return True
+        except ValueError:
+            return True
+    return False
+
+
 # Condiciones que dejan el paso corriendo siempre que el job corre; cualquier otra puede apagarlo.
 CONDICIONES_QUE_CORREN = ("", "succeeded()", "succeededOrFailed()", "always()")
 LINT_EN_VARIABLE = re.compile(r"golangci_lint=\$\(go( -C \S+)? tool -n golangci-lint\)")
@@ -379,9 +395,15 @@ def ejecuta(paso, es_la_orden):
     if paso.get("continueOnError", "false") != "false":
         return False
     ordenes = ordenes_de(paso)
-    if not ordenes or any(o[0] in ("exit", "return") or o[:2] == ["set", "+e"] for o in ordenes[:-1]):
+    if not ordenes or any(o[0] in ("exit", "return") or o[:2] == ["set", "+e"] for o in ordenes[:-1]) or sale_antes(paso):
         return False
     return es_la_orden(ordenes[-1], [" ".join(o) for o in ordenes[:-1]])
+
+
+def ultima_del_lint(antes):
+    """La última asignación de `golangci_lint` antes de usarla es exactamente `go [-C ruta] tool -n golangci-lint`."""
+    asignaciones = [a for a in antes if re.search(r"(?<![\w$])golangci_lint\+?=", a)]
+    return bool(asignaciones) and LINT_EN_VARIABLE.fullmatch(asignaciones[-1]) is not None
 
 
 # Lo que plantillas/api.yml debe ejecutar en cada módulo de Go aparte: (nombre, ¿la última orden del script lo hace?).
@@ -389,7 +411,7 @@ PASOS_GO = (
     ("`gofmt -l` con una prueba que falla (test -z)", lambda o, antes: o == ["test", "-z", "$(gofmt -l .)"]),
     ("go vet ./...", lambda o, antes: o == ["go", "vet", "./..."]),
     ("golangci-lint run", lambda o, antes: o == ["go", "tool", "golangci-lint", "run"]
-        or (o == ["$golangci_lint", "run"] and any(LINT_EN_VARIABLE.fullmatch(a) for a in antes))),
+        or (o == ["$golangci_lint", "run"] and ultima_del_lint(antes))),
     ("go test -race ./...", lambda o, antes: o == ["go", "test", "-race", "./..."]),
 )
 # Archivos de un módulo que el filtro de la etapa api debe cubrir: su go.mod y todo su código, no solo el manifiesto.
@@ -432,11 +454,15 @@ def revisar_modulos_go(plantilla, modulos, filtros_api):
 # Cambios solo ejecutables en los pasos de web/servidor de plantillas/api.yml: (texto, reemplazo). Los nombres y los
 # comentarios no cambian, así que prueban que la revisión lee lo que el agente ejecuta.
 SERVIDOR = "        workingDirectory: web/servidor\n"
+DESCUBRE = '          golangci_lint="$(go -C ../../api tool -n golangci-lint)"\n'
 MUTACIONES_GO = (
     ('      - script: test -z "$(gofmt -l .)"\n' + SERVIDOR, '      - script: echo omitido # test -z "$(gofmt -l .)"\n' + SERVIDOR),
     ('      - script: test -z "$(gofmt -l .)"\n' + SERVIDOR, '      - script: test -z "$(gofmt -l .)" || true\n' + SERVIDOR),
     ("      - script: go vet ./...\n" + SERVIDOR, "      - script: echo omitido # go vet ./...\n" + SERVIDOR),
     ('          "$golangci_lint" run\n', "          echo omitido\n"),
+    (DESCUBRE, "          true && exit 0\n" + DESCUBRE),
+    (DESCUBRE, "          command exit 0\n" + DESCUBRE),
+    ('          "$golangci_lint" run\n', '          golangci_lint=true\n          "$golangci_lint" run\n'),
     ('          "$golangci_lint" run\n', '          # "$golangci_lint" run\n'),
     ("      - script: go test -race ./...\n" + SERVIDOR, "      - script: echo omitido # go test -race ./...\n" + SERVIDOR),
 )

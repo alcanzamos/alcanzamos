@@ -130,6 +130,14 @@ class ModulosGo(unittest.TestCase):
         self.rechaza(cambiar(PLANTILLA, LINT, LINT + "          true\n"), menciona="golangci-lint")
         self.rechaza(cambiar(PLANTILLA, '          set -eu\n', '          set -eu\n          exit 0\n'), menciona="golangci-lint")
 
+    def test_salida_exitosa_antes_del_lint(self):
+        for orden in ("true && exit 0", "command exit 0"):
+            with self.subTest(orden=orden):
+                self.rechaza(cambiar(PLANTILLA, "          set -eu\n", "          set -eu\n          " + orden + "\n"), menciona="golangci-lint")
+
+    def test_variable_del_lint_sobrescrita(self):
+        self.rechaza(cambiar(PLANTILLA, LINT, "          golangci_lint=true\n" + LINT), menciona="golangci-lint")
+
     def test_lint_con_go_tool_en_el_propio_modulo(self):
         lint = PLANTILLA[PLANTILLA.index("      - script: |"):PLANTILLA.index("        displayName: web/servidor, lint")]
         propio = "      - script: go tool golangci-lint run\n        workingDirectory: web/servidor\n"
