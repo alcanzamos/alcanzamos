@@ -17,7 +17,8 @@ func init() {
 }
 
 // Manejador sirve la web de raiz: un archivo existente se entrega tal cual; /config.json lo arma cfg; /salud
-// responde a las sondas; cualquier otra ruta GET o HEAD devuelve index.html (aplicación de una página).
+// responde a las sondas; lo que no existe bajo assets/ es 404; cualquier otra ruta GET o HEAD devuelve index.html
+// (aplicación de una página).
 // Toda respuesta, también los errores, lleva la CSP y X-Content-Type-Options. No registra nada: ni peticiones ni IP.
 func Manejador(raiz fs.FS, cfg Config) http.Handler {
 	archivos := http.FileServerFS(raiz)
@@ -46,13 +47,20 @@ func Manejador(raiz fs.FS, cfg Config) http.Handler {
 			http.ServeContent(w, r, "config.json", time.Time{}, bytes.NewReader(configuracion))
 			return
 		}
-		if info, err := fs.Stat(raiz, nombre); nombre != "" && err == nil && !info.IsDir() && nombre != "index.html" {
-			if strings.HasPrefix(nombre, "assets/") {
-				// Los nombres llevan el hash del contenido: nunca cambian.
+		if nombre == "assets" || strings.HasPrefix(nombre, "assets/") {
+			// Los nombres llevan el hash del contenido: nunca cambian. Lo que no existe es 404, nunca index.html: tras
+			// un despliegue, la página vieja pide un .js viejo y recibiría HTML con 200. El 404 no se guarda en caché.
+			if info, err := fs.Stat(raiz, nombre); err == nil && !info.IsDir() {
 				cab.Set("Cache-Control", "public, max-age=31536000, immutable")
-			} else {
-				cab.Set("Cache-Control", "no-cache")
+				archivos.ServeHTTP(w, r)
+				return
 			}
+			cab.Set("Cache-Control", "no-store")
+			http.NotFound(w, r)
+			return
+		}
+		if info, err := fs.Stat(raiz, nombre); nombre != "" && err == nil && !info.IsDir() && nombre != "index.html" {
+			cab.Set("Cache-Control", "no-cache")
 			archivos.ServeHTTP(w, r)
 			return
 		}

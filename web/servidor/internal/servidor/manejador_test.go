@@ -54,8 +54,11 @@ func TestRutasYCache(t *testing.T) {
 		{"archivo fuera de assets sin caché largo", "GET", "/fuentes/figtree-OFL.txt", 200, "text/plain", "licencia", "no-cache"},
 		{"ruta de la SPA devuelve index.html", "GET", "/alguna/ruta", 200, "text/html", indiceDePrueba, "no-cache"},
 		{"HEAD de ruta de la SPA", "HEAD", "/movimientos", 200, "text/html", "", "no-cache"},
-		{"asset inexistente cae a index.html", "GET", "/assets/no-existe.js", 200, "text/html", indiceDePrueba, "no-cache"},
-		{"un directorio no se lista", "GET", "/assets/", 200, "text/html", indiceDePrueba, "no-cache"},
+		{"asset inexistente da 404", "GET", "/assets/no-existe.js", 404, "text/plain", "404 page not found", "no-store"},
+		{"asset inexistente en una subcarpeta", "GET", "/assets/viejo/no-existe.css", 404, "text/plain", "404 page not found", "no-store"},
+		{"un directorio de assets no se lista", "GET", "/assets/", 404, "text/plain", "404 page not found", "no-store"},
+		{"assets sin barra", "GET", "/assets", 404, "text/plain", "404 page not found", "no-store"},
+		{"un nombre que solo empieza como assets sigue la regla de la SPA", "GET", "/assets-viejos/x.js", 200, "text/html", indiceDePrueba, "no-cache"},
 		{"una ruta de /api/ también cae a index.html", "GET", "/api/v1/algo", 200, "text/html", indiceDePrueba, "no-cache"},
 		{"POST a la raíz da 405", "POST", "/", 405, "", "", ""},
 		{"POST a una ruta de la SPA da 405", "POST", "/movimientos", 405, "", "", ""},
@@ -86,6 +89,47 @@ func TestRutasYCache(t *testing.T) {
 				t.Fatalf("HEAD no debe traer cuerpo: %q", rr.Body.String())
 			}
 		})
+	}
+}
+
+// Tras un despliegue, un navegador con la página vieja pide un .js que ya no existe: debe recibir 404, nunca el
+// HTML de index.html con 200 (el navegador lo tomaría por el script y fallaría de forma confusa). El 404 no es
+// cacheable como los assets: si el archivo aparece después, el navegador debe volver a preguntar.
+func TestAssetInexistenteNoEsIndexNiInmutable(t *testing.T) {
+	rr := httptest.NewRecorder()
+	manejadorDePrueba(t).ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/assets/index-viejo.js", nil))
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("código %d, se esperaba 404", rr.Code)
+	}
+	if strings.Contains(rr.Body.String(), "<html") || strings.Contains(rr.Body.String(), indiceDePrueba) {
+		t.Fatalf("el cuerpo no debe ser index.html: %q", rr.Body.String())
+	}
+	if got := rr.Header().Get("Cache-Control"); got != "no-store" || strings.Contains(got, "immutable") {
+		t.Fatalf("Cache-Control %q, se esperaba no-store (nunca immutable)", got)
+	}
+	if got := rr.Header().Get("Content-Security-Policy"); got != cspEsperada {
+		t.Fatalf("Content-Security-Policy %q, se esperaba %q", got, cspEsperada)
+	}
+	if got := rr.Header().Get("X-Content-Type-Options"); got != "nosniff" {
+		t.Fatalf("X-Content-Type-Options %q, se esperaba nosniff", got)
+	}
+}
+
+// HEAD se prueba con un servidor real: es net/http quien quita el cuerpo, y el registro de httptest no lo hace.
+func TestHEADDeAssetInexistenteDa404SinCuerpo(t *testing.T) {
+	srv := httptest.NewServer(manejadorDePrueba(t))
+	defer srv.Close()
+	resp, err := srv.Client().Head(srv.URL + "/assets/no-existe.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	if resp.StatusCode != http.StatusNotFound || resp.Header.Get("Cache-Control") != "no-store" {
+		t.Fatalf("código %d y Cache-Control %q; se esperaba 404 y no-store", resp.StatusCode, resp.Header.Get("Cache-Control"))
 	}
 }
 
@@ -128,6 +172,7 @@ func TestCabecerasDeSeguridadEnTodasLasRespuestas(t *testing.T) {
 		{"raíz", "GET", "/"},
 		{"ruta de la SPA", "GET", "/movimientos"},
 		{"asset", "GET", "/assets/index-abc123.js"},
+		{"asset inexistente", "GET", "/assets/no-existe.js"},
 		{"archivo suelto", "GET", "/fuentes/figtree-OFL.txt"},
 		{"config.json", "GET", "/config.json"},
 		{"salud", "GET", "/salud"},

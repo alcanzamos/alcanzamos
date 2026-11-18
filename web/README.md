@@ -208,8 +208,9 @@ Las pruebas, desde `web/servidor/`: `go test -race ./...`. También corren `gofm
 - `/config.json`: lo arma el servidor al arrancar, `{"url_api":"<origen de API_URL>"}`, con `Cache-Control: no-store`. Tapa a cualquier `config.json` de la carpeta. La web lo lee antes de montar (T16).
 - `/salud`: `{"estado":"ok"}` con `Cache-Control: no-store`, para las sondas de vida y de arranque de Container Apps.
 - `/assets/*` existente: `Cache-Control: public, max-age=31536000, immutable` (el nombre lleva el hash del contenido).
+- `/assets/*` que **no** existe (también `/assets` y `/assets/`, y cualquier subcarpeta): **404** con `Cache-Control: no-store`, nunca `index.html` con 200. Tras un despliegue, un navegador con la página vieja pide un `.js` viejo; con HTML y 200 lo tomaría por el script y fallaría sin explicación. Lleva la CSP y `nosniff` como toda respuesta, y no lleva `immutable`.
 - `index.html` y cualquier otro archivo existente: `Cache-Control: no-cache`.
-- Toda otra ruta `GET` o `HEAD`, también un archivo de `assets/` que no existe y una ruta `/api/…`, devuelve `index.html` con `no-cache` (aplicación de una página), como el API de hoy (`api/src/servidor/estatico.go`). Otro método responde 405 con `Allow: GET, HEAD`. Sin `index.html` en la carpeta, 404.
+- Toda otra ruta `GET` o `HEAD` fuera de `/assets/`, también una ruta `/api/…`, devuelve `index.html` con `no-cache` (aplicación de una página), como el API de hoy (`api/src/servidor/estatico.go`), salvo en `assets/`, que da 404 (arriba). Otro método responde 405 con `Allow: GET, HEAD`. Sin `index.html` en la carpeta, 404.
 - Cabeceras en toda respuesta, errores incluidos:
   - `Content-Security-Policy: default-src 'self'; connect-src 'self' <origen de API_URL>; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'`. Es la política de hoy del API (`api/src/servidor/servidor.go`) más el `connect-src` con el origen exacto del API. `web/vite.config.ts` y `web/e2e/csp.spec.ts` la repiten sin el API: si cambia aquí, debe cambiar allá.
   - `X-Content-Type-Options: nosniff`.
