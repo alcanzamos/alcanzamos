@@ -1,0 +1,19 @@
+# Analizador de Go de web/servidor: los mismos de api/.golangci.yml (E17-ECO 3.5, Q-2, D-110) sin las reglas de
+# paquetes de la API (depguard), que no aplican aquí. Se corre desde esta carpeta con el golangci-lint que fija
+# api/go.mod: "$(go -C ../../api tool -n golangci-lint)" run
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - staticcheck
+    - asciicheck
+  settings:
+    errcheck:
+      # `_ = f()` y `_, _ = f()` también cuentan como error ignorado (A-13).
+      check-blank: true
+      check-type-assertions: false
+      exclude-functions:
+        # Si no se puede escribir en stderr no hay dónde avisarlo: el código de salida ya dice que falló.
+        - fmt.Fprintln

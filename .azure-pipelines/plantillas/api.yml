@@ -42,6 +42,29 @@ jobs:
         workingDirectory: api
         displayName: Pruebas con detector de carreras
 
+      # web/servidor (infra-d205 T14): el servidor de archivos estáticos de ca-web es un módulo de Go aparte, solo con la
+      # biblioteca estándar. Corre en esta etapa porque ya corre cuando cambia web/* (filtro de api.yml y del control) y ya
+      # trae Go fijado: no hace falta otra instalación ni otro filtro. pruebas/filtros.py comprueba que cada go.mod tenga
+      # sus pasos aquí. Misma configuración de lint que el API, con el golangci-lint fijado en api/go.mod.
+      - script: test -z "$(gofmt -l .)"
+        workingDirectory: web/servidor
+        displayName: web/servidor, el formato de Go es correcto
+
+      - script: go vet ./...
+        workingDirectory: web/servidor
+        displayName: web/servidor, go vet
+
+      - script: |
+          set -eu
+          golangci_lint="$(go -C ../../api tool -n golangci-lint)"
+          "$golangci_lint" run
+        workingDirectory: web/servidor
+        displayName: web/servidor, analizador agregado (golangci-lint)
+
+      - script: go test -race ./...
+        workingDirectory: web/servidor
+        displayName: web/servidor, pruebas con detector de carreras
+
       # Barrera de cobertura (E17-ECO 5.5, D-146, D-148): las pruebas aparte de api/test miden api/src con -coverpkg.
       - script: python3 -I -B .azure-pipelines/pruebas/cobertura.py probar
         displayName: La barrera de cobertura se prueba a sí misma
