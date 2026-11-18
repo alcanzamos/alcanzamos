@@ -52,6 +52,18 @@ Un solo origen: la web y el API comparten dominio, sin CORS. No hay dominio fijo
   | `form-action 'self'` | Los formularios solo envían al mismo origen |
 
   La prueba `TestContentSecurityPolicyEnTodasLasRespuestas` verifica el valor exacto. `vite preview` (que usa Playwright) repite el mismo texto en `web/vite.config.ts` y `web/e2e/csp.spec.ts` lo compara y falla ante cualquier violación; no hay un origen único posible porque Go no puede embeber archivos fuera de su módulo, así que son dos literales que hay que mantener iguales.
+- **Strict-Transport-Security** en todas las respuestas (web, `/api/`, `/salud`, errores 401, 403, 404, 405, 415, 429 y 500, rechazos de CSRF), puesta en el mismo envoltorio que la CSP (`conCabecerasDeSeguridad`, una sola constante `politicaHSTS`):
+
+  ```
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  ```
+
+  - **Por qué lo manda el API:** Cloudflare va «DNS only» y la entrada de Container Apps no agrega la cabecera (infra-d205 T20). Si el API no la manda, nadie la manda.
+  - **`max-age` de un año y `includeSubDomains`:** todos los nombres de `alcanzamos.co` van por HTTPS.
+  - **Sin `preload`, a propósito.** Entrar en la lista de precarga de los navegadores casi no se deshace (quitarse tarda meses y los navegadores viejos la conservan). Es otra decisión, del dueño, y no va en el código por defecto. Quien la tome debe agregar `; preload` en `politicaHSTS` y cambiar `TestStrictTransportSecurityNoLlevaPreload`.
+  - **También sin TLS (local).** El API manda la cabecera siempre, incluso en `http://localhost`. Los navegadores la ignoran sobre HTTP (RFC 6797, 8.1), así que no hace daño, y el servidor no tiene que saber si hay TLS delante (la entrada lo termina). Lo prueba `TestStrictTransportSecuritySaleTambienSobreHTTPSinTLS`.
+  - **Una respuesta sin cabeceras:** si un manejador hace `panic`, `net/http` corta la conexión sin responder. No hay respuesta que lleve cabeceras (el API no tiene un middleware que lo convierta en 500).
+  - Pruebas: `TestStrictTransportSecurityEnTodasLasRespuestas` (200, 404, 405, 401, 403, 415, 429, 500 y la web), `TestStrictTransportSecurityNoLlevaPreload` y `TestHSTSNoCambiaLasDemasCabeceras`.
 - La cookie de sesión es `__Host-sesion`, con `SameSite=Strict` (D-083); ver [Sesiones](#sesiones-us-49).
 - Para ver la web real sin Docker: `cp -r web/dist/. api/src/web/estatico/` y `go run ./src/cmd/api` (no confirmar ese cambio).
 
