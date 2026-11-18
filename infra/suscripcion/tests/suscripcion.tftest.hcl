@@ -27,25 +27,65 @@ run "politica_de_regiones" {
   }
 }
 
-# P1: etiquetas proyecto y ambiente obligatorias, en recursos y en grupos.
+# P1 (decisión del dueño, 2026-11-18): las etiquetas proyecto y ambiente se agregan o se heredan (Modify), nunca se rechazan.
+# Recursos: «Inherit a tag from the resource group if missing». Grupos: «Add a tag to resource groups», con el valor por defecto.
+# Una asignación por etiqueta y por definición. Cada una lleva identidad administrada y ubicación (Modify las exige).
 run "politica_de_etiquetas" {
   command = plan
 
   assert {
     condition = alltrue([
       toset(keys(azurerm_subscription_policy_assignment.etiquetas)) == toset(["recursos-proyecto", "recursos-ambiente", "grupos-proyecto", "grupos-ambiente"]),
-      azurerm_subscription_policy_assignment.etiquetas["recursos-proyecto"].policy_definition_id == "/providers/Microsoft.Authorization/policyDefinitions/871b6d14-10aa-478d-b590-94f262ecfa99",
-      azurerm_subscription_policy_assignment.etiquetas["recursos-ambiente"].policy_definition_id == "/providers/Microsoft.Authorization/policyDefinitions/871b6d14-10aa-478d-b590-94f262ecfa99",
-      azurerm_subscription_policy_assignment.etiquetas["grupos-proyecto"].policy_definition_id == "/providers/Microsoft.Authorization/policyDefinitions/96670d01-0a4d-4649-9c89-2d3abc0a5025",
-      azurerm_subscription_policy_assignment.etiquetas["grupos-ambiente"].policy_definition_id == "/providers/Microsoft.Authorization/policyDefinitions/96670d01-0a4d-4649-9c89-2d3abc0a5025",
-      jsondecode(azurerm_subscription_policy_assignment.etiquetas["recursos-proyecto"].parameters).tagName.value == "proyecto",
-      jsondecode(azurerm_subscription_policy_assignment.etiquetas["grupos-proyecto"].parameters).tagName.value == "proyecto",
-      jsondecode(azurerm_subscription_policy_assignment.etiquetas["recursos-ambiente"].parameters).tagName.value == "ambiente",
-      jsondecode(azurerm_subscription_policy_assignment.etiquetas["grupos-ambiente"].parameters).tagName.value == "ambiente",
+      azurerm_subscription_policy_assignment.etiquetas["recursos-proyecto"].policy_definition_id == "/providers/Microsoft.Authorization/policyDefinitions/ea3f2387-9b95-492a-a190-fcdc54f7b070",
+      azurerm_subscription_policy_assignment.etiquetas["recursos-ambiente"].policy_definition_id == "/providers/Microsoft.Authorization/policyDefinitions/ea3f2387-9b95-492a-a190-fcdc54f7b070",
+      azurerm_subscription_policy_assignment.etiquetas["grupos-proyecto"].policy_definition_id == "/providers/Microsoft.Authorization/policyDefinitions/726aca4c-86e9-4b04-b0c5-073027359532",
+      azurerm_subscription_policy_assignment.etiquetas["grupos-ambiente"].policy_definition_id == "/providers/Microsoft.Authorization/policyDefinitions/726aca4c-86e9-4b04-b0c5-073027359532",
       alltrue([for a in values(azurerm_subscription_policy_assignment.etiquetas) : a.subscription_id == "/subscriptions/00000000-0000-0000-0000-000000000000"]),
       alltrue([for a in values(azurerm_subscription_policy_assignment.etiquetas) : a.enforce == true]),
     ])
-    error_message = "Las etiquetas proyecto y ambiente deben ser obligatorias en recursos y en grupos de la suscripción (P1)."
+    error_message = "Las etiquetas proyecto y ambiente se agregan con las definiciones Modify integradas: herencia desde el grupo en recursos y «Add a tag to resource groups» en grupos."
+  }
+
+  # Parámetros exactos de cada definición. Las integradas Modify no tienen parámetro «effect»: pasarlo haría fallar la asignación.
+  assert {
+    condition = alltrue([
+      jsondecode(azurerm_subscription_policy_assignment.etiquetas["recursos-proyecto"].parameters) == { tagName = { value = "proyecto" } },
+      jsondecode(azurerm_subscription_policy_assignment.etiquetas["recursos-ambiente"].parameters) == { tagName = { value = "ambiente" } },
+      jsondecode(azurerm_subscription_policy_assignment.etiquetas["grupos-proyecto"].parameters) == { tagName = { value = "proyecto" }, tagValue = { value = "alcanzamos" } },
+      jsondecode(azurerm_subscription_policy_assignment.etiquetas["grupos-ambiente"].parameters) == { tagName = { value = "ambiente" }, tagValue = { value = "compartido" } },
+    ])
+    error_message = "Parámetros: tagName en recursos; tagName y tagValue en grupos (proyecto=alcanzamos, ambiente=compartido para los grupos que crea Azure)."
+  }
+
+  # Modify exige identidad administrada en la asignación y su ubicación (eastus2).
+  assert {
+    condition = alltrue([
+      alltrue([for a in values(azurerm_subscription_policy_assignment.etiquetas) : length(a.identity) == 1]),
+      alltrue([for a in values(azurerm_subscription_policy_assignment.etiquetas) : a.identity[0].type == "SystemAssigned"]),
+      alltrue([for a in values(azurerm_subscription_policy_assignment.etiquetas) : a.location == "eastus2"]),
+    ])
+    error_message = "Cada asignación de etiquetas (Modify) lleva identidad SystemAssigned y location = eastus2."
+  }
+
+  # Ninguna asignación de etiquetas puede ser Deny: ni el efecto en los parámetros ni las definiciones Require a tag.
+  assert {
+    condition = alltrue([
+      alltrue([for a in values(azurerm_subscription_policy_assignment.etiquetas) : !contains(keys(jsondecode(a.parameters)), "effect")]),
+      alltrue([for a in values(azurerm_subscription_policy_assignment.etiquetas) : !contains(["871b6d14-10aa-478d-b590-94f262ecfa99", "96670d01-0a4d-4649-9c89-2d3abc0a5025"], element(split("/", a.policy_definition_id), 4))]),
+    ])
+    error_message = "No debe quedar ninguna política de etiquetas con Deny (Require a tag on resources / on resource groups)."
+  }
+
+  # Cada identidad recibe el rol de roleDefinitionIds de la definición (Contributor), en el alcance de la suscripción.
+  assert {
+    condition = alltrue([
+      toset(keys(azurerm_role_assignment.etiquetas)) == toset(["recursos-proyecto", "recursos-ambiente", "grupos-proyecto", "grupos-ambiente"]),
+      alltrue([for r in values(azurerm_role_assignment.etiquetas) : r.scope == "/subscriptions/00000000-0000-0000-0000-000000000000"]),
+      alltrue([for r in values(azurerm_role_assignment.etiquetas) : r.role_definition_id == "/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Authorization/roleDefinitions/b24988ac-6180-42a0-ab88-20f7382dd24c"]),
+      alltrue([for r in values(azurerm_role_assignment.etiquetas) : r.principal_type == "ServicePrincipal"]),
+      alltrue([for r in values(azurerm_role_assignment.etiquetas) : r.skip_service_principal_aad_check == true]),
+    ])
+    error_message = "Cada identidad de una asignación Modify tiene Contributor (b24988ac…) en el alcance de la suscripción, y solo esa."
   }
 
   # Los nombres de asignación: únicos y de hasta 64 caracteres (límite de Azure).
@@ -60,6 +100,19 @@ run "politica_de_etiquetas" {
   assert {
     condition     = length(toset(concat([for a in values(azurerm_subscription_policy_assignment.etiquetas) : a.name], [for a in values(azurerm_subscription_policy_assignment.regiones) : a.name]))) == 6
     error_message = "Las seis asignaciones de política deben tener nombres distintos."
+  }
+}
+
+# Las regiones siguen con Deny, sin identidad ni ubicación propia (Deny no las necesita).
+run "regiones_siguen_con_deny" {
+  command = plan
+
+  assert {
+    condition = alltrue([
+      alltrue([for a in values(azurerm_subscription_policy_assignment.regiones) : jsondecode(a.parameters).effect.value == "Deny"]),
+      alltrue([for a in values(azurerm_subscription_policy_assignment.regiones) : length(a.identity) == 0]),
+    ])
+    error_message = "Las políticas de regiones siguen con efecto Deny y sin identidad."
   }
 }
 
