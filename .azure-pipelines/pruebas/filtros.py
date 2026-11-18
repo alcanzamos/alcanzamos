@@ -24,7 +24,9 @@ gitleaks (T22 de infra-d205, L18): el PR revisa solo sus commits (`origin/main..
 completo de `main` (`HEAD`), con el mismo paso (`plantillas/pasos/gitleaks.yml`) y la misma imagen fijada por digest, definida
 una sola vez. Ninguna de las dos puede pasar en silencio: la prueba comprueba la forma de los YAML (sin `|| true`, sin `condition`,
 sin `continueOnError`, `set -euo pipefail`) y corre el script del paso con un `docker` falso sobre repositorios de ejemplo
-(sin la referencia, con el rango vacío, con un clon superficial, con gitleaks que revisa 0 commits o que encuentra algo).
+(sin la referencia, con el rango vacío, con un clon superficial, con gitleaks que revisa 0 commits, que encuentra algo o que
+informa un error `ERR`/`FTL` aunque salga con 0). El repositorio de ejemplo imita lo que baja Azure en un PR: HEAD es un commit de
+fusión con dos padres (refs/pull/N/merge), y un caso resuelve un conflicto agregando una línea que no está en ningún padre.
 """
 import re
 import importlib.util
@@ -529,7 +531,7 @@ def revisar_mutaciones(texto, carpetas):
 PASO_GITLEAKS = "plantillas/pasos/gitleaks.yml"
 IMAGEN_GITLEAKS = re.compile(r"ghcr\.io/gitleaks/gitleaks:v\d+\.\d+\.\d+@sha256:[0-9a-f]{64}")
 # Lo que haría pasar a gitleaks en silencio. Se busca en el YAML sin comentarios.
-SILENCIOSOS = ("|| true", "||true", "continueOnError", "condition:", "failOnStderr: false", "set +e", "|| :")
+SILENCIOSOS = ("|| true", "||true", "continueOnError", "condition:", "failOnStderr: false", "set +e", "|| :", "enabled: false")
 
 
 def sin_comentarios(texto):
@@ -584,7 +586,8 @@ def revisar_gitleaks(textos):
     if "set -euo pipefail" not in script.splitlines():
         fallas.append(f"{PASO_GITLEAKS}: el script debe empezar con `set -euo pipefail` (sin pipefail, `| tee` esconde el código de gitleaks)")
     for debe, por_que in (
-        ('--log-opts="$GITLEAKS_RANGO"', "gitleaks revisa solo el rango que se le pasa"),
+        ('--log-opts="--diff-merges=first-parent $GITLEAKS_RANGO"', "gitleaks revisa solo el rango, con el diff de cada fusión contra su primer padre (sin eso omite lo que se resuelve en un conflicto)"),
+        (r"(ERR|FTL)", "una línea ERR o FTL de gitleaks falla el paso aunque salga con 0 (referencia que no existe, git que falla)"),
         ('"$GITLEAKS_IMAGEN" git /repo', "gitleaks corre con la imagen del parámetro"),
         (":/repo:ro", "el repositorio entra de solo lectura"),
         ("docker run --rm", "el contenedor se borra solo"),
@@ -601,6 +604,10 @@ def revisar_gitleaks(textos):
     # El PR: `comun` revisa solo sus commits. Con fetchDepth 0 (un rango necesita la historia) y sin el paso viejo.
     comun = textos.get("plantillas/comun.yml", "")
     limpio_comun = sin_comentarios(comun)
+    # El trabajo `comun` (sangría de 4) no puede apagarse ni tolerar fallas; las condiciones de otros pasos (sangría de 8) son de ellos.
+    for l in limpio_comun.splitlines():
+        if re.match(r"    (condition|enabled|continueOnError):", l):
+            fallas.append(f"plantillas/comun.yml: el trabajo `comun` no puede llevar `{l.strip()}` (apagaría gitleaks en cada PR)")
     if "- template: pasos/gitleaks.yml\n        parameters:\n          rango: origin/main..HEAD\n" not in limpio_comun + "\n":
         fallas.append("plantillas/comun.yml: debe usar pasos/gitleaks.yml con `rango: origin/main..HEAD` (solo los commits del PR)")
     if "checkout: self\n        fetchDepth: 0\n" not in limpio_comun:
@@ -642,9 +649,12 @@ def textos_gitleaks():
 # Cambios que la revisión de gitleaks debe rechazar: (archivo, texto, reemplazo).
 MUTACIONES_GITLEAKS = (
     (PASO_GITLEAKS, "set -euo pipefail", "set -eu"),
-    (PASO_GITLEAKS, '--log-opts="$GITLEAKS_RANGO"', "--redact"),
+    (PASO_GITLEAKS, '--log-opts="--diff-merges=first-parent $GITLEAKS_RANGO"', "--redact"),
+    (PASO_GITLEAKS, '--log-opts="--diff-merges=first-parent $GITLEAKS_RANGO"', '--log-opts="$GITLEAKS_RANGO"'),
+    (PASO_GITLEAKS, "(ERR|FTL)", "(XXX)"),
+    (PASO_GITLEAKS, "    displayName:", "    enabled: false\n    displayName:"),
     (PASO_GITLEAKS, ":/repo:ro", ":/repo"),
-    (PASO_GITLEAKS, "--log-opts=\"$GITLEAKS_RANGO\" 2>&1 | tee", "--log-opts=\"$GITLEAKS_RANGO\" 2>&1 || true | tee"),
+    (PASO_GITLEAKS, "$GITLEAKS_RANGO\" 2>&1 | tee", "$GITLEAKS_RANGO\" 2>&1 || true | tee"),
     (PASO_GITLEAKS, "    displayName:", "    condition: false\n    displayName:"),
     (PASO_GITLEAKS, "    displayName:", "    continueOnError: true\n    displayName:"),
     (PASO_GITLEAKS, "is-shallow-repository", "rev-parse"),
@@ -658,7 +668,12 @@ MUTACIONES_GITLEAKS = (
     ("plantillas/comun.yml", "      - template: pasos/gitleaks.yml\n", "      - script: docker run ghcr.io/gitleaks/gitleaks:latest git /repo\n      - template: pasos/gitleaks.yml\n"),
     ("../revision-diaria.yml", "rango: HEAD", "rango: HEAD~1..HEAD"),
     ("../revision-diaria.yml", "  - job: gitleaks\n", "  - job: gitleaks\n    condition: false\n"),
+    ("../revision-diaria.yml", "  - job: gitleaks\n", "  - job: gitleaks\n    enabled: false\n"),
     ("../revision-diaria.yml", "  - job: gitleaks\n", "  - job: gitleaks2\n"),
+    ("plantillas/comun.yml", "  - job: comun\n", "  - job: comun\n    condition: false\n"),
+    ("plantillas/comun.yml", "  - job: comun\n", "  - job: comun\n    enabled: false\n"),
+    ("plantillas/comun.yml", "  - job: comun\n", "  - job: comun\n    continueOnError: true\n"),
+    ("plantillas/comun.yml", "    steps:\n", "    condition: eq(1, 2)\n    steps:\n"),
 )
 
 
@@ -683,15 +698,20 @@ exit "${FALSO_CODIGO:-0}"
 """
 
 
-def git(cwd, *args):
+def git(cwd, *args, check=True):
     entorno = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull,
                "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.invalid",
                "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@example.invalid"}
-    subprocess.run(["git", *args], cwd=cwd, env=entorno, check=True, capture_output=True)
+    return subprocess.run(["git", *args], cwd=cwd, env=entorno, check=check, capture_output=True, text=True).stdout.strip()
+
+
+def padres_de_head(destino):
+    return git(destino, "rev-list", "--parents", "-n", "1", "HEAD").split()[1:]
 
 
 def repo_de_ejemplo(destino, origin_main=True, commits_del_pr=2):
-    """main con 2 commits; origin/main en el segundo; el PR suma `commits_del_pr` commits y un commit de fusión al final."""
+    """Lo que baja Azure en un PR (refs/pull/N/merge): main con 2 commits (origin/main en el segundo); el PR sale del primero y
+    suma `commits_del_pr` commits; HEAD es el commit de fusión, con dos padres: la punta de main y la del PR."""
     git(destino, "init", "-q", "-b", "main")
     for n in (1, 2):
         (destino / "a.txt").write_text(f"base {n}\n")
@@ -699,11 +719,44 @@ def repo_de_ejemplo(destino, origin_main=True, commits_del_pr=2):
         git(destino, "commit", "-q", "-m", f"base {n}")
     if origin_main:
         git(destino, "update-ref", "refs/remotes/origin/main", "HEAD")
-    git(destino, "checkout", "-q", "-b", "pr")
+    git(destino, "checkout", "-q", "-b", "pr-commits", "HEAD~1")
     for n in range(commits_del_pr):
         (destino / f"pr{n}.txt").write_text(f"pr {n}\n")
         git(destino, "add", "-A")
         git(destino, "commit", "-q", "-m", f"pr {n}")
+    git(destino, "checkout", "-q", "-b", "pr", "main")
+    git(destino, "merge", "-q", "--no-ff", "-m", "fusion", "pr-commits")
+    assert padres_de_head(destino) == [git(destino, "rev-parse", "main"), git(destino, "rev-parse", "pr-commits")], \
+        "el repositorio de ejemplo debe terminar en un commit de fusión (dos padres: main y el PR), como refs/pull/N/merge"
+
+
+MARCA_DE_LA_FUSION = "valor-solo-en-la-fusion"
+
+
+def repo_con_conflicto(destino):
+    """Como `repo_de_ejemplo`, pero main y el PR cambian la misma línea: la fusión tiene conflicto, se resuelve a mano y deja una
+    línea (MARCA_DE_LA_FUSION) que no está en ningún padre ni en ningún commit del PR."""
+    git(destino, "init", "-q", "-b", "main")
+    (destino / "c.txt").write_text("uno\nlinea\ntres\n")
+    git(destino, "add", "-A")
+    git(destino, "commit", "-q", "-m", "base")
+    git(destino, "checkout", "-q", "-b", "pr-commits")
+    (destino / "c.txt").write_text("uno\nlinea pr\ntres\n")
+    git(destino, "commit", "-q", "-am", "pr 1")
+    (destino / "otro.txt").write_text("x\n")
+    git(destino, "add", "-A")
+    git(destino, "commit", "-q", "-m", "pr 2")
+    git(destino, "checkout", "-q", "main")
+    (destino / "c.txt").write_text("uno\nlinea main\ntres\n")
+    git(destino, "commit", "-q", "-am", "main avanza")
+    git(destino, "update-ref", "refs/remotes/origin/main", "HEAD")
+    git(destino, "checkout", "-q", "-b", "pr")
+    git(destino, "merge", "--no-ff", "pr-commits", check=False)
+    assert (destino / ".git" / "MERGE_HEAD").is_file(), "el ejemplo necesita una fusión detenida por un conflicto"
+    (destino / "c.txt").write_text(f"uno\n{MARCA_DE_LA_FUSION}\ntres\n")
+    git(destino, "add", "-A")
+    git(destino, "commit", "-q", "-m", "fusion resuelta")
+    assert len(padres_de_head(destino)) == 2
 
 
 def correr_paso(raiz_repo, script, rango, salida_falsa, codigo=0, bin_falso=None, args=None):
@@ -732,7 +785,7 @@ def probar_script_gitleaks(script):
         ok = "INF 2 commits scanned.\nINF no leaks found"
         contador = []
 
-        def caso(nombre, cuando, rango, salida, codigo, debe_pasar, llama_a_docker, esperado_en_args=(), mensaje=""):
+        def caso(nombre, cuando, rango, salida, codigo, debe_pasar, llama_a_docker, esperado_en_args=(), mensaje="", comprobar=None):
             contador.append(nombre)
             carpeta = tmp / f"caso{len(contador)}"
             carpeta.mkdir()
@@ -745,9 +798,11 @@ def probar_script_gitleaks(script):
             rc, texto, recibido = correr_paso(repo, script, rango, salida, codigo, bin_falso, args)
             bien = (rc == 0) == debe_pasar and (recibido is not None) == llama_a_docker
             bien = bien and all(x in (recibido or []) for x in esperado_en_args) and mensaje in texto
+            extra = comprobar(repo, recibido or []) if comprobar else ""
+            bien = bien and not extra
             print(f"{'ok' if bien else 'FALLA':5} gitleaks (paso): {nombre}: código {rc}, docker {'llamado' if recibido is not None else 'no llamado'}")
             if not bien:
-                fallas.append(f"gitleaks (paso): {nombre}: código {rc}, docker {recibido}\n{texto}")
+                fallas.append(f"gitleaks (paso): {nombre}: código {rc}, docker {recibido} {extra}\n{texto}")
 
         def normal(c):
             repo_de_ejemplo(c)
@@ -768,9 +823,30 @@ def probar_script_gitleaks(script):
             repo_de_ejemplo(c)
             git(c, "checkout", "-q", "main")
 
+        def con_conflicto(c):
+            repo_con_conflicto(c)
+
+        def head_es_fusion(c):
+            repo_de_ejemplo(c)
+
+        def fusion_en_el_diff(repo, recibido):
+            """Lo que gitleaks lee es `git log -p -U0 <log-opts>`: con las opciones que el paso le pasa, la línea que solo existe en la
+            fusión resuelta debe aparecer; sin ellas (el paso anterior) no aparecía, y por eso un secreto ahí pasaba sin que nadie lo viera."""
+            opts = next((a.split("=", 1)[1] for a in recibido if a.startswith("--log-opts=")), None)
+            if opts is None:
+                return "docker no recibió --log-opts"
+            entorno = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull}
+            con = subprocess.run(["git", "log", "-p", "-U0", *opts.split(" ")], cwd=repo, env=entorno, capture_output=True, text=True).stdout
+            sin = subprocess.run(["git", "log", "-p", "-U0", opts.split(" ")[-1]], cwd=repo, env=entorno, capture_output=True, text=True).stdout
+            if MARCA_DE_LA_FUSION in sin:
+                return "la prueba no distingue: el rango sin opciones ya muestra la línea de la fusión"
+            if MARCA_DE_LA_FUSION not in con:
+                return f"`git log -p -U0 {opts}` no muestra la línea que solo agregó la fusión resuelta"
+            return ""
+
         rango_pr = "origin/main..HEAD"
         caso("PR con 2 commits: gitleaks recibe solo el rango", normal, rango_pr, ok, 0, True, True,
-             (f"--log-opts={rango_pr}", "git", "/repo", "--redact", "--no-banner"))
+             (f"--log-opts=--diff-merges=first-parent {rango_pr}", "git", "/repo", "--redact", "--no-banner"))
         caso("gitleaks encuentra un secreto (código 1): el paso falla", normal, rango_pr, "INF 2 commits scanned.\nWRN leaks found: 1", 1, False, True,
              mensaje="leaks found: 1")
         caso("falta origin/main: el paso falla sin llamar a gitleaks", sin_origin_main, rango_pr, ok, 0, False, False,
@@ -784,8 +860,21 @@ def probar_script_gitleaks(script):
              mensaje="gitleaks no informó cuántos commits revisó")
         caso("una referencia inexistente en el rango: el paso falla sin llamar a gitleaks", normal, "origin/otra..HEAD", ok, 0, False, False,
              mensaje="la referencia origin/otra del rango origin/otra..HEAD no existe")
+        caso("HEAD del PR es un commit de fusión con dos padres (como refs/pull/N/merge)", head_es_fusion, rango_pr, ok, 0, True, True,
+             comprobar=lambda repo, _: "" if len(padres_de_head(repo)) == 2 else "HEAD no es un commit de fusión")
+        caso("fusión con conflicto resuelto a mano: el diff de la fusión llega a gitleaks", con_conflicto, rango_pr, ok, 0, True, True,
+             (f"--log-opts=--diff-merges=first-parent {rango_pr}",), comprobar=fusion_en_el_diff)
+        caso("gitleaks sale con 0 pero informa ERR y cuenta commits: el paso falla", normal, rango_pr,
+             "ERR git stderr is not empty\nINF 1 commits scanned\nINF no leaks found", 0, False, True, mensaje="gitleaks informó un error")
+        caso("gitleaks sale con 0 pero informa FTL: el paso falla", normal, rango_pr,
+             "FTL algo grave\nINF 2 commits scanned\nINF no leaks found", 0, False, True, mensaje="gitleaks informó un error")
+        caso("ERR con colores del terminal (como lo imprime gitleaks): el paso falla", normal, rango_pr,
+             "\x1b[90m7:16PM\x1b[0m \x1b[31mERR\x1b[0m error=\"stderr is not empty\"\n\x1b[90m7:16PM\x1b[0m INF 1 commits scanned.", 0, False, True,
+             mensaje="gitleaks informó un error")
+        caso("una advertencia WRN o la palabra ERRORES dentro de otra línea no falla el paso", normal, rango_pr,
+             "WRN algo menor\nINF carpeta ERRORES sin hallazgos\nINF 2 commits scanned.\nINF no leaks found", 0, True, True)
         caso("revisión diaria: HEAD revisa todo el historial de main", completo, "HEAD", "INF 2 commits scanned.", 0, True, True,
-             ("--log-opts=HEAD",))
+             ("--log-opts=--diff-merges=first-parent HEAD",))
         caso("revisión diaria con un secreto (código 1): el paso falla", completo, "HEAD", "INF 2 commits scanned.\nWRN leaks found: 1", 1, False, True,
              mensaje="leaks found: 1")
     return fallas
