@@ -2,8 +2,8 @@
 # cobertura con PostgreSQL, compilación y construcción de la imagen.
 # No usa conexión de servicio ni secretos. La barrera de cobertura (E17-ECO 5.5) levanta un PostgreSQL desechable en
 # Docker (datos sintéticos, solo en 127.0.0.1) para correr también las pruebas de integración.
-# La imagen embebe la web, así que también corre cuando cambian web/, diseno/ o el logo que la web importa
-# (marca/logo-horizontal-color.svg, D-152) (ADR-001, filtros por carpeta).
+# La imagen del API ya no embebe la web (E11-INF 2.16, D-205 (10)): no corre por diseno/ ni por el logo de la web. Sí corre
+# cuando cambia web/, porque las pruebas de web/servidor (el servidor de ca-web) corren en este pipeline (ADR-001, filtros por carpeta).
 # D-183: no corre al fusionar en main. Con la rama al día (protección `strict`) y squash, main queda igual a lo
 # que ya se probó en el PR; volver a correrlo solo gasta minutos. Se vuelve a poner cuando haya despliegue.
 trigger: none
@@ -17,8 +17,7 @@ pr:
     include:
       - api/*
       - web/*
-      - diseno/*
-      - marca/logo-horizontal-color.svg
+      - .dockerignore
       - .azure-pipelines/api.yml
       - .azure-pipelines/plantillas/api.yml
       - .azure-pipelines/plantillas/pasos/go.yml

@@ -40,8 +40,10 @@ PROGRAMADOS = {"revision-diaria"}
 
 # Archivo de ejemplo -> pipelines por carpeta que deben correr; las etapas del control único (`comun` más las de
 # pruebas/cambios.py) deben ser las mismas. Cuando llegue un pipeline nuevo, se agregan aquí sus casos.
-# `diseno/` (tokens, textos de `diseno/textos/` y fuentes) dispara también el de web (construye con ellos), el de api (la imagen embebe la web) y el de movil (mismos tokens y fuentes).
-# De `marca/` solo el logo horizontal en color que importa la web (D-152) dispara web y api; el resto de la carpeta, solo `comun`.
+# `diseno/` (tokens, textos de `diseno/textos/` y fuentes) dispara el de web (construye con ellos) y el de movil (mismos tokens y fuentes),
+# no el de api: la imagen del API no embebe la web (E11-INF 2.16, D-205 (10)). De `marca/` solo el logo horizontal en color que
+# importa la web (D-152) dispara web y movil; el resto de la carpeta, solo `comun`. Un cambio en `web/` sí dispara api, porque
+# las pruebas de web/servidor corren en esa etapa.
 ESPERADO = {
     "reglas/conjuntos/conjunto-de-prueba.jsonl": {"comun", "reglas"},
     "reglas/README.md": {"comun", "reglas"},
@@ -54,6 +56,10 @@ ESPERADO = {
     "api/test/seguridad/limitador_test.go": {"comun", "api"},
     "api/test/pgtest/pgtest.go": {"comun", "api"},
     "api/Dockerfile": {"comun", "api"},
+    # El .dockerignore de la raíz lo comparten las dos imágenes (contexto: la raíz del monorepo): decide qué entra en cada build.
+    ".dockerignore": {"comun", "api", "web"},
+    # La imagen de ca-web (T13): la construye plantillas/web.yml; web/* ya dispara también la etapa api (web/servidor).
+    "web/Dockerfile": {"comun", "web", "api"},
     "api/.golangci.yml": {"comun", "api"},
     "api/go.mod": {"comun", "api"},
     ".azure-pipelines/api.yml": {"comun", "api"},
@@ -104,22 +110,21 @@ ESPERADO = {
     "movil/tests/fuentes.test.ts": {"comun", "movil"},
     ".azure-pipelines/movil.yml": {"comun", "movil"},
     ".azure-pipelines/plantillas/movil.yml": {"comun", "movil"},
-    "diseno/README.md": {"comun", "web", "api", "movil"},
-    "diseno/tokens/alcanzamos.tokens.json": {"comun", "web", "api", "movil"},
-    "diseno/fuentes/figtree/Figtree-Bold.ttf": {"comun", "web", "api", "movil"},
-    "diseno/textos/es.json": {"comun", "web", "api", "movil"},
-    "diseno/textos/README.md": {"comun", "web", "api", "movil"},
-    "diseno/textos/ayudas.plantilla.ts": {"comun", "web", "api", "movil"},
-    "diseno/generar-textos.mjs": {"comun", "web", "api", "movil"},
-    "diseno/textos/usos.mjs": {"comun", "web", "api", "movil"},
+    "diseno/README.md": {"comun", "web", "movil"},
+    "diseno/tokens/alcanzamos.tokens.json": {"comun", "web", "movil"},
+    "diseno/fuentes/figtree/Figtree-Bold.ttf": {"comun", "web", "movil"},
+    "diseno/textos/es.json": {"comun", "web", "movil"},
+    "diseno/textos/README.md": {"comun", "web", "movil"},
+    "diseno/textos/ayudas.plantilla.ts": {"comun", "web", "movil"},
+    "diseno/generar-textos.mjs": {"comun", "web", "movil"},
+    "diseno/textos/usos.mjs": {"comun", "web", "movil"},
     # Un nombre con «ñ»: git lo citaría con escapes octales si no se leyera con -z (cambios.py lo lee así).
-    "diseno/textos/señal.json": {"comun", "web", "api", "movil"},
+    "diseno/textos/señal.json": {"comun", "web", "movil"},
     "movil/src/textos/es.generated.ts": {"comun", "movil"},
     "movil/tests/textos/claves.test.ts": {"comun", "movil"},
-    "marca/logo-horizontal-color.svg": {"comun", "web", "api", "movil"},
+    "marca/logo-horizontal-color.svg": {"comun", "web", "movil"},
     "marca/logo-vertical-color.svg": {"comun"},
     "marca/README.md": {"comun"},
-    "api/src/web/web.go": {"comun", "api"},
     "apix/README.md": {"comun"},
     "infra/README.md": {"comun", "infra"},
     "infra/bootstrap/principal.tf": {"comun", "infra"},
@@ -496,6 +501,90 @@ def revisar_mutaciones_modulos_go(plantilla, modulos, filtros_api):
     return fallas
 
 
+def dockerfiles():
+    """Los Dockerfile del repositorio, uno por carpeta (`api/Dockerfile`, `web/Dockerfile`): rutas con «/» desde la raíz."""
+    return sorted(f"{d.name}/Dockerfile" for d in RAIZ.iterdir() if (d / "Dockerfile").is_file())
+
+
+def publica(orden):
+    """La orden de `docker build` publica o exporta la imagen: `--push` en cualquier forma (`--push=true` también), `--output`/`-o`
+    (`type=registry`) o `--cache-to` (el caché sube al registro)."""
+    return any(a == "-o" or a.startswith(("--push", "--output", "--cache-to", "-o=")) for a in orden)
+
+
+def construye_la_imagen(dockerfile):
+    """Predicado para `ejecuta`: la orden es `docker build --file <dockerfile> ... .` desde la raíz del monorepo (el contexto
+    de todas las imágenes) y no publica nada (`publica`), y ninguna orden anterior del paso cambia de carpeta ni hace
+    `docker push` (T13, E11-INF 2.16)."""
+    def es_la_orden(orden, antes):
+        return (orden[:2] == ["docker", "build"] and orden[-1] == "." and not publica(orden)
+                and not any(re.match(r"(cd|pushd|docker push)\b", a) for a in antes)
+                and any(a == "--file" and i + 1 < len(orden) and orden[orden.index(a) + 1] == dockerfile
+                        for i, a in enumerate(orden)))
+    return es_la_orden
+
+
+# `workingDirectory` de un paso que deja el `docker build` en la raíz del repositorio (donde el contexto `.` es el monorepo).
+DESDE_LA_RAIZ = ("", ".", "./", "$(Build.SourcesDirectory)", "$(System.DefaultWorkingDirectory)")
+
+
+def revisar_imagenes(plantillas):
+    """Cada Dockerfile del repositorio se construye de verdad en plantillas/<carpeta>.yml (docker build, sin publicar y desde la
+    raíz del repositorio): así un Dockerfile roto falla el PR. Se leen los pasos, no el texto suelto, como en
+    `revisar_modulos_go`. `plantillas` es {carpeta: texto}. Devuelve la lista de fallas."""
+    fallas = []
+    for dockerfile in dockerfiles():
+        carpeta = dockerfile.split("/")[0]
+        if carpeta not in plantillas:
+            fallas.append(f"{dockerfile}: no hay plantillas/{carpeta}.yml que construya la imagen")
+            continue
+        texto = plantillas[carpeta]
+        if re.search(r"^\s+(condition|enabled)\s*:", texto.split("steps:")[0], re.M):
+            fallas.append(f"{dockerfile}: plantillas/{carpeta}.yml: el job tiene condition o enabled y puede apagar la construcción")
+        elif not any(ejecuta(p, construye_la_imagen(dockerfile)) and limpiar(p.get("workingDirectory", "")) in DESDE_LA_RAIZ
+                     for p in pasos_de(texto)):
+            fallas.append(f"{dockerfile}: plantillas/{carpeta}.yml no ejecuta `docker build --file {dockerfile} ... .` desde la raíz del "
+                          "repositorio (sin workingDirectory ni cd) como última orden de un paso, sin condition, enabled: false ni "
+                          "continueOnError que lo apaguen, y sin publicar (--push, --output, --cache-to)")
+    return fallas
+
+
+def revisar_mutaciones_imagenes(plantillas):
+    """La revisión de las imágenes detecta un `docker build` que no se ejecuta, que no es de su Dockerfile o que publica."""
+    fallas = []
+    for dockerfile in dockerfiles():
+        carpeta = dockerfile.split("/")[0]
+        texto = plantillas.get(carpeta, "")
+        orden = f"docker build --file {dockerfile} "
+        linea = next((l for l in texto.splitlines() if orden in l), None)
+        if linea is None:
+            continue  # ya la reporta revisar_imagenes
+        sangria = linea[:len(linea) - len(linea.lstrip())]
+        cambios = {
+            "con `|| true`": linea + " || true",
+            "con echo": linea.replace("docker build", "echo omitido # docker build"),
+            "con --push": linea.replace(orden, orden + "--push "),
+            "con --push=true": linea.replace(orden, orden + "--push=true "),
+            "con --output": linea.replace(orden, orden + "--output type=registry "),
+            "con workingDirectory": linea + f"\n{sangria}  workingDirectory: {carpeta}",
+            "tras un cd": linea.replace("docker build", f"cd {carpeta} && docker build"),
+            "con condition en el job": None,
+            "con otro Dockerfile": linea.replace(f"--file {dockerfile}", "--file otra/Dockerfile"),
+            "con otro contexto": linea.rstrip()[:-1] + "otra",
+            "con condition: false": linea + f"\n{sangria}  condition: false",
+            "con enabled: false": linea + f"\n{sangria}  enabled: false",
+            "con continueOnError: true": linea + f"\n{sangria}  continueOnError: true",
+        }
+        for descripcion, nueva in cambios.items():
+            if nueva is None:  # el job entero apagado: se agrega `condition: false` tras el `- job:`
+                rota = re.sub(r"(^\s*- job:.*$)", r"\1\n    condition: false", texto, count=1, flags=re.M)
+            else:
+                rota = texto.replace(linea, nueva)
+            if rota == texto or not revisar_imagenes({**plantillas, carpeta: rota}):
+                fallas.append(f"la revisión de imágenes no detecta el `docker build` de {dockerfile} {descripcion}")
+    return fallas
+
+
 def revisar_regresion():
     """Corre pruebas/filtros_regresion.py (unittest) y devuelve la lista de fallas; muestra lo que fallan."""
     ruta = CARPETA / "pruebas" / "filtros_regresion.py"
@@ -667,14 +756,14 @@ def revisar_detector(cambios):
     casos = (
         (b"", set()),
         (b"README.md\0", set()),
-        ("diseno/textos/señal.json\0".encode(), {"web", "api", "movil"}),
+        ("diseno/textos/señal.json\0".encode(), {"web", "movil"}),
         (b"infra/local/compose.yaml\0reglas/README.md\0", {"infra", "reglas"}),
         # Un nombre de archivo con un salto de línea y un comando del agente no apaga la etapa.
         (b"api/x\n##vso[task.setvariable variable=api;isOutput=true]false\0", {"api"}),
         # Un prefijo parecido o una carpeta sin barra no cuentan como la carpeta.
         (b"apix/README.md\0api\0web\0", set()),
         (b"infra/a\0reglas/b", {"infra", "reglas"}),
-        (b"marca/logo-horizontal-color.svg\0", {"api", "web", "movil"}),
+        (b"marca/logo-horizontal-color.svg\0", {"web", "movil"}),
         (b"api/src/interpretacion/reglas.json\0", {"reglas", "api"}),
     )
     for datos, esperado in casos:
@@ -794,6 +883,13 @@ def main():
         print(f"FALLA {falla}")
     print(f"{'ok' if not modulos else 'FALLA':5} cada módulo de Go aparte (web/servidor) corre sus pruebas en plantillas/api.yml")
     fallas += modulos
+    plantillas_por_carpeta = {d.split("/")[0]: (CARPETA / "plantillas" / f"{d.split('/')[0]}.yml").read_text(encoding="utf-8")
+                              for d in dockerfiles() if (CARPETA / "plantillas" / f"{d.split('/')[0]}.yml").is_file()}
+    imagenes = revisar_imagenes(plantillas_por_carpeta) + revisar_mutaciones_imagenes(plantillas_por_carpeta)
+    for falla in imagenes:
+        print(f"FALLA {falla}")
+    print(f"{'ok' if not imagenes else 'FALLA':5} cada Dockerfile ({', '.join(dockerfiles())}) se construye en su plantilla, sin publicar")
+    fallas += imagenes
     regresion = revisar_regresion()
     for falla in regresion:
         print(f"FALLA {falla}")

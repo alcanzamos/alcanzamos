@@ -26,8 +26,7 @@ CARPETAS = {
     "api": (
         "api/*",
         "web/*",
-        "diseno/*",
-        "marca/logo-horizontal-color.svg",
+        ".dockerignore",
         ".azure-pipelines/api.yml",
         ".azure-pipelines/plantillas/api.yml",
         ".azure-pipelines/plantillas/pasos/go.yml",
@@ -40,6 +39,7 @@ CARPETAS = {
         "web/*",
         "diseno/*",
         "marca/logo-horizontal-color.svg",
+        ".dockerignore",
         ".azure-pipelines/web.yml",
         ".azure-pipelines/plantillas/web.yml",
         ".azure-pipelines/plantillas/pasos/node.yml",
