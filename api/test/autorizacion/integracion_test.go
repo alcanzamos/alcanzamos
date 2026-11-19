@@ -36,7 +36,7 @@ import (
 
 const (
 	contrasena      = "lluvia café tren azul"
-	cuerpoAutorizar = `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados","avisos"],"version":"1.1"}`
+	cuerpoAutorizar = `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados","avisos"],"version":"1.2"}`
 	primerIngreso   = "2026-11-10T12:00:00Z"
 	rutaAutorizar   = "/api/v1/autorizaciones"
 	rutaRechazo     = "/api/v1/autorizaciones/rechazo"
@@ -291,7 +291,7 @@ func TestListarYOtorgarGuardanLoQueDiceE13(t *testing.T) {
 	formas(t, func(t *testing.T, android bool) {
 		s := nuevoServidor(t)
 		c, persona := s.nuevaCuentaVerificada("laura@ejemplo.test", android)
-		if r := c.llamar("GET", rutaAutorizar, ""); r.Codigo != 200 || strings.Contains(r.Cuerpo, `"otorgada":true`) || !strings.Contains(r.Cuerpo, `"version":{"numero":"1.1","fecha":"2026-11-12"}`) {
+		if r := c.llamar("GET", rutaAutorizar, ""); r.Codigo != 200 || strings.Contains(r.Cuerpo, `"otorgada":true`) || !strings.Contains(r.Cuerpo, `"version":{"numero":"1.2","fecha":"2026-11-17"}`) {
 			t.Fatalf("lista al llegar: %d %s", r.Codigo, r.Cuerpo)
 		}
 		s.reloj.T = s.reloj.T.Add(time.Minute)
@@ -313,7 +313,7 @@ func TestListarYOtorgarGuardanLoQueDiceE13(t *testing.T) {
 			if err := filas.Scan(&f, &titular, &otorgante, &version, &otorgada, &retirada, &conservar); err != nil {
 				t.Fatal(err)
 			}
-			if titular != persona || otorgante != persona || version != "1.1 del 2026-11-12" || !otorgada.Equal(s.reloj.T) || retirada != nil || conservar != nil {
+			if titular != persona || otorgante != persona || version != "1.2 del 2026-11-17" || !otorgada.Equal(s.reloj.T) || retirada != nil || conservar != nil {
 				t.Errorf("%s: titular %s, otorgante %s, versión %q, otorgada %v, retirada %v, conservar %v", f, titular, otorgante, version, otorgada, retirada, conservar)
 			}
 			codigos = append(codigos, f)
@@ -345,7 +345,7 @@ func TestOtorgarEsIdempotente(t *testing.T) {
 	}
 	primera := s.contar(`SELECT count(*) FROM autorizacion WHERE otorgada_en = $1`, s.reloj.T)
 	s.reloj.T = s.reloj.T.Add(time.Hour)
-	if r := c.llamar("POST", rutaAutorizar, `{"finalidades":["horas_de_vida","cuenta_y_acceso","funciones_financieras","transmision_a_encargados","avisos"],"version":"1.1"}`); r.Codigo != 200 {
+	if r := c.llamar("POST", rutaAutorizar, `{"finalidades":["horas_de_vida","cuenta_y_acceso","funciones_financieras","transmision_a_encargados","avisos"],"version":"1.2"}`); r.Codigo != 200 {
 		t.Fatalf("sumar una accesoria: %d %s", r.Codigo, r.Cuerpo)
 	}
 	if n := s.contar(`SELECT count(*) FROM autorizacion WHERE titular_id = $1::uuid AND retirada_en IS NULL`, persona); n != 5 {
@@ -363,10 +363,11 @@ func TestOtorgarConErroresNoGuardaNada(t *testing.T) {
 		cuerpo, error string
 		codigo        int
 	}{
-		{`{"finalidades":["cuenta_y_acceso"],"version":"1.1"}`, "faltan_necesarias", 422},
-		{`{"finalidades":["cuenta_y_acceso","funciones_financieras"],"version":"1.1"}`, "faltan_necesarias", 422}, // SC-E21-25, criterio 1
-		{`{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados","cuenta_del_menor"],"version":"1.1"}`, "finalidad_invalida", 422},
-		{`{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados","transferencia"],"version":"1.1"}`, "finalidad_invalida", 422},
+		{`{"finalidades":["cuenta_y_acceso"],"version":"1.2"}`, "faltan_necesarias", 422},
+		{`{"finalidades":["cuenta_y_acceso","funciones_financieras"],"version":"1.2"}`, "faltan_necesarias", 422}, // SC-E21-25, criterio 1
+		{`{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados","cuenta_del_menor"],"version":"1.2"}`, "finalidad_invalida", 422},
+		{`{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados","transferencia"],"version":"1.2"}`, "finalidad_invalida", 422},
+		{`{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados"],"version":"1.1"}`, "version_desactualizada", 409}, // SC-E21-26: la 1.1 ya no es la vigente
 		{`{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados"],"version":"2.0"}`, "version_desactualizada", 409},
 	} {
 		if r := c.llamar("POST", rutaAutorizar, caso.cuerpo); r.Codigo != caso.codigo || r.Cuerpo != `{"error":"`+caso.error+`"}` {

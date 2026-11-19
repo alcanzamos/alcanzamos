@@ -15,7 +15,7 @@ const suscripciones = new Set<(evento: never) => boolean | null | undefined>();
 const atras = (): boolean => [...suscripciones].reverse().some((alTocar) => alTocar(undefined as never));
 
 const catalogo = {
-  version: { numero: '1.1', fecha: '2026-11-12' },
+  version: { numero: '1.2', fecha: '2026-11-17' },
   modo: 'completo',
   finalidades: [
     { codigo: 'cuenta_y_acceso', tipo: 'necesaria', otorgada: false },
@@ -27,7 +27,7 @@ const catalogo = {
 };
 const NECESARIAS = 'Autorizo el uso de mis datos para estas finalidades necesarias.';
 const TRANSMISION =
-  'Acepto que mis datos se envíen a estos servicios en México, Francia y Estados Unidos para guardarlos y procesarlos como se explica arriba.';
+  'Acepto que mis datos se envíen a estos servicios en Estados Unidos para guardarlos y procesarlos como se explica arriba.';
 
 async function entrarSinAutorizacion() {
   await fireEvent.changeText(await buscarCampo('Correo electrónico'), 'laura@ejemplo.com');

@@ -25,7 +25,7 @@ describe('seguirPorAccesoNegado (api/README.md, «las de /api/ que piden sesión
   // pedir). La función sigue devolviendo verdadero de inmediato: la pantalla de destino llega un momento después.
   describe('403 autorizacion_pendiente', () => {
     const catalogo = (modo: string) => ({
-      version: { numero: '1.1', fecha: '2026-11-12' },
+      version: { numero: '1.2', fecha: '2026-11-17' },
       modo,
       finalidades: [{ codigo: 'transmision_a_encargados', tipo: 'necesaria', otorgada: false }],
     });

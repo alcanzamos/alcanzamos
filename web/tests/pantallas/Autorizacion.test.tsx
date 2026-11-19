@@ -14,8 +14,8 @@ const finalidad = (codigo: string, tipo: string) => ({
   tipo,
   otorgada: false,
 });
-const catalogo = (extra: unknown[] = [], fecha = "2026-11-12") => ({
-  version: { numero: "1.1", fecha },
+const catalogo = (extra: unknown[] = [], fecha = "2026-11-17") => ({
+  version: { numero: "1.2", fecha },
   modo: "completo",
   finalidades: [
     finalidad("cuenta_y_acceso", "necesaria"),
@@ -28,7 +28,7 @@ const catalogo = (extra: unknown[] = [], fecha = "2026-11-12") => ({
 });
 // SC-E21-25 sección 5: la cuenta de antes del cambio recibe solo la aceptación que le falta.
 const catalogoLimitado = () => ({
-  version: { numero: "1.1", fecha: "2026-11-12" },
+  version: { numero: "1.2", fecha: "2026-11-17" },
   modo: "falta_una_aceptacion",
   finalidades: [finalidad("transmision_a_encargados", "necesaria")],
 });
@@ -36,7 +36,7 @@ const catalogoLimitado = () => ({
 const NECESARIAS =
   "Autorizo el uso de mis datos para estas finalidades necesarias.";
 const TRANSMISION =
-  "Acepto que mis datos se envíen a estos servicios en México, Francia y Estados Unidos para guardarlos y procesarlos como se explica arriba.";
+  "Acepto que mis datos se envíen a estos servicios en Estados Unidos para guardarlos y procesarlos como se explica arriba.";
 const ERROR_TRANSMISION = "Falta que aceptes dónde guardamos tus datos.";
 const ERROR_NECESARIAS = "Falta tu autorización para lo necesario.";
 const FRASE_DE_AVISOS =
@@ -164,10 +164,10 @@ describe("PN-64 · Autorización de datos", () => {
       const t = within(tarjeta("Dónde guardamos tus datos"));
       expect(
         t.getByText(
-          "Para que la app funcione, tus datos se guardan y se procesan en la nube de otras empresas, que los tratan por cuenta de Alcanzamos y solo para lo que les pedimos: Microsoft Azure, en México, guarda tu cuenta y lo que registras; Azure Communication Services, en Francia, envía los correos de la app; y Zoho Mail, en Estados Unidos, recibe lo que escribes a privacidad@alcanzamos.co. Los detalles están en la política.",
+          "Para que la app funcione, tus datos se guardan y se procesan en la nube de otras empresas, que los tratan por cuenta de Alcanzamos y solo para lo que les pedimos: Microsoft Azure, en Estados Unidos, guarda tu cuenta y lo que registras; y Zoho, también en Estados Unidos, envía los correos de la app y recibe lo que escribes a privacidad@alcanzamos.co. Los detalles están en la política.",
         ),
       ).toBeInTheDocument();
-      // Solo Azure, Azure Communication Services y Zoho: los avisos no van en la tarjeta obligatoria (D-202).
+      // Solo Microsoft Azure y Zoho: los avisos no van en la tarjeta obligatoria (D-202).
       expect(tarjeta("Dónde guardamos tus datos")).not.toHaveTextContent(
         /Firebase|Google|navegador/,
       );
@@ -234,7 +234,7 @@ describe("PN-64 · Autorización de datos", () => {
       const { container } = (api(), render(<Autorizacion />));
       expect(
         await screen.findByText(
-          porTexto("Texto versión 1.1 del 12 de noviembre de 2026."),
+          porTexto("Texto versión 1.2 del 17 de noviembre de 2026."),
         ),
       ).toBeInTheDocument();
       expect(
@@ -278,7 +278,7 @@ describe("PN-64 · Autorización de datos", () => {
       expect(enlace).toHaveClass("boton--texto");
       expect(enlace).toHaveAttribute("href", "/politica?desde=%2Fautorizacion");
       const version = screen.getByText(
-        porTexto("Texto versión 1.1 del 12 de noviembre de 2026."),
+        porTexto("Texto versión 1.2 del 17 de noviembre de 2026."),
       );
       expect(
         version.compareDocumentPosition(enlace) &
@@ -450,7 +450,7 @@ describe("PN-64 · Autorización de datos", () => {
             "funciones_financieras",
             "transmision_a_encargados",
           ],
-          version: "1.1",
+          version: "1.2",
         },
       });
     });
@@ -469,7 +469,7 @@ describe("PN-64 · Autorización de datos", () => {
           "transmision_a_encargados",
           "avisos",
         ],
-        version: "1.1",
+        version: "1.2",
       });
     });
 
@@ -487,7 +487,7 @@ describe("PN-64 · Autorización de datos", () => {
           "funciones_financieras",
           "transmision_a_encargados",
         ],
-        version: "1.1",
+        version: "1.2",
       });
     });
 
@@ -550,17 +550,17 @@ describe("PN-64 · Autorización de datos", () => {
     );
 
     it("409 version_desactualizada: vuelve a pedir el catálogo y usa la versión nueva", async () => {
-      let versión = "1.1";
-      let publicada = "2026-11-12";
+      let versión = "1.2";
+      let publicada = "2026-11-17";
       const pedidos = simularApi((pedido) => {
         if (pedido.metodo === "GET")
           return json(200, {
             ...catalogo([], publicada),
             version: { numero: versión, fecha: publicada },
           });
-        if ((pedido.cuerpo as { version: string }).version === "1.1") {
-          versión = "1.2";
-          publicada = "2026-11-15";
+        if ((pedido.cuerpo as { version: string }).version === "1.2") {
+          versión = "1.3";
+          publicada = "2026-11-20";
           return json(409, { error: "version_desactualizada" });
         }
         return json(200, { estado: "autorizada" });
@@ -574,7 +574,7 @@ describe("PN-64 · Autorización de datos", () => {
       );
       expect(
         await screen.findByText(
-          porTexto("Texto versión 1.2 del 15 de noviembre de 2026."),
+          porTexto("Texto versión 1.3 del 20 de noviembre de 2026."),
         ),
       ).toBeInTheDocument();
       expect(pedidos.map((p) => p.metodo)).toEqual(["GET", "POST", "GET"]);
@@ -584,7 +584,7 @@ describe("PN-64 · Autorización de datos", () => {
       await waitFor(() =>
         expect(window.location.pathname).toBe("/cuenta/seguridad"),
       );
-      expect(pedidos[3]?.cuerpo).toMatchObject({ version: "1.2" });
+      expect(pedidos[3]?.cuerpo).toMatchObject({ version: "1.3" });
     });
 
     it("sin conexión: el aviso de T10 y las casillas conservan lo marcado", async () => {
@@ -707,7 +707,7 @@ describe("PN-64 · Autorización de datos", () => {
         "sin necesarias ni la transmisión",
         () =>
           json(200, {
-            version: { numero: "1.1", fecha: "2026-11-12" },
+            version: { numero: "1.2", fecha: "2026-11-17" },
             modo: "completo",
             finalidades: [finalidad("avisos", "accesoria")],
           }),
@@ -749,7 +749,7 @@ describe("PN-64 · Autorización de datos", () => {
         "finalidades que no son una lista",
         () =>
           json(200, {
-            version: { numero: "1.1", fecha: "2026-11-12" },
+            version: { numero: "1.2", fecha: "2026-11-17" },
             modo: "completo",
             finalidades: "x",
           }),
@@ -843,7 +843,7 @@ describe("PN-64 · Autorización de datos", () => {
       ).not.toBeInTheDocument();
       expect(
         screen.getByText(
-          porTexto("Texto versión 1.1 del 12 de noviembre de 2026."),
+          porTexto("Texto versión 1.2 del 17 de noviembre de 2026."),
         ),
       ).toBeInTheDocument();
       expect(
@@ -908,21 +908,21 @@ describe("PN-64 · Autorización de datos", () => {
           ruta: "/api/v1/autorizaciones",
           cuerpo: {
             finalidades: ["transmision_a_encargados"],
-            version: "1.1",
+            version: "1.2",
           },
         },
       ]);
     });
 
     it("409 version_desactualizada: vuelve a pedir el catálogo y conserva la casilla", async () => {
-      let version = "1.1";
+      let version = "1.2";
       const pedidos = simularApi((pedido) => {
         if (pedido.metodo === "GET")
           return json(200, {
             ...catalogoLimitado(),
-            version: { numero: version, fecha: "2026-11-15" },
+            version: { numero: version, fecha: "2026-11-20" },
           });
-        version = "1.2";
+        version = "1.3";
         return json(409, { error: "version_desactualizada" });
       });
       await cargadaLimitada();
@@ -932,7 +932,7 @@ describe("PN-64 · Autorización de datos", () => {
         "No pudimos guardar tu autorización.",
       );
       await screen.findByText(
-        porTexto("Texto versión 1.2 del 15 de noviembre de 2026."),
+        porTexto("Texto versión 1.3 del 20 de noviembre de 2026."),
       );
       expect(pedidos.map((p) => p.metodo)).toEqual(["GET", "POST", "GET"]);
       expect(screen.getByRole("checkbox", { name: TRANSMISION })).toBeChecked();

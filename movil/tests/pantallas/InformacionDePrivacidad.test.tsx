@@ -35,7 +35,7 @@ describe('PN-63 · Información de privacidad en el primer uso (E14-PCP 4.6)', (
       expect(screen.getByRole('header', { name: titulo })).toBeOnTheScreen();
     }
     expect(screen.getByText('Andrés Jiménez es el responsable. Escríbele a privacidad@alcanzamos.co.')).toBeOnTheScreen();
-    expect(screen.getByText(/^En Azure, en México\./)).toBeOnTheScreen();
+    expect(screen.getByText(/^En Azure, en Estados Unidos\./)).toBeOnTheScreen();
   });
 
   it('solo informa: no hay casillas; los botones son «Leer la política completa» y «Continuar»', async () => {
