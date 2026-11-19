@@ -26,8 +26,10 @@ var ahoraDePrueba = time.Date(2026, 10, 30, 15, 0, 0, 0, time.UTC)
 
 // repoFalso guarda lo que el servicio le pide y devuelve los errores que se le fijen.
 type repoFalso struct {
-	mu          sync.Mutex
-	vigentes    []string
+	mu       sync.Mutex
+	vigentes []string
+	// versiones: la versión guardada de cada vigente; sin ella, la vigente del texto.
+	versiones   map[string]string
 	otorgadas   []string
 	version     string
 	otorgadaEn  time.Time
@@ -46,8 +48,16 @@ type repoFalso struct {
 	errRetirar      error
 }
 
-func (r *repoFalso) Vigentes(context.Context, string) ([]string, error) {
-	return r.vigentes, r.errVigentes
+func (r *repoFalso) Vigentes(context.Context, string) ([]autorizacion.Aceptada, error) {
+	var lista []autorizacion.Aceptada
+	for _, c := range r.vigentes {
+		v, ok := r.versiones[c]
+		if !ok {
+			v = autorizacion.VersionActual.Texto()
+		}
+		lista = append(lista, autorizacion.Aceptada{Codigo: c, Version: v})
+	}
+	return lista, r.errVigentes
 }
 
 func (r *repoFalso) ConHistorial(context.Context, string) (bool, error) {

@@ -19,18 +19,23 @@ type Autorizaciones struct{ pool *pgxpool.Pool }
 // NuevoAutorizaciones crea el repositorio sobre un pool.
 func NuevoAutorizaciones(pool *pgxpool.Pool) *Autorizaciones { return &Autorizaciones{pool: pool} }
 
-// Vigentes devuelve las finalidades que la persona se otorgó a sí misma y no ha retirado.
-func (a *Autorizaciones) Vigentes(ctx context.Context, persona string) ([]string, error) {
+// Vigentes devuelve las finalidades que la persona se otorgó a sí misma, sin retirar ni reemplazar, con la versión del
+// texto con que las aceptó. Una vigente es la que no tiene `retirada_en` ni `reemplazada_en` (bug 308, D-210).
+func (a *Autorizaciones) Vigentes(ctx context.Context, persona string) ([]autorizacion.Aceptada, error) {
 	filas, err := a.pool.Query(ctx,
-		`SELECT finalidad FROM autorizacion WHERE titular_id = $1::uuid AND otorgante_id = $1::uuid AND retirada_en IS NULL`, persona)
+		`SELECT finalidad, version_del_texto FROM autorizacion
+		  WHERE titular_id = $1::uuid AND otorgante_id = $1::uuid AND retirada_en IS NULL AND reemplazada_en IS NULL`, persona)
 	if err != nil {
 		return nil, fmt.Errorf("consultar las autorizaciones: %w", err)
 	}
-	codigos, err := pgx.CollectRows(filas, pgx.RowTo[string])
+	aceptadas, err := pgx.CollectRows(filas, func(f pgx.CollectableRow) (autorizacion.Aceptada, error) {
+		var x autorizacion.Aceptada
+		return x, f.Scan(&x.Codigo, &x.Version)
+	})
 	if err != nil {
 		return nil, fmt.Errorf("leer las autorizaciones: %w", err)
 	}
-	return codigos, nil
+	return aceptadas, nil
 }
 
 // bloquear toma la fila de la persona adulta hasta el final de la transacción: otorgar y rechazar se turnan, y una
@@ -62,6 +67,12 @@ func bloquear(ctx context.Context, tx pgx.Tx, persona string) error {
 // o una del reloj de otro nodo): entonces queda un microsegundo después de la más reciente, porque (titular, finalidad,
 // otorgada_en) es único (`uq_autorizacion_titular_finalidad_otorgada`) y volver a otorgar en el mismo instante en que se
 // retiró no debe fallar.
+//
+// **Con un texto nuevo, la persona vuelve a aceptar lo necesario y la aceptación de antes queda como prueba (bug 308, D-210).**
+// Si de una finalidad necesaria que se otorga hay una vigente propia con una versión anterior a `version`, se **reemplaza**:
+// solo se pone `reemplazada_en` (no `retirada_en`: la persona no retiró nada) y la fila sigue como estaba, sin borrarse ni
+// cambiar lo demás. El índice de las vigentes la deja de contar y la nueva entra. Una opcional ya vigente no se reemplaza ni
+// se repite: no se vuelve obligatoria. Todo en la misma transacción y bajo el bloqueo de la persona.
 func (a *Autorizaciones) Otorgar(ctx context.Context, persona string, finalidades []string, version string, ahora time.Time) error {
 	tx, err := a.pool.Begin(ctx)
 	if err != nil {
@@ -69,6 +80,9 @@ func (a *Autorizaciones) Otorgar(ctx context.Context, persona string, finalidade
 	}
 	defer tx.Rollback(ctx)
 	if err := bloquear(ctx, tx, persona); err != nil {
+		return err
+	}
+	if err := reemplazarLasDeVersionAnterior(ctx, tx, persona, finalidades, version, ahora); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(ctx,
@@ -83,12 +97,46 @@ func (a *Autorizaciones) Otorgar(ctx context.Context, persona string, finalidade
 		        GREATEST($4::timestamptz, COALESCE((SELECT max(a.otorgada_en) + interval '1 microsecond'
 		                                              FROM autorizacion a WHERE a.titular_id = $1::uuid AND a.finalidad = f), $4::timestamptz))
 		   FROM unnest($2::text[]) AS f
-		 ON CONFLICT (titular_id, finalidad) WHERE retirada_en IS NULL DO NOTHING`,
+		 ON CONFLICT (titular_id, finalidad) WHERE retirada_en IS NULL AND reemplazada_en IS NULL DO NOTHING`,
 		persona, finalidades, version, ahora); err != nil {
 		return fmt.Errorf("guardar las autorizaciones: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("confirmar la transacción: %w", err)
+	}
+	return nil
+}
+
+// reemplazarLasDeVersionAnterior pone `reemplazada_en` a las autorizaciones necesarias, propias y vigentes de las
+// finalidades dadas cuya versión guardada es anterior a `version`. No toca ninguna otra columna ni ninguna otra fila.
+func reemplazarLasDeVersionAnterior(ctx context.Context, tx pgx.Tx, persona string, finalidades []string, version string, ahora time.Time) error {
+	filas, err := tx.Query(ctx,
+		`SELECT id::text, finalidad, version_del_texto FROM autorizacion
+		  WHERE titular_id = $1::uuid AND otorgante_id = $1::uuid AND finalidad = ANY($2::text[])
+		    AND retirada_en IS NULL AND reemplazada_en IS NULL`, persona, finalidades)
+	if err != nil {
+		return fmt.Errorf("buscar las autorizaciones de una versión anterior: %w", err)
+	}
+	type vigente struct{ id, finalidad, version string }
+	vigentes, err := pgx.CollectRows(filas, func(f pgx.CollectableRow) (vigente, error) {
+		var v vigente
+		return v, f.Scan(&v.id, &v.finalidad, &v.version)
+	})
+	if err != nil {
+		return fmt.Errorf("leer las autorizaciones de una versión anterior: %w", err)
+	}
+	var viejas []string
+	for _, v := range vigentes {
+		if (cuenta.ReglaDeFinalidades{}).Clasificada(v.finalidad) && autorizacion.VersionAnterior(v.version, version) {
+			viejas = append(viejas, v.id)
+		}
+	}
+	if len(viejas) == 0 {
+		return nil
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE autorizacion SET reemplazada_en = GREATEST(otorgada_en, $2) WHERE id = ANY($1::uuid[])`, viejas, ahora); err != nil {
+		return fmt.Errorf("reemplazar las autorizaciones de una versión anterior: %w", err)
 	}
 	return nil
 }
@@ -106,11 +154,24 @@ func (a *Autorizaciones) Rechazar(ctx context.Context, persona string, necesaria
 	if err := bloquear(ctx, tx, persona); err != nil {
 		return err
 	}
-	var vigentes int
-	if err := tx.QueryRow(ctx,
-		`SELECT count(*) FROM autorizacion WHERE titular_id = $1::uuid AND otorgante_id = $1::uuid
-		   AND retirada_en IS NULL AND finalidad = ANY($2::text[])`, persona, necesarias).Scan(&vigentes); err != nil {
+	filas, err := tx.Query(ctx,
+		`SELECT finalidad, version_del_texto FROM autorizacion WHERE titular_id = $1::uuid AND otorgante_id = $1::uuid
+		   AND retirada_en IS NULL AND reemplazada_en IS NULL AND finalidad = ANY($2::text[])`, persona, necesarias)
+	if err != nil {
 		return fmt.Errorf("contar las autorizaciones: %w", err)
+	}
+	aceptadas, err := pgx.CollectRows(filas, func(f pgx.CollectableRow) (autorizacion.Aceptada, error) {
+		var x autorizacion.Aceptada
+		return x, f.Scan(&x.Codigo, &x.Version)
+	})
+	if err != nil {
+		return fmt.Errorf("leer las autorizaciones: %w", err)
+	}
+	vigentes := 0
+	for _, x := range aceptadas {
+		if autorizacion.CuentaComoOtorgada(x.Codigo, x.Version) {
+			vigentes++
+		}
 	}
 	if vigentes == len(necesarias) {
 		return autorizacion.ErrYaAutorizada
@@ -165,7 +226,7 @@ func (a *Autorizaciones) Retirar(ctx context.Context, titular, finalidad string,
 	}
 	if _, err := tx.Exec(ctx,
 		`UPDATE autorizacion SET retirada_en = GREATEST(otorgada_en, $3)
-		 WHERE titular_id = $1::uuid AND finalidad = $2 AND retirada_en IS NULL`, titular, finalidad, ahora); err != nil {
+		 WHERE titular_id = $1::uuid AND finalidad = $2 AND retirada_en IS NULL AND reemplazada_en IS NULL`, titular, finalidad, ahora); err != nil {
 		return fmt.Errorf("retirar la autorización: %w", err)
 	}
 	if finalidad == cuenta.Avisos {

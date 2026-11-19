@@ -44,6 +44,25 @@ describe("acceso negado", () => {
       ]);
     });
 
+    // Bug 308 (D-210): la versión del texto cambió y las tres necesarias hay que aceptarlas de nuevo: el mismo camino a PN-64.
+    it("con las tres necesarias por una versión nueva del texto va directo a PN-64", async () => {
+      simularApi(() =>
+        json(200, {
+          version: { numero: "1.2", fecha: "2026-11-17" },
+          modo: "falta_una_aceptacion",
+          finalidades: [
+            "cuenta_y_acceso",
+            "funciones_financieras",
+            "transmision_a_encargados",
+          ].map((codigo) => ({ codigo, tipo: "necesaria", otorgada: false })),
+        }),
+      );
+      expect(seguirPorAccesoNegado(pendiente)).toBe(true);
+      await waitFor(() =>
+        expect(window.location.pathname).toBe("/autorizacion"),
+      );
+    });
+
     it("con el modo completo lleva a PN-63", async () => {
       simularApi(() => json(200, catalogo("completo")));
       expect(seguirPorAccesoNegado(pendiente)).toBe(true);

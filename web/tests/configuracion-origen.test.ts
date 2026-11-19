@@ -5,7 +5,7 @@ import { cargarConfiguracion } from "../src/configuracion";
 import { json } from "./ayudas";
 
 // De `url_api` solo vale el origen: un `config.json` con usuario, ruta, consulta o fragmento no puede mandar la cookie
-// de sesión ni el ZIP a otro lado que el origen del API (infra-d205, T16, hallazgo del verificador).
+// de sesión ni el ZIP a otro lado que el origen del API (E11-INF 2.16).
 describe("origen del API tomado de /config.json", () => {
   it.each([
     [

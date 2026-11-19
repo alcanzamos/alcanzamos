@@ -40,6 +40,25 @@ describe('seguirPorAccesoNegado (api/README.md, «las de /api/ que piden sesión
       expect(pedidos.map((p) => `${p.init.method} ${p.url}`)).toEqual(['GET http://api.prueba:18090/api/v1/autorizaciones']);
     });
 
+    // Bug 308 (D-210): la versión del texto cambió y las tres necesarias hay que aceptarlas de nuevo: el mismo camino a PN-64.
+    it('con las tres necesarias por una versión nueva del texto va directo a PN-64', async () => {
+      instalarFetchFalso(
+        respuestaJson(200, {
+          version: { numero: '1.2', fecha: '2026-11-17' },
+          modo: 'falta_una_aceptacion',
+          finalidades: ['cuenta_y_acceso', 'funciones_financieras', 'transmision_a_encargados'].map((codigo) => ({
+            codigo,
+            tipo: 'necesaria',
+            otorgada: false,
+          })),
+        }),
+      );
+      const dispatch = jest.fn();
+      expect(seguirPorAccesoNegado({ dispatch } as never, pendiente)).toBe(true);
+      await waitFor(() => expect(dispatch).toHaveBeenCalledWith(reinicio('AutorizacionDeDatos')));
+      expect(dispatch).toHaveBeenCalledTimes(1);
+    });
+
     it('con el modo completo lleva a PN-63', async () => {
       instalarFetchFalso(respuestaJson(200, catalogo('completo')));
       const dispatch = jest.fn();

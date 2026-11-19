@@ -632,6 +632,80 @@ describe('PN-64 · Autorización de datos (E14-PCP 4.7)', () => {
     });
   });
 
+  // Bug 308 (D-210): cuando el texto cambia de versión, el API devuelve `falta_una_aceptacion` con las necesarias que la
+  // persona aceptó con la versión anterior (sin las opcionales). La hoja es la de siempre, con los textos de la 1.2 de E14.
+  describe('con una versión nueva del texto (bug 308)', () => {
+    const catalogoDeLaVersionNueva = () =>
+      catalogo({
+        modo: 'falta_una_aceptacion',
+        finalidades: [
+          { codigo: 'cuenta_y_acceso', tipo: 'necesaria', otorgada: false },
+          { codigo: 'funciones_financieras', tipo: 'necesaria', otorgada: false },
+          { codigo: 'transmision_a_encargados', tipo: 'necesaria', otorgada: false },
+        ],
+      });
+    async function mostrarConLaVersionNueva(...respuestas: (Response | Error)[]) {
+      const falso = instalarFetchFalso(respuestaJson(200, catalogoDeLaVersionNueva()), ...respuestas);
+      const navegacion = navegacionFalsa();
+      await render(<AutorizacionDeDatos {...propiedades('AutorizacionDeDatos', navegacion)} />);
+      await screen.findByRole('checkbox', { name: NECESARIAS });
+      return { ...falso, navegacion };
+    }
+
+    it('muestra la hoja con las tres necesarias, los textos de la 1.2, la versión del API y sin lo opcional', async () => {
+      await mostrarConLaVersionNueva();
+      expect(screen.getAllByRole('header').map((h) => h.props.children)).toEqual([
+        'Lo necesario para usar la app',
+        'Dónde guardamos tus datos',
+      ]);
+      const casillas = screen.getAllByRole('checkbox');
+      expect(casillas.map((c) => c.props.accessibilityLabel)).toEqual([NECESARIAS, TRANSMISION]);
+      for (const c of casillas) expect(c).toHaveProp('accessibilityState', { checked: false, disabled: false });
+      expect(screen.getByText('Cuenta y acceso')).toBeOnTheScreen();
+      expect(screen.getByText('Funciones financieras')).toBeOnTheScreen();
+      expect(screen.getByText(NOTA_FALTA_UNA_ACEPTACION)).toBeOnTheScreen();
+      expect(screen.getByText(/Texto versión/)).toHaveTextContent('Texto versión 1.2 del 17 de noviembre de 2026.', {
+        exact: true,
+      });
+      for (const texto of [
+        'Lo que puedes elegir',
+        'Avisos con la app cerrada',
+        'Horas de vida',
+        FRASE_DE_AVISOS,
+        'Necesitamos tu permiso para usar algunos datos. Lee con calma y decide.',
+        NOTA_COMPLETO,
+        'Sin esta autorización no podemos darte la cuenta. Si no autorizas, borramos al momento el correo que nos diste.',
+      ])
+        expect(screen.queryByText(texto)).not.toBeOnTheScreen();
+      expect(screen.queryByRole('checkbox', { name: AVISOS })).not.toBeOnTheScreen();
+      expect(boton('Autorizar y continuar')).toBeOnTheScreen();
+    });
+
+    it('«Autorizar y continuar» sin marcar da los dos errores de E14 y no guarda nada', async () => {
+      const { pedidos, navegacion } = await mostrarConLaVersionNueva();
+      await fireEvent.press(boton('Autorizar y continuar'));
+      expect(await screen.findByText(ERROR_NECESARIAS)).toBeOnTheScreen();
+      expect(screen.getByText(ERROR_TRANSMISION)).toBeOnTheScreen();
+      expect(pedidos).toHaveLength(1);
+      expect(navegacion.dispatch).not.toHaveBeenCalled();
+    });
+
+    it('al aceptar manda las tres necesarias, ninguna opcional, con la versión 1.2, y llega a Inicio (PN-71)', async () => {
+      const { pedidos, navegacion } = await mostrarConLaVersionNueva(respuestaJson(200, { estado: 'autorizada' }));
+      await marcarLasNecesarias();
+      await fireEvent.press(boton('Autorizar y continuar'));
+      await waitFor(() => expect(navegacion.dispatch).toHaveBeenCalledWith(reinicio('SeguridadDeLaCuenta')));
+      expect(pedidos.map((p) => `${p.init.method} ${p.url}`)).toEqual([
+        'GET http://api.prueba:18090/api/v1/autorizaciones',
+        'POST http://api.prueba:18090/api/v1/autorizaciones',
+      ]);
+      expect(cuerpoDe(pedidos[1])).toEqual({
+        finalidades: ['cuenta_y_acceso', 'funciones_financieras', 'transmision_a_encargados'],
+        version: '1.2',
+      });
+    });
+  });
+
   // La hoja «¿No autorizas?» de PN-54 (E14-PME 4.11, D-102, D-103): la usa PN-64 cuando «No autorizo» no puede borrar de un
   // toque. Hoja inferior (E14-SDD 5.12) con su región viva; el foco vuelve a «No autorizo» al cerrarla.
   describe('la hoja «¿No autorizas?» (PN-54 y modo «falta una aceptación»)', () => {

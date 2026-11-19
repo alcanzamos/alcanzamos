@@ -939,6 +939,109 @@ describe("PN-64 · Autorización de datos", () => {
     });
   });
 
+  // Bug 308 (D-210): cuando el texto cambia de versión, el API devuelve `falta_una_aceptacion` con las necesarias que la
+  // persona aceptó con la versión anterior (sin las opcionales). La hoja es la de siempre, con los textos de la 1.2 de E14.
+  describe("con una versión nueva del texto (bug 308)", () => {
+    const catalogoDeLaVersionNueva = () => ({
+      version: { numero: "1.2", fecha: "2026-11-17" },
+      modo: "falta_una_aceptacion",
+      finalidades: [
+        finalidad("cuenta_y_acceso", "necesaria"),
+        finalidad("funciones_financieras", "necesaria"),
+        finalidad("transmision_a_encargados", "necesaria"),
+      ],
+    });
+    const apiDeLaVersionNueva = (
+      otros: (pedido: Pedido) => Response = () =>
+        json(200, { estado: "autorizada" }),
+    ) =>
+      simularApi((pedido) =>
+        pedido.metodo === "GET"
+          ? json(200, catalogoDeLaVersionNueva())
+          : otros(pedido),
+      );
+    async function cargadaConLaVersionNueva() {
+      render(<Autorizacion />);
+      await screen.findByRole("checkbox", { name: NECESARIAS });
+    }
+
+    it("muestra la hoja con las tres necesarias, los textos de la 1.2, la versión del API y sin lo opcional", async () => {
+      apiDeLaVersionNueva();
+      await cargadaConLaVersionNueva();
+      expect(
+        screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent),
+      ).toEqual(["Lo necesario para usar la app", "Dónde guardamos tus datos"]);
+      expect(
+        screen.getAllByRole("checkbox").map((c) => c.getAttribute("id")),
+      ).toEqual(["necesarias", "transmision"]);
+      for (const c of screen.getAllByRole("checkbox"))
+        expect(c).not.toBeChecked();
+      expect(tarjeta("Lo necesario para usar la app")).toHaveTextContent(
+        "Cuenta y acceso",
+      );
+      expect(tarjeta("Lo necesario para usar la app")).toHaveTextContent(
+        "Funciones financieras",
+      );
+      // Los textos de la 1.2 (SC-E21-26): Estados Unidos y Zoho.
+      expect(screen.getByRole("checkbox", { name: TRANSMISION })).toBeVisible();
+      expect(tarjeta("Dónde guardamos tus datos")).toHaveTextContent(
+        /Estados Unidos/,
+      );
+      expect(
+        screen.getByText(
+          porTexto("Texto versión 1.2 del 17 de noviembre de 2026."),
+        ),
+      ).toBeInTheDocument();
+      for (const texto of [
+        "Lo que puedes elegir",
+        "Avisos con la app cerrada",
+        "Horas de vida",
+        FRASE_DE_AVISOS,
+        "Necesitamos tu permiso para usar algunos datos. Lee con calma y decide.",
+        "Sin esta autorización no podemos darte la cuenta. Si no autorizas, borramos al momento el correo que nos diste.",
+      ])
+        expect(screen.queryByText(texto)).not.toBeInTheDocument();
+      expect(screen.queryByRole("checkbox", { name: AVISOS })).toBeNull();
+      expect(
+        screen.getByRole("button", { name: "Autorizar y continuar" }),
+      ).toBeInTheDocument();
+    });
+
+    it("sin marcar da los dos errores de E14 y no guarda nada", async () => {
+      const pedidos = apiDeLaVersionNueva();
+      await cargadaConLaVersionNueva();
+      tocar("Autorizar y continuar");
+      expect(screen.getByText(ERROR_NECESARIAS)).toBeInTheDocument();
+      expect(screen.getByText(ERROR_TRANSMISION)).toBeInTheDocument();
+      expect(pedidos).toHaveLength(1);
+    });
+
+    it("al aceptar manda las tres necesarias, ninguna opcional, con la versión 1.2, y llega a Inicio (PN-71)", async () => {
+      const pedidos = apiDeLaVersionNueva();
+      await cargadaConLaVersionNueva();
+      marcarLasNecesarias();
+      tocar("Autorizar y continuar");
+      await waitFor(() =>
+        expect(window.location.pathname).toBe("/cuenta/seguridad"),
+      );
+      expect(pedidos).toEqual([
+        { metodo: "GET", ruta: "/api/v1/autorizaciones", cuerpo: undefined },
+        {
+          metodo: "POST",
+          ruta: "/api/v1/autorizaciones",
+          cuerpo: {
+            finalidades: [
+              "cuenta_y_acceso",
+              "funciones_financieras",
+              "transmision_a_encargados",
+            ],
+            version: "1.2",
+          },
+        },
+      ]);
+    });
+  });
+
   // SC-E21-25 sección 5, paso 3: «No autorizo» en el modo limitado no borra sin preguntar. Abre la hoja de PN-54 (D-102,
   // D-103): descargar los datos, borrar la cuenta con la contraseña o volver y decidir.
   describe("la hoja «¿No autorizas?» (PN-54 y modo «falta una aceptación»)", () => {

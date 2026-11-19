@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/alcanzamos/alcanzamos/api/src/autorizacion"
 	"github.com/alcanzamos/alcanzamos/api/src/cuenta"
 	"github.com/alcanzamos/alcanzamos/api/src/seguridad"
 	"github.com/alcanzamos/alcanzamos/api/src/sesion"
@@ -94,20 +95,32 @@ func (s *Sesiones) Sujeto(ctx context.Context, huella []byte, ahora time.Time) (
 	return seguridad.Sujeto{Persona: persona, Verificada: verificada, Autorizada: autorizada}, nil
 }
 
-// autorizada pregunta a ReglaDeFinalidades si el titular tiene vigentes (retirada_en nula) las necesarias de su etapa,
-// otorgadas por quien la regla dice: él mismo, o uno de sus tutores si es menor.
+// autorizada pregunta a ReglaDeFinalidades si el titular tiene vigentes (ni retiradas ni reemplazadas) las necesarias de su
+// etapa, otorgadas por quien la regla dice: él mismo, o uno de sus tutores si es menor. Una necesaria aceptada con una
+// versión anterior a la vigente del texto no cuenta (bug 308, D-210): es la misma regla de GET /autorizaciones.
 func (s *Sesiones) autorizada(ctx context.Context, persona string, etapa cuenta.Etapa) (bool, error) {
 	filas, err := s.pool.Query(ctx,
-		`SELECT finalidad, otorgante_id::text FROM autorizacion WHERE titular_id = $1::uuid AND retirada_en IS NULL`, persona)
+		`SELECT finalidad, otorgante_id::text, version_del_texto FROM autorizacion
+		  WHERE titular_id = $1::uuid AND retirada_en IS NULL AND reemplazada_en IS NULL`, persona)
 	if err != nil {
 		return false, fmt.Errorf("consultar las autorizaciones: %w", err)
 	}
-	vigentes, err := pgx.CollectRows(filas, func(f pgx.CollectableRow) (cuenta.Otorgamiento, error) {
-		var o cuenta.Otorgamiento
-		return o, f.Scan(&o.Finalidad, &o.OtorganteID)
+	type guardada struct {
+		cuenta.Otorgamiento
+		version string
+	}
+	guardadas, err := pgx.CollectRows(filas, func(f pgx.CollectableRow) (guardada, error) {
+		var g guardada
+		return g, f.Scan(&g.Finalidad, &g.OtorganteID, &g.version)
 	})
 	if err != nil {
 		return false, fmt.Errorf("leer las autorizaciones: %w", err)
+	}
+	var vigentes []cuenta.Otorgamiento
+	for _, g := range guardadas {
+		if autorizacion.CuentaComoOtorgada(g.Finalidad, g.version) {
+			vigentes = append(vigentes, g.Otorgamiento)
+		}
 	}
 	var tutores []string
 	if etapa == cuenta.EtapaMenor {

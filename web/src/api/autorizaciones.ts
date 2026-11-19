@@ -11,7 +11,8 @@ export type CatalogoDelApi = {
   version: { numero: string; fecha: string };
   /**
    * `completo`: todo lo que se le ofrece a la persona. `falta_una_aceptacion`: la cuenta ya autorizó antes y solo le falta
-   * una necesaria nueva (SC-E21-25, sección 5); `finalidades` trae solo esa.
+   * una necesaria nueva (SC-E21-25, sección 5) o con el texto de una versión nueva (bug 308); `finalidades` trae solo
+   * las necesarias que le faltan, sin las opcionales.
    */
   modo: string;
   finalidades: FinalidadDelApi[];
