@@ -1,3 +1,5 @@
+# Esta revisión guarda contra apagar un paso por accidente, no contra un sabotaje deliberado (un `exit` oculto en
+# `eval`, una variable armada con `printf`, etc.): eso lo cubre la revisión humana de todo cambio en .azure-pipelines.
 """Prueba de los filtros por carpeta (ADR-001, E17-ECO Q-11) y del control único (D-177).
 
 Lee los `paths.include` de la sección `pr` de cada pipeline y comprueba, con archivos de ejemplo,
@@ -20,10 +22,13 @@ Un pipeline programado (con `schedules:`) se acepta solo si está en PROGRAMADOS
 propia regla: `trigger: none`, `pr: none` y una sola programación diaria sobre `main` con `always: true` (sin eso Azure
 no la corre si `main` no cambió). No entra en la simulación de los filtros: no corre en ningún PR.
 """
+import io
 import re
 import importlib.util
 import pathlib
+import shlex
 import sys
+import unittest
 
 RAIZ = pathlib.Path(__file__).resolve().parents[2]
 CARPETA = RAIZ / ".azure-pipelines"
@@ -67,6 +72,13 @@ ESPERADO = {
     "web/src/PantallaPrueba.tsx": {"comun", "web", "api"},
     "web/package.json": {"comun", "web", "api"},
     "web/tests/dinero.test.ts": {"comun", "web", "api"},
+    # web/servidor es un módulo de Go aparte (el servidor de ca-web): sus pruebas corren en la etapa api (plantillas/api.yml),
+    # que ya corre con cualquier cambio de web/*; la etapa web, con web/*, también.
+    "web/servidor/go.mod": {"comun", "web", "api"},
+    "web/servidor/main.go": {"comun", "web", "api"},
+    "web/servidor/.golangci.yml": {"comun", "web", "api"},
+    "web/servidor/internal/servidor/manejador.go": {"comun", "web", "api"},
+    "web/servidor/internal/servidor/manejador_test.go": {"comun", "web", "api"},
     ".azure-pipelines/web.yml": {"comun", "web"},
     ".azure-pipelines/plantillas/web.yml": {"comun", "web"},
     # Estos casos protegen S11 (D-161): `comun` usa web/scripts/antiguedad*.mjs para commitlint y no filtra por ruta (corre con
@@ -81,6 +93,7 @@ ESPERADO = {
     ".azure-pipelines/control.yml": {"comun"},
     ".azure-pipelines/pruebas/cambios.py": {"comun"},
     ".azure-pipelines/pruebas/filtros.py": {"comun"},
+    ".azure-pipelines/pruebas/filtros_regresion.py": {"comun"},
     ".azure-pipelines/README.md": {"comun"},
     ".azure-pipelines/commitlint/package.json": {"comun"},
     ".azure-pipelines/commitlint/commitlint.config.mjs": {"comun"},
@@ -290,6 +303,214 @@ def revisar_plantillas():
             if linea.strip().startswith("- template: ") and not (CARPETA / plantilla).is_file():
                 fallas.append(f"{p.name}: falta la plantilla {plantilla}")
     return fallas
+
+
+def limpiar(valor):
+    """Valor de una clave de YAML sin su comentario ni sus comillas."""
+    valor = re.sub(r"\s+#.*$", "", valor.strip())
+    return valor[1:-1] if len(valor) > 1 and valor[0] == valor[-1] and valor[0] in "'\"" else valor
+
+
+def pasos_de(texto):
+    """Los pasos de `steps:` de una plantilla: una lista de {clave: valor} por paso (`- script: ...` con sus claves). El
+    `script` queda como lista de líneas (una sola si es en línea; las del cuerpo si es `|`; una unida si es `>`). Los
+    comentarios de YAML no son pasos ni claves; los del cuerpo de un script quedan, y los quita quien tokeniza."""
+    pasos, actual, base, en_pasos, bloque = [], None, None, False, None
+    for linea in texto.splitlines():
+        if not linea.strip():
+            continue
+        sangria, clave = len(linea) - len(linea.lstrip()), linea.strip()
+        if bloque is not None:
+            if sangria > bloque:
+                actual["script"].append(clave)
+                continue
+            bloque = None
+        if clave.startswith("#"):
+            continue
+        if clave == "steps:":
+            en_pasos, base = True, None
+            continue
+        if not en_pasos:
+            continue
+        base = sangria if base is None else base
+        if sangria < base:
+            en_pasos, actual = False, None
+            continue
+        if sangria == base and clave.startswith("- "):
+            actual = {}
+            pasos.append(actual)
+            clave, sangria = clave[2:], sangria + 2
+        if actual is None or sangria != base + 2:
+            continue
+        nombre, _, valor = clave.partition(":")
+        valor = limpiar(valor)
+        if nombre == "script" and valor in ("|", "|-", "|+", ">", ">-", ">+"):
+            actual["script"], bloque = [], sangria
+            actual["plegado"] = valor.startswith(">")
+        else:
+            actual[nombre] = [valor] if nombre == "script" else valor
+    for paso in pasos:
+        if paso.pop("plegado", False):
+            paso["script"] = [" ".join(paso["script"])]
+    return pasos
+
+
+def ordenes_de(paso):
+    """Las líneas del script de un paso como listas de palabras de shell, sin comentarios; None si alguna no se lee."""
+    ordenes = []
+    for linea in paso.get("script", []):
+        try:
+            palabras = shlex.split(linea, comments=True)
+        except ValueError:
+            return None
+        if palabras:
+            ordenes.append(palabras)
+    return ordenes
+
+
+def sale_antes(paso):
+    """Algún `exit` o `return` suelto en una línea del script que no es la última orden (también tras `&&`, `||`, `;`, `(`,
+    `command` o `builtin`), o una línea que no se lee. Los comentarios no cuentan."""
+    lineas = [l for l in paso.get("script", []) if l.strip() and not l.strip().startswith("#")]
+    for linea in lineas[:-1]:
+        lector = shlex.shlex(linea, posix=True, punctuation_chars=True)
+        try:
+            if {"exit", "return"} & set(lector):
+                return True
+        except ValueError:
+            return True
+    return False
+
+
+# Condiciones que dejan el paso corriendo siempre que el job corre; cualquier otra puede apagarlo.
+CONDICIONES_QUE_CORREN = ("", "succeeded()", "succeededOrFailed()", "always()")
+LINT_EN_VARIABLE = re.compile(r"golangci_lint=\$\(go( -C \S+)? tool -n golangci-lint\)")
+
+
+def ejecuta(paso, es_la_orden):
+    """El paso corre de verdad y su última orden (la que decide si falla) cumple `es_la_orden(palabras, anteriores)`:
+    sin `condition` que lo apague, sin `enabled: false` ni `continueOnError: true`, y sin `exit` ni `set +e` antes."""
+    if limpiar(paso.get("condition", "")) not in CONDICIONES_QUE_CORREN or paso.get("enabled", "true") != "true":
+        return False
+    if paso.get("continueOnError", "false") != "false":
+        return False
+    ordenes = ordenes_de(paso)
+    if not ordenes or any(o[0] in ("exit", "return") or o[:2] == ["set", "+e"] for o in ordenes[:-1]) or sale_antes(paso):
+        return False
+    return es_la_orden(ordenes[-1], [" ".join(o) for o in ordenes[:-1]])
+
+
+def ultima_del_lint(antes):
+    """La última asignación de `golangci_lint` antes de usarla es exactamente `go [-C ruta] tool -n golangci-lint`."""
+    asignaciones = [a for a in antes if re.search(r"(?<![\w$])golangci_lint\+?=", a)]
+    return bool(asignaciones) and LINT_EN_VARIABLE.fullmatch(asignaciones[-1]) is not None
+
+
+# Lo que plantillas/api.yml debe ejecutar en cada módulo de Go aparte: (nombre, ¿la última orden del script lo hace?).
+PASOS_GO = (
+    ("`gofmt -l` con una prueba que falla (test -z)", lambda o, antes: o == ["test", "-z", "$(gofmt -l .)"]),
+    ("go vet ./...", lambda o, antes: o == ["go", "vet", "./..."]),
+    ("golangci-lint run", lambda o, antes: o == ["go", "tool", "golangci-lint", "run"]
+        or (o == ["$golangci_lint", "run"] and ultima_del_lint(antes))),
+    ("go test -race ./...", lambda o, antes: o == ["go", "test", "-race", "./..."]),
+)
+# Archivos de un módulo que el filtro de la etapa api debe cubrir: su go.mod y todo su código, no solo el manifiesto.
+FUENTES_GO = ("go.mod", "go.sum", ".golangci.yml", "main.go", "internal/paquete/archivo.go")
+
+
+def modulos_go():
+    """Carpetas (relativas a la raíz del repositorio, con «/») que tienen un go.mod."""
+    modulos = []
+    for ruta in sorted(RAIZ.rglob("go.mod")):
+        partes = ruta.relative_to(RAIZ).parts
+        if not {"node_modules", ".git", "dist", "vendor"} & set(partes):
+            modulos.append("/".join(partes[:-1]))
+    return modulos
+
+
+def revisar_modulos_go(plantilla, modulos, filtros_api):
+    """Todo módulo de Go aparte (cada go.mod que no sea el de `api`) corre en plantillas/api.yml, en su carpeta, `gofmt -l`
+    con una prueba que falla, `go vet`, `golangci-lint run` y `go test -race`, y su carpeta entera dispara la etapa api.
+    Se leen los pasos (`script`, `workingDirectory`, `condition`), no el texto suelto: un comentario, un `echo` o un paso
+    con `condition: false` no cuentan. Si no, sus pruebas no correrían en ningún PR. Devuelve la lista de fallas."""
+    fallas = []
+    pasos = pasos_de(plantilla)
+    if re.search(r"^\s+(condition|enabled)\s*:", plantilla.split("steps:")[0], re.M):
+        fallas.append("plantillas/api.yml: el job tiene condition o enabled y puede apagar todos sus pasos")
+    for carpeta in modulos:
+        if not carpeta or carpeta == "api":
+            continue
+        sin = [f for f in FUENTES_GO if not any(coincide(x, f"{carpeta}/{f}") for x in filtros_api)]
+        if sin:
+            fallas.append(f"{carpeta}: el filtro de la etapa api no cubre {', '.join(sin)}")
+        propios = [p for p in pasos if limpiar(p.get("workingDirectory", "")) == carpeta]
+        for nombre, es_la_orden in PASOS_GO:
+            if not any(ejecuta(p, es_la_orden) for p in propios):
+                fallas.append(f"{carpeta}: plantillas/api.yml no ejecuta {nombre} con workingDirectory: {carpeta} "
+                              "(como última orden del script, sin condition, enabled: false ni continueOnError que lo apaguen)")
+    return fallas
+
+
+# Cambios solo ejecutables en los pasos de web/servidor de plantillas/api.yml: (texto, reemplazo). Los nombres y los
+# comentarios no cambian, así que prueban que la revisión lee lo que el agente ejecuta.
+SERVIDOR = "        workingDirectory: web/servidor\n"
+DESCUBRE = '          golangci_lint="$(go -C ../../api tool -n golangci-lint)"\n'
+MUTACIONES_GO = (
+    ('      - script: test -z "$(gofmt -l .)"\n' + SERVIDOR, '      - script: echo omitido # test -z "$(gofmt -l .)"\n' + SERVIDOR),
+    ('      - script: test -z "$(gofmt -l .)"\n' + SERVIDOR, '      - script: test -z "$(gofmt -l .)" || true\n' + SERVIDOR),
+    ("      - script: go vet ./...\n" + SERVIDOR, "      - script: echo omitido # go vet ./...\n" + SERVIDOR),
+    ('          "$golangci_lint" run\n', "          echo omitido\n"),
+    (DESCUBRE, "          true && exit 0\n" + DESCUBRE),
+    (DESCUBRE, "          command exit 0\n" + DESCUBRE),
+    ('          "$golangci_lint" run\n', '          golangci_lint=true\n          "$golangci_lint" run\n'),
+    ('          "$golangci_lint" run\n', '          # "$golangci_lint" run\n'),
+    ("      - script: go test -race ./...\n" + SERVIDOR, "      - script: echo omitido # go test -race ./...\n" + SERVIDOR),
+)
+
+
+def mutaciones_go(plantilla):
+    """(descripción, plantilla rota): MUTACIONES_GO, y para cada paso de web/servidor un condition: false, un enabled: false,
+    un continueOnError: true y un workingDirectory de otra carpeta."""
+    for viejo, nuevo in MUTACIONES_GO:
+        yield f"{nuevo.strip()!r}", plantilla.replace(viejo, nuevo) if plantilla.count(viejo) == 1 else None
+    partes = plantilla.split(SERVIDOR)
+    for n in range(len(partes) - 1):
+        for extra in ("condition: false", "enabled: false", "continueOnError: true", "workingDirectory: api"):
+            nueva = SERVIDOR.replace("workingDirectory: web/servidor", extra) if extra.startswith("workingDirectory") else SERVIDOR + f"        {extra}\n"
+            yield f"paso {n + 1} de web/servidor con {extra}", SERVIDOR.join(partes[:n + 1]) + nueva + SERVIDOR.join(partes[n + 1:])
+
+
+def revisar_mutaciones_modulos_go(plantilla, modulos, filtros_api):
+    """La revisión de los módulos de Go detecta un paso que no se ejecuta de verdad y un filtro que no cubre el código."""
+    if not any(m for m in modulos if m and m != "api"):
+        return ["no hay ningún módulo de Go aparte con el que probar la revisión (web/servidor)"]
+    fallas = []
+    for descripcion, rota in mutaciones_go(plantilla):
+        if rota is None:
+            fallas.append(f"mutación sin su texto único en plantillas/api.yml: {descripcion}")
+        elif not revisar_modulos_go(rota, modulos, filtros_api):
+            fallas.append(f"la revisión de módulos de Go no detecta el cambio {descripcion}")
+    for nombre, filtro in (("sin web/*", [f for f in filtros_api if not f.startswith("web/")]), ("solo el go.mod", ["web/servidor/go.mod"])):
+        if not revisar_modulos_go(plantilla, modulos, filtro):
+            fallas.append(f"la revisión de módulos de Go no detecta que el filtro {nombre} no cubra el código de la etapa api")
+    return fallas
+
+
+def revisar_regresion():
+    """Corre pruebas/filtros_regresion.py (unittest) y devuelve la lista de fallas; muestra lo que fallan."""
+    ruta = CARPETA / "pruebas" / "filtros_regresion.py"
+    if not ruta.is_file():
+        return ["falta pruebas/filtros_regresion.py"]
+    spec = importlib.util.spec_from_file_location("filtros_regresion", ruta)
+    modulo = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(modulo)
+    salida = io.StringIO()
+    resultado = unittest.TextTestRunner(stream=salida).run(unittest.defaultTestLoader.loadTestsFromModule(modulo))
+    if resultado.wasSuccessful():
+        print(f"ok    filtros_regresion.py: {resultado.testsRun} pruebas")
+        return []
+    print(salida.getvalue())
+    return [f"filtros_regresion.py: {len(resultado.failures) + len(resultado.errors)} pruebas fallan"]
 
 
 def cargar_cambios():
@@ -566,6 +787,17 @@ def main():
         print(f"FALLA {falla}")
     print(f"{'ok' if not plantillas else 'FALLA':5} cada pipeline corre su plantilla y las plantillas existen")
     fallas += plantillas
+    plantilla_api = (CARPETA / "plantillas" / "api.yml").read_text(encoding="utf-8")
+    modulos = revisar_modulos_go(plantilla_api, modulos_go(), por_carpeta["api"] or [])
+    modulos += revisar_mutaciones_modulos_go(plantilla_api, modulos_go(), por_carpeta["api"] or [])
+    for falla in modulos:
+        print(f"FALLA {falla}")
+    print(f"{'ok' if not modulos else 'FALLA':5} cada módulo de Go aparte (web/servidor) corre sus pruebas en plantillas/api.yml")
+    fallas += modulos
+    regresion = revisar_regresion()
+    for falla in regresion:
+        print(f"FALLA {falla}")
+    fallas += regresion
     sin_caso = set(por_carpeta) - set().union(*ESPERADO.values())
     if sin_caso:
         fallas.append(f"pipelines sin caso en ESPERADO: {sorted(sin_caso)}")
