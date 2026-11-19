@@ -101,7 +101,7 @@ func (s *Sesiones) Sujeto(ctx context.Context, huella []byte, ahora time.Time) (
 func (s *Sesiones) autorizada(ctx context.Context, persona string, etapa cuenta.Etapa) (bool, error) {
 	filas, err := s.pool.Query(ctx,
 		`SELECT finalidad, otorgante_id::text, version_del_texto FROM autorizacion
-		  WHERE titular_id = $1::uuid AND retirada_en IS NULL AND reemplazada_en IS NULL`, persona)
+		  WHERE titular_id = $1::uuid AND `+condicionVigente, persona)
 	if err != nil {
 		return false, fmt.Errorf("consultar las autorizaciones: %w", err)
 	}

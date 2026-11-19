@@ -210,7 +210,8 @@ func invalidarEnlaces(ctx context.Context, tx pgx.Tx, persona string) error {
 // autorizó algo y a la que le falta una finalidad necesaria nueva no se borra: queda en `sin_autorizacion`, sin plazo,
 // hasta que acepte (`ReglaDeFinalidades.Faltantes`); por eso esta consulta no mira las necesarias. Sin llave a la persona,
 // `autorizacion` no se borra en cascada: las que hubiera (solo las de una cuenta sin confirmar) quedan retiradas en
-// `Ahora` y conservadas hasta `ConservarHasta` (E13 §7).
+// `Ahora` y conservadas hasta `ConservarHasta` (E13 §7); una reemplazada por una versión nueva (bug 308) no se retiró y solo
+// recibe `ConservarHasta`.
 //
 // Los plazos (D-203; ver `condicionDeLaPurga`): el caso 1, 7 días desde creada_en. El caso 2, 7 días desde creada_en **y**
 // 48 horas desde `aviso_de_purga_en`; sin aviso, 14 días desde creada_en, y esas cuentas se devuelven en
@@ -263,7 +264,7 @@ func (r *Cuentas) BorrarSinConfirmar(ctx context.Context, p cuenta.PlazosDeLaPur
 		     WHERE p.id = ANY($6::uuid[]) AND `+condicionDeLaPurga+`
 		 ), retiradas AS (
 		     UPDATE autorizacion a
-		        SET retirada_en = GREATEST(a.otorgada_en, $4), conservar_hasta = $5::date
+		        SET retirada_en = CASE WHEN a.reemplazada_en IS NULL THEN GREATEST(a.otorgada_en, $4) END, conservar_hasta = $5::date
 		       FROM candidatas c
 		      WHERE a.titular_id = c.id AND a.retirada_en IS NULL
 		     RETURNING a.id

@@ -173,7 +173,8 @@ const intentosDeBorrado = 3
 //     hogar se disuelve: lo compartido pasa a ser suyo y se borra con ella (`hogar_id` de cada tabla de datos).
 //  7. Se borra lo propio (`hogar_id` nulo) de ella y de los menores. Lo compartido de un hogar que sigue queda en el
 //     hogar sin su nombre: el SET NULL de `persona_id` (D-053).
-//  8. Las autorizaciones, que no tienen llave a la persona, quedan retiradas y se conservan hasta `conservarHasta`.
+//  8. Las autorizaciones, que no tienen llave a la persona, quedan retiradas y se conservan hasta `conservarHasta`; las
+//     reemplazadas por una versión nueva (bug 308) no se retiraron: solo reciben `conservarHasta`.
 //  9. Se borra la persona: el CASCADE se lleva los perfiles, la credencial, **todas las sesiones**, los tokens de
 //     dispositivo, los enlaces, los avisos, la pertenencia al hogar, las tutorías y las propuestas pendientes.
 //
@@ -377,7 +378,7 @@ func (r *Borrado) borrarUnaVez(ctx context.Context, persona string, vistos []str
 	}
 	if _, err := tx.Exec(ctx,
 		`UPDATE autorizacion
-		    SET retirada_en = COALESCE(retirada_en, GREATEST(otorgada_en, $2)),
+		    SET `+retiroAlConservar+`,
 		        conservar_hasta = COALESCE(conservar_hasta, $3::date)
 		  WHERE titular_id = ANY($1::uuid[])`, personas, ahora, conservarHasta); err != nil {
 		return fmt.Errorf("conservar la prueba de las autorizaciones: %w", err)

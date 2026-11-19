@@ -13,6 +13,17 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/src/cuenta"
 )
 
+// condicionVigente es la única definición de «vigente» de una autorización (bug 308, D-210): ni retirada por la persona o
+// por el borrado de la cuenta (`retirada_en`), ni reemplazada por la aceptación de una versión nueva del texto
+// (`reemplazada_en`). Es el predicado del índice único `ix_autorizacion_vigente` y se usa en todas las consultas, también
+// en el `ON CONFLICT` que debe coincidir con él. Sin alias de tabla.
+const condicionVigente = "retirada_en IS NULL AND reemplazada_en IS NULL"
+
+// retiroAlConservar es la asignación de `retirada_en` de quien conserva la prueba de las autorizaciones al borrar una cuenta
+// (con `$2` = el instante): la vigente queda retirada; la reemplazada (bug 308, D-210) no se retiró, así que conserva su
+// `retirada_en` como estaba y solo recibe `conservar_hasta`, para no quedarse sin plazo. Sobre la tabla sin alias.
+const retiroAlConservar = "retirada_en = CASE WHEN reemplazada_en IS NULL THEN COALESCE(retirada_en, GREATEST(otorgada_en, $2)) ELSE retirada_en END"
+
 // Autorizaciones es la persistencia de PN-64 (E13 `autorizacion`): implementa autorizacion.Repositorio.
 type Autorizaciones struct{ pool *pgxpool.Pool }
 
@@ -24,7 +35,7 @@ func NuevoAutorizaciones(pool *pgxpool.Pool) *Autorizaciones { return &Autorizac
 func (a *Autorizaciones) Vigentes(ctx context.Context, persona string) ([]autorizacion.Aceptada, error) {
 	filas, err := a.pool.Query(ctx,
 		`SELECT finalidad, version_del_texto FROM autorizacion
-		  WHERE titular_id = $1::uuid AND otorgante_id = $1::uuid AND retirada_en IS NULL AND reemplazada_en IS NULL`, persona)
+		  WHERE titular_id = $1::uuid AND otorgante_id = $1::uuid AND `+condicionVigente, persona)
 	if err != nil {
 		return nil, fmt.Errorf("consultar las autorizaciones: %w", err)
 	}
@@ -87,7 +98,7 @@ func (a *Autorizaciones) Otorgar(ctx context.Context, persona string, finalidade
 	}
 	if _, err := tx.Exec(ctx,
 		`UPDATE autorizacion SET retirada_en = GREATEST(otorgada_en, $3)
-		 WHERE titular_id = $1::uuid AND otorgante_id <> $1::uuid AND finalidad = ANY($2::text[]) AND retirada_en IS NULL`,
+		 WHERE titular_id = $1::uuid AND otorgante_id <> $1::uuid AND finalidad = ANY($2::text[]) AND `+condicionVigente,
 		persona, finalidades, ahora); err != nil {
 		return fmt.Errorf("retirar lo que otorgó otra persona: %w", err)
 	}
@@ -97,7 +108,7 @@ func (a *Autorizaciones) Otorgar(ctx context.Context, persona string, finalidade
 		        GREATEST($4::timestamptz, COALESCE((SELECT max(a.otorgada_en) + interval '1 microsecond'
 		                                              FROM autorizacion a WHERE a.titular_id = $1::uuid AND a.finalidad = f), $4::timestamptz))
 		   FROM unnest($2::text[]) AS f
-		 ON CONFLICT (titular_id, finalidad) WHERE retirada_en IS NULL AND reemplazada_en IS NULL DO NOTHING`,
+		 ON CONFLICT (titular_id, finalidad) WHERE `+condicionVigente+` DO NOTHING`,
 		persona, finalidades, version, ahora); err != nil {
 		return fmt.Errorf("guardar las autorizaciones: %w", err)
 	}
@@ -113,7 +124,7 @@ func reemplazarLasDeVersionAnterior(ctx context.Context, tx pgx.Tx, persona stri
 	filas, err := tx.Query(ctx,
 		`SELECT id::text, finalidad, version_del_texto FROM autorizacion
 		  WHERE titular_id = $1::uuid AND otorgante_id = $1::uuid AND finalidad = ANY($2::text[])
-		    AND retirada_en IS NULL AND reemplazada_en IS NULL`, persona, finalidades)
+		    AND `+condicionVigente, persona, finalidades)
 	if err != nil {
 		return fmt.Errorf("buscar las autorizaciones de una versión anterior: %w", err)
 	}
@@ -156,7 +167,7 @@ func (a *Autorizaciones) Rechazar(ctx context.Context, persona string, necesaria
 	}
 	filas, err := tx.Query(ctx,
 		`SELECT finalidad, version_del_texto FROM autorizacion WHERE titular_id = $1::uuid AND otorgante_id = $1::uuid
-		   AND retirada_en IS NULL AND reemplazada_en IS NULL AND finalidad = ANY($2::text[])`, persona, necesarias)
+		   AND `+condicionVigente+` AND finalidad = ANY($2::text[])`, persona, necesarias)
 	if err != nil {
 		return fmt.Errorf("contar las autorizaciones: %w", err)
 	}
@@ -187,8 +198,9 @@ func (a *Autorizaciones) Rechazar(ctx context.Context, persona string, necesaria
 	}
 	// Defensa: desde SC-E21-25 la cuenta que llega aquí no tiene ninguna fila como titular y esto no retira nada; si un día
 	// el criterio de arriba se estrecha, lo que quede se conserva como prueba mínima (E13 §7), igual que al borrar la cuenta.
+	// Una reemplazada (bug 308) no se retira: solo recibe el plazo de conservación.
 	if _, err := tx.Exec(ctx,
-		`UPDATE autorizacion SET retirada_en = GREATEST(otorgada_en, $2), conservar_hasta = $3::date
+		`UPDATE autorizacion SET `+retiroAlConservar+`, conservar_hasta = $3::date
 		 WHERE titular_id = $1::uuid AND retirada_en IS NULL`, persona, ahora, conservarHasta); err != nil {
 		return fmt.Errorf("retirar las autorizaciones: %w", err)
 	}
@@ -226,7 +238,7 @@ func (a *Autorizaciones) Retirar(ctx context.Context, titular, finalidad string,
 	}
 	if _, err := tx.Exec(ctx,
 		`UPDATE autorizacion SET retirada_en = GREATEST(otorgada_en, $3)
-		 WHERE titular_id = $1::uuid AND finalidad = $2 AND retirada_en IS NULL AND reemplazada_en IS NULL`, titular, finalidad, ahora); err != nil {
+		 WHERE titular_id = $1::uuid AND finalidad = $2 AND `+condicionVigente, titular, finalidad, ahora); err != nil {
 		return fmt.Errorf("retirar la autorización: %w", err)
 	}
 	if finalidad == cuenta.Avisos {
