@@ -19,7 +19,7 @@ describe("acceso negado", () => {
   // ve primero PN-63 (RNF-011). El helper lo sabe preguntando el modo al API; sigue devolviendo verdadero de inmediato.
   describe("403 autorizacion_pendiente", () => {
     const catalogo = (modo: string) => ({
-      version: { numero: "1.1", fecha: "2026-11-12" },
+      version: { numero: "1.2", fecha: "2026-11-17" },
       modo,
       finalidades: [
         {

@@ -23,7 +23,7 @@ const (
 	rutaDelDisp2    = "/api/v1/dispositivos/instalacion-2/token"
 	rutaDeCategoria = "/api/v1/categorias"
 	versionVieja    = "1.0 del 2026-10-30"
-	versionNueva    = "1.1 del 2026-11-12"
+	versionNueva    = "1.2 del 2026-11-17"
 )
 
 // autorizar inserta una autorización vigente de la persona, dada por ella misma, con la versión de texto dada.
@@ -76,7 +76,7 @@ func TestLaCuentaDeAntesDelCambioEntraAlModoLimitadoYAlAceptarRecuperaTodo(t *te
 		// PN-64 muestra solo la tarjeta que le falta.
 		lista := c.llamar("GET", rutaAutorizar, "")
 		const soloLaTransmision = `{"finalidades":[{"codigo":"transmision_a_encargados","tipo":"necesaria","otorgada":false}],` +
-			`"modo":"falta_una_aceptacion","version":{"numero":"1.1","fecha":"2026-11-12"}}`
+			`"modo":"falta_una_aceptacion","version":{"numero":"1.2","fecha":"2026-11-17"}}`
 		if lista.Codigo != 200 || lista.Cuerpo != soloLaTransmision {
 			t.Fatalf("GET /autorizaciones: %d %s", lista.Codigo, lista.Cuerpo)
 		}
@@ -86,9 +86,10 @@ func TestLaCuentaDeAntesDelCambioEntraAlModoLimitadoYAlAceptarRecuperaTodo(t *te
 			cuerpo, error string
 			codigo        int
 		}{
-			{`{"finalidades":[],"version":"1.1"}`, "faltan_necesarias", 422},
-			{`{"finalidades":["avisos"],"version":"1.1"}`, "faltan_necesarias", 422},
+			{`{"finalidades":[],"version":"1.2"}`, "faltan_necesarias", 422},
+			{`{"finalidades":["avisos"],"version":"1.2"}`, "faltan_necesarias", 422},
 			{`{"finalidades":["transmision_a_encargados"],"version":"1.0"}`, "version_desactualizada", 409},
+			{`{"finalidades":["transmision_a_encargados"],"version":"1.1"}`, "version_desactualizada", 409}, // SC-E21-26: la 1.1 ya no es la vigente
 		} {
 			if r := c.llamar("POST", rutaAutorizar, caso.cuerpo); r.Codigo != caso.codigo || r.Cuerpo != `{"error":"`+caso.error+`"}` {
 				t.Errorf("%s: %d %s", caso.cuerpo, r.Codigo, r.Cuerpo)
@@ -100,7 +101,7 @@ func TestLaCuentaDeAntesDelCambioEntraAlModoLimitadoYAlAceptarRecuperaTodo(t *te
 
 		// Acepta solo lo que le falta: llega a todo, con sus datos.
 		s.reloj.T = s.reloj.T.Add(time.Hour)
-		if r := c.llamar("POST", rutaAutorizar, `{"finalidades":["transmision_a_encargados"],"version":"1.1"}`); r.Codigo != 200 || r.Cuerpo != `{"estado":"autorizada"}` {
+		if r := c.llamar("POST", rutaAutorizar, `{"finalidades":["transmision_a_encargados"],"version":"1.2"}`); r.Codigo != 200 || r.Cuerpo != `{"estado":"autorizada"}` {
 			t.Fatalf("aceptar: %d %s", r.Codigo, r.Cuerpo)
 		}
 		if r := c.llamar("GET", rutaSeguridad, ""); r.Codigo != 200 {
@@ -112,7 +113,7 @@ func TestLaCuentaDeAntesDelCambioEntraAlModoLimitadoYAlAceptarRecuperaTodo(t *te
 		if n := s.contar(`SELECT count(*) FROM movimiento WHERE persona_id = $1::uuid AND descripcion = 'mercado'`, persona); n != 1 {
 			t.Errorf("el movimiento de antes sigue: %d", n)
 		}
-		// Lo de antes no se repite (RF-063): quedan 3 filas, las dos viejas con su versión y la nueva con la 1.1.
+		// Lo de antes no se repite (RF-063): quedan 3 filas, las dos viejas con su versión y la nueva con la 1.2.
 		filas := map[string]string{}
 		rows, err := s.pool.Query(context.Background(), `SELECT finalidad, version_del_texto || '|' || otorgante_id::text || '|' || COALESCE(retirada_en::text, '')
 			FROM autorizacion WHERE titular_id = $1::uuid`, persona)
@@ -198,7 +199,7 @@ func TestElTokenSoloSeRegistraConLaAutorizacionDeAvisos(t *testing.T) {
 		otra, otraPersona := s.nuevaCuentaVerificada("otra@ejemplo.test", android)
 		const necesarias = `"cuenta_y_acceso","funciones_financieras","transmision_a_encargados"`
 		for _, cc := range []*cliente{c, otra} {
-			if r := cc.llamar("POST", rutaAutorizar, `{"finalidades":[`+necesarias+`],"version":"1.1"}`); r.Codigo != 200 {
+			if r := cc.llamar("POST", rutaAutorizar, `{"finalidades":[`+necesarias+`],"version":"1.2"}`); r.Codigo != 200 {
 				t.Fatalf("autorizar sin los avisos: %d %s", r.Codigo, r.Cuerpo)
 			}
 		}
@@ -217,7 +218,7 @@ func TestElTokenSoloSeRegistraConLaAutorizacionDeAvisos(t *testing.T) {
 			t.Error("el token no va al registro")
 		}
 		// Con `horas_de_vida` pero sin avisos, tampoco: es otra finalidad.
-		if r := c.llamar("POST", rutaAutorizar, `{"finalidades":["horas_de_vida"],"version":"1.1"}`); r.Codigo != 200 {
+		if r := c.llamar("POST", rutaAutorizar, `{"finalidades":["horas_de_vida"],"version":"1.2"}`); r.Codigo != 200 {
 			t.Fatal(r.Codigo, r.Cuerpo)
 		}
 		if r := c.llamar("PUT", rutaDelDisp1, `{"token":"fcm-uno"}`); r.Codigo != 403 {
@@ -225,7 +226,7 @@ func TestElTokenSoloSeRegistraConLaAutorizacionDeAvisos(t *testing.T) {
 		}
 
 		// Con avisos: 204 y la fila de su dispositivo.
-		if r := c.llamar("POST", rutaAutorizar, `{"finalidades":["avisos"],"version":"1.1"}`); r.Codigo != 200 {
+		if r := c.llamar("POST", rutaAutorizar, `{"finalidades":["avisos"],"version":"1.2"}`); r.Codigo != 200 {
 			t.Fatal(r.Codigo, r.Cuerpo)
 		}
 		if r := c.llamar("PUT", rutaDelDisp1, `{"token":"fcm-uno"}`); r.Codigo != 204 || r.Cuerpo != "" {
@@ -261,7 +262,7 @@ func TestElTokenSoloSeRegistraConLaAutorizacionDeAvisos(t *testing.T) {
 			t.Errorf("otra persona sin avisos: %d %s", r.Codigo, r.Cuerpo)
 		}
 		// El mismo token en el dispositivo de otra persona con avisos reemplaza al anterior (E13: un token, un dispositivo).
-		if r := otra.llamar("POST", rutaAutorizar, `{"finalidades":["avisos"],"version":"1.1"}`); r.Codigo != 200 {
+		if r := otra.llamar("POST", rutaAutorizar, `{"finalidades":["avisos"],"version":"1.2"}`); r.Codigo != 200 {
 			t.Fatal(r.Codigo, r.Cuerpo)
 		}
 		if r := otra.llamar("PUT", rutaDelDisp1, `{"token":"fcm-dos"}`); r.Codigo != 204 {
@@ -336,7 +337,7 @@ func TestRetirarLosAvisosBorraTodosLosTokensDeLaPersona(t *testing.T) {
 	if r := c.llamar("PUT", rutaDelDisp1, `{"token":"tok-a1"}`); r.Codigo != 403 || s.tokens(persona) != 0 {
 		t.Errorf("tras retirar: %d %s, %d tokens", r.Codigo, r.Cuerpo, s.tokens(persona))
 	}
-	if r := c.llamar("POST", rutaAutorizar, `{"finalidades":["avisos"],"version":"1.1"}`); r.Codigo != 200 {
+	if r := c.llamar("POST", rutaAutorizar, `{"finalidades":["avisos"],"version":"1.2"}`); r.Codigo != 200 {
 		t.Fatalf("volver a autorizar: %d %s", r.Codigo, r.Cuerpo)
 	}
 	if r := c.llamar("PUT", rutaDelDisp1, `{"token":"tok-a1"}`); r.Codigo != 204 || s.tokens(persona) != 1 {

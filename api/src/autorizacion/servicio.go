@@ -29,9 +29,11 @@ type Version struct {
 func (v Version) Texto() string { return v.Numero + " del " + v.Fecha }
 
 // VersionActual es el único texto vigente. Un texto nuevo cambia esta constante y la persona vuelve a autorizar lo que
-// cambió. La 1.1 (2026-11-12) suma la aceptación expresa de la transmisión a los encargados (SC-E21-25); lo guardado con la
-// 1.0 (2026-10-30) sigue valiendo: no se repite (RF-063).
-var VersionActual = Version{Numero: "1.1", Fecha: "2026-11-12"}
+// cambió. La 1.1 (2026-11-12) sumó la aceptación expresa de la transmisión a los encargados (SC-E21-25); la 1.2
+// (2026-11-17) cambia los encargados que nombra: el correo sale por Zoho CPaaS y Azure queda en Estados Unidos
+// (SC-E21-26, D-205 y D-208). Un cliente que todavía manda la 1.1 recibe `409 version_desactualizada`. Todavía no se compara
+// la versión ya guardada (bug 308): lo aceptado con una versión anterior sigue valiendo.
+var VersionActual = Version{Numero: "1.2", Fecha: "2026-11-17"}
 
 // Modos de la lista de PN-64.
 const (

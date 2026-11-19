@@ -136,7 +136,7 @@ describe('PN-71 · Seguridad de la cuenta (E14-PCP 4.14)', () => {
     it('403 autorizacion_pendiente → PN-63', async () => {
       instalarFetchFalso(
         respuestaJson(403, { error: 'autorizacion_pendiente' }),
-        respuestaJson(200, { version: { numero: '1.1', fecha: '2026-11-12' }, modo: 'completo', finalidades: [] }),
+        respuestaJson(200, { version: { numero: '1.2', fecha: '2026-11-17' }, modo: 'completo', finalidades: [] }),
       );
       const navegacion = await mostrar();
       await waitFor(() => expect(navegacion.dispatch).toHaveBeenCalledWith(reinicio('InformacionDePrivacidad')));
@@ -147,7 +147,7 @@ describe('PN-71 · Seguridad de la cuenta (E14-PCP 4.14)', () => {
       const { pedidos } = instalarFetchFalso(
         respuestaJson(403, { error: 'autorizacion_pendiente' }),
         respuestaJson(200, {
-          version: { numero: '1.1', fecha: '2026-11-12' },
+          version: { numero: '1.2', fecha: '2026-11-17' },
           modo: 'falta_una_aceptacion',
           finalidades: [{ codigo: 'transmision_a_encargados', tipo: 'necesaria', otorgada: false }],
         }),
