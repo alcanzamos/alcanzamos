@@ -331,7 +331,6 @@ func TestEnviarFallaEnCadaPasoDelDialogo(t *testing.T) {
 		{"remitente rechazado", "220 hola", map[string]string{"MAIL": "550 no"}, "remitente rechazado: el servidor respondió 550"},
 		{"conexión cortada al dar el remitente", "220 hola", map[string]string{"MAIL": ""}, "remitente rechazado"},
 		{"inicio de los datos rechazado", "220 hola", map[string]string{"DATA": "554 no"}, "iniciar el cuerpo del mensaje: el servidor respondió 554"},
-		{"cierre del diálogo", "220 hola", map[string]string{"QUIT": ""}, "cerrar el diálogo con el servidor de correo"},
 		{"mensaje no aceptado", "220 hola", map[string]string{".": "554 spam"}, "el servidor no aceptó el mensaje: el servidor respondió 554"},
 	}
 	for _, c := range casos {
@@ -342,6 +341,36 @@ func TestEnviarFallaEnCadaPasoDelDialogo(t *testing.T) {
 				t.Fatalf("error %v, se esperaba %q", err, c.quiere)
 			}
 		})
+	}
+}
+
+// D-204 (2), según D-205 (6): el 250 a DATA cuenta como enviado. Antes, un fallo en QUIT devolvía error
+// («cerrar el diálogo con el servidor de correo») y el aviso se reenviaba aunque el mensaje ya estaba aceptado. Ahora, una
+// vez aceptado el mensaje, ni un QUIT que no se contesta, ni uno con 4xx o 5xx, ni una conexión cortada devuelven error.
+// Reemplaza el caso «cierre del diálogo» de TestEnviarFallaEnCadaPasoDelDialogo.
+func TestConElMensajeAceptadoUnFalloAlCerrarNoEsError(t *testing.T) {
+	casos := map[string]string{
+		"conexión cortada en QUIT": "",
+		"421 en QUIT":              "421 4.4.2 texto-del-servidor laura@ejemplo.test",
+		"554 en QUIT":              "554 5.0.0 texto-del-servidor laura@ejemplo.test",
+		"respuesta sin código":     "basura sin código",
+	}
+	for nombre, quit := range casos {
+		t.Run(nombre, func(t *testing.T) {
+			s := correo.NuevoSMTP(configDePrueba(correotest.ServidorGuionado(t, "220 hola", map[string]string{"QUIT": quit})), relojDePrueba())
+			if err := s.EnviarVerificacion(context.Background(), "laura@ejemplo.test", "abc"); err != nil {
+				t.Fatalf("el mensaje ya estaba aceptado, no debía haber error: %v", err)
+			}
+		})
+	}
+}
+
+// Lo que sí sigue siendo error: cualquier fallo antes del 250 a DATA, incluido el que rechaza el mensaje.
+func TestAntesDelMensajeAceptadoLosFallosSiguenSiendoError(t *testing.T) {
+	s := correo.NuevoSMTP(configDePrueba(correotest.ServidorGuionado(t, "220 hola", map[string]string{".": "451 4.3.0 otra vez"})), relojDePrueba())
+	err := s.EnviarVerificacion(context.Background(), "laura@ejemplo.test", "abc")
+	if !errors.Is(err, correo.ErrTransitorio) {
+		t.Fatalf("se esperaba ErrTransitorio: %v", err)
 	}
 }
 

@@ -70,7 +70,8 @@ func esperarFin(t *testing.T, res <-chan error) {
 		if err != nil {
 			t.Fatalf("Servir devolvió %v", err)
 		}
-	case <-time.After(5 * time.Second):
+	// Más que el plazo de apagado de Servir (10 s): una conexión sin petición tarda 5 s en contar como inactiva.
+	case <-time.After(15 * time.Second):
 		t.Fatal("Servir no terminó tras cancelar el contexto")
 	}
 }
@@ -131,6 +132,9 @@ func TestServirTerminaLasPeticionesEnCursoAlApagar(t *testing.T) {
 	esperarFin(t, res)
 }
 
+// Cada petición abre y cierra su conexión, para que el cliente no deje conexiones de reserva abiertas.
+var clienteSinConexionesGuardadas = &http.Client{Transport: &http.Transport{DisableKeepAlives: true}}
+
 func TestNoRegistraDireccionesIP(t *testing.T) {
 	var registro bufferSeguro
 	log := slog.New(slog.NewTextHandler(&registro, &slog.HandlerOptions{Level: slog.LevelDebug}))
@@ -149,7 +153,7 @@ func TestNoRegistraDireccionesIP(t *testing.T) {
 		req.Header.Set("X-Forwarded-For", "203.0.113.7")
 		req.Header.Set("X-Real-IP", "203.0.113.8")
 		// El pánico de /panico corta la conexión: ahí el cliente recibe un error y no importa cuál.
-		if resp, err := http.DefaultClient.Do(req); err == nil {
+		if resp, err := clienteSinConexionesGuardadas.Do(req); err == nil {
 			cerrar(t, resp.Body)
 		}
 	}
@@ -243,4 +247,18 @@ func TestEjecutarArrancaYSeApagaSinErrores(t *testing.T) {
 	if !strings.Contains(salida.String(), "servidor detenido") {
 		t.Fatalf("falta el aviso de apagado: %q", salida.String())
 	}
+}
+
+// Una conexión abierta que nunca manda una petición (StateNew), como la que deja el Transport de un cliente
+// cuando marca de más, no frena el apagado para siempre: net/http la trata como inactiva a los 5 s y Servir
+// termina dentro de su plazo de 10 s. Esta prueba fija que esperarFin le da ese margen.
+func TestServirTerminaConUnaConexionSinPeticion(t *testing.T) {
+	url, parar, res := arrancar(t, manejadorDePrueba(t), slog.New(slog.NewTextHandler(io.Discard, nil)))
+	c, err := net.Dial("tcp", strings.TrimPrefix(url, "http://"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { cerrar(t, c) })
+	parar()
+	esperarFin(t, res)
 }
