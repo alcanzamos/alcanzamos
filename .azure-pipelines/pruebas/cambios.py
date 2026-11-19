@@ -26,8 +26,6 @@ CARPETAS = {
     "api": (
         "api/*",
         "web/*",
-        "diseno/*",
-        "marca/logo-horizontal-color.svg",
         ".dockerignore",
         ".azure-pipelines/api.yml",
         ".azure-pipelines/plantillas/api.yml",

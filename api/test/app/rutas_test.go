@@ -4,6 +4,9 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -142,4 +145,33 @@ func TestTodaRutaDeLaAPIQueCambiaAlgoRechazaLoQueLaDefensaContraCSRFRechaza(t *t
 		t.Fatal(err)
 	}
 	csrftest.ProbarDefensa(t, servidor.ManejadorConAPI(api), e.Rutas(), "https://app.b.test", nil)
+}
+
+// El Enrutador de producción manda CORS al origen de URL_PUBLICA (E11-INF 2.16): el preflight de cada ruta que cambia algo
+// recibe 204 con credenciales, sin llegar al servicio (no hay base) ni a la defensa contra CSRF, y otro origen no recibe nada.
+func TestElEnrutadorDeProduccionRespondeAlPreflightDeLaWeb(t *testing.T) {
+	e := enrutadorDePrueba(t)
+	api, err := e.Construir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := servidor.ManejadorConAPI(api)
+	for _, ruta := range e.Rutas() {
+		metodo, camino, _ := strings.Cut(ruta.Patron, " ")
+		camino = strings.NewReplacer("{id}", "0192f3c4-0000-7000-8000-0000000000ee").Replace(camino)
+		for origen, esperado := range map[string]bool{"https://app.b.test": true, "https://atacante.example": false} {
+			r := httptest.NewRequest(http.MethodOptions, camino, nil)
+			r.Header.Set("Origin", origen)
+			r.Header.Set("Access-Control-Request-Method", metodo)
+			rr := httptest.NewRecorder()
+			h.ServeHTTP(rr, r)
+			if esperado {
+				if rr.Code != http.StatusNoContent || rr.Header().Get("Access-Control-Allow-Origin") != origen || rr.Header().Get("Access-Control-Allow-Credentials") != "true" {
+					t.Errorf("%s: preflight %d %v", ruta.Patron, rr.Code, rr.Header())
+				}
+			} else if rr.Code == http.StatusNoContent || rr.Header().Get("Access-Control-Allow-Origin") != "" {
+				t.Errorf("%s: el preflight de %s recibió %d %v", ruta.Patron, origen, rr.Code, rr.Header())
+			}
+		}
+	}
 }

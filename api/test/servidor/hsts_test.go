@@ -16,7 +16,7 @@ import (
 // lista de los navegadores casi no se deshace y es otra decisión).
 const hsts = "max-age=31536000; includeSubDomains"
 
-// apiConErrores arma el manejador completo con rutas que dan las clases de respuesta que no salen de la web:
+// apiConErrores arma el manejador completo con rutas que dan las clases de respuesta que no salen de /salud:
 // 429 (límite de intentos), 500 y un POST protegido por la defensa contra CSRF.
 func apiConErrores(t *testing.T, sesiones servidor.Sesiones) http.Handler {
 	t.Helper()
@@ -44,46 +44,44 @@ func TestStrictTransportSecurityEnTodasLasRespuestas(t *testing.T) {
 		nombre string
 		pedido *http.Request
 		codigo int
-		web    bool // con la web de prueba (ManejadorConRaiz); si no, con las rutas del API
 	}{
-		{"200 de /salud", httptest.NewRequest(http.MethodGet, "/salud", nil), 200, false},
-		{"200 de una ruta del API", httptest.NewRequest(http.MethodGet, "/api/v1/prueba/ok", nil), 200, false},
-		{"200 del API con HEAD", httptest.NewRequest(http.MethodHead, "/salud", nil), 200, false},
-		{"404 de /api/ desconocida", httptest.NewRequest(http.MethodGet, "/api/v1/no-existe", nil), 404, false},
-		{"405 de /salud", httptest.NewRequest(http.MethodPost, "/salud", nil), 405, false},
-		{"405 de la web", httptest.NewRequest(http.MethodPost, "/", nil), 405, true},
-		{"401 sin sesión", httptest.NewRequest(http.MethodGet, "/api/v1/prueba/privada", nil), 401, false},
+		{"200 de /salud", httptest.NewRequest(http.MethodGet, "/salud", nil), 200},
+		{"200 de una ruta del API", httptest.NewRequest(http.MethodGet, "/api/v1/prueba/ok", nil), 200},
+		{"200 del API con HEAD", httptest.NewRequest(http.MethodHead, "/salud", nil), 200},
+		{"404 de /api/ desconocida", httptest.NewRequest(http.MethodGet, "/api/v1/no-existe", nil), 404},
+		{"405 de /salud", httptest.NewRequest(http.MethodPost, "/salud", nil), 405},
+		{"401 sin sesión", httptest.NewRequest(http.MethodGet, "/api/v1/prueba/privada", nil), 401},
 		{"403 de CSRF por Origin ajeno", func() *http.Request {
 			r := json(httptest.NewRequest(http.MethodPost, "/api/v1/prueba/cambia", strings.NewReader("{}")))
 			r.Header.Set("Origin", "https://otro.test")
 			return r
-		}(), 403, false},
+		}(), 403},
 		{"403 de CSRF por Sec-Fetch-Site", func() *http.Request {
 			r := json(httptest.NewRequest(http.MethodPost, "/api/v1/prueba/cambia", strings.NewReader("{}")))
 			r.Header.Set("Sec-Fetch-Site", "cross-site")
 			return r
-		}(), 403, false},
+		}(), 403},
 		{"415 de CSRF por tipo de contenido", func() *http.Request {
 			r := httptest.NewRequest(http.MethodPost, "/api/v1/prueba/cambia", strings.NewReader("x"))
 			r.Header.Set("Sec-Fetch-Site", "same-origin")
 			return r
-		}(), 415, false},
-		{"429 del límite de intentos", httptest.NewRequest(http.MethodGet, "/api/v1/prueba/limite", nil), 429, false},
-		{"500 de un error", httptest.NewRequest(http.MethodGet, "/api/v1/prueba/fallo", nil), 500, false},
-		{"web: raíz", httptest.NewRequest(http.MethodGet, "/", nil), 200, true},
-		{"web: ruta de la SPA", httptest.NewRequest(http.MethodGet, "/movimientos", nil), 200, true},
-		{"web: asset inmutable", httptest.NewRequest(http.MethodGet, "/assets/index-abc123.js", nil), 200, true},
-		{"web: archivo con no-cache", httptest.NewRequest(http.MethodGet, "/fuentes/figtree-OFL.txt", nil), 200, true},
+		}(), 415},
+		{"204 de un preflight de CORS", func() *http.Request {
+			r := httptest.NewRequest(http.MethodOptions, "/api/v1/prueba/cambia", nil)
+			r.Header.Set("Origin", "https://app.b.test")
+			r.Header.Set("Access-Control-Request-Method", "POST")
+			return r
+		}(), 204},
+		{"429 del límite de intentos", httptest.NewRequest(http.MethodGet, "/api/v1/prueba/limite", nil), 429},
+		{"500 de un error", httptest.NewRequest(http.MethodGet, "/api/v1/prueba/fallo", nil), 500},
+		{"404 de la raíz (el API ya no sirve la web)", httptest.NewRequest(http.MethodGet, "/", nil), 404},
+		{"404 de un archivo de la web", httptest.NewRequest(http.MethodGet, "/assets/index-abc123.js", nil), 404},
 	}
 	h := apiConErrores(t, sesionFalsa{err: servidor.ErrSinSesion})
 	for _, c := range casos {
 		t.Run(c.nombre, func(t *testing.T) {
 			rr := httptest.NewRecorder()
-			manejador := h
-			if c.web {
-				manejador = servidor.ManejadorConRaiz(raizDePrueba())
-			}
-			manejador.ServeHTTP(rr, c.pedido)
+			h.ServeHTTP(rr, c.pedido)
 			if rr.Code != c.codigo {
 				t.Fatalf("código %d, se esperaba %d", rr.Code, c.codigo)
 			}
@@ -123,21 +121,10 @@ func TestStrictTransportSecuritySaleTambienSobreHTTPSinTLS(t *testing.T) {
 	}
 }
 
-// PRESERVE: añadir HSTS no quita ni cambia lo que ya ponía el manejador: la CSP, el tipo y el cuerpo del error, y las
-// cabeceras de la web.
+// PRESERVE: añadir HSTS no quita ni cambia lo que ya ponía el manejador: la CSP, el tipo y el cuerpo del error.
 func TestHSTSNoCambiaLasDemasCabeceras(t *testing.T) {
-	h := servidor.ManejadorConRaiz(raizDePrueba())
-
 	rr := httptest.NewRecorder()
-	h.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/assets/index-abc123.js", nil))
-	if rr.Header().Get("Content-Security-Policy") != politicaCSP ||
-		rr.Header().Get("X-Content-Type-Options") != "nosniff" ||
-		rr.Header().Get("Cache-Control") != "public, max-age=31536000, immutable" {
-		t.Fatalf("cabeceras de la web cambiadas: %v", rr.Header())
-	}
-
-	rr = httptest.NewRecorder()
-	h.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/nada", nil))
+	servidor.Manejador().ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/nada", nil))
 	if rr.Code != http.StatusNotFound || rr.Header().Get("Content-Type") != "application/json" ||
 		rr.Header().Get("Content-Security-Policy") != politicaCSP ||
 		strings.TrimSpace(rr.Body.String()) != `{"error":"no_encontrado"}` {
