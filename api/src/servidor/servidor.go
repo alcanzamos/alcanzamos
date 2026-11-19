@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -30,8 +31,15 @@ func Manejador() http.Handler {
 func ManejadorConAPI(api http.Handler) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /salud", salud)
-	mux.Handle("/api/", api)
-	return conCabecerasDeSeguridad(conPeticion(mux))
+	return conCabecerasDeSeguridad(conPeticion(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Todo lo que empieza por /api/ en la ruta tal como llegó va derecho a api, sin pasar por este mux: si lo limpiara él,
+		// una redirección canónica (`/api//v1/...`) saldría sin el CORS ni el `Vary: Origin` que pone api (cors.go).
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			api.ServeHTTP(w, r)
+			return
+		}
+		mux.ServeHTTP(w, r)
+	})))
 }
 
 // noEncontradoAPI responde 404 en JSON a cualquier ruta desconocida bajo /api/.
@@ -39,12 +47,14 @@ func noEncontradoAPI(w http.ResponseWriter, _ *http.Request) {
 	EscribirError(w, http.StatusNotFound, "no_encontrado")
 }
 
-// conCabecerasDeSeguridad añade la Content-Security-Policy y el Strict-Transport-Security a toda respuesta, incluidos
-// los errores 404 y 405, el rechazo de CSRF y el límite de intentos. Es el único lugar: ninguna ruta las pone.
+// conCabecerasDeSeguridad añade la Content-Security-Policy, el Strict-Transport-Security y `X-Content-Type-Options: nosniff`
+// a toda respuesta, incluidos los errores 404 y 405, el rechazo de CSRF, el límite de intentos y el preflight de CORS. Es el
+// único lugar: ninguna ruta las pone.
 func conCabecerasDeSeguridad(siguiente http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Security-Policy", politicaCSP)
 		w.Header().Set("Strict-Transport-Security", politicaHSTS)
+		w.Header().Set("X-Content-Type-Options", "nosniff")
 		siguiente.ServeHTTP(w, r)
 	})
 }

@@ -29,11 +29,11 @@ El API no sirve la web y no tiene dominio fijo en el código. La web (`ca-web`) 
 
 | Ruta | Respuesta |
 |---|---|
-| `GET /salud` | `{"estado":"ok"}`. Otro método: 405 |
+| `GET /salud` | `{"estado":"ok"}`. `HEAD` responde como `GET`, sin cuerpo; cualquier otro método: 405 |
 | `/api/...` | Todo endpoint nuevo del API va aquí. Una ruta desconocida da 404 con `{"error":"no_encontrado"}` en JSON |
 | Cualquier otra ruta (`/`, `/index.html`, `/assets/...`, una ruta de la web) | 404 (el `404 page not found` de `net/http`). El API ya no sirve ni embebe la web: no hay `index.html` ni archivos estáticos |
 
-- **CORS** (`src/servidor/cors.go`), solo bajo `/api/` y solo para el origen exacto de `URL_PUBLICA` (esquema, anfitrión y puerto; la ruta y la barra final de la URL se ignoran). Lo pone el `Enrutador`, que ya conoce `URL_PUBLICA` (`ConURLPublica`):
+- **CORS** (`src/servidor/cors.go`), solo bajo `/api/` (toda ruta que empieza por `/api/` tal como llegó, también la redirección canónica de `/api//v1/...`, que lleva `Vary: Origin` y, para el origen de la web, las cabeceras CORS) y solo para el origen exacto de `URL_PUBLICA` (esquema, anfitrión y puerto; la ruta y la barra final de la URL se ignoran). Lo pone el `Enrutador`, que ya conoce `URL_PUBLICA` (`ConURLPublica`):
 
   | Cabecera | Valor | Cuándo |
   |---|---|---|
@@ -62,6 +62,7 @@ El API no sirve la web y no tiene dominio fijo en el código. La web (`ca-web`) 
   | `frame-ancestors 'none'` | Nadie puede incrustar una respuesta del API en un `<iframe>` (clickjacking); reemplaza a `X-Frame-Options` |
 
   La política de la web es la de `ca-web` (`default-src 'self'; connect-src 'self' <API_URL>; ...`), en `web/servidor`; no se repite aquí. Pruebas: `TestContentSecurityPolicyDelAPIEnTodasLasRespuestas` (valor exacto) y `TestElAPINoSirveLaWeb`.
+- **`X-Content-Type-Options: nosniff`** en todas las respuestas (`/api/`, `/salud`, errores, preflight), puesta en el mismo envoltorio que la CSP y el HSTS (`conCabecerasDeSeguridad`): el navegador no adivina el tipo del JSON ni del ZIP (E11-INF 2.16). Prueba: `TestT17NosniffEnJSONYPreflight`.
 - **Strict-Transport-Security** en todas las respuestas (`/api/`, `/salud`, errores 401, 403, 404, 405, 415, 429 y 500, rechazos de CSRF, preflight, CORS), puesta en el mismo envoltorio que la CSP (`conCabecerasDeSeguridad`, una sola constante `politicaHSTS`):
 
   ```
@@ -1080,7 +1081,7 @@ El generador solo lee E15, usa la lógica de `e18-ids-e15.py` y conserva la list
 
 El pipeline `api` corre `go vet ./...` y después `go tool golangci-lint run` (v2.15.0, publicado el 2026-10-16), con la configuración `api/.golangci.yml`. La herramienta es una directiva `tool` de `go.mod` (D-161), como `govulncheck`: no se instala nada aparte, no entra en el binario del API y no está en `src/`. Activa solo los cuatro analizadores de E17-ECO 3.5 (`Q-2`, D-110): `errcheck` (con `check-blank`: también marca `_ = f()`), `staticcheck`, `asciicheck` y `depguard`. Reglas de `depguard` (E17 3.2): el núcleo (`reloj`, `fechas`) no importa paquetes del proyecto, `seguridad` no importa módulos de negocio, y ningún módulo ni `seguridad` importa `pg`, `bd`, `app` ni `pgx`. E17 no trae una lista concreta de paquetes: las reglas son las mínimas de E12 §4 (reglas 1, 3 y 4) y E17 3.10; se amplían cuando E12 §4 se actualice (D-1 de la auditoría).
 
-Excepciones de `errcheck` (A-13, D-178 (2)), todas con su razón en la configuración o junto al código: `crypto/rand.Read` (desde Go 1.24 no devuelve error: si no hay entropía, el programa se detiene); `pgx.Tx.Rollback` (el `defer tx.Rollback(ctx)` tras el `Commit` devuelve `ErrTxClosed` y no hay nada que hacer); todo `api/test/`; y seis `//nolint:errcheck` con su razón junto al código (`EscribirJSON`: la conexión ya cerrada por la persona; `mime.AddExtensionType` con una constante válida; `SetDeadline` de una conexión TCP recién abierta; el cierre de la conexión y del cliente SMTP cuando ya se devuelve otro error; el `QUIT` del SMTP, porque el mensaje ya está aceptado). En local: `cd api && go tool golangci-lint run` (con `go vet ./...` aparte, que no está en el agregador).
+Excepciones de `errcheck` (A-13, D-178 (2)), todas con su razón en la configuración o junto al código: `crypto/rand.Read` (desde Go 1.24 no devuelve error: si no hay entropía, el programa se detiene); `pgx.Tx.Rollback` (el `defer tx.Rollback(ctx)` tras el `Commit` devuelve `ErrTxClosed` y no hay nada que hacer); todo `api/test/`; y cinco `//nolint:errcheck` con su razón junto al código (`EscribirJSON`: la conexión ya cerrada por la persona; `SetDeadline` de una conexión TCP recién abierta; el cierre de la conexión y del cliente SMTP cuando ya se devuelve otro error; el `QUIT` del SMTP, porque el mensaje ya está aceptado). En local: `cd api && go tool golangci-lint run` (con `go vet ./...` aparte, que no está en el agregador).
 
 ## Vulnerabilidades (govulncheck)
 
