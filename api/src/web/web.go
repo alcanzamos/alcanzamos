@@ -1,8 +1,8 @@
-// Package web embebe la web compilada (web/dist) para que el API la sirva (ADR-004).
+// Package web embebe un index.html de relleno que el API sirve en `/` (ADR-004).
 //
-// En el repositorio, estatico/ solo guarda un index.html de relleno: así `go build` y `go test`
-// funcionan sin compilar la web. La construcción de la imagen (api/Dockerfile) lo sobrescribe con
-// el contenido real de web/dist. Una compilación local de la web no toca esta carpeta.
+// La web ya no va en el binario: la sirve ca-web, con su propia imagen (web/Dockerfile, infra-d205 T13). Este paquete y
+// las rutas de la web del API (servidor.go, estatico.go) se quitan en T17; hasta entonces estatico/ solo guarda el
+// index.html de relleno, que es lo que embebe la imagen del API.
 package web
 
 import (
