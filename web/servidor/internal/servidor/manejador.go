@@ -10,6 +10,13 @@ import (
 	"time"
 )
 
+// politicaHSTS es el Strict-Transport-Security de todas las respuestas (infra-d205 T20): Cloudflare va «DNS only» y la
+// entrada de Container Apps no la agrega, así que si ca-web no la manda, nadie la manda. Un año e includeSubDomains
+// (en app.alcanzamos.co cubre los nombres bajo .app.alcanzamos.co; no el dominio raíz ni api.alcanzamos.co). Sin
+// preload, a propósito: entrar en la lista de precarga casi no se deshace y es una decisión del dueño. Sale también
+// sobre HTTP sin TLS (local): los navegadores la ignoran allí (RFC 6797, 8.1).
+const politicaHSTS = "max-age=31536000; includeSubDomains"
+
 func init() {
 	// La imagen final (distroless) no trae tabla de tipos MIME del sistema.
 	// Solo falla si la extensión no empieza con punto: es una constante y no hay nada que manejar en tiempo de ejecución.
@@ -19,7 +26,7 @@ func init() {
 // Manejador sirve la web de raiz: un archivo existente se entrega tal cual; /config.json lo arma cfg; /salud
 // responde a las sondas; lo que no existe bajo assets/ es 404; cualquier otra ruta GET o HEAD devuelve index.html
 // (aplicación de una página).
-// Toda respuesta, también los errores, lleva la CSP y X-Content-Type-Options. No registra nada: ni peticiones ni IP.
+// Toda respuesta, también los errores, lleva la CSP, X-Content-Type-Options y Strict-Transport-Security. No registra nada: ni peticiones ni IP.
 func Manejador(raiz fs.FS, cfg Config) http.Handler {
 	archivos := http.FileServerFS(raiz)
 	configuracion := cfg.configJSON()
@@ -28,6 +35,7 @@ func Manejador(raiz fs.FS, cfg Config) http.Handler {
 		cab := w.Header()
 		cab.Set("Content-Security-Policy", csp)
 		cab.Set("X-Content-Type-Options", "nosniff")
+		cab.Set("Strict-Transport-Security", politicaHSTS)
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			cab.Set("Allow", "GET, HEAD")
 			http.Error(w, "método no permitido", http.StatusMethodNotAllowed)
