@@ -2,9 +2,11 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
 import { reiniciarBorrador } from "../src/borradorDeRegistro";
+import { reiniciarConfiguracion } from "../src/configuracion";
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  reiniciarConfiguracion();
   vi.useRealTimers();
   // Las pruebas de las hojas de estilo corren en Node, sin ventana.
   if (typeof window === "undefined") return;

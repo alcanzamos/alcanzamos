@@ -1,3 +1,4 @@
+import { urlDelApi } from "../configuracion";
 import { pedir, SIN_CONEXION, type Respuesta } from "./cliente";
 
 // Rutas de cuenta y sesión (api/README.md, «Cuenta (US-49, US-61)»). Cada función es un pedido; el API valida.
@@ -57,8 +58,8 @@ const NOMBRE_NEUTRO = "alcanzamos-mis-datos.zip";
 export async function descargarMisDatos(): Promise<DescargaDeDatos> {
   let respuesta: Response;
   try {
-    respuesta = await fetch("/api/v1/cuenta/datos", {
-      credentials: "same-origin",
+    respuesta = await fetch(urlDelApi("/api/v1/cuenta/datos"), {
+      credentials: "include",
       headers: { Accept: "application/zip" },
     });
   } catch {
