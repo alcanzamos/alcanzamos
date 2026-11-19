@@ -14,11 +14,14 @@ import "net/http"
 //   - Preflight: `OPTIONS` con `Origin` y `Access-Control-Request-Method` del origen de la web. Responde 204 sin pasar por la
 //     ruta ni por la defensa contra CSRF (ese pedido no la lleva); permite GET, POST, PUT y DELETE y la cabecera
 //     `Content-Type`, nada más (la web no manda otras cabeceras propias). El de otro origen no se contesta con CORS.
+//   - `Access-Control-Expose-Headers: Content-Disposition` en las respuestas al origen de la web: la web lee de ahí el nombre
+//     del ZIP de «Descargar mis datos», y en otro origen el navegador no se lo deja leer si el API no lo expone.
 //   - Android no manda `Origin`: no recibe estas cabeceras y su pedido no cambia.
 const (
 	corsMetodos     = "GET, POST, PUT, DELETE"
 	corsCabeceras   = "Content-Type"
 	corsDuracionSeg = "600" // el navegador recuerda el preflight 10 minutos: sin esto, cada pedido que cambia algo son dos viajes
+	corsExpuestas   = "Content-Disposition"
 )
 
 // conCORS envuelve las rutas de /api/. El origen se lee al atender cada pedido (ConURLPublica se llama antes de servir, pero
@@ -39,6 +42,7 @@ func (e *Enrutador) conCORS(siguiente http.Handler) http.Handler {
 				w.WriteHeader(http.StatusNoContent)
 				return
 			}
+			cab.Set("Access-Control-Expose-Headers", corsExpuestas)
 		}
 		siguiente.ServeHTTP(w, r)
 	})

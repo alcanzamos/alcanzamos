@@ -39,6 +39,7 @@ El API no sirve la web y no tiene dominio fijo en el código. La web (`ca-web`) 
   |---|---|---|
   | `Access-Control-Allow-Origin` | el origen de `URL_PUBLICA`, **nunca `*`** | Respuesta de `/api/` a ese origen exacto, también en los errores (401, 403, 404, 415...) para que la web los lea |
   | `Access-Control-Allow-Credentials` | `true` | Igual |
+  | `Access-Control-Expose-Headers` | `Content-Disposition` | Respuestas al origen de la web (no en el preflight): la web lee de ahí el nombre del ZIP de «Descargar mis datos» |
   | `Vary` | `Origin` | Toda respuesta de `/api/`, con o sin CORS, para que una caché no mezcle orígenes |
   | `Access-Control-Allow-Methods` | `GET, POST, PUT, DELETE` | Solo en el preflight |
   | `Access-Control-Allow-Headers` | `Content-Type` | Solo en el preflight |
