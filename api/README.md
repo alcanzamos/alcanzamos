@@ -73,7 +73,8 @@ Ningún dominio ni dirección va fija en el código (D-129). `config.Cargar` lee
 
 | Variable | Qué es | Ejemplo local (Mailpit de `infra/local`) |
 |---|---|---|
-| `BASE_DE_DATOS_URL` | Cadena de conexión de PostgreSQL | `postgres://alcanzamos:solo-local@127.0.0.1:5432/alcanzamos` |
+| `BASE_DE_DATOS_URL` | Cadena de conexión de PostgreSQL. Si está, gana (local y pruebas); sin ella se usa la identidad administrada (siguiente fila) | `postgres://alcanzamos:solo-local@127.0.0.1:5432/alcanzamos` |
+| `PGHOST`, `PGDATABASE`, `PGUSER`, `PGSSLMODE` y `AZURE_CLIENT_ID` | Conexión con identidad administrada de Azure, solo sin `BASE_DE_DATOS_URL`: las cinco son obligatorias y `PGSSLMODE` tiene que ser `verify-full` (ver [Base de datos y migraciones](#base-de-datos-y-migraciones)) | no se usan en local |
 | `CORREO_SMTP` | `host:puerto` del servidor SMTP. En producción, Zoho CPaaS (antes ZeptoMail): `smtp.zeptomail.com:587`, con STARTTLS (D-205 (6), US-80). Sin `CORREO_USUARIO` usa STARTTLS si el servidor lo ofrece; con él, STARTTLS es obligatorio. No admite TLS implícito (puerto 465) | `127.0.0.1:1025` |
 | `CORREO_USUARIO` | Opcional. Usuario del SMTP; con CPaaS es siempre `emailapikey`. Va junto con `CORREO_CONTRASENA`: una sola de las dos hace fallar el arranque y el error nombra la que falta | vacía (Mailpit no autentica) |
 | `CORREO_CONTRASENA` | Opcional. Contraseña del SMTP; con CPaaS es el token del agente de envío («Send Mail Token»). **En Azure es un `secretRef` del Key Vault**: nunca va en claro en la plantilla, en un archivo ni en el repositorio. Se recorta de espacios y saltos de línea en los extremos. Nunca se registra ni sale en un error (ver «Correo») | vacía |
@@ -963,9 +964,29 @@ Cuerpo: `{"texto": "gasté 15 mil en almuerzo ayer"}`. Hasta **280 caracteres** 
 
 ## Base de datos y migraciones
 
-- `pgx` v5 (`pgxpool`) conecta con PostgreSQL. La URL sale de `BASE_DE_DATOS_URL`. Toda conexión del pool fija `TimeZone=UTC` (`bd.Conectar`; E17 3.9), aunque la URL o `PGTZ` pidan otra zona (A-05).
+### Dos formas de conectar (D-204 (1), D-123)
+
+`bd.Conectar` es la única conexión del API: la usan `api`, `tareas` y `migrar`. Abre un pool de `pgx` v5 (`pgxpool`) y hace un ping. Toda conexión del pool fija `TimeZone=UTC` (E17 3.9), en las dos formas y aunque la URL o `PGTZ` pidan otra zona (A-05).
+
+| Forma | Cuándo | Cómo conecta |
+|---|---|---|
+| **URL** | `BASE_DE_DATOS_URL` está (local, pruebas y el compose de `infra/local`) | La URL tal cual, con su contraseña y su `sslmode`. **Gana** si está: las variables de la identidad no se miran |
+| **Identidad administrada** | `BASE_DE_DATOS_URL` falta (Azure; D-123) | `PGHOST`, `PGDATABASE`, `PGUSER` y `PGSSLMODE` arman el destino y la contraseña es un **token de Entra ID** de la identidad administrada de usuario cuyo client id es `AZURE_CLIENT_ID` |
+
+Con la identidad administrada:
+
+- **Las cinco variables son obligatorias.** Si falta alguna, el error nombra todas las que faltan (y `BASE_DE_DATOS_URL` como la otra forma de conectar) y no se pide ningún token.
+- **`PGSSLMODE` tiene que ser exactamente `verify-full`** (TLS con el certificado y el nombre del servidor verificados, sin alternativas más débiles). Cualquier otro valor (`require`, `verify-ca`, `prefer`…) se rechaza al arrancar: el token viaja como contraseña y no se manda por una conexión que no se verifica. Con la URL no se exige (en local no hay TLS).
+- **El token se pide en cada conexión nueva del pool**, con `BeforeConnect` de `pgxpool` y el contexto de la conexión: una cancelación o un plazo cortan la petición. Alcance (`bd.AlcanceEntra`): `https://ossrdbms-aad.database.windows.net/.default`. La credencial es `azidentity.ManagedIdentityCredential` con el client id de `AZURE_CLIENT_ID`; `azidentity` guarda el token en memoria hasta que está por vencer, así que no toda conexión llega hasta Entra ID, y una conexión nueva después de la renovación lleva el token nuevo. Las conexiones abiertas no necesitan renovarse: el token solo se usa al autenticar.
+- **Un error del token es un error de la conexión** (`obtener el token de Entra ID para PostgreSQL: …`, con la causa envuelta: `errors.Is` encuentra `context.Canceled`), también un token vacío. **El token nunca se escribe**: el paquete no registra nada y ningún error lo lleva; no se guarda en la configuración del pool, solo en la copia de cada conexión.
+- **`migrar` conecta igual** y lo hará con la identidad que le den: en Azure, la del migrador (propia, distinta de la del API, D-204 (1)), con su `AZURE_CLIENT_ID` y su `PGUSER`. El trabajo de Container Apps que lo corre es de `infra/`, no de esta carpeta.
+- **La fuente de tokens se inyecta** (`bd.FuenteDeTokens`, `bd.NuevaFuente`, `bd.ConectarCon` y `bd.ConfigurarPool` reciben el entorno y la fábrica de fuentes), así que las pruebas (`test/bd/identidad_test.go`) usan una falsa y no tocan la red: configuración incompleta con cada variable, la prioridad de la URL, `verify-full`, error y cancelación del token, una petición por conexión nueva (y el token renovado), y que el token no sale en errores ni en el registro (`slog` ni `log`).
+- **Qué no está probado aquí:** la conexión real con Entra ID y con PostgreSQL de Azure solo se prueba dentro de Azure. Todavía no hay ningún recurso creado: el despliegue espera la sesión de arquitectura de la infraestructura (L12 de la US-79, D-204). Hasta entonces, lo de esta carpeta está probado con la fuente falsa y la conexión real sigue sin verse.
+
+### Migraciones
+
 - `goose` v3 se usa como biblioteca. Las migraciones van embebidas en el binario (`embed`).
-- `api migrar` aplica las migraciones pendientes y termina.
+- `api migrar` aplica las migraciones pendientes y termina. Usa la misma conexión que el API (arriba).
 - `0001_esquema_inicial.sql`, `0002_catalogo.sql`, `0003_ingreso_anterior.sql` (la columna `credencial.ingreso_anterior`, D-134), `0004_presupuesto_en_cero.sql` (la tabla `presupuesto_en_cero`, la marca de «Dejar el presupuesto en cero», US-77) `0005_transmision_a_encargados.sql` (la finalidad necesaria `transmision_a_encargados`, US-67, SC-E21-25) y `0006_aviso_de_purga.sql` (la columna `perfil_adulto.aviso_de_purga_en`, ítem 294, D-203) son copia idéntica de las de E13 (D-122). No se editan aquí. Si hay que cambiar algo, el cambio vuelve primero a E13, con nota fechada y versión nueva. **`0004` nace aquí** (decisión del dueño en la US-77, L6 (5)): su copia y su nota en E13 (v1.18) van en un PR de documentos en borrador, con este mismo SHA-256.
 
 | Archivo | SHA-256 (igual en E13 y aquí) |
@@ -1071,6 +1092,21 @@ Hallazgo conocido y documentado: `GO-2026-5932` (el paquete `golang.org/x/crypto
 | `github.com/jackc/pgx/v5` | v5.11.0 (2026-09-07) | MIT |
 | `github.com/pressly/goose/v3` | v3.29.0 (2026-10-11) | MIT |
 | `golang.org/x/crypto` | v0.58.0 (2026-10-09) | BSD de 3 cláusulas |
+
+Agregadas con la conexión por identidad administrada (D-204 (1), US-79; verificadas el 2026-11-17 en `proxy.golang.org` y con la marca de tiempo de `index.golang.org`, todas con más de 7 días, D-201):
+
+| Módulo | Versión (publicación en el índice) | Licencia |
+|---|---|---|
+| `github.com/Azure/azure-sdk-for-go/sdk/azidentity` | v1.15.0 (2026-10-14, 20:21 UTC) | MIT |
+| `github.com/Azure/azure-sdk-for-go/sdk/azcore` | v1.23.3 (2026-10-06) | MIT |
+| `github.com/Azure/azure-sdk-for-go/sdk/internal` | v1.13.0 (2026-09-30) | MIT |
+| `github.com/AzureAD/microsoft-authentication-library-for-go` | v1.10.1 (2026-09-29) | MIT |
+| `golang.org/x/net` | v0.61.0 (2026-10-09) | BSD de 3 cláusulas |
+| `github.com/golang-jwt/jwt/v5` | v5.3.1 (2026-01-28) | MIT |
+| `github.com/google/uuid` | v1.6.0 (2024-01-23) | BSD de 3 cláusulas |
+| `github.com/pkg/browser` | v0.0.0-20240102092130-5ac0b6a4141c (2024-01-02) | BSD de 2 cláusulas |
+
+`azidentity` es la última versión estable (la v1.14.1 ya aparecía en el grafo de módulos; `azcore` es directa porque `src/bd` la importa). `kylelemons/godebug` v1.1.0 (2019, licencia Apache 2.0) queda solo en `go.mod`: no se compila en el binario. `govulncheck` (`go tool govulncheck ./...`) no encuentra vulnerabilidades que el código alcance, antes ni después de agregarlas.
 
 Herramienta (directiva `tool`): `golang.org/x/vuln` v1.9.0 (2026-10-11, BSD de 3 cláusulas), que sube `golang.org/x/mod` a v0.42.0 (2026-10-09) y `golang.org/x/tools` a v0.52.0 (2026-10-10) y suma `golang.org/x/telemetry` (2026-10-10), todos con más de 7 días.
 
