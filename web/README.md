@@ -192,7 +192,7 @@ La imagen de la web se compila una vez y sirve a UAT y a producción (D-200 (8b)
 
 ## Servidor de ca-web (`web/servidor/`)
 
-Servidor de archivos estáticos de la web separada del API (E11-INF 2.16). Es un módulo de Go aparte (`web/servidor/go.mod`, Go 1.27.4 como el API), solo con la biblioteca estándar. Sirve la carpeta que deja `npm run build` (`web/dist`) y se ejecuta como el Container App `ca-web`. La imagen es `web/Dockerfile` (ver «Imagen de ca-web»). Hasta que llegue el API sin la web (T17), el API sigue con sus rutas de la web, con un relleno.
+Servidor de archivos estáticos de la web separada del API (E11-INF 2.16). Es un módulo de Go aparte (`web/servidor/go.mod`, Go 1.27.4 como el API), solo con la biblioteca estándar. Sirve la carpeta que deja `npm run build` (`web/dist`) y se ejecuta como el Container App `ca-web`. La imagen es `web/Dockerfile` (ver «Imagen de ca-web»). Hasta que llegue el API sin la web, el API sigue con sus rutas de la web, con un relleno.
 
 ### Cómo se corre
 
@@ -224,7 +224,7 @@ Las pruebas, desde `web/servidor/`: `go test -race ./...`. También corren `gofm
   - `Content-Security-Policy: default-src 'self'; connect-src 'self' <origen de API_URL>; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'`. Es la política de hoy del API (`api/src/servidor/servidor.go`) más el `connect-src` con el origen exacto del API. `web/vite.config.ts` (`politicaCSP`, que usa `vite preview`) y `web/e2e/csp.spec.ts` la repiten, con el origen del API que ahí es el de la propia web: si cambia aquí, debe cambiar allá.
   - `X-Content-Type-Options: nosniff`.
   - `Strict-Transport-Security: max-age=31536000; includeSubDomains`, en la misma función que la CSP (`Manejador`, una sola constante `politicaHSTS`). Sale en todas las respuestas: `200` (archivos, `index.html` de respaldo, `/config.json`, `/salud`), `404` bajo `/assets/` y `405`.
-    - **Por qué lo manda `ca-web`:** Cloudflare va «DNS only» y la entrada de Container Apps no agrega la cabecera (infra-d205 T20). Si `ca-web` no la manda, nadie la manda. El API manda la suya aparte (`api/README.md`).
+    - **Por qué lo manda `ca-web`:** Cloudflare va «DNS only» y la entrada de Container Apps no agrega la cabecera. Si `ca-web` no la manda, nadie la manda. El API manda la suya aparte (`api/README.md`).
     - **`max-age` de un año y `includeSubDomains`:** el navegador exige HTTPS para el host que envía la cabecera y sus descendientes durante un año. En `app.alcanzamos.co` cubre solo los nombres bajo `.app.alcanzamos.co`; en `app-uat.alcanzamos.co`, solo los nombres bajo `.app-uat.alcanzamos.co`. Esos descendientes también deberán usar HTTPS si se crean. No cubre el dominio raíz `alcanzamos.co` ni los nombres hermanos `api.alcanzamos.co` y `api-uat.alcanzamos.co`: el API debe mandar su propia cabecera.
     - **Sin `preload`, a propósito.** Entrar en la lista de precarga de los navegadores casi no se deshace (quitarse tarda meses y los navegadores viejos la conservan). Es otra decisión, del dueño, y no va en el código por defecto. Quien la tome debe agregar `; preload` en `politicaHSTS` y cambiar `TestStrictTransportSecurityNoLlevaPreload`.
     - **También sin TLS (local).** El servidor manda la cabecera siempre, incluso en `http://localhost`. Los navegadores la ignoran sobre HTTP (RFC 6797, 8.1), así que no hace daño, y el servidor no tiene que saber si hay TLS delante (la entrada lo termina). Lo prueba `TestStrictTransportSecuritySaleTambienSobreHTTPSinTLS`.
