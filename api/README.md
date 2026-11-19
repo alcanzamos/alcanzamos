@@ -1,6 +1,6 @@
 # api/
 
-API de Alcanzamos: monolito modular en Go con la biblioteca estándar (ADR-002). Incluye el motor de reglas en Go (ADR-005), las migraciones en `api/migraciones/`. La web ya no va en la imagen del API: la sirve `ca-web`, con su propia imagen (`web/Dockerfile`). Hasta la tarea T17 el API conserva las rutas de la web, con un `index.html` de relleno.
+API de Alcanzamos: monolito modular en Go con la biblioteca estándar (ADR-002). Incluye el motor de reglas en Go (ADR-005), las migraciones en `api/migraciones/`. El API no sirve la web: la sirve `ca-web`, otro Container App con su propia imagen (`web/Dockerfile`), en otro origen (E11-INF 2.16). El API responde solo bajo `/api/` y `/salud`, con CORS para el origen de la web.
 
 - Archivo de construcción: `go.mod` en esta carpeta.
 - Reglas: estándar de codificación (E17-ECO), pruebas con `go test -race`; las de integración usan `//go:build integration`.
@@ -23,49 +23,60 @@ docker build -f api/Dockerfile -t alcanzamos-api:dev .
 docker run --rm -p 127.0.0.1:8080:8080 alcanzamos-api:dev
 ```
 
-## Rutas y web embebida (ADR-004)
+## Rutas, CORS y cabeceras de seguridad (ADR-004, E11-INF 2.16)
 
-Hoy el código del API todavía tiene las rutas de la web en el mismo origen, sin CORS (D-129); con la web separada (E11-INF 2.16) eso cambia en T17. Desde T13 la imagen del API ya no lleva la web real (solo el `index.html` de relleno): la web va en la imagen de `ca-web`, y esa web separada todavía no funciona de punta a punta hasta que T16 (la web lee `/config.json` y llama al API por su URL, con credenciales) y T17 (CORS y CSRF para el origen de la web) estén fusionadas. No hay dominio fijo en el código.
+El API no sirve la web y no tiene dominio fijo en el código. La web (`ca-web`) vive en otro origen, `app.alcanzamos.co` (`app-uat.alcanzamos.co` en UAT), y llama a este API (`api.alcanzamos.co`, `api-uat.alcanzamos.co`) con `fetch` y `credentials: "include"`. Los dos nombres son del mismo **sitio** (`alcanzamos.co`) pero no del mismo **origen**: de ahí el CORS, el `same-site` de la defensa contra CSRF y una CSP propia.
 
 | Ruta | Respuesta |
 |---|---|
-| `GET /salud` | `{"estado":"ok"}` |
-| `/api/...` | Todo endpoint nuevo del API va aquí. Una ruta desconocida da 404 con `{"error":"no_encontrado"}` en JSON, nunca `index.html` |
-| `GET`/`HEAD` de un archivo de la web (`/assets/...`, `/fuentes/...`) | El archivo. `/assets/` lleva `Cache-Control: public, max-age=31536000, immutable` (los nombres llevan hash) |
-| Cualquier otro `GET`/`HEAD` | `index.html` con 200 y `Cache-Control: no-cache` (aplicación de una página) |
-| Otro método fuera de `/salud` y `/api/` | 405 con `Allow: GET, HEAD` |
+| `GET /salud` | `{"estado":"ok"}`. Otro método: 405 |
+| `/api/...` | Todo endpoint nuevo del API va aquí. Una ruta desconocida da 404 con `{"error":"no_encontrado"}` en JSON |
+| Cualquier otra ruta (`/`, `/index.html`, `/assets/...`, una ruta de la web) | 404 (el `404 page not found` de `net/http`). El API ya no sirve ni embebe la web: no hay `index.html` ni archivos estáticos |
 
-- Paquete `src/web`: `//go:embed` de `src/web/estatico/`, que solo tiene un `index.html` de relleno ("la web ya no va en este binario"). Desde T13 el `Dockerfile` ya no lo sobrescribe con `web/dist`: la web real es la imagen de `ca-web`. El paquete y las rutas de la web se quitan en T17.
-- Las respuestas de la web llevan `X-Content-Type-Options: nosniff`.
-- **Content-Security-Policy** en todas las respuestas (web, `/api/`, `/salud`, errores 404 y 405), puesta por un envoltorio del manejador en `src/servidor` con una sola constante (`politicaCSP`):
+- **CORS** (`src/servidor/cors.go`), solo bajo `/api/` y solo para el origen exacto de `URL_PUBLICA` (esquema, anfitrión y puerto; la ruta y la barra final de la URL se ignoran). Lo pone el `Enrutador`, que ya conoce `URL_PUBLICA` (`ConURLPublica`):
+
+  | Cabecera | Valor | Cuándo |
+  |---|---|---|
+  | `Access-Control-Allow-Origin` | el origen de `URL_PUBLICA`, **nunca `*`** | Respuesta de `/api/` a ese origen exacto, también en los errores (401, 403, 404, 415...) para que la web los lea |
+  | `Access-Control-Allow-Credentials` | `true` | Igual |
+  | `Vary` | `Origin` | Toda respuesta de `/api/`, con o sin CORS, para que una caché no mezcle orígenes |
+  | `Access-Control-Allow-Methods` | `GET, POST, PUT, DELETE` | Solo en el preflight |
+  | `Access-Control-Allow-Headers` | `Content-Type` | Solo en el preflight |
+  | `Access-Control-Max-Age` | `600` | Solo en el preflight |
+
+  - **Preflight:** `OPTIONS` con `Origin` de la web y `Access-Control-Request-Method` responde `204` sin cuerpo, sin llegar a la ruta ni a la defensa contra CSRF. El de otro origen no recibe cabeceras CORS: cae al 404 de `/api/`.
+  - **Otro origen** (un sitio ajeno, `null`, otro esquema o puerto, un hermano como `otro.alcanzamos.co`), un pedido sin `Origin` (Android) o con más de un `Origin`: ninguna cabecera `Access-Control-*`; la respuesta es la de siempre.
+  - **Sin `URL_PUBLICA` válida** (vacía, sin esquema o mal escrita), ningún origen vale: ante la duda se niega, igual que en CSRF.
+  - **Fuera de `/api/`** (`/salud`, lo desconocido) no hay CORS ni preflight.
+  - La web solo manda `Content-Type` como cabecera propia (y `Accept`, que el navegador siempre permite): una cabecera propia nueva exige sumarla a `Access-Control-Allow-Headers`.
+  - Pruebas (`test/servidor/cors_test.go`): `TestCORSElOrigenExactoRecibeSuOrigenConCredencialesYVary`, `TestCORSOtroOrigenNoRecibeCabeceras`, `TestCORSSinOrigenOConDosOrigenesNoRecibeCabeceras`, `TestCORSSinURLPublicaValidaNingunOrigenRecibeCabeceras`, `TestCORSPreflightDelOrigenDeLaWeb`, `TestCORSNuncaUnComodin`, `TestCORSPreflightDeOtroOrigenNoRecibeCabeceras`, `TestCORSUnOptionsQueNoEsPreflightNoSeResponde`, `TestCORSSoloEnAPI`.
+- **Content-Security-Policy** en todas las respuestas (`/api/`, `/salud`, errores 404 y 405, rechazos de CSRF, preflight), puesta por un envoltorio del manejador en `src/servidor` con una sola constante (`politicaCSP`):
 
   ```
-  default-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'
+  default-src 'none'; frame-ancestors 'none'
   ```
 
   | Directiva | Para qué |
   |---|---|
-  | `default-src 'self'` | Scripts, estilos, fuentes, imágenes y conexiones solo del mismo origen; sin scripts ni estilos en línea ni terceros (la web ya cumple: fuentes propias, bundle externo) |
-  | `object-src 'none'` | Sin `<object>`, `<embed>` ni applets |
-  | `base-uri 'none'` | Una etiqueta `<base>` inyectada no puede redirigir las rutas relativas |
-  | `frame-ancestors 'none'` | Nadie puede incrustar la web en un `<iframe>` (clickjacking); reemplaza a `X-Frame-Options` |
-  | `form-action 'self'` | Los formularios solo envían al mismo origen |
+  | `default-src 'none'` | El API solo responde JSON y el ZIP de «descargar mis datos»; nunca una página. Si una respuesta se abriera como página, no podría cargar scripts, estilos, imágenes ni conexiones |
+  | `frame-ancestors 'none'` | Nadie puede incrustar una respuesta del API en un `<iframe>` (clickjacking); reemplaza a `X-Frame-Options` |
 
-  La prueba `TestContentSecurityPolicyEnTodasLasRespuestas` verifica el valor exacto. `vite preview` (que usa Playwright) repite el mismo texto en `web/vite.config.ts` y `web/e2e/csp.spec.ts` lo compara y falla ante cualquier violación; no hay un origen único posible porque Go no puede embeber archivos fuera de su módulo, así que son dos literales que hay que mantener iguales.
-- **Strict-Transport-Security** en todas las respuestas (web, `/api/`, `/salud`, errores 401, 403, 404, 405, 415, 429 y 500, rechazos de CSRF), puesta en el mismo envoltorio que la CSP (`conCabecerasDeSeguridad`, una sola constante `politicaHSTS`):
+  La política de la web es la de `ca-web` (`default-src 'self'; connect-src 'self' <API_URL>; ...`), en `web/servidor`; no se repite aquí. Pruebas: `TestContentSecurityPolicyDelAPIEnTodasLasRespuestas` (valor exacto) y `TestElAPINoSirveLaWeb`.
+- **Strict-Transport-Security** en todas las respuestas (`/api/`, `/salud`, errores 401, 403, 404, 405, 415, 429 y 500, rechazos de CSRF, preflight, CORS), puesta en el mismo envoltorio que la CSP (`conCabecerasDeSeguridad`, una sola constante `politicaHSTS`):
 
   ```
   Strict-Transport-Security: max-age=31536000; includeSubDomains
   ```
 
-  - **Por qué lo manda el API:** Cloudflare va «DNS only» y la entrada de Container Apps no agrega la cabecera (infra-d205 T20). Si el API no la manda, nadie la manda.
+  - **Por qué lo manda el API:** Cloudflare va «DNS only» y la entrada de Container Apps no agrega la cabecera (E11-INF 2.16). Si el API no la manda, nadie la manda.
   - **`max-age` de un año y `includeSubDomains`:** el navegador exige HTTPS para el host que envía la cabecera y sus descendientes durante un año. En `api.alcanzamos.co` cubre también los nombres bajo `.api.alcanzamos.co`; en `api-uat.alcanzamos.co`, los nombres bajo `.api-uat.alcanzamos.co`. Esos descendientes también deberán usar HTTPS si se crean. No cubre el dominio raíz `alcanzamos.co` ni los nombres hermanos `app.alcanzamos.co` y `app-uat.alcanzamos.co`: `ca-web` debe mandar su propia cabecera.
   - **Sin `preload`, a propósito.** Entrar en la lista de precarga de los navegadores casi no se deshace (quitarse tarda meses y los navegadores viejos la conservan). Es otra decisión, del dueño, y no va en el código por defecto. Quien la tome debe agregar `; preload` en `politicaHSTS` y cambiar `TestStrictTransportSecurityNoLlevaPreload`.
   - **También sin TLS (local).** El API manda la cabecera siempre, incluso en `http://localhost`. Los navegadores la ignoran sobre HTTP (RFC 6797, 8.1), así que no hace daño, y el servidor no tiene que saber si hay TLS delante (la entrada lo termina). Lo prueba `TestStrictTransportSecuritySaleTambienSobreHTTPSinTLS`.
   - **Pánicos:** el API no tiene un middleware que convierta un `panic` en 500. `net/http` aborta la conexión HTTP/1.x o reinicia el flujo HTTP/2. Si todavía no había enviado la respuesta, puede no llegar ninguna cabecera al cliente; si la respuesta ya había empezado a enviarse, conserva las cabeceras ya enviadas, incluida HSTS.
-  - Pruebas: `TestStrictTransportSecurityEnTodasLasRespuestas` (200, 404, 405, 401, 403, 415, 429, 500 y la web), `TestStrictTransportSecurityNoLlevaPreload` y `TestHSTSNoCambiaLasDemasCabeceras`.
-- La cookie de sesión es `__Host-sesion`, con `SameSite=Strict` (D-083); ver [Sesiones](#sesiones-us-49).
-- Para ver la web real: `ca-web` (`web/servidor`, ver [`web/README.md`](../web/README.md#servidor-de-ca-web-webservidor)) con `API_URL` apuntando a este API. Ya no se copia `web/dist` a `src/web/estatico/`. Mientras no estén T16 y T17, ese par no funciona de punta a punta (la web sigue llamando a su propio origen y el API no manda CORS); no es un entorno utilizable.
+  - Pruebas: `TestStrictTransportSecurityEnTodasLasRespuestas` (200, 404, 405, 401, 403, 415, 429, 500, el preflight y la raíz), `TestStrictTransportSecurityNoLlevaPreload` y `TestHSTSNoCambiaLasDemasCabeceras`.
+- **La cookie de sesión no cambia:** `__Host-sesion` con `HttpOnly; Secure; SameSite=Strict; Path=/`, sin `Domain` (D-083); ver [Sesiones](#sesiones-us-49). `SameSite=Strict` sigue funcionando con la web separada porque `app.alcanzamos.co` y `api.alcanzamos.co` son del **mismo sitio**: `SameSite` compara el sitio (el dominio registrable, `alcanzamos.co`, y el esquema), no el origen, así que un `fetch` de la web al API con `credentials: "include"` lleva la cookie y la respuesta que la pone también se guarda. Lo mismo vale para `app-uat.` y `api-uat.`. La cookie es del anfitrión del API (sin `Domain`, y el prefijo `__Host-` lo exige): `app.*` no la lee ni la ve (es `HttpOnly`). Si la web y el API dejaran de ser del mismo sitio, `Strict` dejaría de enviarla y habría que revisar esta decisión.
+- **Defensa contra CSRF con la web separada:** el navegador manda `Sec-Fetch-Site: same-site` en todo pedido de la web al API, y también en el de cualquier otro subdominio de `alcanzamos.co`. Por eso `same-site` solo se acepta si `Origin` es el de `URL_PUBLICA`; `same-origin` sigue aceptándose; `cross-site` y `none`, nunca. Ver [Defensa contra CSRF](#defensa-contra-csrf-e17-315-d-173-a-d-175-d-194).
+- Para ver la web real: `ca-web` (`web/servidor`, ver [`web/README.md`](../web/README.md#servidor-de-ca-web-webservidor)) con `API_URL` apuntando a este API, y este API con `URL_PUBLICA` igual al origen de `ca-web` (en local, `http://127.0.0.1:<puerto>`).
 
 ## Configuración
 
@@ -80,7 +91,7 @@ Ningún dominio ni dirección va fija en el código (D-129). `config.Cargar` lee
 | `CORREO_CONTRASENA` | Opcional. Contraseña del SMTP; con CPaaS es el token del agente de envío («Send Mail Token»). **En Azure es un `secretRef` del Key Vault**: nunca va en claro en la plantilla, en un archivo ni en el repositorio. Se recorta de espacios y saltos de línea en los extremos. Nunca se registra ni sale en un error (ver «Correo») | vacía |
 | `CORREO_REMITENTE` | Dirección que envía; no recibe respuestas (D-120). El valor sale de la configuración, no del código | `no-responder@avisos.ejemplo.test` |
 | `CORREO_PRIVACIDAD` | Dirección del pie de cada correo, donde escribir sobre los datos (D-120, RF-060) | `privacidad@ejemplo.test` |
-| `URL_PUBLICA` | Base de los enlaces de los correos, sin parámetros; la barra final se quita. El enlace de verificación es `URL_PUBLICA/verificar?t=<token>` y el de recuperación, `URL_PUBLICA/recuperar?t=<token>` | `http://127.0.0.1:8080` |
+| `URL_PUBLICA` | **Origen de la web** (`ca-web`) y base de los enlaces de los correos, sin parámetros; la barra final se quita. Es el único origen que recibe CORS con credenciales y el que la defensa contra CSRF acepta como `same-site`. El enlace de verificación es `URL_PUBLICA/verificar?t=<token>` y el de recuperación, `URL_PUBLICA/recuperar?t=<token>` | `http://127.0.0.1:8080` |
 | `PUERTO` | Puerto del servidor (opcional, 8080) | `8080` |
 
 `infra/local/` queda fuera de esta carpeta: para una variable nueva allí, copia la tabla a su `.env.example`. Las pruebas inyectan los valores (`config.Cargar` recibe la función de lectura del entorno).
@@ -731,9 +742,9 @@ Confirmar dos veces la misma fecha a la vez no crea dos movimientos: la restricc
 
 ### Defensa contra CSRF (E17 3.15, D-173 a D-175, D-194)
 
-Todo pedido que no es GET (POST, PUT y DELETE: todo pedido que cambia algo, D-194) pasa por la defensa, que el `Enrutador` aplica antes del guard de acceso (`Enrutador.ConURLPublica`; US-61, SEG-016): (a) si viene `Sec-Fetch-Site`, solo `same-origin`; (b) si no, si viene `Origin`, igual al origen de `URL_PUBLICA`; (c) si no viene ninguna, exige `Authorization: Bearer` o `X-Alcanzamos-Cliente` (Android); lo incumplido da `403 solicitud_no_permitida` sin tocar nada y sin `Set-Cookie`; (d) `Content-Type: application/json`, con o sin cuerpo, o `415 tipo_de_contenido_no_permitido`. Una ruta nueva que cambia algo queda cubierta sola, sea cual sea su método (el `Enrutador` solo deja registrar GET, POST, PUT y DELETE), y `test/app/rutas_test.go` lo comprueba recorriendo las rutas del `Enrutador` de producción; `test/app/csrf_put_delete_integracion_test.go` prueba los casos (a) a (d) de SEG-016 en `PUT` y `DELETE /api/v1/movimientos/{id}` y `DELETE /api/v1/sesiones/actual`, con la base real: ni el movimiento ni la sesión cambian. Los códigos de rechazo (`solicitud_no_permitida`, `tipo_de_contenido_no_permitido`) son una propuesta: D-174 fija el `403` y el `415`, no el texto del código. **Los clientes web y móvil mandan `Content-Type: application/json` en todo POST, PUT y DELETE, con o sin cuerpo, y nunca en GET** (D-175, D-194).
+Todo pedido que no es GET (POST, PUT y DELETE: todo pedido que cambia algo, D-194) pasa por la defensa, que el `Enrutador` aplica antes del guard de acceso (`Enrutador.ConURLPublica`; US-61, SEG-016): (a) si viene `Sec-Fetch-Site`, solo `same-origin`, o `same-site` con el `Origin` de `URL_PUBLICA` (la web en `app.*` y el API en `api.*`, E11-INF 2.16; `same-site` sin `Origin`, con otro `Origin`, o con `Authorization: Bearer` en lugar de `Origin`, da `403`; `cross-site` y `none`, siempre `403`, aunque el `Origin` sea el de la web); (b) si no, si viene `Origin`, igual al origen de `URL_PUBLICA`; (c) si no viene ninguna, exige `Authorization: Bearer` o `X-Alcanzamos-Cliente` (Android); lo incumplido da `403 solicitud_no_permitida` sin tocar nada y sin `Set-Cookie`; (d) `Content-Type: application/json`, con o sin cuerpo, o `415 tipo_de_contenido_no_permitido`. Una ruta nueva que cambia algo queda cubierta sola, sea cual sea su método (el `Enrutador` solo deja registrar GET, POST, PUT y DELETE), y `test/app/rutas_test.go` lo comprueba recorriendo las rutas del `Enrutador` de producción; `test/app/csrf_put_delete_integracion_test.go` prueba los casos (a) a (d) de SEG-016 en `PUT` y `DELETE /api/v1/movimientos/{id}` y `DELETE /api/v1/sesiones/actual`, con la base real: ni el movimiento ni la sesión cambian. Los códigos de rechazo (`solicitud_no_permitida`, `tipo_de_contenido_no_permitido`) son una propuesta: D-174 fija el `403` y el `415`, no el texto del código. **Los clientes web y móvil mandan `Content-Type: application/json` en todo POST, PUT y DELETE, con o sin cuerpo, y nunca en GET** (D-175, D-194).
 
-Pruebas: `test/fechas/confirmar_test.go` (FP-17 a FP-23 por nombre, más montos, desbordes y casos vacíos); `test/registro/pendientes_test.go` (contrato, errores y CSRF con un repositorio falso); `test/registro/pendientes_integracion_test.go` (de punta a punta contra PostgreSQL, en web y Android: la lista, D-094 en la lista de noviembre y diciembre, «No pasó», todo o nada, carreras con 8 pedidos a la vez, lotes en orden contrario a la vez (36 pares, sin 500), 40P01 y 40001 como `conflicto_concurrente`, lo ajeno, hogar, `detenido_en`, categoría oculta, 401/403 y CSRF); `test/pg/repeticiones_integracion_test.go`; `test/servidor/csrf_test.go`; `test/app/repeticiones_integracion_test.go` (`verificacion_pendiente` en las cuatro rutas y el cableado de producción: `URL_PUBLICA` llega a la defensa CSRF). `test/app/rutas_test.go` lleva el inventario de rutas.
+Pruebas: `test/fechas/confirmar_test.go` (FP-17 a FP-23 por nombre, más montos, desbordes y casos vacíos); `test/registro/pendientes_test.go` (contrato, errores y CSRF con un repositorio falso); `test/registro/pendientes_integracion_test.go` (de punta a punta contra PostgreSQL, en web y Android: la lista, D-094 en la lista de noviembre y diciembre, «No pasó», todo o nada, carreras con 8 pedidos a la vez, lotes en orden contrario a la vez (36 pares, sin 500), 40P01 y 40001 como `conflicto_concurrente`, lo ajeno, hogar, `detenido_en`, categoría oculta, 401/403 y CSRF); `test/pg/repeticiones_integracion_test.go`; `test/servidor/csrf_test.go` (con los casos de `same-site`) y `test/servidor/cors_test.go` (`TestAndroidSigueIgualConLaWebSeparada`: sin `Origin` ni `Sec-Fetch-Site`, con `X-Alcanzamos-Cliente: android` y `Authorization: Bearer`, el pedido pasa igual y no recibe CORS); `test/app/repeticiones_integracion_test.go` (`verificacion_pendiente` en las cuatro rutas y el cableado de producción: `URL_PUBLICA` llega a la defensa CSRF). `test/app/rutas_test.go` lleva el inventario de rutas.
 
 ## Presupuesto del periodo (US-77, `src/presupuesto`)
 
@@ -956,8 +967,8 @@ Cuerpo: `{"texto": "gasté 15 mil en almuerzo ayer"}`. Hasta **280 caracteres** 
 
 ## Imagen
 
-- Dos etapas (infra-d205 T13: la etapa de Node y la web embebida pasaron a la imagen de `ca-web`, ver [`web/README.md`](../web/README.md#imagen-de-ca-web)): `golang:1.27.4-alpine3.24` (digest `sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf`, índice multiarquitectura, resuelto el 2026-11-11; su imagen de linux/amd64 se publicó el 2026-11-10) compila un binario estático; `gcr.io/distroless/static-debian13:nonroot` lo ejecuta, fijada por digest `sha256:18f4cc26c9ffa7f20a359298be7deadac5c607c8e03a02b8119f1a5fc2f82c99` (índice multiarquitectura subido el 2026-10-23, D-161; se usa el más nuevo que cumple 7 días de antigüedad: el del 2026-11-12 todavía no los cumple).
-- **El binario sigue embebiendo `src/web/estatico/`, ahora solo con el `index.html` de relleno.** El API todavía sirve la web en `/` (`servidor.go`, `estatico.go`) y `src/web` es parte de esa ruta: quitar el `//go:embed` obliga a quitar las rutas de la web, y eso es la tarea T17 (que también cambia CORS, CSRF y la CSP del API). Hasta T17, en la imagen del API `/` responde ese relleno, no la web: la web real la sirve `ca-web`.
+- Dos etapas (la etapa de Node y la web embebida pasaron a la imagen de `ca-web`, ver [`web/README.md`](../web/README.md#imagen-de-ca-web)): `golang:1.27.4-alpine3.24` (digest `sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf`, índice multiarquitectura, resuelto el 2026-11-11; su imagen de linux/amd64 se publicó el 2026-11-10) compila un binario estático; `gcr.io/distroless/static-debian13:nonroot` lo ejecuta, fijada por digest `sha256:18f4cc26c9ffa7f20a359298be7deadac5c607c8e03a02b8119f1a5fc2f82c99` (índice multiarquitectura subido el 2026-10-23, D-161; se usa el más nuevo que cumple 7 días de antigüedad: el del 2026-11-12 todavía no los cumple).
+- **El binario no embebe la web:** no hay `src/web` ni `//go:embed` de archivos estáticos. La web real la sirve `ca-web`, en su propia imagen, y el API responde `404` a todo lo que no es `/salud` ni `/api/`.
 - El contexto es la raíz del monorepo; el `.dockerignore` de la raíz lo comparten las imágenes del API y de la web y deja pasar `api/`, `web/`, `diseno/` y el logo de `marca/`. La imagen del API solo copia `api/`. El pipeline (`plantillas/api.yml`) la construye sin publicarla, así que un `Dockerfile` roto falla el PR.
 - Distroless no trae shell, así que no hay `HEALTHCHECK` ni comandos en forma de shell; la salud se consulta por `/salud` desde fuera.
 - Corre como usuario 65532 (nonroot), sin root. El `ENTRYPOINT` es el binario.
@@ -1033,7 +1044,7 @@ docker compose -f ../infra/local/compose.yaml --env-file ../infra/local/.env.exa
 Las pruebas viven en `test/` y miden `src/` con `-coverpkg=./src/...`. Las dos listas de paquetes son explícitas (E17-ECO 5.5) y se comparan por ruta completa relativa a `src/` (`cmd/api` es ese paquete; `cmd` solo no lo es). El pipeline `api` (`.azure-pipelines/api.yml`) falla si:
 
 - el grupo **núcleo y seguridad** (`nucleo` cuando exista, `seguridad`, `argon2id`, `sesion`, `servidor`, `autenticacion`, `cuenta`, D-151, `autorizacion`, US-50, `fechas` y `registro`, US-51, `interpretacion`, US-62, y `presupuesto`, US-77) queda bajo **90 %**;
-- el grupo **resto del API** (`app`, `bd`, `cmd/api`, `config`, `correo`, `pg`, `reloj`, `tareas` y `web`) queda bajo **75 %**;
+- el grupo **resto del API** (`app`, `bd`, `cmd/api`, `config`, `correo`, `pg`, `reloj` y `tareas`) queda bajo **75 %**;
 - algún grupo queda bajo la base de `test/cobertura-base.json` (sin bajar respecto de `main`). Un PR que sube la cobertura puede subir la base (valores con un decimal, redondeados hacia abajo); **nunca bajarla**;
 - aparece un paquete de `src/` que **no está en ninguna de las dos listas**. Se busca en el perfil de cobertura y también en un recorrido de las carpetas de `src/` con archivos `.go` (tercer argumento de `medir`), así que un paquete sin pruebas tampoco pasa. Hay que clasificarlo en E17-ECO 5.5 y en `cobertura.py`. Un paquete nuevo de seguridad no cae al 75 % sin que nadie lo note. `nucleo` puede no existir todavía: su ausencia no falla.
 

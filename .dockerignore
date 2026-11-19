@@ -1,7 +1,7 @@
 # Contexto de construcción de las dos imágenes (docker build -f api/Dockerfile . y docker build -f web/Dockerfile .):
 # los dos usan la raíz del monorepo, así que comparten este archivo. Solo entran las carpetas que alguna etapa necesita:
 # api/ (imagen del API), web/ con web/servidor/ y diseno/ (tokens y fuentes de la web) y, de marca/, únicamente el logo
-# que importa la web (D-152): no la carpeta entera. La imagen del API ya no usa web/, diseno/ ni marca/ (infra-d205 T13),
+# que importa la web (D-152): no la carpeta entera. La imagen del API no usa web/, diseno/ ni marca/ (E11-INF 2.16);
 # mandar menos al construir el API pediría un .dockerignore por imagen (api/Dockerfile.dockerignore); no se hace aquí.
 *
 !api/

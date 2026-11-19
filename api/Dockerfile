@@ -1,6 +1,5 @@
-# Imagen del API (ADR-002): binario estático en una base mínima, sin root. La web ya no va aquí: es otra imagen, la de
-# ca-web (web/Dockerfile, infra-d205 T13). Hasta que T17 quite las rutas de la web del API, el binario embebe solo el
-# index.html de relleno de api/src/web/estatico.
+# Imagen del API (ADR-002): binario estático en una base mínima, sin root. La web no va aquí: es otra imagen, la de
+# ca-web (web/Dockerfile, E11-INF 2.16), y el API no sirve rutas de la web.
 # Contexto de construcción: la raíz del monorepo (docker build -f api/Dockerfile .). Versiones fijadas a mano.
 
 # Compila el API.

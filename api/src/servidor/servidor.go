@@ -4,39 +4,39 @@ package servidor
 import (
 	"context"
 	"errors"
-	"io/fs"
 	"log/slog"
 	"net/http"
 	"time"
-
-	"github.com/alcanzamos/alcanzamos/api/src/web"
 )
 
-// politicaCSP es la Content-Security-Policy de todas las respuestas. La web carga todo del mismo
-// origen (sin scripts ni estilos en línea, sin terceros), así que admite una política estricta.
-// web/vite.config.ts (preview.headers) y web/e2e/csp.spec.ts repiten este texto: si cambia aquí,
-// debe cambiar allá.
-const politicaCSP = "default-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+// politicaCSP es la Content-Security-Policy de todas las respuestas. El API solo responde JSON (y el ZIP de «descargar mis
+// datos»), nunca una página: no carga nada y nadie lo incrusta (E11-INF 2.16, D-205 (10)). La web va en otro origen
+// (ca-web), con su propia política (web/servidor/internal/servidor/config.go), que no es esta.
+const politicaCSP = "default-src 'none'; frame-ancestors 'none'"
 
 // politicaHSTS es el Strict-Transport-Security de todas las respuestas: un año y los subdominios. Sin `preload`:
 // entrar en la lista de los navegadores casi no se deshace y es otra decisión. Va siempre, también sin TLS (en local, con
 // http://): los navegadores la ignoran sobre HTTP, y así el servidor no necesita saber si hay TLS delante. Cloudflare va
-// «DNS only» y la entrada de Container Apps no la agrega (infra-d205 T20).
+// «DNS only» y la entrada de Container Apps no la agrega (E11-INF 2.16).
 const politicaHSTS = "max-age=31536000; includeSubDomains"
 
-// Manejador devuelve el ServeMux con la web embebida y un /api/ sin rutas registradas.
+// Manejador devuelve el ServeMux con /salud y un /api/ sin rutas registradas (404 en JSON). El API no sirve la web: la
+// sirve ca-web, en otro origen (E11-INF 2.16). Todo lo que no es /salud ni /api/ responde 404.
 func Manejador() http.Handler {
-	return ManejadorConRaiz(web.Archivos())
-}
-
-// ManejadorConRaiz es Manejador con otra raíz de la web (Manejador usa la embebida).
-func ManejadorConRaiz(raizWeb fs.FS) http.Handler {
-	return manejadorConAPI(raizWeb, http.HandlerFunc(noEncontradoAPI))
+	return ManejadorConAPI(http.HandlerFunc(noEncontradoAPI))
 }
 
 // ManejadorConAPI es Manejador con las rutas de /api/ ya construidas por el Enrutador.
 func ManejadorConAPI(api http.Handler) http.Handler {
-	return manejadorConAPI(web.Archivos(), api)
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /salud", salud)
+	mux.Handle("/api/", api)
+	return conCabecerasDeSeguridad(conPeticion(mux))
+}
+
+// noEncontradoAPI responde 404 en JSON a cualquier ruta desconocida bajo /api/.
+func noEncontradoAPI(w http.ResponseWriter, _ *http.Request) {
+	EscribirError(w, http.StatusNotFound, "no_encontrado")
 }
 
 // conCabecerasDeSeguridad añade la Content-Security-Policy y el Strict-Transport-Security a toda respuesta, incluidos
@@ -47,16 +47,6 @@ func conCabecerasDeSeguridad(siguiente http.Handler) http.Handler {
 		w.Header().Set("Strict-Transport-Security", politicaHSTS)
 		siguiente.ServeHTTP(w, r)
 	})
-}
-
-// manejadorConAPI arma las rutas: /salud en la raíz, el API bajo /api/ y la web en todo lo demás.
-// Todo endpoint nuevo del API va bajo /api/.
-func manejadorConAPI(raizWeb fs.FS, api http.Handler) http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /salud", salud)
-	mux.Handle("/api/", api)
-	mux.Handle("/", aplicacionWeb(raizWeb))
-	return conCabecerasDeSeguridad(conPeticion(mux))
 }
 
 func salud(w http.ResponseWriter, _ *http.Request) {

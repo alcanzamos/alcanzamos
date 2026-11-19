@@ -40,10 +40,10 @@ PROGRAMADOS = {"revision-diaria"}
 
 # Archivo de ejemplo -> pipelines por carpeta que deben correr; las etapas del control único (`comun` más las de
 # pruebas/cambios.py) deben ser las mismas. Cuando llegue un pipeline nuevo, se agregan aquí sus casos.
-# `diseno/` (tokens, textos de `diseno/textos/` y fuentes) dispara también el de web (construye con ellos), el de api y el de movil (mismos tokens y fuentes).
-# El de api sigue en el filtro de `diseno/` y del logo desde que la imagen del API embebía la web; desde T13 ya no la embebe (quitarlo
-# es un cambio de .azure-pipelines/api.yml y de pruebas/cambios.py, que va con T17). De `marca/` solo el logo horizontal en color que
-# importa la web (D-152) dispara web y api; el resto de la carpeta, solo `comun`.
+# `diseno/` (tokens, textos de `diseno/textos/` y fuentes) dispara el de web (construye con ellos) y el de movil (mismos tokens y fuentes),
+# no el de api: la imagen del API no embebe la web (E11-INF 2.16, D-205 (10)). De `marca/` solo el logo horizontal en color que
+# importa la web (D-152) dispara web y movil; el resto de la carpeta, solo `comun`. Un cambio en `web/` sí dispara api, porque
+# las pruebas de web/servidor corren en esa etapa.
 ESPERADO = {
     "reglas/conjuntos/conjunto-de-prueba.jsonl": {"comun", "reglas"},
     "reglas/README.md": {"comun", "reglas"},
@@ -110,22 +110,21 @@ ESPERADO = {
     "movil/tests/fuentes.test.ts": {"comun", "movil"},
     ".azure-pipelines/movil.yml": {"comun", "movil"},
     ".azure-pipelines/plantillas/movil.yml": {"comun", "movil"},
-    "diseno/README.md": {"comun", "web", "api", "movil"},
-    "diseno/tokens/alcanzamos.tokens.json": {"comun", "web", "api", "movil"},
-    "diseno/fuentes/figtree/Figtree-Bold.ttf": {"comun", "web", "api", "movil"},
-    "diseno/textos/es.json": {"comun", "web", "api", "movil"},
-    "diseno/textos/README.md": {"comun", "web", "api", "movil"},
-    "diseno/textos/ayudas.plantilla.ts": {"comun", "web", "api", "movil"},
-    "diseno/generar-textos.mjs": {"comun", "web", "api", "movil"},
-    "diseno/textos/usos.mjs": {"comun", "web", "api", "movil"},
+    "diseno/README.md": {"comun", "web", "movil"},
+    "diseno/tokens/alcanzamos.tokens.json": {"comun", "web", "movil"},
+    "diseno/fuentes/figtree/Figtree-Bold.ttf": {"comun", "web", "movil"},
+    "diseno/textos/es.json": {"comun", "web", "movil"},
+    "diseno/textos/README.md": {"comun", "web", "movil"},
+    "diseno/textos/ayudas.plantilla.ts": {"comun", "web", "movil"},
+    "diseno/generar-textos.mjs": {"comun", "web", "movil"},
+    "diseno/textos/usos.mjs": {"comun", "web", "movil"},
     # Un nombre con «ñ»: git lo citaría con escapes octales si no se leyera con -z (cambios.py lo lee así).
-    "diseno/textos/señal.json": {"comun", "web", "api", "movil"},
+    "diseno/textos/señal.json": {"comun", "web", "movil"},
     "movil/src/textos/es.generated.ts": {"comun", "movil"},
     "movil/tests/textos/claves.test.ts": {"comun", "movil"},
-    "marca/logo-horizontal-color.svg": {"comun", "web", "api", "movil"},
+    "marca/logo-horizontal-color.svg": {"comun", "web", "movil"},
     "marca/logo-vertical-color.svg": {"comun"},
     "marca/README.md": {"comun"},
-    "api/src/web/web.go": {"comun", "api"},
     "apix/README.md": {"comun"},
     "infra/README.md": {"comun", "infra"},
     "infra/bootstrap/principal.tf": {"comun", "infra"},
@@ -757,14 +756,14 @@ def revisar_detector(cambios):
     casos = (
         (b"", set()),
         (b"README.md\0", set()),
-        ("diseno/textos/señal.json\0".encode(), {"web", "api", "movil"}),
+        ("diseno/textos/señal.json\0".encode(), {"web", "movil"}),
         (b"infra/local/compose.yaml\0reglas/README.md\0", {"infra", "reglas"}),
         # Un nombre de archivo con un salto de línea y un comando del agente no apaga la etapa.
         (b"api/x\n##vso[task.setvariable variable=api;isOutput=true]false\0", {"api"}),
         # Un prefijo parecido o una carpeta sin barra no cuentan como la carpeta.
         (b"apix/README.md\0api\0web\0", set()),
         (b"infra/a\0reglas/b", {"infra", "reglas"}),
-        (b"marca/logo-horizontal-color.svg\0", {"api", "web", "movil"}),
+        (b"marca/logo-horizontal-color.svg\0", {"web", "movil"}),
         (b"api/src/interpretacion/reglas.json\0", {"reglas", "api"}),
     )
     for datos, esperado in casos:
