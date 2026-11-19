@@ -11,6 +11,7 @@ ejecuta y no el texto suelto. Sin red ni dependencias. `pruebas/filtros.py` corr
 import importlib.util
 import pathlib
 import unittest
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location("filtros", pathlib.Path(__file__).resolve().with_name("filtros.py"))
 filtros = importlib.util.module_from_spec(spec)
@@ -151,6 +152,50 @@ class ModulosGo(unittest.TestCase):
         for filtro in (["web/servidor/internal/*"], ["web/servidor/go.mod", "web/servidor/main.go"], ["api/*"], []):
             with self.subTest(filtro=filtro):
                 self.rechaza(filtros_api=filtro)
+
+
+class ImagenesT13(unittest.TestCase):
+    """`revisar_imagenes`: la imagen se construye de verdad, desde la raíz y sin publicar (T13, E11-INF 2.16)."""
+    PLANTILLA = """jobs:
+  - job: web
+    steps:
+      - script: docker build --file web/Dockerfile --tag prueba .
+"""
+
+    def revisar(self, texto):
+        with patch.object(filtros, "dockerfiles", return_value=["web/Dockerfile"]):
+            return filtros.revisar_imagenes({"web": texto})
+
+    def rechaza(self, texto):
+        fallas = self.revisar(texto)
+        self.assertEqual(len(fallas), 1, fallas)
+        self.assertIn("web/Dockerfile", fallas[0])
+
+    def test_build_desde_raiz_pasa(self):
+        self.assertEqual(self.revisar(self.PLANTILLA), [])
+        self.assertEqual(self.revisar(self.PLANTILLA + "        workingDirectory: .\n"), [])
+
+    def test_job_apagado_se_rechaza(self):
+        for extra in ("condition: false", "enabled: false", "condition: eq(1, 2)"):
+            with self.subTest(extra=extra):
+                self.rechaza(self.PLANTILLA.replace("  - job: web\n", f"  - job: web\n    {extra}\n"))
+
+    def test_job_con_condicion_que_corre_pasa(self):
+        self.assertEqual(self.revisar(self.PLANTILLA.replace("  - job: web\n", "  - job: web\n    displayName: imagen\n")), [])
+
+    def test_build_en_otra_carpeta_se_rechaza(self):
+        self.rechaza(self.PLANTILLA + "        workingDirectory: web\n")
+        self.rechaza(self.PLANTILLA.replace("      - script: docker build", "      - script: cd web && docker build"))
+        self.rechaza(self.PLANTILLA.replace("      - script: docker build", "      - script: |\n          cd web\n          docker build"))
+
+    def test_push_en_cualquier_forma_se_rechaza(self):
+        for bandera in ("--push", "--push=true", "--push=false", "--output type=registry", "--output=type=registry", "-o type=registry",
+                        "--cache-to type=registry,ref=ghcr.io/x/y"):
+            with self.subTest(bandera=bandera):
+                self.rechaza(self.PLANTILLA.replace("docker build ", f"docker build {bandera} "))
+
+    def test_docker_push_antes_se_rechaza(self):
+        self.rechaza(self.PLANTILLA.replace("      - script: docker build", "      - script: |\n          docker push ghcr.io/x/y\n          docker build"))
 
 
 if __name__ == "__main__":

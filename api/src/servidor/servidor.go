@@ -18,6 +18,12 @@ import (
 // debe cambiar allá.
 const politicaCSP = "default-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
 
+// politicaHSTS es el Strict-Transport-Security de todas las respuestas: un año y los subdominios. Sin `preload`:
+// entrar en la lista de los navegadores casi no se deshace y es otra decisión. Va siempre, también sin TLS (en local, con
+// http://): los navegadores la ignoran sobre HTTP, y así el servidor no necesita saber si hay TLS delante. Cloudflare va
+// «DNS only» y la entrada de Container Apps no la agrega (infra-d205 T20).
+const politicaHSTS = "max-age=31536000; includeSubDomains"
+
 // Manejador devuelve el ServeMux con la web embebida y un /api/ sin rutas registradas.
 func Manejador() http.Handler {
 	return ManejadorConRaiz(web.Archivos())
@@ -33,10 +39,12 @@ func ManejadorConAPI(api http.Handler) http.Handler {
 	return manejadorConAPI(web.Archivos(), api)
 }
 
-// conCSP añade la Content-Security-Policy a toda respuesta, incluidos los errores 404 y 405.
-func conCSP(siguiente http.Handler) http.Handler {
+// conCabecerasDeSeguridad añade la Content-Security-Policy y el Strict-Transport-Security a toda respuesta, incluidos
+// los errores 404 y 405, el rechazo de CSRF y el límite de intentos. Es el único lugar: ninguna ruta las pone.
+func conCabecerasDeSeguridad(siguiente http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Security-Policy", politicaCSP)
+		w.Header().Set("Strict-Transport-Security", politicaHSTS)
 		siguiente.ServeHTTP(w, r)
 	})
 }
@@ -48,7 +56,7 @@ func manejadorConAPI(raizWeb fs.FS, api http.Handler) http.Handler {
 	mux.HandleFunc("GET /salud", salud)
 	mux.Handle("/api/", api)
 	mux.Handle("/", aplicacionWeb(raizWeb))
-	return conCSP(conPeticion(mux))
+	return conCabecerasDeSeguridad(conPeticion(mux))
 }
 
 func salud(w http.ResponseWriter, _ *http.Request) {

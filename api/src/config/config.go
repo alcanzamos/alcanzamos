@@ -4,6 +4,7 @@ package config
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"net/mail"
 	"net/url"
@@ -17,7 +18,34 @@ const (
 	VariableCorreoRemitente  = "CORREO_REMITENTE"  // dirección que envía; no recibe respuestas (D-120)
 	VariableCorreoPrivacidad = "CORREO_PRIVACIDAD" // dirección del pie de cada correo: dónde escribir (D-120, RF-060)
 	VariableURLPublica       = "URL_PUBLICA"       // base de los enlaces de los correos, sin barra final
+
+	// Credenciales del SMTP (US-80, D-205 (6)). Son opcionales, pero van juntas: Mailpit en local no autentica.
+	// En Azure, CORREO_CONTRASENA es un `secretRef` del Key Vault; nunca va en claro en la plantilla ni en el repositorio.
+	VariableCorreoUsuario    = "CORREO_USUARIO"    // usuario del SMTP (Zoho CPaaS: emailapikey)
+	VariableCorreoContrasena = "CORREO_CONTRASENA" // contraseña del SMTP (Zoho CPaaS: el token del agente de envío)
 )
+
+// textoOculto es lo único que se imprime de un Secreto.
+const textoOculto = "[oculto]"
+
+// Secreto es un valor que no debe llegar a un registro ni a un error. Se imprime como «[oculto]» con fmt, slog, JSON
+// y texto; solo Revelar da el valor, y solo debe llamarlo quien lo usa para autenticarse.
+type Secreto string
+
+// Revelar devuelve el valor. No lo registres.
+func (s Secreto) Revelar() string { return string(s) }
+
+// String oculta el valor con los verbos de texto de fmt (%v, %+v, %s, %q, %x); un verbo que no es de texto también pasa por aquí.
+func (Secreto) String() string { return textoOculto }
+
+// GoString oculta el valor en %#v.
+func (Secreto) GoString() string { return textoOculto }
+
+// LogValue oculta el valor en slog.
+func (Secreto) LogValue() slog.Value { return slog.StringValue(textoOculto) }
+
+// MarshalText oculta el valor en JSON y en cualquier codificación de texto.
+func (Secreto) MarshalText() ([]byte, error) { return []byte(textoOculto), nil }
 
 // Config es la configuración que necesita el servidor de la API.
 type Config struct {
@@ -25,6 +53,10 @@ type Config struct {
 	CorreoRemitente  string
 	CorreoPrivacidad string
 	URLPublica       string
+
+	// CorreoUsuario y CorreoContrasena van juntos o ninguno. Con ellos el adaptador exige STARTTLS y se autentica.
+	CorreoUsuario    string
+	CorreoContrasena Secreto
 }
 
 // Cargar lee y valida la configuración con la función entorno (os.Getenv en producción).
@@ -44,6 +76,16 @@ func Cargar(entorno func(string) string) (Config, error) {
 		CorreoRemitente:  faltante(VariableCorreoRemitente),
 		CorreoPrivacidad: faltante(VariableCorreoPrivacidad),
 		URLPublica:       faltante(VariableURLPublica),
+	}
+
+	// El usuario y la contraseña van juntos: uno solo es un error de configuración y se nombra el que falta, sin repetir valores.
+	c.CorreoUsuario = strings.TrimSpace(entorno(VariableCorreoUsuario))
+	c.CorreoContrasena = Secreto(strings.TrimSpace(entorno(VariableCorreoContrasena)))
+	switch {
+	case c.CorreoUsuario != "" && c.CorreoContrasena == "":
+		problemas = append(problemas, VariableCorreoContrasena+" falta ("+VariableCorreoUsuario+" está definida)")
+	case c.CorreoUsuario == "" && c.CorreoContrasena != "":
+		problemas = append(problemas, VariableCorreoUsuario+" falta ("+VariableCorreoContrasena+" está definida)")
 	}
 
 	if c.CorreoSMTP != "" {
