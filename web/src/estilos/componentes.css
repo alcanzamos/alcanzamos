@@ -431,10 +431,15 @@
   line-height: var(--tipografia-titulo-3-line-height);
 }
 
-/* Fila de lista sin valor (E14-SDD 5.15): nombre en cuerpo destacado y su texto debajo */
+/* Fila de lista sin valor (E14-SDD 5.15): nombre en cuerpo destacado y su texto debajo. Un texto largo pasa a otra línea,
+   partiendo la palabra si hace falta, y la fila crece sin recortar ni salirse de su tarjeta (E14-SDD, «Un texto largo
+   pasa a dos líneas; la fila crece y no recorta.»; E14-PPN, «Sin desplazamiento horizontal de 360 a 1920 px»; bug 305:
+   una descripción de 280 letras sin espacios). */
 .fila {
   display: grid;
   gap: var(--espacio-1);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .fila p {
@@ -444,6 +449,12 @@
 .fila__nombre {
   font-family: var(--tipografia-cuerpo-destacado-font-family), sans-serif;
   font-weight: var(--tipografia-cuerpo-destacado-font-weight);
+}
+
+/* La descripción en el detalle de PN-02 (bug 305): se parte dentro de su tarjeta, igual que en la fila de PN-01 */
+.fila__descripcion {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .titulo-tarjeta {
