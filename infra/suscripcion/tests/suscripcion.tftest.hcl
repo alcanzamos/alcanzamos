@@ -267,13 +267,17 @@ run "presupuestos_de_la_suscripcion" {
     error_message = "El tope de 24 USD avisa al 50, 75, 90 y 100 % del gasto real y al 100 % del previsto, al correo de la variable."
   }
 
-  # El de 2 USD: cualquier gasto comprueba que los servicios gratuitos dejaron de serlo.
+  # El de 2 USD: cualquier gasto comprueba que los servicios gratuitos dejaron de serlo. Avisa al 50 y al 100 % del gasto real y,
+  # como el tope, al 100 % del gasto previsto (aviso antes de que el gasto ocurra), a los mismos correos y con el mismo operador.
   assert {
     condition = alltrue([
-      toset([for n in azurerm_consumption_budget_subscription.suscripcion["gratuitos"].notification : "${n.threshold_type}-${n.threshold}"]) == toset(["Actual-50", "Actual-100"]),
+      length(azurerm_consumption_budget_subscription.suscripcion["gratuitos"].notification) == 3,
+      toset([for n in azurerm_consumption_budget_subscription.suscripcion["gratuitos"].notification : "${n.threshold_type}-${n.threshold}"]) == toset(["Actual-50", "Actual-100", "Forecasted-100"]),
+      alltrue([for n in azurerm_consumption_budget_subscription.suscripcion["gratuitos"].notification : n.enabled == true]),
+      alltrue([for n in azurerm_consumption_budget_subscription.suscripcion["gratuitos"].notification : n.operator == "GreaterThan"]),
       alltrue([for n in azurerm_consumption_budget_subscription.suscripcion["gratuitos"].notification : n.contact_emails == tolist(["dueno@example.com"])]),
     ])
-    error_message = "El presupuesto de 2 USD avisa al 50 y al 100 % del gasto real."
+    error_message = "El presupuesto de 2 USD avisa al 50 y al 100 % del gasto real y al 100 % del previsto (Forecasted), a los mismos correos que el tope."
   }
 }
 
@@ -291,11 +295,14 @@ run "proveedores_registrados" {
         "Microsoft.ManagedIdentity",
         "Microsoft.OperationalInsights",
         "Microsoft.Storage",
+        "Microsoft.Network",
+        "Microsoft.PolicyInsights",
+        "Microsoft.Consumption",
       ]),
-      length(output.proveedores_registrados) == 7,
+      length(output.proveedores_registrados) == 10,
       !contains(output.proveedores_registrados, "Microsoft.Communication"),
     ])
-    error_message = "Se registran siete proveedores (O-14, D-076) y ya no Microsoft.Communication (D-205)."
+    error_message = "Se registran diez proveedores (siete de O-14 y D-076, más Network, PolicyInsights y Consumption de D-205) y ya no Microsoft.Communication."
   }
 }
 

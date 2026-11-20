@@ -1,14 +1,19 @@
 locals {
   alcance = "/subscriptions/${var.subscription_id}"
 
-  # Proveedores aprobados por el dueño (O-14, D-076). Ya no se registra Microsoft.Communication: el correo sale por Zoho CPaaS (D-205).
+  # Proveedores aprobados por el dueño (O-14, D-076) más los que pide D-205: Microsoft.Network (red virtual, subredes, zona DNS privada,
+  # punto de conexión de servicio), Microsoft.PolicyInsights (la remediación de las políticas Modify de P1) y Microsoft.Consumption (los presupuestos).
+  # Ya no se registra Microsoft.Communication: el correo sale por Zoho CPaaS (D-205).
   proveedores = [
     "Microsoft.App",
+    "Microsoft.Consumption",
     "Microsoft.DBforPostgreSQL",
     "Microsoft.Insights",
     "Microsoft.KeyVault",
     "Microsoft.ManagedIdentity",
+    "Microsoft.Network",
     "Microsoft.OperationalInsights",
+    "Microsoft.PolicyInsights",
     "Microsoft.Storage",
   ]
 
@@ -62,7 +67,7 @@ locals {
   presupuestos = {
     gratuitos = {
       monto  = 2
-      avisos = [["Actual", 50], ["Actual", 100]]
+      avisos = [["Actual", 50], ["Actual", 100], ["Forecasted", 100]]
     }
     tope = {
       monto  = 24

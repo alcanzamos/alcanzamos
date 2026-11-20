@@ -6,7 +6,7 @@ Nada de esto se aplica mientras siga la pausa de D-204.
 
 ## Qué lleva
 
-1. **Registro de los proveedores de recursos** (O-14, D-076), con la configuración del proveedor `azurerm`, **no como recursos**: `Microsoft.App`, `Microsoft.DBforPostgreSQL`, `Microsoft.Insights`, `Microsoft.KeyVault`, `Microsoft.ManagedIdentity`, `Microsoft.OperationalInsights` y `Microsoft.Storage`. No se registra `Microsoft.Communication`: el correo sale por Zoho CPaaS (D-205). Nunca se registran a mano con `az provider register`.
+1. **Registro de los proveedores de recursos** (O-14, D-076), con la configuración del proveedor `azurerm`, **no como recursos**: `Microsoft.App`, `Microsoft.Consumption`, `Microsoft.DBforPostgreSQL`, `Microsoft.Insights`, `Microsoft.KeyVault`, `Microsoft.ManagedIdentity`, `Microsoft.Network`, `Microsoft.OperationalInsights`, `Microsoft.PolicyInsights` y `Microsoft.Storage` (diez; ver la tabla de servicios más abajo). No se registra `Microsoft.Communication`: el correo sale por Zoho CPaaS (D-205). Nunca se registran a mano con `az provider register`.
 2. **Política P1** (Azure Policy, asignada a la suscripción). Las **regiones** siguen con efecto `Deny` y con las definiciones integradas; las **etiquetas** `proyecto` y `ambiente` ya **no se exigen**: se **agregan o se heredan** con efecto `Modify`, con **dos definiciones propias copiadas de las integradas** (solo cambia `roleDefinitionIds`, a Tag Contributor) y nunca se rechaza un recurso por no llevarlas (decisión del dueño, 2026-11-18):
 
    | Asignación | Definición | ID | Efecto | Parámetros |
@@ -22,7 +22,7 @@ Nada de esto se aplica mientras siga la pausa de D-204.
 
    | Presupuesto | Monto | Avisos (operador «mayor que») |
    |---|---|---|
-   | `alcanzamos-gratuitos` | 2 USD | 50 y 100 % del gasto real. Cualquier gasto comprueba que un servicio gratuito dejó de serlo |
+   | `alcanzamos-gratuitos` | 2 USD | 50 y 100 % del gasto real y 100 % del gasto previsto (`Forecasted`, avisa antes de que el gasto ocurra). Cualquier gasto comprueba que un servicio gratuito dejó de serlo |
    | `alcanzamos-tope` | 24 USD (tope del dueño) | 50, 75, 90 y 100 % del gasto real y 100 % del gasto previsto (cinco avisos, el máximo de Azure) |
 
    El correo es la variable `correos_de_alerta`. Los presupuestos por grupo de recursos van en `infra/azure` (T9).
@@ -130,7 +130,30 @@ El esquema del proveedor 5.11.0 (`tofu providers schema`) tiene los dos argument
 - **No hay recursos de registro** (`azurerm_resource_provider_registration`) en ningún estado: ni aquí, ni en los bootstraps, ni en `infra/azure`. Así no hay dueño doble, y destruir un bootstrap no desregistra nada.
 - El registro ocurre al planear o aplicar esta raíz, y es idempotente: registrar un proveedor ya registrado no falla.
 - Los bootstraps y `infra/azure` llevan `resource_provider_registrations = "none"` y no registran nada. La identidad del pipeline no tiene permiso para registrar.
-- Si hace falta otro proveedor (por ejemplo `Microsoft.Network` para la red de T5), se suma a `local.proveedores` en un cambio revisado y el dueño vuelve a aplicar esta raíz. No se registra a mano.
+- Si hace falta otro proveedor, se suma a `local.proveedores` en un cambio revisado y el dueño vuelve a aplicar esta raíz. No se registra a mano.
+
+### Qué servicio pide cada proveedor (D-205, E11-INF 2)
+
+Cada servicio de Azure que nombran D-205 y E11-INF 2 (con su sección), contra el espacio de nombres de su proveedor de recursos:
+
+| Servicio (E11-INF) | Proveedor | ¿Se registra aquí? |
+|---|---|---|
+| Container Apps: entorno, `ca-api`, `ca-web`, trabajos `caj-*`, dominios propios y certificado administrado (2.3, 2.4, 2.7, 2.16) | `Microsoft.App` | Sí |
+| PostgreSQL Flexible Server, respaldo georredundante, administradores de Entra (2.2, 2.3, 2.18) | `Microsoft.DBforPostgreSQL` | Sí |
+| Key Vault Standard y su punto de conexión de servicio (2.13, 6.1 A6) | `Microsoft.KeyVault` | Sí |
+| Identidades administradas y credencial federada: pipeline, migrador, `caj-psql`, tareas, API, web (2.1, 2.3, 2.4) | `Microsoft.ManagedIdentity` | Sí |
+| Log Analytics: registros y tope diario (2.10) | `Microsoft.OperationalInsights` | Sí |
+| Azure Monitor: grupo de acciones, alertas de consultas, de métricas y del registro de actividad, diagnóstico de PostgreSQL y del Key Vault (2.10, 6.3) | `Microsoft.Insights` | Sí |
+| Cuenta de almacenamiento del estado de OpenTofu (6.1 A6) | `Microsoft.Storage` | Sí |
+| Red virtual, subredes (`/27` del entorno y delegada a PostgreSQL), zona DNS privada y punto de conexión de servicio (2.2, 2.17) | `Microsoft.Network` | Sí (se sumó) |
+| Azure Policy: remediación de las políticas Modify de las etiquetas (P1, 2.17) | `Microsoft.PolicyInsights` | Sí (se sumó) |
+| Presupuestos de Cost Management de la suscripción y de cada grupo (2.12, 6.3) | `Microsoft.Consumption` | Sí (se sumó) |
+| Grupos de recursos, asignaciones de rol, definiciones y asignaciones de política, bloqueos `CanNotDelete` (2.17, 6.4) | `Microsoft.Resources` y `Microsoft.Authorization` | No: Azure los trae registrados en toda suscripción |
+| Azure Communication Services (2.14) | `Microsoft.Communication` | No: se quitó, el correo sale por Zoho CPaaS |
+| Static Web Apps, Front Door, Container Registry, NAT Gateway, API Management, Azure DNS (2.6, 2.13, 2.16: descartados) | `Microsoft.Web`, `Microsoft.Cdn`, `Microsoft.ContainerRegistry`, `Microsoft.Network`, `Microsoft.ApiManagement` | No se usan |
+| ghcr.io, Cloudflare, Zoho CPaaS, Azure DevOps | Ninguno (no son de Azure) | — |
+
+La prueba `proveedores_registrados` fija la lista exacta de los diez: sumar o quitar uno obliga a cambiar la prueba, y esta tabla se actualiza con ella.
 
 ## Dónde queda su estado y quién lo guarda
 
