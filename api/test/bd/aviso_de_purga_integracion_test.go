@@ -68,6 +68,9 @@ func TestMigracion0006AgregaYQuitaElAvisoDePurga(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if r, err := p.Down(ctx); err != nil || r.Source.Path != "0007_autorizacion_reemplazada.sql" { // la que va después
+		t.Fatalf("Down: %+v, %v", r, err)
+	}
 	r, err := p.Down(ctx) // revierte solo la 0006
 	if err != nil || r.Source.Path != "0006_aviso_de_purga.sql" {
 		t.Fatalf("Down: %+v, %v", r, err)

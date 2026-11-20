@@ -122,7 +122,7 @@ test.describe("PN-64 · Autorización de datos", () => {
     for (const casilla of await page.getByRole("checkbox").all())
       await expect(casilla).not.toBeChecked();
     await expect(
-      page.getByText("Texto versión 1.1 del 12 de noviembre de 2026."),
+      page.getByText("Texto versión 1.2 del 17 de noviembre de 2026."),
     ).toBeVisible();
     await sinViolaciones(page);
     await page.getByRole("button", { name: "Autorizar y continuar" }).click();
@@ -216,7 +216,7 @@ test.describe("PN-64 · Autorización de datos", () => {
         "transmision_a_encargados",
         "avisos",
       ],
-      version: "1.1",
+      version: "1.2",
     });
   });
 
@@ -235,7 +235,7 @@ test.describe("PN-64 · Autorización de datos", () => {
     ]);
     await expect(
       page.getByRole("region", { name: "Dónde guardamos tus datos" }),
-    ).toContainText("Microsoft Azure, en México");
+    ).toContainText("Microsoft Azure, en Estados Unidos");
     // Solo la casilla de la tarjeta lleva el error; el error de la tarjeta y su nota describen la casilla.
     await page.getByLabel(NECESARIAS).check();
     await page.getByRole("button", { name: "Autorizar y continuar" }).click();
@@ -295,7 +295,7 @@ test.describe("PN-64 · Autorización de datos", () => {
       page.getByRole("heading", { level: 1, name: "Política de tratamiento" }),
     ).toBeVisible();
     await expect(
-      page.getByText("Versión 1.1 del 12 de noviembre de 2026."),
+      page.getByText("Versión 1.2 del 17 de noviembre de 2026."),
     ).toBeVisible();
     await page.getByRole("link", { name: "Atrás" }).click();
     await expect(page).toHaveURL(/\/autorizacion$/);
@@ -350,7 +350,7 @@ test.describe("PN-64 · modo «falta una aceptación»", () => {
     ).toBeVisible();
     expect(pedidos.find((p) => p.metodo === "POST")?.cuerpo).toEqual({
       finalidades: ["transmision_a_encargados"],
-      version: "1.1",
+      version: "1.2",
     });
   });
 

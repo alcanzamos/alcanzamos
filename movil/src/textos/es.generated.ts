@@ -512,8 +512,8 @@ export const textos = {
       dondeSeGuardan: {
         // E14-PCP 4.6 (PN-63), fila 9 b (D-126; sujeto a la revisión jurídica de D-071)
         titulo: "Dónde se guardan",
-        // E14-PCP 4.6 (PN-63), fila 9 b (D-126; sujeto a la revisión jurídica de D-071)
-        cuerpo: "En Azure, en México. El correo que te enviamos sale por un servicio que guarda sus datos en Francia, y lo que escribes a privacidad@alcanzamos.co queda en Estados Unidos. Los detalles están en la política.",
+        // E14-PCP 4.6 (PN-63), fila 9 b (D-126; sujeto a la revisión jurídica de D-071) Texto de la versión 1.2 del 2026-11-17: SC-E21-26, sección 2 bis, aprobado por el dueño el 2026-11-17 (D-205, D-208).
+        cuerpo: "En Azure, en Estados Unidos. El correo que te enviamos y lo que escribes a privacidad@alcanzamos.co también quedan en Estados Unidos. Los detalles están en la política.",
       },
     },
   },
@@ -547,10 +547,10 @@ export const textos = {
     dondeGuardamos: {
       // Aprobado por el dueño (2026-11-11, D-202): SC-E21-25 3.6, texto de PN-64 (E14-PCP 4.7; tarjeta «Dónde guardamos tus datos», entre la nota de lo necesario, fila 5, y «Lo que puedes elegir», fila 6). PN-54 usa el mismo texto (SC-E21-25 3.7, E14-PME)
       titulo: "Dónde guardamos tus datos",
-      // Aprobado por el dueño (2026-11-11, D-202): SC-E21-25 3.6, texto de PN-64 (E14-PCP 4.7; explicación de la tarjeta «Dónde guardamos tus datos»; solo Azure, Azure Communication Services y Zoho: los avisos con la app cerrada no van en esta tarjeta). PN-54 usa el mismo texto (SC-E21-25 3.7)
-      explicacion: "Para que la app funcione, tus datos se guardan y se procesan en la nube de otras empresas, que los tratan por cuenta de Alcanzamos y solo para lo que les pedimos: Microsoft Azure, en México, guarda tu cuenta y lo que registras; Azure Communication Services, en Francia, envía los correos de la app; y Zoho Mail, en Estados Unidos, recibe lo que escribes a privacidad@alcanzamos.co. Los detalles están en la política.",
-      // Aprobado por el dueño (2026-11-11, D-202): SC-E21-25 3.6, texto de PN-64 (E14-PCP 4.7; casilla de la tarjeta «Dónde guardamos tus datos», sin marcar; finalidad `transmision_a_encargados`, necesaria). PN-54 usa el mismo texto (SC-E21-25 3.7)
-      casilla: "Acepto que mis datos se envíen a estos servicios en México, Francia y Estados Unidos para guardarlos y procesarlos como se explica arriba.",
+      // Aprobado por el dueño (2026-11-11, D-202): SC-E21-25 3.6, texto de PN-64 (E14-PCP 4.7; explicación de la tarjeta «Dónde guardamos tus datos»; solo Microsoft Azure y Zoho: los avisos con la app cerrada no van en esta tarjeta). PN-54 usa el mismo texto (SC-E21-25 3.7) Texto de la versión 1.2 del 2026-11-17: SC-E21-26, sección 2 bis, aprobado por el dueño el 2026-11-17 (D-205, D-208).
+      explicacion: "Para que la app funcione, tus datos se guardan y se procesan en la nube de otras empresas, que los tratan por cuenta de Alcanzamos y solo para lo que les pedimos: Microsoft Azure, en Estados Unidos, guarda tu cuenta y lo que registras; y Zoho, también en Estados Unidos, envía los correos de la app y recibe lo que escribes a privacidad@alcanzamos.co. Los detalles están en la política.",
+      // Aprobado por el dueño (2026-11-11, D-202): SC-E21-25 3.6, texto de PN-64 (E14-PCP 4.7; casilla de la tarjeta «Dónde guardamos tus datos», sin marcar; finalidad `transmision_a_encargados`, necesaria). PN-54 usa el mismo texto (SC-E21-25 3.7) Texto de la versión 1.2 del 2026-11-17: SC-E21-26, sección 2 bis, aprobado por el dueño el 2026-11-17 (D-205, D-208).
+      casilla: "Acepto que mis datos se envíen a estos servicios en Estados Unidos para guardarlos y procesarlos como se explica arriba.",
       // Aprobado por el dueño (2026-11-11, D-202): SC-E21-25 3.6, texto de PN-64 (E14-PCP 4.7; nota de la tarjeta «Dónde guardamos tus datos»). PN-54 usa el mismo texto (SC-E21-25 3.7)
       nota: "Sin esta aceptación no podemos darte la cuenta, porque la app guarda tus datos en esos servicios.",
       // Aprobado por el dueño (2026-11-12): E14-PCP 4.7, nota de la tarjeta «Dónde guardamos tus datos» en PN-64 en el modo «falta una aceptación» (la cuenta ya existe); en el modo completo va la nota de siempre (`nota`)
@@ -1146,7 +1146,7 @@ export const textos = {
   politica: {
     // E14-PCP 4.11 (PN-68), fila 1 (título de la barra superior)
     titulo: "Política de tratamiento",
-    // E14-PCP 4.11 (PN-68), fila 2 («Versión 1.0 del 30 de octubre de 2026.»): la versión y la fecha son datos de la política, hoy 1.1 del 12 de noviembre de 2026 (SC-E21-25 3.1, RF-063); la fecha va en palabras (D-090)
+    // E14-PCP 4.11 (PN-68), fila 2 («Versión 1.0 del 30 de octubre de 2026.»): la versión y la fecha son datos de la política, hoy 1.2 del 17 de noviembre de 2026 (SC-E21-26; la 1.1 del 12 de noviembre de 2026, SC-E21-25 3.1, RF-063); la fecha va en palabras (D-090)
     version: "Versión {numero} del {fecha}.",
     responsable: {
       // E14-PCP 4.11 (PN-68), fila 3
@@ -1204,10 +1204,10 @@ export const textos = {
       // E14-PCP 4.11 (PN-68), fila 5 b (D-126); revisado por el abogado: países y transmisión a encargados (respuestas 5 y 8 de la revisión jurídica de I06, D-200)
       titulo: "Dónde guardamos tus datos",
       items: {
-        // E14-PCP 4.11 (PN-68), texto de «Dónde guardamos tus datos» (fila 5 b, D-126); países y encargados confirmados por el abogado (respuestas 5 y 8, D-200)
-        azure: "Tus datos se guardan en Microsoft Azure, en México.",
-        // E14-PCP 4.11 (PN-68), texto de «Dónde guardamos tus datos» (fila 5 b, D-126); países y encargados confirmados por el abogado (respuestas 5 y 8, D-200)
-        correo: "El correo que te enviamos (verificar tu cuenta, recuperar el acceso, avisos a quien tiene una tutoría) sale por Azure Communication Services, que guarda sus datos en Francia.",
+        // E14-PCP 4.11 (PN-68), texto de «Dónde guardamos tus datos» (fila 5 b, D-126); países y encargados confirmados por el abogado (respuestas 5 y 8, D-200) Texto de la versión 1.2 del 2026-11-17: SC-E21-26, sección 2 bis, aprobado por el dueño el 2026-11-17 (D-205, D-208).
+        azure: "Tus datos se guardan en Microsoft Azure, en Estados Unidos.",
+        // E14-PCP 4.11 (PN-68), texto de «Dónde guardamos tus datos» (fila 5 b, D-126); países y encargados confirmados por el abogado (respuestas 5 y 8, D-200) Texto de la versión 1.2 del 2026-11-17: SC-E21-26, sección 2 bis, aprobado por el dueño el 2026-11-17 (D-205, D-208).
+        correo: "El correo que te enviamos (verificar tu cuenta, recuperar el acceso, avisos a quien tiene una tutoría) sale por Zoho CPaaS, que guarda sus datos en Estados Unidos.",
         // E14-PCP 4.11 (PN-68), texto de «Dónde guardamos tus datos» (fila 5 b, D-126); países y encargados confirmados por el abogado (respuestas 5 y 8, D-200)
         zoho: "Lo que escribes a privacidad@alcanzamos.co queda en Zoho Mail, en Estados Unidos.",
         // E14-PCP 4.11 (PN-68), texto de «Dónde guardamos tus datos» (fila 5 b, D-126; en E14 «encargadas» va en negrita); encargados confirmados por el abogado (respuesta 8, D-200)
@@ -1295,10 +1295,10 @@ export const textos = {
     dondeGuardamos: {
       // Aprobado por el dueño (2026-11-11, P-3 de SC-E21-25): SC-E21-25 3.7, PN-36 (E14-PTU), título de la tarjeta, entre la casilla necesaria (fila 6) y lo accesorio (fila 7); {nombre} reemplaza a «{nombre del menor}» de P-3 porque el generador de textos no admite espacios dentro de un marcador (aprobado por el dueño, 2026-11-12); la pantalla se construye en I11 y hereda los criterios 4, 5 y 10 de SC-E21-25 (S2 de la US-67); hasta entonces el análisis de usos no exige que alguien lo use (diseno/textos/usos.mjs)
       titulo: "Dónde guardamos los datos de {nombre}",
-      // Aprobado por el dueño (2026-11-11, P-3 de SC-E21-25): SC-E21-25 3.7, PN-36 (E14-PTU), explicación de la tarjeta; {nombre} reemplaza a «{nombre del menor}» de P-3 porque el generador de textos no admite espacios dentro de un marcador (aprobado por el dueño, 2026-11-12); la pantalla se construye en I11 y hereda los criterios 4, 5 y 10 de SC-E21-25 (S2 de la US-67); hasta entonces el análisis de usos no exige que alguien lo use (diseno/textos/usos.mjs)
-      explicacion: "Para que la app funcione, los datos de {nombre} se guardan y se procesan en la nube de otras empresas, que los tratan por cuenta de Alcanzamos y solo para lo que les pedimos: Microsoft Azure, en México, guarda su cuenta y lo que registra; Azure Communication Services, en Francia, envía los correos de la app; y Zoho Mail, en Estados Unidos, recibe lo que se escribe a privacidad@alcanzamos.co. Los detalles están en la política.",
-      // Aprobado por el dueño (2026-11-11, P-3 de SC-E21-25): SC-E21-25 3.7, PN-36 (E14-PTU), casilla sin marcar; la otorga el tutor y se guarda con el menor como titular, como `cuenta_del_menor` (D-139); {nombre} reemplaza a «{nombre del menor}» de P-3 porque el generador de textos no admite espacios dentro de un marcador (aprobado por el dueño, 2026-11-12); la pantalla se construye en I11 y hereda los criterios 4, 5 y 10 de SC-E21-25 (S2 de la US-67); hasta entonces el análisis de usos no exige que alguien lo use (diseno/textos/usos.mjs)
-      casilla: "Acepto que los datos de {nombre} se envíen a estos servicios en México, Francia y Estados Unidos para guardarlos y procesarlos como se explica arriba.",
+      // Aprobado por el dueño (2026-11-11, P-3 de SC-E21-25): SC-E21-25 3.7, PN-36 (E14-PTU), explicación de la tarjeta; {nombre} reemplaza a «{nombre del menor}» de P-3 porque el generador de textos no admite espacios dentro de un marcador (aprobado por el dueño, 2026-11-12); la pantalla se construye en I11 y hereda los criterios 4, 5 y 10 de SC-E21-25 (S2 de la US-67); hasta entonces el análisis de usos no exige que alguien lo use (diseno/textos/usos.mjs) Texto de la versión 1.2 del 2026-11-17: SC-E21-26, sección 2 bis, aprobado por el dueño el 2026-11-17 (D-205, D-208).
+      explicacion: "Para que la app funcione, los datos de {nombre} se guardan y se procesan en la nube de otras empresas, que los tratan por cuenta de Alcanzamos y solo para lo que les pedimos: Microsoft Azure, en Estados Unidos, guarda su cuenta y lo que registra; y Zoho, también en Estados Unidos, envía los correos de la app y recibe lo que se escribe a privacidad@alcanzamos.co. Los detalles están en la política.",
+      // Aprobado por el dueño (2026-11-11, P-3 de SC-E21-25): SC-E21-25 3.7, PN-36 (E14-PTU), casilla sin marcar; la otorga el tutor y se guarda con el menor como titular, como `cuenta_del_menor` (D-139); {nombre} reemplaza a «{nombre del menor}» de P-3 porque el generador de textos no admite espacios dentro de un marcador (aprobado por el dueño, 2026-11-12); la pantalla se construye en I11 y hereda los criterios 4, 5 y 10 de SC-E21-25 (S2 de la US-67); hasta entonces el análisis de usos no exige que alguien lo use (diseno/textos/usos.mjs) Texto de la versión 1.2 del 2026-11-17: SC-E21-26, sección 2 bis, aprobado por el dueño el 2026-11-17 (D-205, D-208).
+      casilla: "Acepto que los datos de {nombre} se envíen a estos servicios en Estados Unidos para guardarlos y procesarlos como se explica arriba.",
       // Aprobado por el dueño (2026-11-11, P-3 de SC-E21-25): SC-E21-25 3.7, PN-36 (E14-PTU), nota de la tarjeta; {nombre} reemplaza a «{nombre del menor}» de P-3 porque el generador de textos no admite espacios dentro de un marcador (aprobado por el dueño, 2026-11-12); la pantalla se construye en I11 y hereda los criterios 4, 5 y 10 de SC-E21-25 (S2 de la US-67); hasta entonces el análisis de usos no exige que alguien lo use (diseno/textos/usos.mjs)
       nota: "Sin esta aceptación no podemos crear la cuenta de {nombre}, porque la app guarda sus datos en esos servicios.",
       // Aprobado por el dueño (2026-11-11, P-3 de SC-E21-25): SC-E21-25 3.7, PN-36 (E14-PTU), error de la casilla con «Seguir» sin marcarla; {nombre} reemplaza a «{nombre del menor}» de P-3 porque el generador de textos no admite espacios dentro de un marcador (aprobado por el dueño, 2026-11-12); la pantalla se construye en I11 y hereda los criterios 4, 5 y 10 de SC-E21-25 (S2 de la US-67); hasta entonces el análisis de usos no exige que alguien lo use (diseno/textos/usos.mjs)

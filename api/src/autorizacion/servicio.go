@@ -7,6 +7,8 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/alcanzamos/alcanzamos/api/src/cuenta"
@@ -29,15 +31,69 @@ type Version struct {
 func (v Version) Texto() string { return v.Numero + " del " + v.Fecha }
 
 // VersionActual es el único texto vigente. Un texto nuevo cambia esta constante y la persona vuelve a autorizar lo que
-// cambió. La 1.1 (2026-11-12) suma la aceptación expresa de la transmisión a los encargados (SC-E21-25); lo guardado con la
-// 1.0 (2026-10-30) sigue valiendo: no se repite (RF-063).
-var VersionActual = Version{Numero: "1.1", Fecha: "2026-11-12"}
+// cambió. La 1.1 (2026-11-12) sumó la aceptación expresa de la transmisión a los encargados (SC-E21-25); la 1.2
+// (2026-11-17) cambia los encargados que nombra: el correo sale por Zoho CPaaS y Azure queda en Estados Unidos
+// (SC-E21-26, D-205 y D-208). Un cliente que todavía manda la 1.1 recibe `409 version_desactualizada`. Una finalidad
+// necesaria aceptada con una versión anterior no cuenta como otorgada (bug 308, D-210): la persona la acepta de nuevo, la
+// aceptación de antes queda como prueba (`reemplazada_en`) y las opcionales no se vuelven obligatorias.
+var VersionActual = Version{Numero: "1.2", Fecha: "2026-11-17"}
+
+// VersionAnterior dice si la versión guardada («1.1 del 2026-11-12», o solo «1.1») es anterior a la actual. Compara solo el
+// número, por partes y como enteros (1.10 es posterior a 1.9), y no la fecha. Una versión guardada que no se lee es anterior
+// (no cuenta como aceptada); si la actual no se lee, nada es anterior.
+func VersionAnterior(guardada, actual string) bool {
+	g, okG := partesDeLaVersion(guardada)
+	a, okA := partesDeLaVersion(actual)
+	if !okA {
+		return false
+	}
+	if !okG {
+		return true
+	}
+	for i := 0; i < max(len(g), len(a)); i++ {
+		var pg, pa int
+		if i < len(g) {
+			pg = g[i]
+		}
+		if i < len(a) {
+			pa = a[i]
+		}
+		if pg != pa {
+			return pg < pa
+		}
+	}
+	return false
+}
+
+// partesDeLaVersion saca los enteros del número que abre el texto de la versión («1.2 del 2026-11-17» → [1 2]).
+func partesDeLaVersion(texto string) ([]int, bool) {
+	numero, _, _ := strings.Cut(strings.TrimSpace(texto), " ")
+	var partes []int
+	for _, p := range strings.Split(numero, ".") {
+		n, err := strconv.Atoi(p)
+		if err != nil || n < 0 {
+			return nil, false
+		}
+		partes = append(partes, n)
+	}
+	return partes, true
+}
+
+// CuentaComoOtorgada dice si una autorización vigente guardada con esa versión cuenta hoy: una finalidad necesaria solo si su
+// versión no es anterior a VersionActual (bug 308, D-210); una opcional cuenta con la versión con que se aceptó. Es la regla
+// que usan este servicio y la sesión, para que lo «completo» se decida igual en las dos.
+func CuentaComoOtorgada(finalidad, version string) bool {
+	if !(cuenta.ReglaDeFinalidades{}).Clasificada(finalidad) {
+		return true
+	}
+	return !VersionAnterior(version, VersionActual.Texto())
+}
 
 // Modos de la lista de PN-64.
 const (
 	// ModoCompleto: todas las finalidades que se le ofrecen, cada una con si ya la tiene otorgada.
 	ModoCompleto = "completo"
-	// ModoFaltaUnaAceptacion: la cuenta ya autorizó algo antes y le falta alguna necesaria; solo trae esas, sin otorgar
+	// ModoFaltaUnaAceptacion: la cuenta ya autorizó algo antes y le falta alguna necesaria (nueva o con texto nuevo); solo trae esas, sin otorgar
 	// (SC-E21-25, sección 5). Lo que ya autorizó y sus elecciones opcionales no se piden de nuevo.
 	ModoFaltaUnaAceptacion = "falta_una_aceptacion"
 )
@@ -71,12 +127,21 @@ var (
 	ErrSinCuenta = errors.New("la cuenta ya no existe")
 )
 
+// Aceptada es una autorización vigente de la persona y la versión del texto con que la aceptó.
+type Aceptada struct {
+	Codigo  string
+	Version string // `version_del_texto`: «1.1 del 2026-11-12»
+}
+
 // Repositorio es la persistencia que el servicio necesita (la implementa src/pg).
 type Repositorio interface {
-	// Vigentes devuelve los códigos que la persona tiene otorgados por sí misma y sin retirar.
-	Vigentes(ctx context.Context, persona string) ([]string, error)
+	// Vigentes devuelve lo que la persona tiene otorgado por sí misma, sin retirar ni reemplazar, con la versión aceptada.
+	// El servicio decide cuáles cuentan (CuentaComoOtorgada).
+	Vigentes(ctx context.Context, persona string) ([]Aceptada, error)
 	// Otorgar guarda, en una transacción, una autorización por finalidad con titular y otorgante la propia persona.
-	// La que ya está vigente no se repite. Devuelve ErrSinCuenta si no hay una cuenta adulta con ese id.
+	// La que ya está vigente no se repite, salvo una necesaria de una versión anterior a `version`: esa queda reemplazada
+	// (`reemplazada_en`, sin retirarla ni borrarla) y se guarda la nueva. Devuelve ErrSinCuenta si no hay una cuenta adulta
+	// con ese id.
 	Otorgar(ctx context.Context, persona string, finalidades []string, version string, ahora time.Time) error
 	// Rechazar borra la cuenta en una transacción (ON DELETE CASCADE se lleva persona, credencial, sesiones y
 	// enlaces), salvo que ya tenga vigentes todas las `necesarias`: entonces ErrYaAutorizada y no toca nada. Las
@@ -115,10 +180,10 @@ func Ofrecidas() []Finalidad {
 }
 
 // Listar devuelve lo que la persona puede autorizar, cada finalidad con si ya la tiene otorgada. Una cuenta que ya
-// autorizó algo antes y a la que le falta una necesaria (la de antes del cambio de SC-E21-25) recibe solo lo que le
-// falta, en el modo `falta_una_aceptacion`; la persona nueva y la que ya tiene todo reciben la lista completa.
+// autorizó algo antes y a la que le falta una necesaria (la de antes del cambio de SC-E21-25, o la que aceptó con una
+// versión anterior del texto: bug 308) recibe solo lo que le falta, en el modo `falta_una_aceptacion`; la persona nueva y la que ya tiene todo reciben la lista completa.
 func (s *Servicio) Listar(ctx context.Context, persona string) (Lista, error) {
-	vigentes, err := s.repo.Vigentes(ctx, persona)
+	vigentes, err := s.vigentes(ctx, persona)
 	if err != nil {
 		return Lista{}, err
 	}
@@ -141,6 +206,22 @@ func (s *Servicio) Listar(ctx context.Context, persona string) (Lista, error) {
 	return Lista{Modo: ModoFaltaUnaAceptacion, Finalidades: soloLasFaltantes}, nil
 }
 
+// vigentes son los códigos que la persona tiene otorgados y que cuentan: sin retirar ni reemplazar, y las necesarias con la
+// versión vigente del texto (CuentaComoOtorgada).
+func (s *Servicio) vigentes(ctx context.Context, persona string) ([]string, error) {
+	aceptadas, err := s.repo.Vigentes(ctx, persona)
+	if err != nil {
+		return nil, err
+	}
+	var codigos []string
+	for _, a := range aceptadas {
+		if CuentaComoOtorgada(a.Codigo, a.Version) {
+			codigos = append(codigos, a.Codigo)
+		}
+	}
+	return codigos, nil
+}
+
 // faltantes son las necesarias de una persona adulta que aún no tiene vigentes, por ReglaDeFinalidades. vigentes son
 // las que se otorgó a sí misma.
 func faltantes(persona string, vigentes []string) []string {
@@ -152,8 +233,8 @@ func faltantes(persona string, vigentes []string) []string {
 }
 
 // Otorgar guarda las finalidades que la persona autoriza en PN-64. Exige la versión vigente y todas las necesarias que
-// aún no tiene (la persona nueva, las tres; la cuenta de antes del cambio, solo la que le falta); las accesorias son
-// libres. Una finalidad repetida se cuenta una vez y la que ya estaba otorgada no se duplica: repetir la llamada no
+// aún no tiene o que tiene con una versión anterior (la persona nueva, las tres; la cuenta de antes del cambio, solo la
+// que le falta o cambió); las accesorias son libres. Una finalidad repetida se cuenta una vez y la que ya estaba otorgada no se duplica: repetir la llamada no
 // cambia nada.
 func (s *Servicio) Otorgar(ctx context.Context, persona string, finalidades []string, version string) error {
 	if version != VersionActual.Numero {
@@ -168,7 +249,7 @@ func (s *Servicio) Otorgar(ctx context.Context, persona string, finalidades []st
 			return ErrFinalidadInvalida
 		}
 	}
-	vigentes, err := s.repo.Vigentes(ctx, persona)
+	vigentes, err := s.vigentes(ctx, persona)
 	if err != nil {
 		return err
 	}

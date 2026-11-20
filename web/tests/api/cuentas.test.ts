@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   borrarLaCuenta,
   cerrarSesion,
@@ -8,6 +8,7 @@ import {
   reenviarCorreo,
   resumenDeBorrado,
 } from "../../src/api/cuentas";
+import { fijarOrigenDelApi } from "../../src/configuracion";
 import { json, simularApi } from "../ayudas";
 
 describe("pedidos de cuenta (verificar primero, D-172)", () => {
@@ -118,6 +119,17 @@ describe("descarga de los datos (PN-69, D-180)", () => {
     const r = await descargarMisDatos();
     expect(r.ok && r.cuerpo.size).toBe(2);
     expect(r.ok && r.nombre).toBe("datos.zip");
+  });
+
+  it("pide el ZIP al origen del API, con la cookie de sesión", async () => {
+    simularApi(() => new Response(new Uint8Array([80, 75]), { status: 200 }));
+    fijarOrigenDelApi("https://api.alcanzamos.co");
+    await descargarMisDatos();
+    expect(fetch).toHaveBeenCalledWith(
+      "https://api.alcanzamos.co/api/v1/cuenta/datos",
+      { credentials: "include", headers: { Accept: "application/zip" } },
+    );
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
   });
 
   it("sin nombre en el encabezado usa el neutro; un fallo trae estado y código", async () => {

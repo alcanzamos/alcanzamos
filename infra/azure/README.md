@@ -6,7 +6,7 @@ Es el mismo código para los dos ambientes, sin copiar la carpeta: solo cambian 
 
 | Ambiente | Suscripción | Datos | Variables |
 |---|---|---|---|
-| `uat` | Azure for Students | Financieros inventados; solo las cuentas y los buzones del dueño | [`uat.tfvars.example`](uat.tfvars.example) |
+| `uat` | Pago por uso, la misma que producción (D-205 (11)) | Financieros inventados; solo las cuentas y los buzones del dueño | [`uat.tfvars.example`](uat.tfvars.example) |
 | `produccion` | Pago por uso (D-200 (7)) | Reales | [`produccion.tfvars.example`](produccion.tfvars.example) |
 
 El desarrollo sigue en local ([`infra/local/`](../local/README.md)).
@@ -37,7 +37,7 @@ Se declaran en `ambiente.tf` (más `subscription_id`, `imagen_api` y las de ghcr
 | Variable | Producción | UAT | Notas |
 |---|---|---|---|
 | `ambiente` | `produccion` | `uat` | Solo esos dos valores. Forma los nombres y la etiqueta `ambiente` |
-| `subscription_id` | Pago por uso | Azure for Students | Sin valor por defecto |
+| `subscription_id` | Pago por uso | Pago por uso, la misma | Sin valor por defecto. Una sola suscripción para los dos ambientes (D-205 (11)) |
 | `dominio_de_correo` | `avisos.alcanzamos.co` | `avisos-uat.alcanzamos.co` | Se rechaza el de producción en UAT y otro en producción |
 | `imagen_api` | El digest probado en UAT | El digest que construye el pipeline | Solo por digest: `ghcr.io/alcanzamos/alcanzamos-api@sha256:<64 hex>` (D-200 (8)(b)). La pasa el pipeline de despliegue; una etiqueta (`:1.0.0`, `:latest`, o etiqueta y digest juntos) se rechaza |
 | `ghcr_usuario` | Usuario de GitHub del token | Igual | Dueño del token `read:packages`. Sin valor por defecto; no puede ir vacío |
@@ -158,7 +158,7 @@ No bloquean la US-44.
 3. **Comprobar con `list-skus`** que PostgreSQL 18 y la zona 1 existen en México Central, en cada suscripción: las cuotas y los servicios de la región se comparan al desplegar UAT (D-200 (8)). En la de UAT ya se comprobó la región, PostgreSQL 18 y B1ms (ver «Región en Azure for Students»); falta la zona. La zona de PostgreSQL y el tenant de Entra ID de la suscripción de UAT se comprueban al desplegar (S11; US-79 T5 y T6).
 4. **Costos en ADR-006:** Communication Services, la regla de alerta y la retención de 90 días.
 5. **Probar que el aviso de la alerta llega** a `andres@alcanzamos.co` (O-5).
-6. **Variables de la base (D-123).** La configuración pasa `PGHOST`, `PGDATABASE`, `PGUSER` y `PGSSLMODE`, pero el API lee `BASE_DE_DATOS_URL`. Se resuelve en I05, con la conexión por Entra ID.
+6. **Variables de la base (D-123, D-204).** La configuración pasa `PGHOST`, `PGDATABASE`, `PGUSER`, `PGSSLMODE` (`verify-full`) y `AZURE_CLIENT_ID`. Sin `BASE_DE_DATOS_URL`, el API se conecta con esas variables y un token de Entra ID de la identidad administrada (`api/README.md`, «Dos formas de conectar»). La conexión real solo se prueba dentro de Azure, después de la sesión de arquitectura de la infraestructura.
 
 ## Registro de eventos de seguridad
 
@@ -170,12 +170,12 @@ No bloquean la US-44.
 Consultadas el 2026-10-22:
 
 - OpenTofu 1.13.2 (publicada el 2026-10-21): `https://github.com/opentofu/opentofu/releases`.
-- Proveedor `hashicorp/azurerm` 5.11.0 (2026-10-23): `https://github.com/hashicorp/terraform-provider-azurerm/releases`. Desde la versión 5 no registra proveedores de recursos por su cuenta.
-- Proveedor `hashicorp/azuread` 3.10.0 (2026-09-24), solo en `bootstrap`.
+- Proveedor `hashicorp/azurerm` 5.11.0 (2026-10-23): `https://github.com/hashicorp/terraform-provider-azurerm/releases`. Desde la versión 5 el valor por defecto de `resource_provider_registrations` es `none`; `versiones.tf` lo fija en `none` de forma explícita. Los proveedores los registra `infra/suscripcion`, una sola vez, con la cuenta del dueño (D-205 (11)); la identidad del pipeline no puede registrarlos.
+- Sin proveedor `azuread` en ninguna raíz (D-049, D-205 (1)).
 
 ## Validación
 
-Sin credenciales y sin aplicar. `tofu test` hace solo plan, con el proveedor simulado (`tests/ambientes.tftest.hcl`): comprueba los nombres, las etiquetas, los tamaños y el dominio de correo de cada ambiente, los valores de UAT (S11), que producción conserve sus nombres y que se rechacen un ambiente desconocido, un dominio de otro ambiente y una retención del Key Vault fuera de 7 a 90 días. `tests/registro.tftest.hcl` comprueba, en los dos ambientes, que el API y el trabajo programado bajen la imagen de ghcr.io con el token del Key Vault leído con la identidad del API, que la imagen se acepte solo por digest (se rechazan `:1.0.0`, `:v0.1.0`, `:latest`, etiqueta con digest, un digest corto, en mayúsculas o de otro algoritmo y otra imagen) y que el usuario de ghcr.io y el nombre del secreto sean válidos.
+Sin credenciales y sin aplicar. `tofu test` hace solo plan, con el proveedor simulado (`tests/ambientes.tftest.hcl`): comprueba los nombres, las etiquetas, los tamaños y el dominio de correo de cada ambiente, los valores de UAT (S11), que producción conserve sus nombres (`tests/proveedores.tftest.hcl` comprueba además que no hay recursos de registro de proveedores y que el proveedor lleva `resource_provider_registrations = "none"`) y que se rechacen un ambiente desconocido, un dominio de otro ambiente y una retención del Key Vault fuera de 7 a 90 días. `tests/registro.tftest.hcl` comprueba, en los dos ambientes, que el API y el trabajo programado bajen la imagen de ghcr.io con el token del Key Vault leído con la identidad del API, que la imagen se acepte solo por digest (se rechazan `:1.0.0`, `:v0.1.0`, `:latest`, etiqueta con digest, un digest corto, en mayúsculas o de otro algoritmo y otra imagen) y que el usuario de ghcr.io y el nombre del secreto sean válidos.
 
 ```sh
 cd infra/azure

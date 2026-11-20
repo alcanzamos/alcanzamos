@@ -17,8 +17,8 @@ const listas = () => screen.container.queryAll((vista) => vista.props.accessibil
 describe('PN-68 · lo que dice', () => {
   it('la versión sale de la constante, en palabras (D-090), y lleva las cifras en Figtree (D-123)', async () => {
     await mostrar();
-    expect(VERSION_DE_LA_POLITICA).toEqual({ numero: '1.1', fecha: '2026-11-12' });
-    expect(screen.getByText(/^Versión/)).toHaveTextContent('Versión 1.1 del 12 de noviembre de 2026.', { exact: true });
+    expect(VERSION_DE_LA_POLITICA).toEqual({ numero: '1.2', fecha: '2026-11-17' });
+    expect(screen.getByText(/^Versión/)).toHaveTextContent('Versión 1.2 del 17 de noviembre de 2026.', { exact: true });
     expect(screen.getByText('2026')).toHaveStyle({ fontFamily: 'Figtree-SemiBold', fontVariant: ['tabular-nums'] });
   });
 
@@ -110,8 +110,8 @@ describe('PN-68 · lo que dice', () => {
     const lista = listas()[1]!;
     expect(lista.children).toHaveLength(5);
     for (const texto of [
-      'Tus datos se guardan en Microsoft Azure, en México.',
-      'El correo que te enviamos (verificar tu cuenta, recuperar el acceso, avisos a quien tiene una tutoría) sale por Azure Communication Services, que guarda sus datos en Francia.',
+      'Tus datos se guardan en Microsoft Azure, en Estados Unidos.',
+      'El correo que te enviamos (verificar tu cuenta, recuperar el acceso, avisos a quien tiene una tutoría) sale por Zoho CPaaS, que guarda sus datos en Estados Unidos.',
       'Lo que escribes a privacidad@alcanzamos.co queda en Zoho Mail, en Estados Unidos.',
       'Estas empresas son encargadas: tratan los datos por cuenta de Alcanzamos, que es el responsable, y solo para lo que les pedimos.',
       'Si activas los avisos con la app cerrada, el código de tu teléfono o de tu navegador y un aviso que solo dice «Tienes un aviso en Alcanzamos.» pasan por el servicio de notificaciones de Google (Firebase Cloud Messaging) en Android, o por el de la empresa que hace tu navegador en la web. Esas empresas no dicen en qué país los procesan.',
@@ -233,7 +233,7 @@ describe('PN-68 · el foco al abrir (bug 303, 67.1)', () => {
     expect(focosDeTalkBack()).toEqual([]);
     await terminar(oyentes);
     await waitFor(() => expect(focosDeTalkBack()).toHaveLength(1));
-    expect(describirFoco(focoDeTalkBack())?.nombre).toBe('Versión 1.1 del 12 de noviembre de 2026.');
+    expect(describirFoco(focoDeTalkBack())?.nombre).toBe('Versión 1.2 del 17 de noviembre de 2026.');
   });
 
   it('al cerrarse la pantalla (transición de salida) no pide el foco', async () => {

@@ -19,6 +19,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/alcanzamos/alcanzamos/api/src/autorizacion"
 	"github.com/alcanzamos/alcanzamos/api/src/pg"
 	"github.com/alcanzamos/alcanzamos/api/src/presupuesto"
 	"github.com/alcanzamos/alcanzamos/api/src/registro"
@@ -28,6 +29,9 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/test/pgtest"
 	"github.com/alcanzamos/alcanzamos/api/test/reloj/relojtest"
 )
+
+// versionTexto es la versión vigente del texto: las cuentas autorizadas de estas pruebas la aceptaron (bug 308).
+var versionTexto = autorizacion.VersionActual.Texto()
 
 // servidorDePrueba es el API del registro y del presupuesto sobre una base propia y migrada, con la hora fija.
 type servidorDePrueba struct {
@@ -90,7 +94,7 @@ func (s *servidorDePrueba) nuevaPersona(correo string, android, autorizada bool)
 	}
 	if autorizada {
 		for _, f := range []string{"cuenta_y_acceso", "funciones_financieras", "transmision_a_encargados"} {
-			s.ejecutar(`INSERT INTO autorizacion (titular_id, otorgante_id, finalidad, version_del_texto, otorgada_en) VALUES ($1::uuid, $1::uuid, $2, '1.0', $3)`, id, f, s.reloj.T)
+			s.ejecutar(`INSERT INTO autorizacion (titular_id, otorgante_id, finalidad, version_del_texto, otorgada_en) VALUES ($1::uuid, $1::uuid, $2, $3, $4)`, id, f, versionTexto, s.reloj.T)
 		}
 	}
 	token, huella := seguridad.NuevoTokenOpaco()

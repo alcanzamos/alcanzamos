@@ -17,9 +17,9 @@ const atras = (): boolean => [...suscripciones].reverse().some((alTocar) => alTo
 
 const NECESARIAS = 'Autorizo el uso de mis datos para estas finalidades necesarias.';
 const TRANSMISION =
-  'Acepto que mis datos se envíen a estos servicios en México, Francia y Estados Unidos para guardarlos y procesarlos como se explica arriba.';
+  'Acepto que mis datos se envíen a estos servicios en Estados Unidos para guardarlos y procesarlos como se explica arriba.';
 const catalogo = {
-  version: { numero: '1.1', fecha: '2026-11-12' },
+  version: { numero: '1.2', fecha: '2026-11-17' },
   modo: 'completo',
   finalidades: [
     { codigo: 'cuenta_y_acceso', tipo: 'necesaria', otorgada: false },
@@ -62,7 +62,7 @@ describe('PN-68 · Política de tratamiento, con sus entradas (D-195, SC-E21-25)
     await fireEvent.press(await screen.findByRole('button', { name: 'Política de tratamiento y consultas' }));
     expect(await screen.findByText('Quién responde por tus datos')).toBeOnTheScreen();
     expect(JSON.stringify(screen.toJSON())).toContain('"title":"Política de tratamiento"');
-    expect(screen.getByText(/^Versión/)).toHaveTextContent('Versión 1.1 del 12 de noviembre de 2026.', { exact: true });
+    expect(screen.getByText(/^Versión/)).toHaveTextContent('Versión 1.2 del 17 de noviembre de 2026.', { exact: true });
     expect(fetchFalso).not.toHaveBeenCalled();
     await act(async () => {
       expect(atras()).toBe(true);
@@ -203,7 +203,7 @@ describe('la cuenta de antes del cambio (SC-E21-25, sección 5)', () => {
       'POST /api/v1/autorizaciones',
       'GET /api/v1/cuenta/seguridad',
     ]);
-    expect(JSON.parse(String(pedidos[3]?.init.body))).toEqual({ finalidades: ['transmision_a_encargados'], version: '1.1' });
+    expect(JSON.parse(String(pedidos[3]?.init.body))).toEqual({ finalidades: ['transmision_a_encargados'], version: '1.2' });
     expect(almacen.guardado.get('sesion')).toBe('tk-de-antes');
     // Después de aceptar, el Atrás no vuelve a PN-64: sale de la app.
     await act(async () => {

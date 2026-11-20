@@ -7,7 +7,7 @@ sentencias por grupo. Las dos listas de paquetes son explícitas y se comparan p
 - «núcleo y seguridad» (90 %): `nucleo` (cuando exista; su ausencia no falla), `seguridad`, `argon2id`, `sesion`,
   `servidor`, `autenticacion`, `cuenta` (D-151), `autorizacion` (US-50), `fechas` y `registro` (US-51), y `presupuesto`
   (US-77);
-- «resto del API» (75 %): `app`, `bd`, `cmd/api`, `config`, `correo`, `pg`, `reloj`, `tareas` y `web`.
+- «resto del API» (75 %): `app`, `bd`, `cmd/api`, `config`, `correo`, `pg`, `reloj` y `tareas`.
 
 Falla si:
 
@@ -36,7 +36,7 @@ NUCLEO_Y_SEGURIDAD = "nucleo_y_seguridad"
 RESTO = "resto"
 # Listas explícitas de E17-ECO 5.5 (D-149). Un paquete que no esté en ninguna hace fallar la barrera.
 PAQUETES_DEL_GRUPO_DE_90 = ("nucleo", "seguridad", "argon2id", "sesion", "servidor", "autenticacion", "cuenta", "autorizacion", "fechas", "registro", "interpretacion", "presupuesto")
-PAQUETES_DEL_RESTO = ("app", "bd", "cmd/api", "config", "correo", "pg", "reloj", "tareas", "web")
+PAQUETES_DEL_RESTO = ("app", "bd", "cmd/api", "config", "correo", "pg", "reloj", "tareas")
 MINIMOS = {NUCLEO_Y_SEGURIDAD: 90.0, RESTO: 75.0}
 NOMBRES = {NUCLEO_Y_SEGURIDAD: "núcleo y seguridad", RESTO: "resto del API"}
 
@@ -237,15 +237,16 @@ def casos():
                  ("fechas/a.go", 1, 0), ("registro/a.go", 1, 0), ("interpretacion/a.go", 1, 0), ("presupuesto/a.go", 1, 0),
                  ("pg/a.go", 100, 1)),
          _base(0, 0), ["núcleo y seguridad: 0.0 %"]),
-        ("cada uno de los nueve paquetes del resto cuenta en él",
+        ("cada uno de los ocho paquetes del resto cuenta en él",
          _perfil(("seguridad/a.go", 100, 1), ("app/a.go", 1, 0), ("bd/a.go", 1, 0), ("cmd/api/a.go", 1, 0), ("config/a.go", 1, 0),
-                 ("correo/a.go", 1, 0), ("pg/a.go", 1, 0), ("reloj/a.go", 1, 0), ("tareas/a.go", 1, 0),
-                 ("web/a.go", 1, 0)),
+                 ("correo/a.go", 1, 0), ("pg/a.go", 1, 0), ("reloj/a.go", 1, 0), ("tareas/a.go", 1, 0)),
          _base(0, 0), ["resto del API: 0.0 %"]),
         ("un paquete del grupo de 90 se cuenta al 90, no al 75", _perfil(("sesion/a.go", 80, 1), ("sesion/b.go", 20, 0), ("pg/a.go", 100, 1)),
          _base(0, 0), ["núcleo y seguridad: 80.0 % está bajo el mínimo de 90 %"]),
         ("un paquete del resto se cuenta al 75, no al 90", _perfil(("seguridad/a.go", 100, 1), ("tareas/a.go", 80, 1), ("tareas/b.go", 20, 0)),
          _base(0, 0), []),
+        ("web ya no es un paquete del API (lo sirve ca-web): uno nuevo en api/src/web hay que clasificarlo",
+         _perfil(("seguridad/a.go", 100, 1), ("web/a.go", 100, 1), ("pg/a.go", 100, 1)), _base(0, 0), ["el paquete «web» de api/src/ no está"]),
         ("cmd/api se compara completo: «cmd» solo no es un paquete listado",
          _perfil(("seguridad/a.go", 100, 1), ("cmd/a.go", 100, 1), ("pg/a.go", 100, 1)), _base(0, 0), ["el paquete «cmd» de api/src/ no está"]),
         ("un subpaquete de uno listado no está listado", _perfil(("servidor/accesorio/a.go", 100, 1), ("seguridad/a.go", 100, 1), ("pg/a.go", 100, 1)),

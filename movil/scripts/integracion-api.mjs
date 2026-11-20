@@ -169,17 +169,17 @@ paso(
 // (S2, dueño 2026-10-24): autorizar no vuelve a iniciar sesión ni cambia el token.
 const catalogo = await autorizaciones.obtenerCatalogo();
 paso(
-  'catálogo: 200, versión 1.1 del 2026-11-12, modo completo y las cinco finalidades de una persona adulta, ninguna otorgada',
+  'catálogo: 200, versión 1.2 del 2026-11-17, modo completo y las cinco finalidades de una persona adulta, ninguna otorgada',
   catalogo.ok &&
-    catalogo.cuerpo.version?.numero === '1.1' &&
-    catalogo.cuerpo.version?.fecha === '2026-11-12' &&
+    catalogo.cuerpo.version?.numero === '1.2' &&
+    catalogo.cuerpo.version?.fecha === '2026-11-17' &&
     catalogo.cuerpo.modo === 'completo' &&
     catalogo.cuerpo.finalidades?.map((f) => `${f.codigo}:${f.tipo}`).join() ===
       'cuenta_y_acceso:necesaria,funciones_financieras:necesaria,transmision_a_encargados:necesaria,avisos:accesoria,horas_de_vida:accesoria' &&
     catalogo.cuerpo.finalidades.every((f) => f.otorgada === false),
   JSON.stringify(catalogo.cuerpo),
 );
-// SC-E21-25: la aceptación expresa de la transmisión a los encargados es la tercera necesaria (versión 1.1).
+// SC-E21-25: la aceptación expresa de la transmisión a los encargados es la tercera necesaria (desde la versión 1.1; la vigente es la 1.2, SC-E21-26).
 const necesarias = ['cuenta_y_acceso', 'funciones_financieras', 'transmision_a_encargados'];
 const versionVieja = await autorizaciones.autorizar(necesarias, '0.9');
 paso(

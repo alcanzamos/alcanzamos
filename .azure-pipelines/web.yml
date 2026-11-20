@@ -15,9 +15,15 @@ pr:
       - web/*
       - diseno/*
       - marca/logo-horizontal-color.svg
+      - .dockerignore
       - .azure-pipelines/web.yml
       - .azure-pipelines/plantillas/web.yml
       - .azure-pipelines/plantillas/pasos/node.yml
+
+# Agente hospedado: las plantillas no fijan pool (D-213; el control único y la revisión diaria corren en el agente propio
+# `alcanzamos-local`, este pipeline por carpeta sigue deshabilitado y no cambia).
+pool:
+  vmImage: ubuntu-24.04
 
 # Los pasos viven en plantillas/web.yml.
 jobs:
