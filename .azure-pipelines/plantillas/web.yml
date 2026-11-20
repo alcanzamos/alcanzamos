@@ -123,7 +123,8 @@ jobs:
         displayName: La imagen se construye
 
       # Limpieza por nombre (AGENTS.md: nada de prune; se lista con un filtro y se quita solo lo listado): la imagen que este
-      # trabajo construyó (H4: `alcanzamos-web:$(Build.BuildId)`) y la de Playwright, por su referencia fijada. Siempre
+      # trabajo construyó (H4: `alcanzamos-web:$(Build.BuildId)`). La de Playwright, fijada por digest, no se quita: no guarda nada de la
+      # corrida y la vieja se quita en el mantenimiento mensual (M3, D-213). Siempre
       # corre, también si un paso falló, y no falla si el objeto no existe (el paso que lo crea pudo no correr). Si no
       # se puede quitar, avisa con un aviso en el registro de la corrida (el aviso no cambia el resultado del paso) y el último paso muestra lo que quedó.
       - script: |
@@ -133,16 +134,8 @@ jobs:
           if [ -n "$(docker image ls --quiet --filter "reference=$imagen")" ]; then
             docker rmi "$imagen" || echo "##vso[task.logissue type=warning]No se pudo quitar la imagen $imagen"
           fi
-          imagen="$(PLAYWRIGHT_IMAGEN)"
-          digest="${imagen#*@}"
-          repositorio="${imagen%%[:@]*}"
-          docker image ls --digests --filter "reference=$repositorio"
-          if docker image ls --digests --filter "reference=$repositorio" --format '{{.Digest}}' | grep -qxF "$digest"; then
-            docker rmi "$imagen" || docker rmi "$repositorio@$digest" \
-              || echo "##vso[task.logissue type=warning]No se pudo quitar la imagen $imagen"
-          fi
         condition: always()
-        displayName: Quitar las imágenes de este trabajo (por nombre)
+        displayName: Quitar la imagen que construyó este trabajo (por nombre)
 
       # Evidencia E4: lo que queda en el demonio de Docker del CI al terminar el trabajo.
       - script: |

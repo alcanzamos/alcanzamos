@@ -133,8 +133,8 @@ jobs:
       # corre, también si un paso falló, y no falla si el objeto no existe (el paso que lo crea pudo no correr):
       # - el contenedor pg-cobertura, otra vez (el paso de arriba ya lo quita; así queda quitado aunque ese paso se salte);
       # - la imagen que este trabajo construyó, por su etiqueta exacta `alcanzamos-api:$(Build.BuildId)`;
-      # - la imagen de PostgreSQL, por su referencia fijada ($(POSTGRES_IMAGEN)): con digest, Docker la guarda sin etiqueta,
-      #   así que se lista por el nombre del repositorio y se quita solo si el digest listado es el fijado.
+      # La imagen de PostgreSQL, fijada por digest ($(POSTGRES_IMAGEN)), no se quita: no guarda nada de la corrida y la vieja se
+      # quita en el mantenimiento mensual (M3, D-213).
       # Si una imagen no se puede quitar, avisa con un aviso en el registro de la corrida (el aviso no cambia el resultado del paso) y el último paso muestra lo que quedó.
       - script: |
           set -u
@@ -146,14 +146,6 @@ jobs:
           docker image ls --filter "reference=$imagen"
           if [ -n "$(docker image ls --quiet --filter "reference=$imagen")" ]; then
             docker rmi "$imagen" || echo "##vso[task.logissue type=warning]No se pudo quitar la imagen $imagen"
-          fi
-          imagen="$(POSTGRES_IMAGEN)"
-          digest="${imagen#*@}"
-          repositorio="${imagen%%[:@]*}"
-          docker image ls --digests --filter "reference=$repositorio"
-          if docker image ls --digests --filter "reference=$repositorio" --format '{{.Digest}}' | grep -qxF "$digest"; then
-            docker rmi "$imagen" || docker rmi "$repositorio@$digest" \
-              || echo "##vso[task.logissue type=warning]No se pudo quitar la imagen $imagen"
           fi
         condition: always()
         displayName: Quitar el contenedor y las imágenes de este trabajo (por nombre)
