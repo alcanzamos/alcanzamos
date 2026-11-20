@@ -122,7 +122,7 @@ export function DetalleDeMovimiento({
             {m.descripcion && (
               <div className="fila">
                 <p className="fila__nombre">{d.descripcion}</p>
-                <p>{cifras(m.descripcion)}</p>
+                <p className="fila__descripcion">{cifras(m.descripcion)}</p>
               </div>
             )}
           </section>
