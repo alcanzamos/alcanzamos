@@ -712,6 +712,36 @@ def revisar_agente(textos):
     return fallas
 
 
+# Lo que cada plantilla crea en Docker y debe quitar por nombre al terminar (L8 de la tarea del agente propio, D-213): sus
+# contenedores con nombre y las imágenes que construye con la etiqueta de la corrida.
+CREA_EN_DOCKER = {
+    "plantillas/api.yml": ("docker rm --force pg-cobertura", 'imagen="alcanzamos-api:$(Build.BuildId)"'),
+    "plantillas/web.yml": ('imagen="alcanzamos-web:$(Build.BuildId)"',),
+}
+
+
+def revisar_limpieza_docker(textos):
+    """Limpieza de Docker al terminar (D-213, L8): se quita solo lo que la corrida crea (sus contenedores con nombre y las
+    imágenes `alcanzamos-api` y `alcanzamos-web` con la etiqueta $(Build.BuildId)), en un paso con `condition: always()`.
+    Las imágenes fijadas por digest (las variables `*_IMAGEN`: PostgreSQL, gitleaks, Playwright) no guardan nada de la
+    corrida y no se quitan en cada corrida: las viejas se quitan en el mantenimiento mensual (M3). Nunca `prune`.
+    `textos`: {ruta bajo .azure-pipelines: texto} de plantillas/*.yml. Devuelve la lista de fallas."""
+    fallas = []
+    for ruta, texto in sorted(textos.items()):
+        pasos = pasos_de(texto)
+        for paso in pasos:
+            cuerpo = [l for l in paso.get("script", []) if not l.lstrip().startswith("#")]
+            unido = "\n".join(cuerpo)
+            if re.search(r"\bprune\b", unido):
+                fallas.append(f"{ruta}: un paso usa prune; la limpieza va solo por nombre o etiqueta (AGENTS.md)")
+            if re.search(r"docker (rmi|image rm)\b", unido) and re.search(r"_IMAGEN\)|@sha256:|@\$digest", unido):
+                fallas.append(f"{ruta}: un paso quita una imagen fijada por digest; no se quita por corrida (M3 la quita en el mantenimiento mensual)")
+        for orden in CREA_EN_DOCKER.get(ruta, ()):
+            if not any(limpiar(p.get("condition", "")) == "always()" and orden in "\n".join(p.get("script", [])) for p in pasos):
+                fallas.append(f"{ruta}: falta quitar al final, con condition: always(), lo que crea la corrida ({orden})")
+    return fallas
+
+
 def revisar_regresion():
     """Corre pruebas/filtros_regresion.py (unittest) y devuelve la lista de fallas; muestra lo que fallan."""
     ruta = CARPETA / "pruebas" / "filtros_regresion.py"
@@ -1030,6 +1060,12 @@ def main():
         print(f"FALLA {falla}")
     print(f"{'ok' if not playwright else 'FALLA':5} el e2e corre en la imagen de Playwright, fijada por digest, con la versión de @playwright/test")
     fallas += playwright
+    limpieza = revisar_limpieza_docker({f"plantillas/{p.name}": p.read_text(encoding="utf-8")
+                                        for p in sorted((CARPETA / "plantillas").glob("*.yml"))})
+    for falla in limpieza:
+        print(f"FALLA {falla}")
+    print(f"{'ok' if not limpieza else 'FALLA':5} al terminar se quita por nombre solo lo que crea la corrida; las imágenes fijadas quedan (M3)")
+    fallas += limpieza
     regresion = revisar_regresion()
     for falla in regresion:
         print(f"FALLA {falla}")

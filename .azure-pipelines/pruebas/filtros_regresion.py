@@ -1,4 +1,4 @@
-"""Pruebas de regresión de `revisar_modulos_go`, `revisar_imagenes`, `revisar_playwright` y `revisar_agente` (pruebas/filtros.py),
+"""Pruebas de regresión de `revisar_modulos_go`, `revisar_imagenes`, `revisar_playwright`, `revisar_agente` y `revisar_limpieza_docker` (pruebas/filtros.py),
 a partir de lo que halló un verificador independiente.
 
 Cada módulo de Go aparte (hoy web/servidor) debe correr de verdad, en su carpeta, `gofmt -l` con una prueba que falla,
@@ -331,6 +331,46 @@ class AgenteD213(unittest.TestCase):
         fallas = filtros.revisar_agente({"control.yml": control})
         self.assertEqual(len(fallas), 1)
         self.assertIn("dos", fallas[0])
+
+
+class LimpiezaDockerL8(unittest.TestCase):
+    """`revisar_limpieza_docker`: al terminar se quita solo lo que crea la corrida; las imágenes fijadas por digest quedan."""
+
+    WEB = """jobs:
+  - job: web
+    steps:
+      - script: docker build --file web/Dockerfile --tag alcanzamos-web:$(Build.BuildId) .
+      - script: |
+          set -u
+          imagen="alcanzamos-web:$(Build.BuildId)"
+          if [ -n "$(docker image ls --quiet --filter "reference=$imagen")" ]; then
+            docker rmi "$imagen"
+          fi
+        condition: always()
+"""
+
+    def revisar(self, web):
+        return filtros.revisar_limpieza_docker({"plantillas/web.yml": web})
+
+    def test_acepta_quitar_solo_lo_de_la_corrida(self):
+        self.assertEqual(self.revisar(self.WEB), [])
+
+    def test_rechaza_quitar_una_imagen_fijada(self):
+        web = self.WEB.replace('            docker rmi "$imagen"\n',
+                               '            docker rmi "$imagen"\n            docker rmi "$(PLAYWRIGHT_IMAGEN)"\n')
+        fallas = self.revisar(web)
+        self.assertEqual(len(fallas), 1)
+        self.assertIn("fijada por digest", fallas[0])
+
+    def test_rechaza_prune(self):
+        fallas = self.revisar(self.WEB.replace("          set -u\n", "          set -u\n          docker image prune --force\n"))
+        self.assertEqual(len(fallas), 1)
+        self.assertIn("prune", fallas[0])
+
+    def test_rechaza_limpieza_sin_always(self):
+        fallas = self.revisar(self.WEB.replace("        condition: always()\n", ""))
+        self.assertEqual(len(fallas), 1)
+        self.assertIn("always()", fallas[0])
 
 
 if __name__ == "__main__":
