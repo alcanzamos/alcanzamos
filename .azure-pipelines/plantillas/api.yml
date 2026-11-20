@@ -3,8 +3,9 @@
 # viven una sola vez. Qué hace cada paso y cuándo corre el pipeline: en api.yml y en el README de esta carpeta.
 jobs:
   - job: api
-    pool:
-      vmImage: ubuntu-24.04
+    # Espacio de trabajo limpio al empezar (control.yml explica por qué). Sin `pool`: lo fija el pipeline que usa esta plantilla.
+    workspace:
+      clean: all
     variables:
       # Etiqueta postgres:18.6-alpine (la de infra/local/compose.yaml), digest del índice multiarquitectura resuelto el
       # 2026-10-23 con `docker buildx imagetools inspect`. Cambiar la etiqueta obliga a cambiar también el digest.
@@ -69,6 +70,17 @@ jobs:
       - script: python3 -I -B .azure-pipelines/pruebas/cobertura.py probar
         displayName: La barrera de cobertura se prueba a sí misma
 
+      # Limpieza por nombre (AGENTS.md: nada de prune; se lista con un filtro y se quita solo lo listado): una corrida cortada
+      # (el agente apagado o la máquina suspendida a mitad del trabajo) pudo dejar `pg-cobertura`, y `docker run --name` fallaría
+      # con «name already in use». El filtro `^pg-cobertura$` es el nombre exacto, sin parecidos.
+      - script: |
+          set -eu
+          docker ps --all --filter 'name=^pg-cobertura$'
+          if [ -n "$(docker ps --all --quiet --filter 'name=^pg-cobertura$')" ]; then
+            docker rm --force pg-cobertura
+          fi
+        displayName: Quitar el PostgreSQL que haya dejado una corrida cortada (por nombre)
+
       - script: |
           set -eu
           docker run --detach --name pg-cobertura \
@@ -98,7 +110,13 @@ jobs:
           "$(Agent.TempDirectory)/cobertura.out" api/test/cobertura-base.json api/src
         displayName: Barrera de cobertura por grupo (90 % núcleo y seguridad, 75 % resto, sin bajar de la base, sin paquetes sin clasificar)
 
-      - script: docker rm --force pg-cobertura
+      # Siempre corre, también si un paso falló, y no falla si el contenedor no existe (el paso que lo crea pudo no correr).
+      - script: |
+          set -eu
+          docker ps --all --filter 'name=^pg-cobertura$'
+          if [ -n "$(docker ps --all --quiet --filter 'name=^pg-cobertura$')" ]; then
+            docker rm --force pg-cobertura
+          fi
         condition: always()
         displayName: Quitar PostgreSQL
 
@@ -110,3 +128,39 @@ jobs:
       # la de ca-web se construye en plantillas/web.yml (T13). Solo se construye: no se publica (pruebas/filtros.py lo comprueba).
       - script: docker build --file api/Dockerfile --tag alcanzamos-api:$(Build.BuildId) .
         displayName: La imagen se construye
+
+      # Limpieza por nombre al final (AGENTS.md: nada de prune; se lista con un filtro y se quita solo lo listado). Siempre
+      # corre, también si un paso falló, y no falla si el objeto no existe (el paso que lo crea pudo no correr):
+      # - el contenedor pg-cobertura, otra vez (el paso de arriba ya lo quita; así queda quitado aunque ese paso se salte);
+      # - la imagen que este trabajo construyó, por su etiqueta exacta `alcanzamos-api:$(Build.BuildId)`;
+      # - la imagen de PostgreSQL, por su referencia fijada ($(POSTGRES_IMAGEN)): con digest, Docker la guarda sin etiqueta,
+      #   así que se lista por el nombre del repositorio y se quita solo si el digest listado es el fijado.
+      # Si una imagen no se puede quitar, avisa (queda en Partially succeeded, que el control acepta) y el último paso muestra lo que quedó.
+      - script: |
+          set -u
+          docker ps --all --filter 'name=^pg-cobertura$'
+          if [ -n "$(docker ps --all --quiet --filter 'name=^pg-cobertura$')" ]; then
+            docker rm --force pg-cobertura
+          fi
+          imagen="alcanzamos-api:$(Build.BuildId)"
+          docker image ls --filter "reference=$imagen"
+          if [ -n "$(docker image ls --quiet --filter "reference=$imagen")" ]; then
+            docker rmi "$imagen" || echo "##vso[task.logissue type=warning]No se pudo quitar la imagen $imagen"
+          fi
+          imagen="$(POSTGRES_IMAGEN)"
+          digest="${imagen#*@}"
+          repositorio="${imagen%%[:@]*}"
+          docker image ls --digests --filter "reference=$repositorio"
+          if docker image ls --digests --filter "reference=$repositorio" --format '{{.Digest}}' | grep -qxF "$digest"; then
+            docker rmi "$imagen" || docker rmi "$repositorio@$digest" \
+              || echo "##vso[task.logissue type=warning]No se pudo quitar la imagen $imagen"
+          fi
+        condition: always()
+        displayName: Quitar el contenedor y las imágenes de este trabajo (por nombre)
+
+      # Evidencia E4: lo que queda en el demonio de Docker del CI al terminar el trabajo.
+      - script: |
+          docker ps --all
+          docker image ls --digests
+        condition: always()
+        displayName: Lo que queda en Docker (docker ps -a, docker image ls --digests)

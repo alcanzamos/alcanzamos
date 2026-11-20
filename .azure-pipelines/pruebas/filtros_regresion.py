@@ -1,4 +1,5 @@
-"""Pruebas de regresión de `revisar_modulos_go` (pruebas/filtros.py), a partir de lo que halló un verificador independiente.
+"""Pruebas de regresión de `revisar_modulos_go`, `revisar_imagenes`, `revisar_playwright` y `revisar_agente` (pruebas/filtros.py),
+a partir de lo que halló un verificador independiente.
 
 Cada módulo de Go aparte (hoy web/servidor) debe correr de verdad, en su carpeta, `gofmt -l` con una prueba que falla,
 `go vet ./...`, `golangci-lint run` y `go test -race ./...`, y el filtro de la etapa api debe cubrir todo su código, no
@@ -196,6 +197,140 @@ class ImagenesT13(unittest.TestCase):
 
     def test_docker_push_antes_se_rechaza(self):
         self.rechaza(self.PLANTILLA.replace("      - script: docker build", "      - script: |\n          docker push ghcr.io/x/y\n          docker build"))
+
+
+IMAGEN_PW = "mcr.microsoft.com/playwright:v1.64.1-noble@sha256:" + "ab" * 32
+PAQUETE_PW = '{"devDependencies": {"@playwright/test": "1.64.1"}}'
+
+
+class PlaywrightD3(unittest.TestCase):
+    """`revisar_playwright`: el e2e corre en la imagen oficial, fijada por digest y con la versión de `@playwright/test` (D3)."""
+    PLANTILLA = f"""jobs:
+  - job: web
+    variables:
+      PLAYWRIGHT_IMAGEN: {IMAGEN_PW}
+    steps:
+      - script: npm run build
+        workingDirectory: web
+        displayName: build
+
+      # npx playwright install --with-deps chromium, ya no: viene en la imagen.
+      - script: |
+          set -eu
+          node_del_agente="$(Agent.TempDirectory)/node/node-v24.22.1-linux-x64"
+          docker run --rm --init --ipc=host \\
+            --volume "$(Build.SourcesDirectory):$(Build.SourcesDirectory)" \\
+            --volume "$node_del_agente:/opt/node:ro" \\
+            --workdir "$(Build.SourcesDirectory)/web" \\
+            --env CI=true \\
+            --env PATH=/opt/node/bin:/usr/bin:/bin \\
+            "$(PLAYWRIGHT_IMAGEN)" npm run e2e
+        displayName: e2e
+"""
+
+    def revisar(self, plantilla=None, paquete=PAQUETE_PW, nodo="24.22.1"):
+        return filtros.revisar_playwright(self.PLANTILLA if plantilla is None else plantilla, paquete, nodo)
+
+    def rechaza(self, plantilla=None, menciona="", **kwargs):
+        fallas = self.revisar(plantilla, **kwargs)
+        self.assertTrue(fallas, "la revisión debía rechazar el cambio")
+        self.assertIn(menciona, "\n".join(fallas))
+
+    def test_la_plantilla_completa_pasa(self):
+        self.assertEqual(self.revisar(), [])
+
+    def test_version_de_la_imagen_distinta_a_la_de_playwright(self):
+        # Alguien sube @playwright/test y no cambia la imagen (o al revés): el control falla.
+        self.rechaza(paquete='{"devDependencies": {"@playwright/test": "1.65.0"}}', menciona="deben ser la misma versión")
+        self.rechaza(self.PLANTILLA.replace("playwright:v1.64.1-", "playwright:v1.63.0-"), menciona="deben ser la misma versión")
+        self.rechaza(paquete='{"dependencies": {"@playwright/test": "1.65.0"}}', menciona="deben ser la misma versión")
+
+    def test_version_de_playwright_con_rango_o_ausente(self):
+        for version in ('"^1.64.1"', '"~1.64.1"', '"latest"'):
+            with self.subTest(version=version):
+                self.rechaza(paquete='{"devDependencies": {"@playwright/test": %s}}' % version, menciona="versión exacta")
+        self.rechaza(paquete="{}", menciona="versión exacta")
+
+    def test_imagen_sin_digest_o_repetida(self):
+        sin = self.PLANTILLA.replace("@sha256:" + "ab" * 32, "")
+        self.rechaza(sin, menciona="una sola imagen de Playwright fijada por digest")
+        otra = self.PLANTILLA.replace("      - script: npm run build\n", f"      - script: echo mcr.microsoft.com/playwright:v1.64.1-jammy@sha256:{'cd' * 32}\n")
+        self.rechaza(otra, menciona="una sola imagen de Playwright fijada por digest")
+
+    def test_imagen_fuera_de_la_variable(self):
+        inline = self.PLANTILLA.replace('"$(PLAYWRIGHT_IMAGEN)"', f'"{IMAGEN_PW}"')
+        self.rechaza(inline, menciona="PLAYWRIGHT_IMAGEN")
+
+    def test_instalar_el_navegador_otra_vez(self):
+        self.rechaza(self.PLANTILLA.replace("      - script: npm run build\n", "      - script: npx playwright install --with-deps chromium\n"), menciona="playwright install")
+
+    def test_e2e_fuera_del_contenedor(self):
+        self.rechaza(self.PLANTILLA.replace("      - script: npm run build\n", "      - script: npm run e2e\n"), menciona="dentro del contenedor")
+
+    def test_sin_el_paso_del_e2e(self):
+        self.rechaza(self.PLANTILLA.replace("npm run e2e", "npm test"), menciona="un solo paso")
+
+    def test_opciones_del_docker_run(self):
+        for bandera in ("--rm", "--init", "--ipc=host"):
+            with self.subTest(bandera=bandera):
+                self.rechaza(self.PLANTILLA.replace(f" {bandera}", "", 1), menciona=bandera)
+
+    def test_el_node_montado_no_es_el_de_node_yml(self):
+        self.rechaza(nodo="24.23.0", menciona="deben ser el mismo")
+        self.rechaza(self.PLANTILLA.replace("node-v24.22.1-linux-x64", "node-v24.20.0-linux-x64"), menciona="deben ser el mismo")
+
+    def test_el_node_sin_solo_lectura_o_sin_path(self):
+        self.rechaza(self.PLANTILLA.replace(":/opt/node:ro", ":/opt/node"), menciona=":ro")
+        self.rechaza(self.PLANTILLA.replace("/opt/node/bin", "/opt/otro/bin"), menciona="/opt/node/bin")
+
+    def test_paso_del_e2e_apagado(self):
+        for extra in ("condition: false", "enabled: false", "continueOnError: true"):
+            with self.subTest(extra=extra):
+                self.rechaza(self.PLANTILLA.replace("        displayName: e2e\n", f"        {extra}\n        displayName: e2e\n"), menciona="apaguen")
+
+    def test_nodo_de_pasos(self):
+        texto = "parameters:\n  # versión\n  - name: nodeVersion\n    type: string\n    default: 24.22.1\n  - name: nodeSha256\n"
+        self.assertEqual(filtros.nodo_de_pasos(texto), "24.22.1")
+        self.assertIsNotNone(filtros.nodo_de_pasos(filtros.CARPETA.joinpath("plantillas/pasos/node.yml").read_text(encoding="utf-8")))
+
+
+class AgenteD213(unittest.TestCase):
+    """`revisar_agente`: el pool va una sola vez, arriba, y cada trabajo empieza con el espacio de trabajo limpio."""
+    PIPELINE = "trigger: none\npool:\n  name: alcanzamos-local\njobs:\n  - template: plantillas/web.yml\n"
+    PLANTILLA = "jobs:\n  - job: web\n    workspace:\n      clean: all\n    steps:\n      - script: echo\n"
+
+    def revisar(self, pipeline=PIPELINE, plantilla=PLANTILLA):
+        return filtros.revisar_agente({"web.yml": pipeline, "plantillas/web.yml": plantilla})
+
+    def test_pasa(self):
+        self.assertEqual(self.revisar(), [])
+        # Volver al agente hospedado es cambiar esa línea: la revisión no exige un pool concreto.
+        self.assertEqual(self.revisar(self.PIPELINE.replace("name: alcanzamos-local", "vmImage: ubuntu-24.04")), [])
+
+    def test_trabajo_con_su_propio_pool(self):
+        fallas = self.revisar(plantilla=self.PLANTILLA.replace("    workspace:", "    pool:\n      vmImage: ubuntu-24.04\n    workspace:"))
+        self.assertEqual(len(fallas), 1)
+        self.assertIn("fija su propio pool", fallas[0])
+
+    def test_pipeline_sin_pool_de_primer_nivel(self):
+        fallas = self.revisar(pipeline=self.PIPELINE.replace("pool:\n  name: alcanzamos-local\n", ""))
+        self.assertEqual(len(fallas), 1)
+        self.assertIn("pool:", fallas[0])
+
+    def test_trabajo_sin_espacio_limpio(self):
+        limpio = "    workspace:\n      clean: all\n"
+        for nuevo in ("", "    workspace:\n      clean: outputs\n", "    workspace:\n      clean: true\n"):
+            with self.subTest(nuevo=nuevo):
+                fallas = self.revisar(plantilla=self.PLANTILLA.replace(limpio, nuevo))
+                self.assertEqual(len(fallas), 1)
+                self.assertIn("workspace: clean: all", fallas[0])
+
+    def test_trabajos_en_un_pipeline_con_etapas(self):
+        control = ("pool:\n  name: x\nstages:\n  - stage: a\n    jobs:\n      - job: uno\n        workspace:\n          clean: all\n"
+                   "        steps:\n          - script: echo\n      - job: dos\n        steps:\n          - script: echo\n")
+        fallas = filtros.revisar_agente({"control.yml": control})
+        self.assertEqual(len(fallas), 1)
+        self.assertIn("dos", fallas[0])
 
 
 if __name__ == "__main__":
