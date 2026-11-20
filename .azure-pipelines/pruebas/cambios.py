@@ -25,7 +25,7 @@ CARPETAS = {
     ),
     "api": (
         "api/*",
-        "web/*",
+        "web/servidor/*",
         ".dockerignore",
         ".azure-pipelines/api.yml",
         ".azure-pipelines/plantillas/api.yml",

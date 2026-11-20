@@ -43,8 +43,8 @@ PROGRAMADOS = {"revision-diaria"}
 # pruebas/cambios.py) deben ser las mismas. Cuando llegue un pipeline nuevo, se agregan aquí sus casos.
 # `diseno/` (tokens, textos de `diseno/textos/` y fuentes) dispara el de web (construye con ellos) y el de movil (mismos tokens y fuentes),
 # no el de api: la imagen del API no embebe la web (E11-INF 2.16, D-205 (10)). De `marca/` solo el logo horizontal en color que
-# importa la web (D-152) dispara web y movil; el resto de la carpeta, solo `comun`. Un cambio en `web/` sí dispara api, porque
-# las pruebas de web/servidor corren en esa etapa.
+# importa la web (D-152) dispara web y movil; el resto de la carpeta, solo `comun`. Solo `web/servidor/` dispara api, porque
+# las pruebas de web/servidor corren en esa etapa; el resto de `web/` no (D-213: unos 13 minutos menos por cada cambio de la web).
 ESPERADO = {
     "reglas/conjuntos/conjunto-de-prueba.jsonl": {"comun", "reglas"},
     "reglas/README.md": {"comun", "reglas"},
@@ -59,8 +59,8 @@ ESPERADO = {
     "api/Dockerfile": {"comun", "api"},
     # El .dockerignore de la raíz lo comparten las dos imágenes (contexto: la raíz del monorepo): decide qué entra en cada build.
     ".dockerignore": {"comun", "api", "web"},
-    # La imagen de ca-web (T13): la construye plantillas/web.yml; web/* ya dispara también la etapa api (web/servidor).
-    "web/Dockerfile": {"comun", "web", "api"},
+    # La imagen de ca-web (T13): la construye plantillas/web.yml, en la etapa web; la etapa api no la construye.
+    "web/Dockerfile": {"comun", "web"},
     "api/.golangci.yml": {"comun", "api"},
     "api/go.mod": {"comun", "api"},
     ".azure-pipelines/api.yml": {"comun", "api"},
@@ -75,12 +75,14 @@ ESPERADO = {
     ".azure-pipelines/pruebas/vulnerabilidades.py": {"comun", "api"},
     ".azure-pipelines/pruebas/vulnerabilidades_regresion.py": {"comun", "api"},
     "api/test/cobertura-base.json": {"comun", "api"},
-    "web/README.md": {"comun", "web", "api"},
-    "web/src/PantallaPrueba.tsx": {"comun", "web", "api"},
-    "web/package.json": {"comun", "web", "api"},
-    "web/tests/dinero.test.ts": {"comun", "web", "api"},
+    "web/README.md": {"comun", "web"},
+    "web/src/PantallaPrueba.tsx": {"comun", "web"},
+    "web/package.json": {"comun", "web"},
+    "web/tests/dinero.test.ts": {"comun", "web"},
+    # Un nombre que empieza como la carpeta del servidor sin serlo no dispara api.
+    "web/servidor-notas.md": {"comun", "web"},
     # web/servidor es un módulo de Go aparte (el servidor de ca-web): sus pruebas corren en la etapa api (plantillas/api.yml),
-    # que ya corre con cualquier cambio de web/*; la etapa web, con web/*, también.
+    # que corre con web/servidor/* (D-213); la etapa web, con web/*, también.
     "web/servidor/go.mod": {"comun", "web", "api"},
     "web/servidor/main.go": {"comun", "web", "api"},
     "web/servidor/.golangci.yml": {"comun", "web", "api"},
@@ -91,9 +93,9 @@ ESPERADO = {
     # Estos casos protegen S11 (D-161): `comun` usa web/scripts/antiguedad*.mjs para commitlint y no filtra por ruta (corre con
     # cualquier cambio), así que un cambio solo en esos scripts, hecho desde un PR de web, también lo corre. Si alguien le agrega
     # `paths` a `comun` sin esas rutas, estos casos fallan.
-    "web/scripts/antiguedad.mjs": {"comun", "web", "api"},
-    "web/scripts/antiguedad-logica.mjs": {"comun", "web", "api"},
-    "web/tests/antiguedad.test.ts": {"comun", "web", "api"},
+    "web/scripts/antiguedad.mjs": {"comun", "web"},
+    "web/scripts/antiguedad-logica.mjs": {"comun", "web"},
+    "web/tests/antiguedad.test.ts": {"comun", "web"},
     ".azure-pipelines/comun.yml": {"comun"},
     ".azure-pipelines/plantillas/comun.yml": {"comun"},
     # El control único: su YAML y su mapa de carpetas no disparan las etapas por carpeta; `comun` corre esta prueba.
