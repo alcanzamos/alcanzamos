@@ -53,7 +53,7 @@ La cuenta de almacenamiento admite solo de 3 a 24 letras minúsculas y números,
 
 ## Validación
 
-Sin credenciales y sin aplicar. `tofu test` hace solo plan, con los proveedores simulados. Comprueba los nombres de cada ambiente, la región `eastus2`, que el pipeline tenga solo «Contributor» sobre su grupo y «Storage Blob Data Contributor» sobre su estado, la credencial federada, las cinco identidades de carga con sus salidas, que no haya `azuread` ni `Microsoft.Communication`, que no haya recursos de registro de proveedores y el proveedor lleve `resource_provider_registrations = "none"`, que el pipeline no tenga más roles que esos dos y que se rechace un ambiente desconocido (`tests/*.tftest.hcl`).
+Sin credenciales y sin aplicar. `tofu test` hace solo plan, con los proveedores simulados. Comprueba los nombres de cada ambiente, la región `eastus2`, que el pipeline tenga solo «Contributor» sobre su grupo y «Storage Blob Data Contributor» sobre su estado, la credencial federada, las cinco identidades de carga con sus salidas, que no haya `azuread`, ni `Microsoft.Communication`, ni el rol «Communication and Email Service Owner» (ningún `.tf` nombra Communication, y los únicos roles del plan son los tres conocidos), que no haya recursos de registro de proveedores y el proveedor lleve `resource_provider_registrations = "none"`, que el pipeline no tenga más roles que esos dos y que se rechace un ambiente desconocido (`tests/*.tftest.hcl`).
 
 ```sh
 cd infra/bootstrap

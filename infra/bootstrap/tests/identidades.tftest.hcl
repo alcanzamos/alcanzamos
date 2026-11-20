@@ -207,6 +207,24 @@ run "sin_communication_services" {
     condition     = azurerm_role_assignment.api_lee_secretos.role_definition_name == "Key Vault Secrets User"
     error_message = "El único rol del API en el bootstrap es Key Vault Secrets User: ya no hay rol de correo."
   }
+
+  # Ni el proveedor ni el rol de correo de ACS vuelven con otro nombre de recurso, de variable o de mayúsculas: ningún .tf nombra Communication.
+  assert {
+    condition = !anytrue([
+      for f in fileset(path.module, "*.tf") :
+      anytrue([for t in ["communication", "email service owner"] : strcontains(lower(file("${path.module}/${f}")), t)])
+    ])
+    error_message = "Ningún .tf del bootstrap nombra Microsoft.Communication, azurerm_communication_* ni «Communication and Email Service Owner» (D-205 (5))."
+  }
+
+  # Con el plan en la mano: los únicos roles que el bootstrap asigna son los tres conocidos.
+  assert {
+    condition = toset(concat(
+      [for a in values(azurerm_role_assignment.pipeline) : a.role_definition_name],
+      [azurerm_role_assignment.api_lee_secretos.role_definition_name],
+    )) == toset(["Contributor", "Storage Blob Data Contributor", "Key Vault Secrets User"])
+    error_message = "Los roles del bootstrap son Contributor y Storage Blob Data Contributor (pipeline) y Key Vault Secrets User (API): ningún rol de correo."
+  }
 }
 
 # Región East US 2 (D-208).
