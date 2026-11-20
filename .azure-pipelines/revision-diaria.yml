@@ -42,12 +42,40 @@ schedules:
 #   alcance y tenga arreglo, aunque tenga menos de 7 días, salvo una excepción registrada por el dueño.
 # - Gasta lo mismo otra vez (unos 1 a 1,6 minutos más por día).
 
+# Dónde corre (D-213, que cambia la D-116 (4)): el agente propio del portátil del dueño, en el pool `alcanzamos-local`.
+# Un solo `pool` aquí, para todos los trabajos de este pipeline y los de sus plantillas (plantillas/*.yml no fijan pool).
+# Vuelta atrás al agente hospedado: cambiar esa única línea `name: alcanzamos-local` por `vmImage: ubuntu-24.04`; la limpieza por
+# nombre y las cachés de abajo funcionan igual allí.
+pool:
+  name: alcanzamos-local
+
+# Cachés fuera de la carpeta del usuario del agente (H5): con un agente propio, `~/go`, `~/.cache/go-build`,
+# `~/.cache/golangci-lint` y `~/.npm` sobrevivirían a la corrida y mezclarían los trabajos. Todo va a $(Agent.TempDirectory)
+# («A temporary folder that is cleaned after each pipeline job»,
+# https://learn.microsoft.com/en-us/azure/devops/pipelines/build/variables). GOFLAGS=-modcacherw deja los módulos de Go con
+# permiso de escritura («leave newly-created directories in the module cache read-write instead of making them read-only»,
+# `go help build`): sin él Go los deja de solo lectura y el agente no podría borrar esa carpeta. Los trabajos de las
+# plantillas que declaran `variables:` las suman a estas. En el agente hospedado no cambia nada: su máquina se descarta al
+# terminar. npm lee `npm_config_cache` como su opción `cache`.
+variables:
+  GOPATH: $(Agent.TempDirectory)/gopath
+  GOMODCACHE: $(Agent.TempDirectory)/gopath/pkg/mod
+  GOCACHE: $(Agent.TempDirectory)/go-build
+  GOLANGCI_LINT_CACHE: $(Agent.TempDirectory)/golangci-lint
+  GOFLAGS: -modcacherw
+  npm_config_cache: $(Agent.TempDirectory)/npm-cache
+
 jobs:
   - job: api
     displayName: govulncheck (api/)
     timeoutInMinutes: 10
-    pool:
-      vmImage: ubuntu-24.04
+    # Espacio de trabajo limpio al empezar cada trabajo: `workspace: clean: all` («all: Delete the entire Pipeline.Workspace
+    # directory before running a new job», «The workspace clean options are applicable only for self-hosted agents»,
+    # https://learn.microsoft.com/en-us/azure/devops/pipelines/process/phases). Un agente propio reutiliza su carpeta de
+    # trabajo: sin esto, lo que dejó la corrida anterior (node_modules, web/dist, informes) entraría en la siguiente. El
+    # agente hospedado ya empieza limpio. Lo mismo en cada trabajo de plantillas/*.yml.
+    workspace:
+      clean: all
     steps:
       - checkout: self
         fetchDepth: 1
@@ -66,8 +94,8 @@ jobs:
   - job: web
     displayName: npm audit (web/)
     timeoutInMinutes: 10
-    pool:
-      vmImage: ubuntu-24.04
+    workspace:
+      clean: all
     steps:
       - checkout: self
         fetchDepth: 1
@@ -89,8 +117,8 @@ jobs:
   - job: movil
     displayName: npm audit (movil/)
     timeoutInMinutes: 10
-    pool:
-      vmImage: ubuntu-24.04
+    workspace:
+      clean: all
     steps:
       - checkout: self
         fetchDepth: 1

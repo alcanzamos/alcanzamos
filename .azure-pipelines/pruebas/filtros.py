@@ -23,6 +23,7 @@ propia regla: `trigger: none`, `pr: none` y una sola programación diaria sobre 
 no la corre si `main` no cambió). No entra en la simulación de los filtros: no corre en ningún PR.
 """
 import io
+import json
 import re
 import importlib.util
 import pathlib
@@ -42,8 +43,8 @@ PROGRAMADOS = {"revision-diaria"}
 # pruebas/cambios.py) deben ser las mismas. Cuando llegue un pipeline nuevo, se agregan aquí sus casos.
 # `diseno/` (tokens, textos de `diseno/textos/` y fuentes) dispara el de web (construye con ellos) y el de movil (mismos tokens y fuentes),
 # no el de api: la imagen del API no embebe la web (E11-INF 2.16, D-205 (10)). De `marca/` solo el logo horizontal en color que
-# importa la web (D-152) dispara web y movil; el resto de la carpeta, solo `comun`. Un cambio en `web/` sí dispara api, porque
-# las pruebas de web/servidor corren en esa etapa.
+# importa la web (D-152) dispara web y movil; el resto de la carpeta, solo `comun`. Solo `web/servidor/` dispara api, porque
+# las pruebas de web/servidor corren en esa etapa; el resto de `web/` no (D-213: unos 13 minutos menos por cada cambio de la web).
 ESPERADO = {
     "reglas/conjuntos/conjunto-de-prueba.jsonl": {"comun", "reglas"},
     "reglas/README.md": {"comun", "reglas"},
@@ -58,8 +59,8 @@ ESPERADO = {
     "api/Dockerfile": {"comun", "api"},
     # El .dockerignore de la raíz lo comparten las dos imágenes (contexto: la raíz del monorepo): decide qué entra en cada build.
     ".dockerignore": {"comun", "api", "web"},
-    # La imagen de ca-web (T13): la construye plantillas/web.yml; web/* ya dispara también la etapa api (web/servidor).
-    "web/Dockerfile": {"comun", "web", "api"},
+    # La imagen de ca-web (T13): la construye plantillas/web.yml, en la etapa web; la etapa api no la construye.
+    "web/Dockerfile": {"comun", "web"},
     "api/.golangci.yml": {"comun", "api"},
     "api/go.mod": {"comun", "api"},
     ".azure-pipelines/api.yml": {"comun", "api"},
@@ -74,12 +75,14 @@ ESPERADO = {
     ".azure-pipelines/pruebas/vulnerabilidades.py": {"comun", "api"},
     ".azure-pipelines/pruebas/vulnerabilidades_regresion.py": {"comun", "api"},
     "api/test/cobertura-base.json": {"comun", "api"},
-    "web/README.md": {"comun", "web", "api"},
-    "web/src/PantallaPrueba.tsx": {"comun", "web", "api"},
-    "web/package.json": {"comun", "web", "api"},
-    "web/tests/dinero.test.ts": {"comun", "web", "api"},
+    "web/README.md": {"comun", "web"},
+    "web/src/PantallaPrueba.tsx": {"comun", "web"},
+    "web/package.json": {"comun", "web"},
+    "web/tests/dinero.test.ts": {"comun", "web"},
+    # Un nombre que empieza como la carpeta del servidor sin serlo no dispara api.
+    "web/servidor-notas.md": {"comun", "web"},
     # web/servidor es un módulo de Go aparte (el servidor de ca-web): sus pruebas corren en la etapa api (plantillas/api.yml),
-    # que ya corre con cualquier cambio de web/*; la etapa web, con web/*, también.
+    # que corre con web/servidor/* (D-213); la etapa web, con web/*, también.
     "web/servidor/go.mod": {"comun", "web", "api"},
     "web/servidor/main.go": {"comun", "web", "api"},
     "web/servidor/.golangci.yml": {"comun", "web", "api"},
@@ -90,9 +93,9 @@ ESPERADO = {
     # Estos casos protegen S11 (D-161): `comun` usa web/scripts/antiguedad*.mjs para commitlint y no filtra por ruta (corre con
     # cualquier cambio), así que un cambio solo en esos scripts, hecho desde un PR de web, también lo corre. Si alguien le agrega
     # `paths` a `comun` sin esas rutas, estos casos fallan.
-    "web/scripts/antiguedad.mjs": {"comun", "web", "api"},
-    "web/scripts/antiguedad-logica.mjs": {"comun", "web", "api"},
-    "web/tests/antiguedad.test.ts": {"comun", "web", "api"},
+    "web/scripts/antiguedad.mjs": {"comun", "web"},
+    "web/scripts/antiguedad-logica.mjs": {"comun", "web"},
+    "web/tests/antiguedad.test.ts": {"comun", "web"},
     ".azure-pipelines/comun.yml": {"comun"},
     ".azure-pipelines/plantillas/comun.yml": {"comun"},
     # El control único: su YAML y su mapa de carpetas no disparan las etapas por carpeta; `comun` corre esta prueba.
@@ -585,6 +588,130 @@ def revisar_mutaciones_imagenes(plantillas):
     return fallas
 
 
+# Imagen de Playwright (D3, L3): plantillas/web.yml corre `npm run e2e` dentro de la imagen oficial, fijada por digest y con la
+# misma versión que `@playwright/test`. Fuente: https://playwright.dev/docs/docker («If the Playwright version in your Docker
+# image does not match the version in your project/tests, Playwright will be unable to locate browser executables»).
+IMAGEN_PLAYWRIGHT = re.compile(r"mcr\.microsoft\.com/playwright:v(\d+\.\d+\.\d+)-[a-z]+@sha256:[0-9a-f]{64}")
+VARIABLE_PLAYWRIGHT = "PLAYWRIGHT_IMAGEN"
+# El Node que baja plantillas/pasos/node.yml, montado en el contenedor: su carpeta lleva la versión en el nombre.
+NODE_MONTADO = re.compile(r"node-v(\d+\.\d+\.\d+)-linux-x64")
+
+
+def sin_comentarios(texto):
+    """Las líneas del texto que no son comentarios de YAML ni de shell."""
+    return [l for l in texto.splitlines() if l.strip() and not l.lstrip().startswith("#")]
+
+
+def version_de_playwright(paquete):
+    """La versión de `@playwright/test` en el package.json de web/ (dependencies o devDependencies), o None."""
+    datos = json.loads(paquete)
+    for seccion in ("devDependencies", "dependencies"):
+        if "@playwright/test" in datos.get(seccion, {}):
+            return datos[seccion]["@playwright/test"]
+    return None
+
+
+def revisar_playwright(plantilla, paquete, nodo):
+    """plantillas/web.yml corre el e2e de Playwright dentro de la imagen oficial (D3): la imagen se declara una sola vez en
+    la variable PLAYWRIGHT_IMAGEN, fijada por digest y con la misma versión que `@playwright/test` de web/package.json; el
+    paso es `docker run --rm --init --ipc=host` de esa variable con `npm run e2e` como orden, con el Node de
+    plantillas/pasos/node.yml (`nodo`) y sin `npm run e2e` ni `playwright install` fuera del contenedor. Devuelve la lista de
+    fallas."""
+    fallas = []
+    paquete_version = version_de_playwright(paquete)
+    if paquete_version is None or not re.fullmatch(r"\d+\.\d+\.\d+", paquete_version):
+        fallas.append(f"web/package.json: @playwright/test debe tener una versión exacta (sin ^ ni ~); tiene {paquete_version!r}")
+    lineas = sin_comentarios(plantilla)
+    imagenes = {m.group(0) for l in lineas for m in IMAGEN_PLAYWRIGHT.finditer(l)}
+    if len(imagenes) != 1:
+        fallas.append("plantillas/web.yml: debe haber una sola imagen de Playwright fijada por digest "
+                      f"(mcr.microsoft.com/playwright:v<versión>-<sistema>@sha256:<64 hexadecimales>); hay {sorted(imagenes)}")
+    else:
+        version = IMAGEN_PLAYWRIGHT.search(next(iter(imagenes))).group(1)
+        if version != paquete_version:
+            fallas.append(f"plantillas/web.yml: la imagen de Playwright es v{version} y @playwright/test de web/package.json es "
+                          f"{paquete_version}: deben ser la misma versión (con otra, Playwright no encuentra los navegadores de la imagen)")
+        if not any(re.fullmatch(rf"\s+{VARIABLE_PLAYWRIGHT}:\s*{re.escape(next(iter(imagenes)))}", l) for l in lineas):
+            fallas.append(f"plantillas/web.yml: la imagen de Playwright debe declararse en la variable {VARIABLE_PLAYWRIGHT} del trabajo")
+    pasos = [(p, " ".join(l for l in p.get("script", []) if not l.startswith("#")).replace("\\", " ")) for p in pasos_de(plantilla)]
+    for paso, texto in pasos:
+        if "playwright install" in texto:
+            fallas.append("plantillas/web.yml: no debe instalar el navegador (`playwright install`): ya viene en la imagen")
+        if "npm run e2e" in texto and f"$({VARIABLE_PLAYWRIGHT})" not in texto:
+            fallas.append("plantillas/web.yml: `npm run e2e` debe correr dentro del contenedor de $(%s)" % VARIABLE_PLAYWRIGHT)
+    del_e2e = [(p, t) for p, t in pasos if "npm run e2e" in t and f"$({VARIABLE_PLAYWRIGHT})" in t]
+    if len(del_e2e) != 1:
+        fallas.append(f"plantillas/web.yml: debe haber un solo paso que corra `npm run e2e` dentro de $({VARIABLE_PLAYWRIGHT}); hay {len(del_e2e)}")
+    for paso, texto in del_e2e:
+        palabras = texto.split()
+        corrida = palabras[palabras.index("docker"):] if "docker" in palabras else []
+        if corrida[:2] != ["docker", "run"]:
+            fallas.append("plantillas/web.yml: el e2e debe correr con `docker run`")
+            continue
+        for bandera in ("--rm", "--init", "--ipc=host"):
+            if bandera not in corrida:
+                fallas.append(f"plantillas/web.yml: el `docker run` del e2e debe llevar {bandera} (https://playwright.dev/docs/docker)")
+        if corrida[-4:] != [f"\"$({VARIABLE_PLAYWRIGHT})\"", "npm", "run", "e2e"]:
+            fallas.append(f"plantillas/web.yml: el `docker run` del e2e debe terminar en \"$({VARIABLE_PLAYWRIGHT})\" npm run e2e")
+        if limpiar(paso.get("condition", "")) not in CONDICIONES_QUE_CORREN or paso.get("continueOnError", "false") != "false" \
+                or paso.get("enabled", "true") != "true":
+            fallas.append("plantillas/web.yml: el paso del e2e no puede tener condition, enabled: false ni continueOnError que lo apaguen")
+        montados = set(NODE_MONTADO.findall(texto))
+        if montados != {nodo}:
+            fallas.append(f"plantillas/web.yml: el e2e monta el Node {sorted(montados)} y plantillas/pasos/node.yml instala {nodo}: "
+                          "deben ser el mismo (el Node de la imagen no se usa)")
+        if "/opt/node/bin" not in texto or ":ro" not in texto:
+            fallas.append("plantillas/web.yml: el e2e debe montar ese Node de solo lectura (:ro) y ponerlo primero en el PATH (/opt/node/bin)")
+    return fallas
+
+
+def nodo_de_pasos(texto):
+    """El `default` del parámetro nodeVersion de plantillas/pasos/node.yml, o None."""
+    m = re.search(r"- name: nodeVersion\n(?:\s+#.*\n|\s+type: string\n)*\s+default: (\d+\.\d+\.\d+)", texto)
+    return m.group(1) if m else None
+
+
+def trabajos_de(texto):
+    """Cada `- job:` de un YAML: {nombre: {clave: valor}} con las claves del trabajo (a la sangría del guion más 2) y, de
+    `workspace`, su subclave `clean` como «workspace.clean». Los pasos y los comentarios no cuentan."""
+    trabajos, actual, guion, sub = {}, None, None, None
+    for linea in texto.splitlines():
+        if not linea.strip() or linea.lstrip().startswith("#"):
+            continue
+        sangria, clave = len(linea) - len(linea.lstrip()), linea.strip()
+        if clave.startswith("- job:"):
+            actual, guion = {}, sangria
+            trabajos[clave[len("- job:"):].strip()] = actual
+        elif actual is not None and sangria <= guion:
+            actual = None
+        elif actual is not None and sangria == guion + 2:
+            nombre, _, valor = clave.partition(":")
+            actual[nombre] = valor.strip()
+            sub = nombre
+        elif actual is not None and sangria == guion + 4 and sub == "workspace":
+            nombre, _, valor = clave.partition(":")
+            actual[f"workspace.{nombre}"] = valor.strip()
+    return trabajos
+
+
+def revisar_agente(textos):
+    """Dónde corre cada trabajo (D-213): ningún trabajo fija su propio `pool` (lo fija una sola vez el pipeline: el `pool` de
+    primer nivel, así la vuelta atrás al agente hospedado es una línea por archivo), cada pipeline tiene su `pool` de primer
+    nivel salvo las plantillas, y cada trabajo empieza con el espacio de trabajo limpio (`workspace: clean: all`: un agente propio
+    reutiliza su carpeta). `textos`: {ruta bajo .azure-pipelines: texto} de los pipelines y de plantillas/*.yml. No exige un pool
+    concreto: cambiar de agente no debe hacer fallar la prueba. Devuelve la lista de fallas."""
+    fallas = []
+    for ruta, texto in sorted(textos.items()):
+        if "/" not in ruta and "pool:" not in raiz(texto):
+            fallas.append(f"{ruta}: falta el `pool:` de primer nivel (las plantillas no fijan pool)")
+        for nombre, claves in trabajos_de(texto).items():
+            if "pool" in claves:
+                fallas.append(f"{ruta}: el trabajo {nombre} fija su propio pool; el pool va una sola vez, arriba del pipeline")
+            if claves.get("workspace.clean") != "all":
+                fallas.append(f"{ruta}: el trabajo {nombre} debe llevar `workspace: clean: all` (espacio de trabajo limpio al empezar)")
+    return fallas
+
+
 def revisar_regresion():
     """Corre pruebas/filtros_regresion.py (unittest) y devuelve la lista de fallas; muestra lo que fallan."""
     ruta = CARPETA / "pruebas" / "filtros_regresion.py"
@@ -890,6 +1017,19 @@ def main():
         print(f"FALLA {falla}")
     print(f"{'ok' if not imagenes else 'FALLA':5} cada Dockerfile ({', '.join(dockerfiles())}) se construye en su plantilla, sin publicar")
     fallas += imagenes
+    agente = revisar_agente({p.name: p.read_text(encoding="utf-8") for p in sorted(CARPETA.glob("*.yml"))}
+                            | {f"plantillas/{p.name}": p.read_text(encoding="utf-8") for p in sorted((CARPETA / "plantillas").glob("*.yml"))})
+    for falla in agente:
+        print(f"FALLA {falla}")
+    print(f"{'ok' if not agente else 'FALLA':5} cada pipeline fija su pool una sola vez (no sus trabajos) y cada trabajo empieza con el espacio de trabajo limpio")
+    fallas += agente
+    nodo = nodo_de_pasos((CARPETA / "plantillas" / "pasos" / "node.yml").read_text(encoding="utf-8"))
+    playwright = revisar_playwright((CARPETA / "plantillas" / "web.yml").read_text(encoding="utf-8"),
+                                    (RAIZ / "web" / "package.json").read_text(encoding="utf-8"), nodo)
+    for falla in playwright:
+        print(f"FALLA {falla}")
+    print(f"{'ok' if not playwright else 'FALLA':5} el e2e corre en la imagen de Playwright, fijada por digest, con la versión de @playwright/test")
+    fallas += playwright
     regresion = revisar_regresion()
     for falla in regresion:
         print(f"FALLA {falla}")

@@ -3,8 +3,9 @@
 # viven una sola vez. Qué hace cada paso y cuándo corre el pipeline: en comun.yml y en el README de esta carpeta.
 jobs:
   - job: comun
-    pool:
-      vmImage: ubuntu-24.04
+    # Espacio de trabajo limpio al empezar (control.yml explica por qué). Sin `pool`: lo fija el pipeline que usa esta plantilla.
+    workspace:
+      clean: all
     variables:
       # Etiqueta v8.30.1 (imagen del 2026-03-21), digest del índice multiarquitectura resuelto el 2026-10-24 en ghcr.io.
       # Cambiar la etiqueta obliga a cambiar también el digest.
@@ -98,3 +99,28 @@ jobs:
 
       - script: python3 -I -B .azure-pipelines/pruebas/filtros.py
         displayName: Cada carpeta dispara solo sus pipelines y sus etapas del control único
+
+      # Limpieza por nombre (AGENTS.md: nada de prune; se lista con un filtro y se quita solo lo listado): la imagen de gitleaks, por
+      # su referencia fijada ($(GITLEAKS_IMAGEN)). Con digest, Docker la guarda sin etiqueta, así que se lista por el nombre del
+      # repositorio y se quita solo si el digest listado es el fijado. Siempre corre, también si un paso falló, y no falla si la
+      # imagen no existe. Si no se puede quitar, avisa con un aviso en el registro de la corrida (el aviso no cambia el resultado del paso) y el último paso
+      # muestra lo que quedó. El contenedor de `docker run --rm` se borra solo al terminar.
+      - script: |
+          set -u
+          imagen="$(GITLEAKS_IMAGEN)"
+          digest="${imagen#*@}"
+          repositorio="${imagen%%[:@]*}"
+          docker image ls --digests --filter "reference=$repositorio"
+          if docker image ls --digests --filter "reference=$repositorio" --format '{{.Digest}}' | grep -qxF "$digest"; then
+            docker rmi "$imagen" || docker rmi "$repositorio@$digest" \
+              || echo "##vso[task.logissue type=warning]No se pudo quitar la imagen $imagen"
+          fi
+        condition: always()
+        displayName: Quitar la imagen de gitleaks (por su referencia fijada)
+
+      # Evidencia E4: lo que queda en el demonio de Docker del CI al terminar el trabajo.
+      - script: |
+          docker ps --all
+          docker image ls --digests
+        condition: always()
+        displayName: Lo que queda en Docker (docker ps -a, docker image ls --digests)
