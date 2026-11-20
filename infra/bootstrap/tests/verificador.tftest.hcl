@@ -1,21 +1,6 @@
 # Nombres del bootstrap por ambiente (US-79, D-200 (8)): cada suscripción tiene su grupo, su estado y sus identidades.
 # Corre sin credenciales ni Azure: los proveedores son simulacros y solo se hace plan.
 #   tofu init -backend=false && tofu test
-mock_provider "azuread" {
-  mock_resource "azuread_application" {
-    defaults = {
-      id        = "/applications/00000000-0000-0000-0000-000000000000"
-      client_id = "00000000-0000-0000-0000-000000000000"
-    }
-  }
-
-  mock_resource "azuread_service_principal" {
-    defaults = {
-      object_id = "00000000-0000-0000-0000-000000000000"
-    }
-  }
-}
-
 # El proveedor valida la forma de los ID que pasan de un recurso a otro: el simulacro los da con esa forma.
 mock_provider "azurerm" {
   mock_resource "azurerm_resource_group" {
@@ -32,6 +17,8 @@ mock_provider "azurerm" {
 
   mock_resource "azurerm_user_assigned_identity" {
     defaults = {
+      id           = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id"
+      client_id    = "00000000-0000-0000-0000-000000000000"
       principal_id = "00000000-0000-0000-0000-000000000000"
     }
   }
@@ -51,15 +38,15 @@ run "produccion_con_conexion_explicita_antigua" {
   command = plan
   variables {
     ambiente             = "produccion"
-    conexion_de_servicio = "sc-alcanzamos-prod-mxc"
+    conexion_de_servicio = "sc-alcanzamos-prod-eus2"
   }
 
   assert {
     condition = alltrue([
-      azuread_application_federated_identity_credential.azure_devops.subject == "sc://alcanzamos/alcanzamos/sc-alcanzamos-prod-mxc",
-      azuread_application_federated_identity_credential.azure_devops.display_name == "azure-devops-sc-alcanzamos-prod-mxc",
-      azuread_application_federated_identity_credential.azure_devops.issuer == "https://vstoken.dev.azure.com/00000000-0000-0000-0000-000000000000",
-      azuread_application_federated_identity_credential.azure_devops.audiences == tolist(["api://AzureADTokenExchange"]),
+      azurerm_federated_identity_credential.azure_devops.subject == "sc://alcanzamos/alcanzamos/sc-alcanzamos-prod-eus2",
+      azurerm_federated_identity_credential.azure_devops.name == "azure-devops-sc-alcanzamos-prod-eus2",
+      azurerm_federated_identity_credential.azure_devops.issuer == "https://vstoken.dev.azure.com/00000000-0000-0000-0000-000000000000",
+      azurerm_federated_identity_credential.azure_devops.audience == tolist(["api://AzureADTokenExchange"]),
     ])
     error_message = "La credencial federada de producción cambió."
   }
@@ -81,13 +68,11 @@ run "produccion_conserva_seguridad_estado_y_roles" {
       azurerm_storage_account.estado.blob_properties[0].delete_retention_policy[0].days == 30,
       azurerm_storage_account.estado.blob_properties[0].container_delete_retention_policy[0].days == 30,
       azurerm_storage_container.estado.name == "tfstate",
-      azurerm_resource_group.principal.location == "mexicocentral",
-      length(azurerm_resource_provider_registration.proveedores) == 8,
-      azurerm_role_assignment.pipeline_contribuye.role_definition_name == "Contributor",
-      azurerm_role_assignment.pipeline_estado.role_definition_name == "Storage Blob Data Contributor",
+      azurerm_resource_group.principal.location == "eastus2",
+      azurerm_role_assignment.pipeline["grupo"].role_definition_name == "Contributor",
+      azurerm_role_assignment.pipeline["estado"].role_definition_name == "Storage Blob Data Contributor",
       azurerm_role_assignment.api_lee_secretos.role_definition_name == "Key Vault Secrets User",
-      azurerm_role_assignment.api_envia_correo.role_definition_name == "Communication and Email Service Owner",
-      azurerm_user_assigned_identity.api.tags == tomap({ proyecto = "alcanzamos", ambiente = "produccion", origen = "opentofu" }),
+      azurerm_user_assigned_identity.carga["api"].tags == tomap({ proyecto = "alcanzamos", ambiente = "produccion", origen = "opentofu" }),
       azurerm_storage_account.estado.tags == tomap({ proyecto = "alcanzamos", ambiente = "produccion", origen = "opentofu" }),
       output.backend.container_name == "tfstate",
       output.backend.use_azuread_auth == true,
@@ -104,11 +89,11 @@ run "uat_etiquetas_y_credencial" {
 
   assert {
     condition = alltrue([
-      azuread_application_federated_identity_credential.azure_devops.display_name == "azure-devops-sc-alcanzamos-uat-mxc",
-      azurerm_user_assigned_identity.api.tags == tomap({ proyecto = "alcanzamos", ambiente = "uat", origen = "opentofu" }),
+      azurerm_federated_identity_credential.azure_devops.name == "azure-devops-sc-alcanzamos-uat-eus2",
+      azurerm_user_assigned_identity.carga["api"].tags == tomap({ proyecto = "alcanzamos", ambiente = "uat", origen = "opentofu" }),
       azurerm_storage_account.estado.tags["ambiente"] == "uat",
       azurerm_storage_account.estado.shared_access_key_enabled == false,
-      azurerm_storage_account.estado.name != "stalcanzamostfmxc",
+      azurerm_storage_account.estado.name != "stalcanzamostfeus2",
     ])
     error_message = "El bootstrap de UAT: etiquetas, credencial o cuenta."
   }

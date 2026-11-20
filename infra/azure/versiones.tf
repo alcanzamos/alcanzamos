@@ -15,8 +15,10 @@ terraform {
   backend "azurerm" {}
 }
 
+# Los proveedores de recursos los registra infra/suscripcion, una sola vez; la identidad del pipeline no puede registrarlos.
 provider "azurerm" {
   features {}
-  subscription_id = var.subscription_id
-  use_oidc        = true
+  subscription_id                 = var.subscription_id
+  use_oidc                        = true
+  resource_provider_registrations = "none"
 }

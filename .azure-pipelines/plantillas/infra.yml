@@ -42,6 +42,14 @@ jobs:
           tofu init -backend=false -input=false
           tofu validate
           tofu test
+        workingDirectory: infra/suscripcion
+        displayName: infra/suscripcion es válido y sus pruebas pasan
+
+      - script: |
+          set -eu
+          tofu init -backend=false -input=false
+          tofu validate
+          tofu test
         workingDirectory: infra/bootstrap
         displayName: infra/bootstrap es válido y sus pruebas pasan
 
