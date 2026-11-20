@@ -135,7 +135,7 @@ jobs:
       # - la imagen que este trabajo construyó, por su etiqueta exacta `alcanzamos-api:$(Build.BuildId)`;
       # - la imagen de PostgreSQL, por su referencia fijada ($(POSTGRES_IMAGEN)): con digest, Docker la guarda sin etiqueta,
       #   así que se lista por el nombre del repositorio y se quita solo si el digest listado es el fijado.
-      # Si una imagen no se puede quitar, avisa (queda en Partially succeeded, que el control acepta) y el último paso muestra lo que quedó.
+      # Si una imagen no se puede quitar, avisa con un aviso en el registro de la corrida (el aviso no cambia el resultado del paso) y el último paso muestra lo que quedó.
       - script: |
           set -u
           docker ps --all --filter 'name=^pg-cobertura$'

@@ -125,7 +125,7 @@ jobs:
       # Limpieza por nombre (AGENTS.md: nada de prune; se lista con un filtro y se quita solo lo listado): la imagen que este
       # trabajo construyó (H4: `alcanzamos-web:$(Build.BuildId)`) y la de Playwright, por su referencia fijada. Siempre
       # corre, también si un paso falló, y no falla si el objeto no existe (el paso que lo crea pudo no correr). Si no
-      # se puede quitar, avisa (queda en Partially succeeded, que el control acepta) y el último paso muestra lo que quedó.
+      # se puede quitar, avisa con un aviso en el registro de la corrida (el aviso no cambia el resultado del paso) y el último paso muestra lo que quedó.
       - script: |
           set -u
           imagen="alcanzamos-web:$(Build.BuildId)"

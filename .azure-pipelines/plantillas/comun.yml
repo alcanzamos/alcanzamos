@@ -103,7 +103,7 @@ jobs:
       # Limpieza por nombre (AGENTS.md: nada de prune; se lista con un filtro y se quita solo lo listado): la imagen de gitleaks, por
       # su referencia fijada ($(GITLEAKS_IMAGEN)). Con digest, Docker la guarda sin etiqueta, así que se lista por el nombre del
       # repositorio y se quita solo si el digest listado es el fijado. Siempre corre, también si un paso falló, y no falla si la
-      # imagen no existe. Si no se puede quitar, avisa (queda en Partially succeeded, que el control acepta) y el último paso
+      # imagen no existe. Si no se puede quitar, avisa con un aviso en el registro de la corrida (el aviso no cambia el resultado del paso) y el último paso
       # muestra lo que quedó. El contenedor de `docker run --rm` se borra solo al terminar.
       - script: |
           set -u
