@@ -11,10 +11,10 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_URL_API": "http://192.168.1.36:18090"
+        "EXPO_PUBLIC_URL_API": "http://localhost:18090"
       }
     },
-    "produccion": {
+    "uat": {
       "distribution": "store",
       "node": "24.22.1",
       "autoIncrement": true,

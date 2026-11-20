@@ -393,28 +393,36 @@ Para medir D-078 en un celular de gama baja hace falta un paquete de producción
 
 **Qué está configurado**
 
-- `app.json`: paquete de Android `co.alcanzamos.movil`, nombre «Alcanzamos», versión `0.1.0`, `owner: "alcanzamos"` y `extra.eas.projectId` (los dejó `eas init`). No hay `android.versionCode`: `eas.json` usa `appVersionSource: "remote"` y EAS lleva el contador (evita un commit por cada compilación y garantiza un número creciente si algún día hay una tienda). Solo `produccion` lo incrementa (`autoIncrement`).
-- `eas.json`: `cli.version` fijado a `27.9.0` y dos perfiles. `node` es `24.22.1`, el de `engines` y el de los pipelines. EAS no deja elegir el npm: trae el que acompaña a ese Node, y `engines.npm` (`12.2.1`) con el `engine-strict` de `.npmrc` haría fallar `npm ci`. Por eso `package.json` tiene `eas-build-pre-install` (`node scripts/npm-de-eas.mjs`): antes de instalar las dependencias, EAS lo corre e instala npm 12.2.1 igual que el control (`.azure-pipelines/plantillas/pasos/node.yml`): baja el tarball del registro, verifica su SHA-512 y lo instala desde el archivo local. Si la suma no coincide, la compilación falla y no se instala nada. Así se mantienen todas las protecciones de `.npmrc` en EAS (`engine-strict`, `strict-allow-scripts`, `min-release-age`); los perfiles no cambian ninguna opción de npm.
+- `app.json`: paquete de Android `co.alcanzamos.movil`, nombre «Alcanzamos», versión `0.1.0`, `owner: "alcanzamos"` y `extra.eas.projectId` (los dejó `eas init`). No hay `android.versionCode`: `eas.json` usa `appVersionSource: "remote"` y EAS lleva el contador (evita un commit por cada compilación y garantiza un número creciente si algún día hay una tienda). Solo `uat` lo incrementa (`autoIncrement`).
+- `eas.json`: `cli.version` fijado a `27.9.0` y dos perfiles, `medicion` y `uat`. `node` es `24.22.1`, el de `engines` y el de los pipelines. EAS no deja elegir el npm: trae el que acompaña a ese Node, y `engines.npm` (`12.2.1`) con el `engine-strict` de `.npmrc` haría fallar `npm ci`. Por eso `package.json` tiene `eas-build-pre-install` (`node scripts/npm-de-eas.mjs`): antes de instalar las dependencias, EAS lo corre e instala npm 12.2.1 igual que el control (`.azure-pipelines/plantillas/pasos/node.yml`): baja el tarball del registro, verifica su SHA-512 y lo instala desde el archivo local. Si la suma no coincide, la compilación falla y no se instala nada. Así se mantienen todas las protecciones de `.npmrc` en EAS (`engine-strict`, `strict-allow-scripts`, `min-release-age`); los perfiles no cambian ninguna opción de npm.
 
 | Perfil | Para qué | Salida | `EXPO_PUBLIC_URL_API` | HTTP en claro |
 | --- | --- | --- | --- | --- |
-| `medicion` | Medir en el celular contra el API que corre en el portátil | APK instalable (`internal`) | `http://192.168.1.36:18090` (la IP del portátil en la red local; se cambia en `eas.json`) | Solo hacia esa IP y `localhost` |
-| `produccion` | Medir el tamaño del AAB y ensayar el paquete que iría a la tienda | AAB (`app-bundle`) | `https://api-uat.alcanzamos.co` | Ninguno |
+| `medicion` | Medir en el celular contra el API que corre en el portátil | APK instalable (`internal`) | `http://localhost:18090` (el celular llega al portátil con `adb reverse`) | Solo hacia `localhost` |
+| `uat` | Medir el tamaño del AAB y ensayar el paquete contra el API de UAT | AAB (`app-bundle`) | `https://api-uat.alcanzamos.co` | Ninguno |
 
-`EXPO_PUBLIC_URL_API` no es un secreto (Expo la copia al paquete), por eso va en `eas.json`. Si cambia la IP del portátil, se edita ahí y se vuelve a compilar. Con `adb reverse tcp:18090 tcp:18090` también sirve `http://localhost:18090`.
+El perfil se llama `uat` porque apunta a `api-uat.alcanzamos.co`. **No hay perfil de producción**: se agrega cuando exista `api.alcanzamos.co`.
+
+**Medición con `adb reverse` (sin IP ni cortafuegos).** El día de la medición, con el realme C55 por USB y el API corriendo en el portátil en el puerto 18090:
+
+```
+adb reverse tcp:18090 tcp:18090
+```
+
+Desde ese momento, el `localhost:18090` del celular llega al `18090` del portátil. No hay que saber la IP del portátil, no hay que recompilar si cambia, y no se abre ningún puerto del cortafuegos (el tráfico va por el cable USB). `adb reverse` se pierde al desconectar el cable o reiniciar `adb`: se repite. `EXPO_PUBLIC_URL_API` no es un secreto (Expo la copia al paquete), por eso va en `eas.json`.
 
 **El paso previo de npm (`scripts/npm-de-eas.mjs`).** `eas-build-pre-install` es un gancho de EAS Build (no un script de ciclo de vida de npm): solo EAS lo llama, antes de `npm install`/`npm ci`, y `npm install` o `npm ci` en local no lo ejecutan. Corre con `npm run`, que no revisa `engines`, así que arranca aunque el npm de EAS sea anterior al 12.2.1. El script solo actúa con `EAS_BUILD=true`; fuera de EAS, o en una compilación local de EAS (`EAS_BUILD_RUNNER=local-build-plugin`), sale sin tocar nada, para no cambiar el npm de ningún equipo. La versión y la suma viven en `scripts/npm-de-eas-logica.mjs` y son las de `node.yml`: al cambiar npm hay que cambiar los dos (`tests/compilacionEas.test.ts` los compara). Para probarlo sin EAS: `EAS_BUILD=true NPM_DE_EAS_URL=http://127.0.0.1:<puerto>/npm.tgz node scripts/npm-de-eas.mjs` contra un servidor local que sirva el tarball (`NPM_DE_EAS_URL` solo cambia la dirección; la suma no se puede cambiar).
 
-**HTTP en claro solo en `medicion`** (`plugins/redDeMedicion.ts`, un plugin local de configuración, sin paquetes nuevos). Cuando `EAS_BUILD_PROFILE` es `medicion`, agrega `res/xml/network_security_config.xml` y lo enlaza en el manifiesto con `android:networkSecurityConfig`: todo sigue en HTTPS salvo `localhost` y el host de `EXPO_PUBLIC_URL_API` si usa `http://`. Ese host debe ser una dirección de la red local (10.x, 172.16-31.x, 192.168.x); con otra, la compilación falla. Nunca se pone `usesCleartextTraffic` en toda la app. En `produccion`, `expo start` o un prebuild local el plugin no hace nada. `tests/compilacionEas.test.ts` lo comprueba. El plugin es TypeScript: Expo lo carga desde `app.json` (`./plugins/redDeMedicion`) y ESLint y `tsc` lo revisan como el resto.
+**HTTP en claro solo en `medicion`** (`plugins/redDeMedicion.ts`, un plugin local de configuración, sin paquetes nuevos). Cuando `EAS_BUILD_PROFILE` es `medicion`, agrega `res/xml/network_security_config.xml` y lo enlaza en el manifiesto con `android:networkSecurityConfig`: todo sigue en HTTPS salvo `localhost`. Con `adb reverse` el nombre `localhost` es lo único que hace falta (Android compara el nombre de la URL, no la dirección a la que resuelve), así que no se permite `127.0.0.1` ni ninguna IP. Si `EXPO_PUBLIC_URL_API` usa `http://` hacia cualquier otro host (una IP de la red local, `127.0.0.1` o un dominio), la compilación falla: la excepción nunca llega a la red local. Nunca se pone `usesCleartextTraffic` en toda la app. En `uat`, `expo start` o un prebuild local el plugin no hace nada. `tests/compilacionEas.test.ts` lo comprueba. El plugin es TypeScript: Expo lo carga desde `app.json` (`./plugins/redDeMedicion`) y ESLint y `tsc` lo revisan como el resto.
 
-**La clave de firma de EAS es solo para medir.** EAS genera y guarda la clave de firma de Android la primera vez que se compila. Esa clave **no se reutiliza en la Play Store sin una decisión del dueño** (ADR-003 §5, condición 2): el AAB de `produccion` es para medir su tamaño, no se sube a ninguna tienda, y no se descarga ni se importa la clave (`eas credentials`) para otro uso.
+**La clave de firma de EAS es solo para medir.** EAS genera y guarda la clave de firma de Android la primera vez que se compila. Esa clave **no se reutiliza en la Play Store sin una decisión del dueño** (ADR-003 §5, condición 2): el AAB de `uat` es para medir su tamaño, no se sube a ninguna tienda, y no se descarga ni se importa la clave (`eas credentials`) para otro uso.
 
 **Cómo compilar** (desde `movil/`, con la cuenta del dueño en Expo):
 
 ```
 npx eas-cli@27.9.0 login
 npx eas-cli@27.9.0 build -p android --profile medicion      # APK para instalar en el realme C55
-npx eas-cli@27.9.0 build -p android --profile produccion    # AAB para medir el tamaño
+npx eas-cli@27.9.0 build -p android --profile uat           # AAB para medir el tamaño
 ```
 
 La primera compilación pregunta si EAS genera la clave de firma: se responde que sí, en una terminal interactiva. Al terminar, EAS da un enlace de descarga y un QR; el APK se instala en el celular desde ahí.

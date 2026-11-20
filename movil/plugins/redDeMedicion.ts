@@ -1,10 +1,16 @@
 // US-48: excepción de HTTP en claro para medir en un celular contra el API del portátil.
 //
+// El día de la medición el celular se conecta al portátil con `adb reverse tcp:18090 tcp:18090`: el puerto 18090 del
+// celular (su `localhost`) llega al API del portátil. La app usa `EXPO_PUBLIC_URL_API=http://localhost:18090`, así que
+// no depende de la IP del portátil ni abre su cortafuegos.
+//
 // Solo se activa cuando EAS compila el perfil «medicion» (EAS_BUILD_PROFILE). Entonces agrega una configuración de
-// seguridad de red de Android que permite HTTP en claro únicamente hacia `localhost` y hacia el host de
-// EXPO_PUBLIC_URL_API cuando es una dirección de la red local, y lo prohíbe para todo lo demás. Nunca pone
-// `usesCleartextTraffic` en toda la app. En cualquier otro perfil (producción, `expo start`, prebuild local) no
-// cambia nada.
+// seguridad de red de Android que permite HTTP en claro únicamente hacia `localhost`, y lo prohíbe para todo lo demás.
+// El nombre `localhost` es lo único que hace falta: Android compara el nombre de host de la URL con `<domain>`, no la
+// dirección a la que resuelve, y la app nunca usa `127.0.0.1` ni otro nombre. Por eso, si `EXPO_PUBLIC_URL_API` usa
+// `http:` hacia cualquier otro host (una IP de la red local, `127.0.0.1` o un dominio), la compilación falla en vez de
+// ampliar la excepción. Una URL `https:` no necesita excepción y se acepta. Nunca pone `usesCleartextTraffic` en toda
+// la app. En cualquier otro perfil (`uat`, `expo start`, prebuild local) no cambia nada.
 
 // D-129 (sin dominio fijo) vale para el código de la app; esto es configuración de compilación y `localhost` es el dato.
 /* eslint-disable no-restricted-syntax */
@@ -15,37 +21,28 @@ import * as path from 'node:path';
 const PERFIL_DE_MEDICION = 'medicion';
 const NOMBRE_DEL_ARCHIVO = 'network_security_config';
 
-const octeto = '(25[0-5]|2[0-4]\\d|1?\\d?\\d)';
-const ipv4 = new RegExp(`^${octeto}\\.${octeto}\\.${octeto}\\.${octeto}$`);
-
-/** Direcciones de la red local (RFC 1918). */
-function esIpv4Privada(host: string): boolean {
-  if (!ipv4.test(host)) return false;
-  const [a, b] = host.split('.').map(Number);
-  return a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
-}
+const HOST_EN_CLARO = 'localhost';
 
 /**
- * Hosts con HTTP en claro permitido para una compilación de medición: `localhost` (con `adb reverse`) y el host de
- * `urlDelApi` si usa `http:`. Si ese host no es de la red local, falla: la excepción no debe llegar a un dominio.
+ * Hosts con HTTP en claro permitido para una compilación de medición: solo `localhost`. Falla si `urlDelApi` usa `http:`
+ * hacia otro host, o no es una URL: la excepción no debe llegar a la red local ni a un dominio.
  */
 export function hostsEnClaro(urlDelApi: string | undefined): string[] {
-  const hosts = ['localhost'];
   const texto = urlDelApi?.trim();
-  if (!texto) return hosts;
-  let url: URL;
-  try {
-    url = new URL(texto);
-  } catch {
-    throw new Error(`EXPO_PUBLIC_URL_API no es una URL válida: ${texto}`);
+  if (texto) {
+    let url: URL;
+    try {
+      url = new URL(texto);
+    } catch {
+      throw new Error(`EXPO_PUBLIC_URL_API no es una URL válida: ${texto}`);
+    }
+    if (url.protocol === 'http:' && url.hostname !== HOST_EN_CLARO) {
+      throw new Error(
+        `El perfil «medicion» solo permite HTTP en claro hacia ${HOST_EN_CLARO} (con adb reverse tcp:18090 tcp:18090 y EXPO_PUBLIC_URL_API=http://${HOST_EN_CLARO}:18090); EXPO_PUBLIC_URL_API apunta a ${url.hostname}.`,
+      );
+    }
   }
-  if (url.protocol !== 'http:') return hosts;
-  if (url.hostname !== 'localhost' && !esIpv4Privada(url.hostname)) {
-    throw new Error(
-      `El perfil «medicion» solo permite HTTP en claro hacia la red local (10.x, 172.16-31.x, 192.168.x) o localhost; EXPO_PUBLIC_URL_API apunta a ${url.hostname}.`,
-    );
-  }
-  return url.hostname === 'localhost' ? hosts : [url.hostname, ...hosts];
+  return [HOST_EN_CLARO];
 }
 
 /** `network_security_config.xml`: todo en HTTPS salvo los hosts dados. */

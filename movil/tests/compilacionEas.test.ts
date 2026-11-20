@@ -1,5 +1,5 @@
 // US-48: la compilación con EAS Build. La configuración de Expo (paquete, dueño, proyecto), los dos perfiles de
-// `eas.json` y la excepción de HTTP en claro, que solo existe en el perfil «medicion» y solo hacia la red local.
+// `eas.json` y la excepción de HTTP en claro, que solo existe en el perfil «medicion» y solo hacia `localhost` (adb reverse).
 import { compileModsAsync } from '@expo/config-plugins';
 import { getConfig } from 'expo/config';
 import { execFile } from 'node:child_process';
@@ -42,7 +42,12 @@ describe('configuración de Expo (app.json)', () => {
   it('conserva los plugins y registra el de la red de medición', () => {
     const plugins: unknown[] = leerJson('app.json').expo.plugins;
     expect(plugins).toEqual(
-      expect.arrayContaining(['expo-font', 'expo-secure-store', '@react-native-community/datetimepicker', 'expo-status-bar']),
+      expect.arrayContaining([
+        'expo-font',
+        'expo-secure-store',
+        '@react-native-community/datetimepicker',
+        'expo-status-bar',
+      ]),
     );
     expect(plugins).toContain('./plugins/redDeMedicion');
   });
@@ -59,31 +64,36 @@ describe('eas.json', () => {
     expect(eas.cli.appVersionSource).toBe('remote');
   });
 
-  it('«medicion» es un APK instalable que habla con el API del portátil', () => {
+  it('«medicion» es un APK instalable que habla con el API del portátil por adb reverse', () => {
     const perfil = eas.build.medicion;
     expect(perfil.distribution).toBe('internal');
     expect(perfil.android.buildType).toBe('apk');
     expect(perfil.developmentClient).toBeUndefined();
-    expect(perfil.env.EXPO_PUBLIC_URL_API).toBe('http://192.168.1.36:18090');
+    expect(perfil.env.EXPO_PUBLIC_URL_API).toBe('http://localhost:18090');
   });
 
-  it('«produccion» es un AAB contra el API por HTTPS, sin excepción de HTTP en claro', () => {
-    const perfil = eas.build.produccion;
+  it('«uat» es un AAB contra el API por HTTPS, sin excepción de HTTP en claro', () => {
+    const perfil = eas.build.uat;
     expect(perfil.android.buildType).toBe('app-bundle');
     expect(perfil.autoIncrement).toBe(true);
     expect(perfil.env.EXPO_PUBLIC_URL_API).toBe('https://api-uat.alcanzamos.co');
     expect(JSON.stringify(perfil)).not.toMatch(/cleartext|http:\/\//i);
   });
 
+  it('tiene solo los perfiles «medicion» y «uat»: no hay perfil «produccion» hasta que exista el API de producción', () => {
+    expect(Object.keys(eas.build).sort()).toEqual(['medicion', 'uat']);
+    expect(eas.build.produccion).toBeUndefined();
+  });
+
   it('usa el Node fijado de engines en los dos perfiles', () => {
     const engines: string = leerJson('package.json').engines.node;
     const nodeFijado = engines.replace(/^>=/, '');
     expect(eas.build.medicion.node).toBe(nodeFijado);
-    expect(eas.build.produccion.node).toBe(nodeFijado);
+    expect(eas.build.uat.node).toBe(nodeFijado);
   });
 
   it('no debilita las protecciones de npm: ningún perfil toca la configuración de npm', () => {
-    for (const perfil of [eas.build.medicion, eas.build.produccion]) {
+    for (const perfil of [eas.build.medicion, eas.build.uat]) {
       expect(Object.keys(perfil.env).filter((nombre) => /^npm_config_/i.test(nombre))).toEqual([]);
     }
     expect(JSON.stringify(eas)).not.toMatch(/engine.?strict/i);
@@ -119,7 +129,11 @@ describe('excepción de HTTP en claro (plugins/redDeMedicion)', () => {
     );
 
     const configuracion = conRedDeMedicion({ name: 'Alcanzamos', slug: 'alcanzamos-movil' });
-    await compileModsAsync(configuracion, { projectRoot: proyecto, platforms: ['android'], assertMissingModProviders: false });
+    await compileModsAsync(configuracion, {
+      projectRoot: proyecto,
+      platforms: ['android'],
+      assertMissingModProviders: false,
+    });
 
     const archivoRed = path.join(carpetaManifiesto, 'res/xml/network_security_config.xml');
     return {
@@ -128,14 +142,16 @@ describe('excepción de HTTP en claro (plugins/redDeMedicion)', () => {
     };
   }
 
-  it('en «medicion» permite HTTP en claro solo hacia el portátil y localhost', async () => {
-    const { manifiesto, reglas } = await prebuild({ perfil: 'medicion', url: 'http://192.168.1.36:18090' });
+  it('en «medicion» permite HTTP en claro solo hacia localhost (adb reverse)', async () => {
+    const { manifiesto, reglas } = await prebuild({ perfil: 'medicion', url: 'http://localhost:18090' });
 
     expect(manifiesto).toContain('android:networkSecurityConfig="@xml/network_security_config"');
     expect(manifiesto).not.toMatch(/usesCleartextTraffic/);
     expect(reglas).toContain('<base-config cleartextTrafficPermitted="false"');
-    const permitidos = [...(reglas ?? '').matchAll(/<domain includeSubdomains="false">([^<]+)<\/domain>/g)].map((m) => m[1]);
-    expect(permitidos).toEqual(['192.168.1.36', 'localhost']);
+    const permitidos = [...(reglas ?? '').matchAll(/<domain includeSubdomains="false">([^<]+)<\/domain>/g)].map(
+      (m) => m[1],
+    );
+    expect(permitidos).toEqual(['localhost']);
     expect(reglas).toMatch(/<domain-config cleartextTrafficPermitted="true">[\s\S]*<\/domain-config>/);
     expect((reglas ?? '').match(/cleartextTrafficPermitted="true"/g)).toHaveLength(1);
   });
@@ -143,19 +159,27 @@ describe('excepción de HTTP en claro (plugins/redDeMedicion)', () => {
   it('en «medicion» sin dirección, o con una dirección HTTPS, solo permite localhost', async () => {
     for (const url of [undefined, 'https://api-uat.alcanzamos.co']) {
       const { reglas } = await prebuild({ perfil: 'medicion', url });
-      const permitidos = [...(reglas ?? '').matchAll(/<domain includeSubdomains="false">([^<]+)<\/domain>/g)].map((m) => m[1]);
+      const permitidos = [...(reglas ?? '').matchAll(/<domain includeSubdomains="false">([^<]+)<\/domain>/g)].map(
+        (m) => m[1],
+      );
       expect(permitidos).toEqual(['localhost']);
     }
   });
 
-  it('en «medicion» rechaza HTTP en claro hacia un host que no es de la red local', async () => {
-    await expect(prebuild({ perfil: 'medicion', url: 'http://api-uat.alcanzamos.co' })).rejects.toThrow(/red local/);
-    await expect(prebuild({ perfil: 'medicion', url: 'http://8.8.8.8:18090' })).rejects.toThrow(/red local/);
-    await expect(prebuild({ perfil: 'medicion', url: 'http://172.32.0.1' })).rejects.toThrow(/red local/);
+  it('en «medicion» rechaza HTTP en claro hacia cualquier host que no sea localhost, también uno de la red local', async () => {
+    for (const url of [
+      'http://192.168.1.36:18090',
+      'http://10.0.0.5:18090',
+      'http://127.0.0.1:18090',
+      'http://api-uat.alcanzamos.co',
+      'http://8.8.8.8:18090',
+    ]) {
+      await expect(prebuild({ perfil: 'medicion', url })).rejects.toThrow(/adb reverse/);
+    }
   });
 
-  it('en «produccion» y fuera de EAS no cambia nada: sin reglas de red ni permiso de HTTP en claro', async () => {
-    for (const perfil of ['produccion', undefined]) {
+  it('en «uat» y fuera de EAS no cambia nada: sin reglas de red ni permiso de HTTP en claro', async () => {
+    for (const perfil of ['uat', undefined]) {
       const { manifiesto, reglas } = await prebuild({ perfil, url: 'http://192.168.1.36:18090' });
       expect(reglas).toBeNull();
       expect(manifiesto).not.toMatch(/networkSecurityConfig|usesCleartextTraffic/);
@@ -203,7 +227,11 @@ describe('npm 12.2.1 en EAS (eas-build-pre-install)', () => {
     const { port } = servidor.address() as AddressInfo;
     const temporal = fs.mkdtempSync(path.join(os.tmpdir(), 'alc-npm-eas-'));
     try {
-      const env = Object.assign({} as NodeJS.ProcessEnv, { PATH: process.env.PATH, TMPDIR: temporal, NPM_DE_EAS_URL: `http://127.0.0.1:${port}/npm.tgz` }, entorno);
+      const env = Object.assign(
+        {} as NodeJS.ProcessEnv,
+        { PATH: process.env.PATH, TMPDIR: temporal, NPM_DE_EAS_URL: `http://127.0.0.1:${port}/npm.tgz` },
+        entorno,
+      );
       const { stdout, stderr } = await ejecutar(process.execPath, [script], { env });
       return { codigo: 0, stdout, stderr, sobras: fs.readdirSync(temporal) };
     } catch (e) {
