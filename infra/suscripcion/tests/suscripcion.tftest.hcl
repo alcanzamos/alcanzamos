@@ -282,6 +282,31 @@ run "presupuestos_de_la_suscripcion" {
 }
 
 # Proveedores: no son recursos; se registran con la configuración del proveedor azurerm (salida = lista de la configuración).
+# El aviso de gasto previsto al 100 % del presupuesto de 2 USD llega a todos los destinatarios, no solo al primero.
+run "previsto_gratuitos_conserva_todos_los_contactos" {
+  command = plan
+
+  variables {
+    correos_de_alerta = ["uno@example.com", "dos@example.com"]
+  }
+
+  assert {
+    condition = length([
+      for n in azurerm_consumption_budget_subscription.suscripcion["gratuitos"].notification :
+      n if n.threshold_type == "Forecasted" && n.threshold == 100
+    ]) == 1
+    error_message = "El presupuesto de 2 USD tiene un único aviso Forecasted al 100 %."
+  }
+
+  assert {
+    condition = alltrue([
+      for n in azurerm_consumption_budget_subscription.suscripcion["gratuitos"].notification :
+      toset(n.contact_emails) == toset(["uno@example.com", "dos@example.com"])
+    ])
+    error_message = "Cada aviso del presupuesto de 2 USD llega a todos los destinatarios."
+  }
+}
+
 run "proveedores_registrados" {
   command = plan
 
