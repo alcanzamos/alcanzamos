@@ -19,11 +19,15 @@ import (
 
 	"github.com/alcanzamos/alcanzamos/api/src/app"
 	"github.com/alcanzamos/alcanzamos/api/src/argon2id"
+	"github.com/alcanzamos/alcanzamos/api/src/autorizacion"
 	"github.com/alcanzamos/alcanzamos/api/src/config"
 	"github.com/alcanzamos/alcanzamos/api/src/servidor"
 	"github.com/alcanzamos/alcanzamos/api/test/pgtest"
 	"github.com/alcanzamos/alcanzamos/api/test/servidor/csrftest"
 )
+
+// versionTexto es la versión vigente del texto: las cuentas autorizadas de estas pruebas la aceptaron (bug 308).
+var versionTexto = autorizacion.VersionActual.Texto()
 
 // servir arma el API de verdad sobre la base y devuelve cómo llamarlo y el registro, que se llena solo.
 func servir(t *testing.T, pool *pgxpool.Pool) (llamar func(metodo, ruta, cuerpo string, cookies ...*http.Cookie) *httptest.ResponseRecorder, registro *bytes.Buffer) {
@@ -83,9 +87,9 @@ func TestBorrarLaCuentaDePuntaAPunta(t *testing.T) {
 	for _, q := range []string{
 		`INSERT INTO perfil_adulto (persona_id, correo, correo_verificado) VALUES ($1::uuid, '` + correo + `', true)`,
 		`INSERT INTO credencial (persona_id, hash) VALUES ($1::uuid, '` + hash + `')`,
-		`INSERT INTO autorizacion (titular_id, otorgante_id, finalidad, version_del_texto, otorgada_en) VALUES ($1::uuid, $1::uuid, 'cuenta_y_acceso', '1.0', now() - interval '1 day')`,
-		`INSERT INTO autorizacion (titular_id, otorgante_id, finalidad, version_del_texto, otorgada_en) VALUES ($1::uuid, $1::uuid, 'funciones_financieras', '1.0', now() - interval '1 day')`,
-		`INSERT INTO autorizacion (titular_id, otorgante_id, finalidad, version_del_texto, otorgada_en) VALUES ($1::uuid, $1::uuid, 'transmision_a_encargados', '1.1', now() - interval '1 day')`,
+		`INSERT INTO autorizacion (titular_id, otorgante_id, finalidad, version_del_texto, otorgada_en) VALUES ($1::uuid, $1::uuid, 'cuenta_y_acceso', '` + versionTexto + `', now() - interval '1 day')`,
+		`INSERT INTO autorizacion (titular_id, otorgante_id, finalidad, version_del_texto, otorgada_en) VALUES ($1::uuid, $1::uuid, 'funciones_financieras', '` + versionTexto + `', now() - interval '1 day')`,
+		`INSERT INTO autorizacion (titular_id, otorgante_id, finalidad, version_del_texto, otorgada_en) VALUES ($1::uuid, $1::uuid, 'transmision_a_encargados', '` + versionTexto + `', now() - interval '1 day')`,
 		`INSERT INTO movimiento (persona_id, tipo, monto, fecha, medio, descripcion, categoria_id) VALUES ($1::uuid, 'gasto', 1000, current_date, 'efectivo', 'mercado', 1)`,
 	} {
 		if _, err := tx.Exec(ctx, q, persona); err != nil {
@@ -227,7 +231,7 @@ func TestBorrarConHogarYMenoresDePuntaAPunta(t *testing.T) {
 		sql(`INSERT INTO tutoria (tutor_id, menor_id, declaro_escuchar_al_menor, declaro_representacion, autorizacion_expresa, version_declaracion, inicio) VALUES ($1::uuid, $2::uuid, true, true, true, '1.0', current_date)`, par[0], par[1])
 	}
 	for _, f := range []string{"cuenta_y_acceso", "funciones_financieras", "transmision_a_encargados"} {
-		sql(`INSERT INTO autorizacion (titular_id, otorgante_id, finalidad, version_del_texto, otorgada_en) VALUES ($1::uuid, $1::uuid, $2, '1.0', now() - interval '1 day')`, laura, f)
+		sql(`INSERT INTO autorizacion (titular_id, otorgante_id, finalidad, version_del_texto, otorgada_en) VALUES ($1::uuid, $1::uuid, $2, $3, now() - interval '1 day')`, laura, f, versionTexto)
 	}
 	sql(`INSERT INTO movimiento (persona_id, hogar_id, tipo, monto, fecha, medio, descripcion, categoria_id) VALUES ($1::uuid, $2::uuid, 'gasto', 80000, current_date, 'efectivo', 'arriendo de enero', 4)`, laura, hogar)
 	sql(`INSERT INTO movimiento (persona_id, hogar_id, tipo, monto, fecha, medio, descripcion, categoria_id) VALUES ($1::uuid, $2::uuid, 'gasto', 5, current_date, 'efectivo', 'secreto de Camilo', 4)`, camilo, hogar)

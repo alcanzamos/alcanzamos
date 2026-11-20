@@ -5,7 +5,7 @@
 # cambiarla también allí.
 # Los parámetros no se pasan desde quien usa la plantilla: su valor por defecto es la versión fijada.
 parameters:
-  # Cambiar la versión obliga a cambiar también la suma, plantillas/comun.yml, api/Dockerfile y el campo engines de
+  # Cambiar la versión obliga a cambiar también la suma, plantillas/comun.yml, web/Dockerfile y el campo engines de
   # web/package.json, movil/package.json y commitlint/package.json.
   - name: nodeVersion
     type: string
@@ -14,7 +14,7 @@ parameters:
   - name: nodeSha256
     type: string
     default: 6c172a9ab6718f7b801fb5a7bd486af2ee5e32758086a04b84fcce2aa77095e6
-  # Cambiar la versión obliga a cambiar también la suma, plantillas/comun.yml, api/Dockerfile y el campo engines de
+  # Cambiar la versión obliga a cambiar también la suma, plantillas/comun.yml, web/Dockerfile y el campo engines de
   # web/package.json, movil/package.json y commitlint/package.json.
   - name: npmVersion
     type: string

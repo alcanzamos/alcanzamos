@@ -78,8 +78,9 @@ func NuevoEnrutador(s Sesiones, eventos *seguridad.Registro, log *slog.Logger) *
 	return e
 }
 
-// ConURLPublica dice cuál es el `Origin` de la web (`URL_PUBLICA`) para la defensa contra CSRF de todo pedido que cambia
-// algo (E17 3.15, D-173, D-194). Sin ella, ningún `Origin` vale. Se llama antes de servir.
+// ConURLPublica dice cuál es el `Origin` de la web (`URL_PUBLICA`): es el único origen que recibe CORS (cors.go) y el que
+// la defensa contra CSRF acepta en todo pedido que cambia algo (E17 3.15, D-173, D-194), también como `same-site`. Sin ella,
+// ningún `Origin` vale. Se llama antes de servir.
 func (e *Enrutador) ConURLPublica(urlPublica string) *Enrutador {
 	e.origen = origenDe(urlPublica)
 	return e
@@ -131,12 +132,12 @@ func (e *Enrutador) Registrar(n seguridad.NivelDeAcceso, patron string, h http.H
 // por ruta que ninguna quedó sin guard (paquete accesotest).
 func (e *Enrutador) Rutas() []Ruta { return append([]Ruta(nil), e.rutas...) }
 
-// Construir devuelve el manejador de /api/ o el error de los registros inválidos.
+// Construir devuelve el manejador de /api/ (con CORS para el origen de la web, ver cors.go) o el error de los registros inválidos.
 func (e *Enrutador) Construir() (http.Handler, error) {
 	if len(e.errores) > 0 {
 		return nil, fmt.Errorf("rutas de /api/ inválidas: %w", errors.Join(e.errores...))
 	}
-	return e.mux, nil
+	return e.conCORS(e.mux), nil
 }
 
 // proteger aplica el guard del nivel. Negar es lo que pasa ante cualquier duda: un error al resolver la sesión

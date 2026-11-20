@@ -17,6 +17,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/alcanzamos/alcanzamos/api/src/autorizacion"
 	"github.com/alcanzamos/alcanzamos/api/src/pg"
 	"github.com/alcanzamos/alcanzamos/api/src/seguridad"
 	"github.com/alcanzamos/alcanzamos/api/src/servidor"
@@ -86,7 +87,7 @@ func otorgarEn(t *testing.T, pool *pgxpool.Pool, titular, otorgante, finalidad s
 	t.Helper()
 	if _, err := pool.Exec(context.Background(),
 		`INSERT INTO autorizacion (titular_id, otorgante_id, finalidad, version_del_texto, otorgada_en)
-		 VALUES ($1::uuid, $2::uuid, $3, '1.0 del 2026-10-30', $4)`, titular, otorgante, finalidad, en); err != nil {
+		 VALUES ($1::uuid, $2::uuid, $3, $5, $4)`, titular, otorgante, finalidad, en, autorizacion.VersionActual.Texto()); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -266,6 +267,57 @@ func TestSujetoSegunElEstadoDeLaCuenta(t *testing.T) {
 		t.Fatal(err)
 	}
 	paso("una necesaria retirada: surte efecto al instante", true, false)
+}
+
+// Bug 308 (D-210): una necesaria aceptada con una versión anterior a la vigente no autoriza, una reemplazada tampoco, y
+// una opcional de una versión anterior no pesa. Es la misma regla de GET /autorizaciones.
+func TestSujetoNoCuentaLaNecesariaDeUnaVersionAnterior(t *testing.T) {
+	e := nuevoEntorno(t)
+	ctx := context.Background()
+	persona := e.sembrar(t, "laura@ejemplo.test")
+	verificar(t, e.pool, persona)
+	_, h := seguridad.NuevoTokenOpaco()
+	if err := e.sesiones.Crear(ctx, persona, h, ahora); err != nil {
+		t.Fatal(err)
+	}
+	autorizada := func(descripcion string, quiere bool) {
+		t.Helper()
+		s, err := e.sesiones.Sujeto(ctx, h, ahora.Add(time.Second))
+		if err != nil || s.Autorizada != quiere {
+			t.Fatalf("%s: autorizada=%v (%v); se esperaba %v", descripcion, s.Autorizada, err, quiere)
+		}
+	}
+	otorgadas := 0 // (titular, finalidad, otorgada_en) es único
+	insertar := func(finalidad, version string, reemplazada bool) {
+		t.Helper()
+		otorgadas++
+		var reemplazo any
+		if reemplazada {
+			reemplazo = ahora
+		}
+		if _, err := e.pool.Exec(ctx,
+			`INSERT INTO autorizacion (titular_id, otorgante_id, finalidad, version_del_texto, otorgada_en, reemplazada_en) VALUES ($1::uuid, $1::uuid, $2, $3, $4, $5)`,
+			persona, finalidad, version, ahora.Add(-time.Hour+time.Duration(otorgadas)*time.Second), reemplazo); err != nil {
+			t.Fatal(err)
+		}
+	}
+	actual := autorizacion.VersionActual.Texto()
+	insertar("cuenta_y_acceso", "1.1 del 2026-11-12", false)
+	insertar("funciones_financieras", actual, false)
+	insertar("transmision_a_encargados", actual, false)
+	autorizada("una necesaria de la versión anterior no cuenta", false)
+	insertar("avisos", "1.0 del 2026-10-30", false)
+	autorizada("una opcional de la versión anterior no suma", false)
+	if _, err := e.pool.Exec(ctx, `UPDATE autorizacion SET reemplazada_en = $1 WHERE titular_id = $2::uuid AND finalidad = 'cuenta_y_acceso'`, ahora, persona); err != nil {
+		t.Fatal(err)
+	}
+	autorizada("la reemplazada sin la nueva sigue sin contar", false)
+	insertar("cuenta_y_acceso", actual, false)
+	autorizada("con la nueva vigente queda autorizada, y la reemplazada no estorba", true)
+	if _, err := e.pool.Exec(ctx, `UPDATE autorizacion SET reemplazada_en = $1 WHERE titular_id = $2::uuid AND finalidad = 'transmision_a_encargados'`, ahora, persona); err != nil {
+		t.Fatal(err)
+	}
+	autorizada("una de la versión vigente que está reemplazada no cuenta", false)
 }
 
 func TestSujetoRespetaQuienOtorgaYLaFinalidadDeLaEtapa(t *testing.T) {

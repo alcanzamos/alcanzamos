@@ -3,8 +3,9 @@
 # viven una sola vez. Qué hace cada paso y cuándo corre el pipeline: en reglas.yml y en el README de esta carpeta.
 jobs:
   - job: reglas
-    pool:
-      vmImage: ubuntu-24.04
+    # Espacio de trabajo limpio al empezar (control.yml explica por qué). Sin `pool`: lo fija el pipeline que usa esta plantilla.
+    workspace:
+      clean: all
     steps:
       - checkout: self
         fetchDepth: 1

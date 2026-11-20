@@ -9,12 +9,12 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/migraciones"
 )
 
-func TestEmbebeLasSeisMigraciones(t *testing.T) {
+func TestEmbebeLasSieteMigraciones(t *testing.T) {
 	nombres, err := fs.Glob(migraciones.SQL, "*.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
-	esperado := []string{"0001_esquema_inicial.sql", "0002_catalogo.sql", "0003_ingreso_anterior.sql", "0004_presupuesto_en_cero.sql", "0005_transmision_a_encargados.sql", "0006_aviso_de_purga.sql"}
+	esperado := []string{"0001_esquema_inicial.sql", "0002_catalogo.sql", "0003_ingreso_anterior.sql", "0004_presupuesto_en_cero.sql", "0005_transmision_a_encargados.sql", "0006_aviso_de_purga.sql", "0007_autorizacion_reemplazada.sql"}
 	if len(nombres) != len(esperado) {
 		t.Fatalf("migraciones embebidas: %v", nombres)
 	}
@@ -34,6 +34,7 @@ func TestLasMigracionesSonIgualesALasDeE13(t *testing.T) {
 		"0004_presupuesto_en_cero.sql":      "f6dc137db7f1e67d9bcbb1f535d571b9da76b1a1ec8bb0ee4b55b14cf6ca4a24",
 		"0005_transmision_a_encargados.sql": "26428c5541ae9d2de12400101280c7e9acb271b73e3529387f1b2682befa3259",
 		"0006_aviso_de_purga.sql":           "7b4b52251afd2092a86b5eb47af459665db5d00103dc7bae9ba697d62b7094f0",
+		"0007_autorizacion_reemplazada.sql": "18251cdf29dc42f7336517998e076666a2ee6d0b3f2072c7083adb2d6bdfde78",
 	}
 	for nombre, esperado := range sha {
 		contenido, err := fs.ReadFile(migraciones.SQL, nombre)

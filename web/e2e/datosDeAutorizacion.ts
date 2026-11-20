@@ -1,12 +1,12 @@
-// El catálogo de PN-64 que el API simulado entrega (api/README.md, «Autorización»): la versión 1.1 del 12 de noviembre de
-// 2026 (SC-E21-25) y el modo. Lo usan las pruebas de PN-64, PN-68, el acceso y las pantallas.
+// El catálogo de PN-64 que el API simulado entrega (api/README.md, «Autorización»): la versión 1.2 del 17 de noviembre de
+// 2026 (SC-E21-26) y el modo. Lo usan las pruebas de PN-64, PN-68, el acceso y las pantallas.
 const finalidad = (codigo: string, tipo: "necesaria" | "accesoria") => ({
   codigo,
   tipo,
   otorgada: false,
 });
 
-const version = { numero: "1.1", fecha: "2026-11-12" };
+const version = { numero: "1.2", fecha: "2026-11-17" };
 
 /** La persona nueva: todo lo que se ofrece. */
 export const catalogoCompleto = {
@@ -31,5 +31,5 @@ export const catalogoLimitado = {
 export const NECESARIAS =
   "Autorizo el uso de mis datos para estas finalidades necesarias.";
 export const TRANSMISION =
-  "Acepto que mis datos se envíen a estos servicios en México, Francia y Estados Unidos para guardarlos y procesarlos como se explica arriba.";
+  "Acepto que mis datos se envíen a estos servicios en Estados Unidos para guardarlos y procesarlos como se explica arriba.";
 export const AVISOS = "Autorizo los avisos con la app cerrada.";

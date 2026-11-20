@@ -5,6 +5,6 @@
  * política nueva cambia las dos a la vez, y `tests/politica.test.ts` lee el archivo de Go y falla si no coinciden.
  */
 export const VERSION_DE_LA_POLITICA = {
-  numero: '1.1',
-  fecha: '2026-11-12',
+  numero: '1.2',
+  fecha: '2026-11-17',
 } as const;

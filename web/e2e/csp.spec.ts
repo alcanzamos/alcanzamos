@@ -1,8 +1,9 @@
 import { expect, test } from "@playwright/test";
 
-// Debe ser idéntica a politicaCSP en api/src/servidor/servidor.go y a la de vite.config.ts.
-const politicaCSP =
-  "default-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
+// Debe ser idéntica a la de ca-web (web/servidor/internal/servidor/config.go, politicaCSP) y a la de vite.config.ts:
+// con el origen del API en connect-src. `vite preview` usa su propio origen como el del API (ver vite.config.ts).
+const politicaCSP = (origenDelApi: string) =>
+  `default-src 'self'; connect-src 'self' ${origenDelApi}; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'`;
 
 declare global {
   interface Window {
@@ -28,7 +29,10 @@ test("la página llega con la CSP exacta y el navegador no reporta violaciones",
   });
 
   const respuesta = await page.goto("/entrar");
-  expect(respuesta?.headers()["content-security-policy"]).toBe(politicaCSP);
+  const origen = new URL(page.url()).origin;
+  expect(respuesta?.headers()["content-security-policy"]).toBe(
+    politicaCSP(origen),
+  );
 
   await page.evaluate(() => document.fonts.ready);
   await expect(

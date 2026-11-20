@@ -30,9 +30,9 @@ const almacen = jest.requireMock('expo-secure-store') as ReturnType<typeof crear
 const reinicio = (nombre: string, params?: object) =>
   CommonActions.reset({ index: 0, routes: [{ name: nombre, params }] });
 
-// El catálogo del API desde la US-67: versión 1.1, el `modo` y la aceptación de la transmisión (api/README.md, «Autorización»).
+// El catálogo del API desde la US-67: versión 1.2, el `modo` y la aceptación de la transmisión (api/README.md, «Autorización»).
 const catalogo = (cambios: object = {}) => ({
-  version: { numero: '1.1', fecha: '2026-11-12' },
+  version: { numero: '1.2', fecha: '2026-11-17' },
   modo: 'completo',
   finalidades: [
     { codigo: 'cuenta_y_acceso', tipo: 'necesaria', otorgada: false },
@@ -55,7 +55,7 @@ const NECESARIAS = 'Autorizo el uso de mis datos para estas finalidades necesari
 const AVISOS = 'Autorizo los avisos con la app cerrada.';
 const HORAS = 'Autorizo mostrar el costo de un gasto en horas de vida.';
 const TRANSMISION =
-  'Acepto que mis datos se envíen a estos servicios en México, Francia y Estados Unidos para guardarlos y procesarlos como se explica arriba.';
+  'Acepto que mis datos se envíen a estos servicios en Estados Unidos para guardarlos y procesarlos como se explica arriba.';
 const NOTA_COMPLETO = 'Sin esta aceptación no podemos darte la cuenta, porque la app guarda tus datos en esos servicios.';
 const NOTA_FALTA_UNA_ACEPTACION =
   'Sin esta aceptación no puedes seguir usando la app, porque guarda tus datos en esos servicios.';
@@ -146,7 +146,7 @@ describe('PN-64 · Autorización de datos (E14-PCP 4.7)', () => {
       await mostrar();
       expect(
         screen.getByText(
-          'Para que la app funcione, tus datos se guardan y se procesan en la nube de otras empresas, que los tratan por cuenta de Alcanzamos y solo para lo que les pedimos: Microsoft Azure, en México, guarda tu cuenta y lo que registras; Azure Communication Services, en Francia, envía los correos de la app; y Zoho Mail, en Estados Unidos, recibe lo que escribes a privacidad@alcanzamos.co. Los detalles están en la política.',
+          'Para que la app funcione, tus datos se guardan y se procesan en la nube de otras empresas, que los tratan por cuenta de Alcanzamos y solo para lo que les pedimos: Microsoft Azure, en Estados Unidos, guarda tu cuenta y lo que registras; y Zoho, también en Estados Unidos, envía los correos de la app y recibe lo que escribes a privacidad@alcanzamos.co. Los detalles están en la política.',
         ),
       ).toBeOnTheScreen();
       expect(screen.getByRole('checkbox', { name: TRANSMISION })).toBeOnTheScreen();
@@ -173,7 +173,7 @@ describe('PN-64 · Autorización de datos (E14-PCP 4.7)', () => {
 
     it('la versión sale del API y la fecha va en palabras (D-090)', async () => {
       await mostrar();
-      expect(screen.getByText(/Texto versión/)).toHaveTextContent('Texto versión 1.1 del 12 de noviembre de 2026.', {
+      expect(screen.getByText(/Texto versión/)).toHaveTextContent('Texto versión 1.2 del 17 de noviembre de 2026.', {
         exact: true,
       });
     });
@@ -334,7 +334,7 @@ describe('PN-64 · Autorización de datos (E14-PCP 4.7)', () => {
       expect((pedidos[1]?.init.headers as Record<string, string>).Authorization).toBe('Bearer tk-limitada');
       expect(cuerpoDe(pedidos[1])).toEqual({
         finalidades: ['cuenta_y_acceso', 'funciones_financieras', 'transmision_a_encargados'],
-        version: '1.1',
+        version: '1.2',
       });
       expect(almacen.guardado.get('sesion')).toBe('tk-limitada');
     });
@@ -392,13 +392,13 @@ describe('PN-64 · Autorización de datos (E14-PCP 4.7)', () => {
     it('409 version_desactualizada muestra el error de envío y vuelve a pedir el catálogo, conservando lo marcado', async () => {
       const { pedidos } = await mostrar(
         respuestaJson(409, { error: 'version_desactualizada' }),
-        respuestaJson(200, catalogo({ version: { numero: '1.2', fecha: '2026-11-15' } })),
+        respuestaJson(200, catalogo({ version: { numero: '1.3', fecha: '2026-11-20' } })),
       );
       await marcarLasNecesarias();
       await fireEvent.press(screen.getByLabelText(AVISOS));
       await fireEvent.press(boton('Autorizar y continuar'));
       expect(await screen.findByText('No pudimos guardar tu autorización.')).toBeOnTheScreen();
-      expect(await screen.findByText(/Texto versión/)).toHaveTextContent('Texto versión 1.2 del 15 de noviembre de 2026.', {
+      expect(await screen.findByText(/Texto versión/)).toHaveTextContent('Texto versión 1.3 del 20 de noviembre de 2026.', {
         exact: true,
       });
       expect(pedidos.map((p) => p.init.method)).toEqual(['GET', 'POST', 'GET']);
@@ -511,8 +511,8 @@ describe('PN-64 · Autorización de datos (E14-PCP 4.7)', () => {
       ] })],
       ['un modo que no conoce', catalogo({ modo: 'otro' })],
       ['sin modo', catalogo({ modo: undefined })],
-      ['una fecha que no se puede escribir', catalogo({ version: { numero: '1.1', fecha: 'pronto' } })],
-      ['sin número de versión', catalogo({ version: { fecha: '2026-11-12' } })],
+      ['una fecha que no se puede escribir', catalogo({ version: { numero: '1.2', fecha: 'pronto' } })],
+      ['sin número de versión', catalogo({ version: { fecha: '2026-11-17' } })],
       ['sin versión', catalogo({ version: undefined })],
       ['sin lista de finalidades', catalogo({ finalidades: 'x' })],
     ])('%s es un error de carga, no una omisión en silencio', async (_caso, cuerpo) => {
@@ -566,7 +566,7 @@ describe('PN-64 · Autorización de datos (E14-PCP 4.7)', () => {
       expect(casillas[0]).toHaveProp('accessibilityState', { checked: false, disabled: false });
       expect(screen.getByText(NOTA_FALTA_UNA_ACEPTACION)).toBeOnTheScreen();
       expect(screen.queryByText(NOTA_COMPLETO)).not.toBeOnTheScreen();
-      expect(screen.getByText(/Texto versión/)).toHaveTextContent('Texto versión 1.1 del 12 de noviembre de 2026.', {
+      expect(screen.getByText(/Texto versión/)).toHaveTextContent('Texto versión 1.2 del 17 de noviembre de 2026.', {
         exact: true,
       });
       expect(boton('Leer la política completa')).toBeOnTheScreen();
@@ -612,23 +612,97 @@ describe('PN-64 · Autorización de datos (E14-PCP 4.7)', () => {
         'GET http://api.prueba:18090/api/v1/autorizaciones',
         'POST http://api.prueba:18090/api/v1/autorizaciones',
       ]);
-      expect(cuerpoDe(pedidos[1])).toEqual({ finalidades: ['transmision_a_encargados'], version: '1.1' });
+      expect(cuerpoDe(pedidos[1])).toEqual({ finalidades: ['transmision_a_encargados'], version: '1.2' });
       expect(almacen.guardado.get('sesion')).toBe('tk-limitada');
     });
 
     it('409 version_desactualizada: vuelve a pedir el catálogo y conserva la casilla', async () => {
       const { pedidos } = await mostrarLimitada(
         respuestaJson(409, { error: 'version_desactualizada' }),
-        respuestaJson(200, catalogoLimitado({ version: { numero: '1.2', fecha: '2026-11-15' } })),
+        respuestaJson(200, catalogoLimitado({ version: { numero: '1.3', fecha: '2026-11-20' } })),
       );
       await fireEvent.press(screen.getByLabelText(TRANSMISION));
       await fireEvent.press(boton('Autorizar y continuar'));
       expect(await screen.findByText('No pudimos guardar tu autorización.')).toBeOnTheScreen();
-      expect(await screen.findByText(/Texto versión/)).toHaveTextContent('Texto versión 1.2 del 15 de noviembre de 2026.', {
+      expect(await screen.findByText(/Texto versión/)).toHaveTextContent('Texto versión 1.3 del 20 de noviembre de 2026.', {
         exact: true,
       });
       expect(pedidos.map((p) => p.init.method)).toEqual(['GET', 'POST', 'GET']);
       expect(screen.getByRole('checkbox', { name: TRANSMISION, checked: true })).toBeOnTheScreen();
+    });
+  });
+
+  // Bug 308 (D-210): cuando el texto cambia de versión, el API devuelve `falta_una_aceptacion` con las necesarias que la
+  // persona aceptó con la versión anterior (sin las opcionales). La hoja es la de siempre, con los textos de la 1.2 de E14.
+  describe('con una versión nueva del texto (bug 308)', () => {
+    const catalogoDeLaVersionNueva = () =>
+      catalogo({
+        modo: 'falta_una_aceptacion',
+        finalidades: [
+          { codigo: 'cuenta_y_acceso', tipo: 'necesaria', otorgada: false },
+          { codigo: 'funciones_financieras', tipo: 'necesaria', otorgada: false },
+          { codigo: 'transmision_a_encargados', tipo: 'necesaria', otorgada: false },
+        ],
+      });
+    async function mostrarConLaVersionNueva(...respuestas: (Response | Error)[]) {
+      const falso = instalarFetchFalso(respuestaJson(200, catalogoDeLaVersionNueva()), ...respuestas);
+      const navegacion = navegacionFalsa();
+      await render(<AutorizacionDeDatos {...propiedades('AutorizacionDeDatos', navegacion)} />);
+      await screen.findByRole('checkbox', { name: NECESARIAS });
+      return { ...falso, navegacion };
+    }
+
+    it('muestra la hoja con las tres necesarias, los textos de la 1.2, la versión del API y sin lo opcional', async () => {
+      await mostrarConLaVersionNueva();
+      expect(screen.getAllByRole('header').map((h) => h.props.children)).toEqual([
+        'Lo necesario para usar la app',
+        'Dónde guardamos tus datos',
+      ]);
+      const casillas = screen.getAllByRole('checkbox');
+      expect(casillas.map((c) => c.props.accessibilityLabel)).toEqual([NECESARIAS, TRANSMISION]);
+      for (const c of casillas) expect(c).toHaveProp('accessibilityState', { checked: false, disabled: false });
+      expect(screen.getByText('Cuenta y acceso')).toBeOnTheScreen();
+      expect(screen.getByText('Funciones financieras')).toBeOnTheScreen();
+      expect(screen.getByText(NOTA_FALTA_UNA_ACEPTACION)).toBeOnTheScreen();
+      expect(screen.getByText(/Texto versión/)).toHaveTextContent('Texto versión 1.2 del 17 de noviembre de 2026.', {
+        exact: true,
+      });
+      for (const texto of [
+        'Lo que puedes elegir',
+        'Avisos con la app cerrada',
+        'Horas de vida',
+        FRASE_DE_AVISOS,
+        'Necesitamos tu permiso para usar algunos datos. Lee con calma y decide.',
+        NOTA_COMPLETO,
+        'Sin esta autorización no podemos darte la cuenta. Si no autorizas, borramos al momento el correo que nos diste.',
+      ])
+        expect(screen.queryByText(texto)).not.toBeOnTheScreen();
+      expect(screen.queryByRole('checkbox', { name: AVISOS })).not.toBeOnTheScreen();
+      expect(boton('Autorizar y continuar')).toBeOnTheScreen();
+    });
+
+    it('«Autorizar y continuar» sin marcar da los dos errores de E14 y no guarda nada', async () => {
+      const { pedidos, navegacion } = await mostrarConLaVersionNueva();
+      await fireEvent.press(boton('Autorizar y continuar'));
+      expect(await screen.findByText(ERROR_NECESARIAS)).toBeOnTheScreen();
+      expect(screen.getByText(ERROR_TRANSMISION)).toBeOnTheScreen();
+      expect(pedidos).toHaveLength(1);
+      expect(navegacion.dispatch).not.toHaveBeenCalled();
+    });
+
+    it('al aceptar manda las tres necesarias, ninguna opcional, con la versión 1.2, y llega a Inicio (PN-71)', async () => {
+      const { pedidos, navegacion } = await mostrarConLaVersionNueva(respuestaJson(200, { estado: 'autorizada' }));
+      await marcarLasNecesarias();
+      await fireEvent.press(boton('Autorizar y continuar'));
+      await waitFor(() => expect(navegacion.dispatch).toHaveBeenCalledWith(reinicio('SeguridadDeLaCuenta')));
+      expect(pedidos.map((p) => `${p.init.method} ${p.url}`)).toEqual([
+        'GET http://api.prueba:18090/api/v1/autorizaciones',
+        'POST http://api.prueba:18090/api/v1/autorizaciones',
+      ]);
+      expect(cuerpoDe(pedidos[1])).toEqual({
+        finalidades: ['cuenta_y_acceso', 'funciones_financieras', 'transmision_a_encargados'],
+        version: '1.2',
+      });
     });
   });
 

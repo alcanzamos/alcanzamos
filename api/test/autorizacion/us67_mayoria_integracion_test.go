@@ -22,7 +22,7 @@ func TestALos18LaTransmisionPropiaReemplazaLaDelTutor(t *testing.T) {
 	}
 
 	r := c.llamar("POST", rutaAutorizar,
-		`{"finalidades":["transmision_a_encargados"],"version":"1.1"}`)
+		`{"finalidades":["transmision_a_encargados"],"version":"1.2"}`)
 	if r.Codigo != 200 || r.Cuerpo != `{"estado":"autorizada"}` {
 		t.Fatalf("autorizar: %d %s", r.Codigo, r.Cuerpo)
 	}

@@ -158,7 +158,7 @@ No bloquean la US-44.
 3. **Comprobar con `list-skus`** que PostgreSQL 18 y la zona 1 existen en México Central, en cada suscripción: las cuotas y los servicios de la región se comparan al desplegar UAT (D-200 (8)). En la de UAT ya se comprobó la región, PostgreSQL 18 y B1ms (ver «Región en Azure for Students»); falta la zona. La zona de PostgreSQL y el tenant de Entra ID de la suscripción de UAT se comprueban al desplegar (S11; US-79 T5 y T6).
 4. **Costos en ADR-006:** Communication Services, la regla de alerta y la retención de 90 días.
 5. **Probar que el aviso de la alerta llega** a `andres@alcanzamos.co` (O-5).
-6. **Variables de la base (D-123).** La configuración pasa `PGHOST`, `PGDATABASE`, `PGUSER` y `PGSSLMODE`, pero el API lee `BASE_DE_DATOS_URL`. Se resuelve en I05, con la conexión por Entra ID.
+6. **Variables de la base (D-123, D-204).** La configuración pasa `PGHOST`, `PGDATABASE`, `PGUSER`, `PGSSLMODE` (`verify-full`) y `AZURE_CLIENT_ID`. Sin `BASE_DE_DATOS_URL`, el API se conecta con esas variables y un token de Entra ID de la identidad administrada (`api/README.md`, «Dos formas de conectar»). La conexión real solo se prueba dentro de Azure, después de la sesión de arquitectura de la infraestructura.
 
 ## Registro de eventos de seguridad
 

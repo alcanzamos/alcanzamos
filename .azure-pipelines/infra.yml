@@ -17,6 +17,11 @@ pr:
       - .azure-pipelines/infra.yml
       - .azure-pipelines/plantillas/infra.yml
 
+# Agente hospedado: las plantillas no fijan pool (D-213; el control único y la revisión diaria corren en el agente propio
+# `alcanzamos-local`, este pipeline por carpeta sigue deshabilitado y no cambia).
+pool:
+  vmImage: ubuntu-24.04
+
 # Los pasos viven en plantillas/infra.yml.
 jobs:
   - template: plantillas/infra.yml

@@ -26,8 +26,10 @@ var ahoraDePrueba = time.Date(2026, 10, 30, 15, 0, 0, 0, time.UTC)
 
 // repoFalso guarda lo que el servicio le pide y devuelve los errores que se le fijen.
 type repoFalso struct {
-	mu          sync.Mutex
-	vigentes    []string
+	mu       sync.Mutex
+	vigentes []string
+	// versiones: la versión guardada de cada vigente; sin ella, la vigente del texto.
+	versiones   map[string]string
 	otorgadas   []string
 	version     string
 	otorgadaEn  time.Time
@@ -46,8 +48,16 @@ type repoFalso struct {
 	errRetirar      error
 }
 
-func (r *repoFalso) Vigentes(context.Context, string) ([]string, error) {
-	return r.vigentes, r.errVigentes
+func (r *repoFalso) Vigentes(context.Context, string) ([]autorizacion.Aceptada, error) {
+	var lista []autorizacion.Aceptada
+	for _, c := range r.vigentes {
+		v, ok := r.versiones[c]
+		if !ok {
+			v = autorizacion.VersionActual.Texto()
+		}
+		lista = append(lista, autorizacion.Aceptada{Codigo: c, Version: v})
+	}
+	return lista, r.errVigentes
 }
 
 func (r *repoFalso) ConHistorial(context.Context, string) (bool, error) {
@@ -148,7 +158,7 @@ const listaSinOtorgar = `{"finalidades":[{"codigo":"cuenta_y_acceso","tipo":"nec
 	`{"codigo":"funciones_financieras","tipo":"necesaria","otorgada":false},` +
 	`{"codigo":"transmision_a_encargados","tipo":"necesaria","otorgada":false},` +
 	`{"codigo":"avisos","tipo":"accesoria","otorgada":false},{"codigo":"horas_de_vida","tipo":"accesoria","otorgada":false}],` +
-	`"modo":"completo","version":{"numero":"1.1","fecha":"2026-11-12"}}`
+	`"modo":"completo","version":{"numero":"1.2","fecha":"2026-11-17"}}`
 
 func TestListarDaLasFinalidadesDeLaPersonaAdultaYLaVersion(t *testing.T) {
 	e := nuevoEntorno(t)
@@ -215,30 +225,32 @@ func TestOtorgar(t *testing.T) {
 		respuesta string
 		guardadas []string // nil: no debe llegar al repositorio
 	}{
-		{"las tres necesarias", `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados"],"version":"1.1"}`, 200, `{"estado":"autorizada"}`,
+		{"las tres necesarias", `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados"],"version":"1.2"}`, 200, `{"estado":"autorizada"}`,
 			[]string{"cuenta_y_acceso", "funciones_financieras", "transmision_a_encargados"}},
-		{"con las dos accesorias", `{"finalidades":["horas_de_vida","avisos","transmision_a_encargados","funciones_financieras","cuenta_y_acceso"],"version":"1.1"}`, 200, `{"estado":"autorizada"}`,
+		{"con las dos accesorias", `{"finalidades":["horas_de_vida","avisos","transmision_a_encargados","funciones_financieras","cuenta_y_acceso"],"version":"1.2"}`, 200, `{"estado":"autorizada"}`,
 			[]string{"avisos", "cuenta_y_acceso", "funciones_financieras", "horas_de_vida", "transmision_a_encargados"}},
-		{"repetidas cuentan una vez", `{"finalidades":["cuenta_y_acceso","cuenta_y_acceso","funciones_financieras","transmision_a_encargados"],"version":"1.1"}`, 200, `{"estado":"autorizada"}`,
+		{"repetidas cuentan una vez", `{"finalidades":["cuenta_y_acceso","cuenta_y_acceso","funciones_financieras","transmision_a_encargados"],"version":"1.2"}`, 200, `{"estado":"autorizada"}`,
 			[]string{"cuenta_y_acceso", "funciones_financieras", "transmision_a_encargados"}},
 		// SC-E21-25 criterio 1: sin la aceptación de la transmisión no se guarda ninguna autorización.
-		{"sin la transmisión a los encargados", `{"finalidades":["cuenta_y_acceso","funciones_financieras"],"version":"1.1"}`, 422, `{"error":"faltan_necesarias"}`, nil},
-		{"sin la transmisión, con las accesorias", `{"finalidades":["cuenta_y_acceso","funciones_financieras","avisos","horas_de_vida"],"version":"1.1"}`, 422, `{"error":"faltan_necesarias"}`, nil},
-		{"solo la transmisión a los encargados", `{"finalidades":["transmision_a_encargados"],"version":"1.1"}`, 422, `{"error":"faltan_necesarias"}`, nil},
-		{"solo una necesaria", `{"finalidades":["cuenta_y_acceso"],"version":"1.1"}`, 422, `{"error":"faltan_necesarias"}`, nil},
-		{"solo accesorias", `{"finalidades":["avisos","horas_de_vida"],"version":"1.1"}`, 422, `{"error":"faltan_necesarias"}`, nil},
-		{"lista vacía", `{"finalidades":[],"version":"1.1"}`, 422, `{"error":"faltan_necesarias"}`, nil},
-		{"sin lista", `{"version":"1.1"}`, 422, `{"error":"faltan_necesarias"}`, nil},
-		{"código desconocido", `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados","no_existe"],"version":"1.1"}`, 422, `{"error":"finalidad_invalida"}`, nil},
-		{"finalidad del menor", `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados","cuenta_del_menor"],"version":"1.1"}`, 422, `{"error":"finalidad_invalida"}`, nil},
-		{"correo del menor", `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados","correo_del_menor"],"version":"1.1"}`, 422, `{"error":"finalidad_invalida"}`, nil},
-		{"transferencia inactiva", `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados","transferencia"],"version":"1.1"}`, 422, `{"error":"finalidad_invalida"}`, nil},
+		{"sin la transmisión a los encargados", `{"finalidades":["cuenta_y_acceso","funciones_financieras"],"version":"1.2"}`, 422, `{"error":"faltan_necesarias"}`, nil},
+		{"sin la transmisión, con las accesorias", `{"finalidades":["cuenta_y_acceso","funciones_financieras","avisos","horas_de_vida"],"version":"1.2"}`, 422, `{"error":"faltan_necesarias"}`, nil},
+		{"solo la transmisión a los encargados", `{"finalidades":["transmision_a_encargados"],"version":"1.2"}`, 422, `{"error":"faltan_necesarias"}`, nil},
+		{"solo una necesaria", `{"finalidades":["cuenta_y_acceso"],"version":"1.2"}`, 422, `{"error":"faltan_necesarias"}`, nil},
+		{"solo accesorias", `{"finalidades":["avisos","horas_de_vida"],"version":"1.2"}`, 422, `{"error":"faltan_necesarias"}`, nil},
+		{"lista vacía", `{"finalidades":[],"version":"1.2"}`, 422, `{"error":"faltan_necesarias"}`, nil},
+		{"sin lista", `{"version":"1.2"}`, 422, `{"error":"faltan_necesarias"}`, nil},
+		{"código desconocido", `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados","no_existe"],"version":"1.2"}`, 422, `{"error":"finalidad_invalida"}`, nil},
+		{"finalidad del menor", `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados","cuenta_del_menor"],"version":"1.2"}`, 422, `{"error":"finalidad_invalida"}`, nil},
+		{"correo del menor", `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados","correo_del_menor"],"version":"1.2"}`, 422, `{"error":"finalidad_invalida"}`, nil},
+		{"transferencia inactiva", `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados","transferencia"],"version":"1.2"}`, 422, `{"error":"finalidad_invalida"}`, nil},
 		{"versión de antes", `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados"],"version":"1.0"}`, 409, `{"error":"version_desactualizada"}`, nil},
+		// SC-E21-26: con la 1.2 (Zoho CPaaS y Estados Unidos) un cliente que todavía manda la 1.1 recibe el 409.
+		{"la 1.1 ya no es la vigente", `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados"],"version":"1.1"}`, 409, `{"error":"version_desactualizada"}`, nil},
 		{"versión distinta", `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados"],"version":"0.9"}`, 409, `{"error":"version_desactualizada"}`, nil},
-		{"versión nueva que no existe", `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados"],"version":"1.2"}`, 409, `{"error":"version_desactualizada"}`, nil},
+		{"versión nueva que no existe", `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados"],"version":"1.3"}`, 409, `{"error":"version_desactualizada"}`, nil},
 		{"sin versión", `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados"]}`, 409, `{"error":"version_desactualizada"}`, nil},
 		{"la versión se revisa antes que los códigos", `{"finalidades":["no_existe"],"version":"2.0"}`, 409, `{"error":"version_desactualizada"}`, nil},
-		{"campo que no está en el contrato", `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados"],"version":"1.1","otorgante":"x"}`, 400, `{"error":"solicitud_invalida"}`, nil},
+		{"campo que no está en el contrato", `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados"],"version":"1.2","otorgante":"x"}`, 400, `{"error":"solicitud_invalida"}`, nil},
 		{"JSON roto", `{"finalidades":`, 400, `{"error":"solicitud_invalida"}`, nil},
 	}
 	for _, android := range []bool{false, true} {
@@ -251,7 +263,7 @@ func TestOtorgar(t *testing.T) {
 			if got := e.repo.otorgadas; !equal(got, c.guardadas) {
 				t.Errorf("%s: se guardó %v, se esperaba %v", c.nombre, got, c.guardadas)
 			}
-			if c.guardadas != nil && (e.repo.version != "1.1 del 2026-11-12" || !e.repo.otorgadaEn.Equal(ahoraDePrueba)) {
+			if c.guardadas != nil && (e.repo.version != "1.2 del 2026-11-17" || !e.repo.otorgadaEn.Equal(ahoraDePrueba)) {
 				t.Errorf("%s: versión %q, otorgada en %v", c.nombre, e.repo.version, e.repo.otorgadaEn)
 			}
 		}
@@ -271,7 +283,7 @@ func equal(a, b []string) bool {
 }
 
 func TestOtorgarConErroresDelRepositorio(t *testing.T) {
-	cuerpo := `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados"],"version":"1.1"}`
+	cuerpo := `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados"],"version":"1.2"}`
 	e := nuevoEntorno(t)
 	e.repo.errOtorgar = errors.New("base caída")
 	if rr := e.pedir("POST", "/api/v1/autorizaciones", cuerpo, e.sesion(sinAutorizar), false); rr.Code != 500 || cuerpoDe(rr) != `{"error":"error_interno"}` {
@@ -285,7 +297,7 @@ func TestOtorgarConErroresDelRepositorio(t *testing.T) {
 
 func TestOtorgarNoEsUnEventoDeSeguridad(t *testing.T) {
 	e := nuevoEntorno(t)
-	e.pedir("POST", "/api/v1/autorizaciones", `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados"],"version":"1.1"}`, e.sesion(sinAutorizar), false)
+	e.pedir("POST", "/api/v1/autorizaciones", `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados"],"version":"1.2"}`, e.sesion(sinAutorizar), false)
 	if strings.Contains(e.eventos.String(), "evento_seguridad") || strings.Contains(e.eventos.String(), personaDePrueba) {
 		t.Errorf("otorgar no es un evento de seguridad ni registra la cuenta: %s", e.eventos)
 	}
@@ -355,7 +367,7 @@ func TestRechazarConErroresDelRepositorio(t *testing.T) {
 }
 
 func TestLaVersionSeGuardaComoNumeroYFecha(t *testing.T) {
-	if autorizacion.VersionActual.Texto() != "1.1 del 2026-11-12" {
+	if autorizacion.VersionActual.Texto() != "1.2 del 2026-11-17" {
 		t.Errorf("Texto = %q", autorizacion.VersionActual.Texto())
 	}
 	if n := len(autorizacion.VersionActual.Texto()); n > 20 { // ck_autorizacion_version_del_texto
@@ -367,7 +379,7 @@ func TestLaVersionSeGuardaComoNumeroYFecha(t *testing.T) {
 // en el modo «falta una aceptación». Lo que ya autorizó no se pide de nuevo.
 func TestListarDeUnaCuentaDeAntesMuestraSoloLoQueFalta(t *testing.T) {
 	const soloLaTransmision = `{"finalidades":[{"codigo":"transmision_a_encargados","tipo":"necesaria","otorgada":false}],` +
-		`"modo":"falta_una_aceptacion","version":{"numero":"1.1","fecha":"2026-11-12"}}`
+		`"modo":"falta_una_aceptacion","version":{"numero":"1.2","fecha":"2026-11-17"}}`
 	for _, android := range []bool{false, true} {
 		e := nuevoEntorno(t)
 		e.repo.vigentes = []string{"cuenta_y_acceso", "funciones_financieras", "avisos"}
@@ -418,12 +430,12 @@ func TestOtorgarDeUnaCuentaDeAntesPideSoloLoQueFalta(t *testing.T) {
 		respuesta      string
 		guardadas      []string
 	}{
-		{"solo la transmisión", `{"finalidades":["transmision_a_encargados"],"version":"1.1"}`, 200, `{"estado":"autorizada"}`, []string{"transmision_a_encargados"}},
-		{"la transmisión y los avisos", `{"finalidades":["avisos","transmision_a_encargados"],"version":"1.1"}`, 200, `{"estado":"autorizada"}`, []string{"avisos", "transmision_a_encargados"}},
-		{"con las que ya tenía: no se duplican y se acepta", `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados"],"version":"1.1"}`, 200, `{"estado":"autorizada"}`,
+		{"solo la transmisión", `{"finalidades":["transmision_a_encargados"],"version":"1.2"}`, 200, `{"estado":"autorizada"}`, []string{"transmision_a_encargados"}},
+		{"la transmisión y los avisos", `{"finalidades":["avisos","transmision_a_encargados"],"version":"1.2"}`, 200, `{"estado":"autorizada"}`, []string{"avisos", "transmision_a_encargados"}},
+		{"con las que ya tenía: no se duplican y se acepta", `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados"],"version":"1.2"}`, 200, `{"estado":"autorizada"}`,
 			[]string{"cuenta_y_acceso", "funciones_financieras", "transmision_a_encargados"}},
-		{"sin aceptarla no se guarda nada", `{"finalidades":[],"version":"1.1"}`, 422, `{"error":"faltan_necesarias"}`, nil},
-		{"solo accesorias no basta", `{"finalidades":["avisos"],"version":"1.1"}`, 422, `{"error":"faltan_necesarias"}`, nil},
+		{"sin aceptarla no se guarda nada", `{"finalidades":[],"version":"1.2"}`, 422, `{"error":"faltan_necesarias"}`, nil},
+		{"solo accesorias no basta", `{"finalidades":["avisos"],"version":"1.2"}`, 422, `{"error":"faltan_necesarias"}`, nil},
 		{"con la versión de antes", `{"finalidades":["transmision_a_encargados"],"version":"1.0"}`, 409, `{"error":"version_desactualizada"}`, nil},
 	}
 	for _, c := range casos {
@@ -434,14 +446,14 @@ func TestOtorgarDeUnaCuentaDeAntesPideSoloLoQueFalta(t *testing.T) {
 		if rr.Code != c.codigo || cuerpoDe(rr) != c.respuesta || !equal(e.repo.otorgadas, c.guardadas) {
 			t.Errorf("%s: %d %s, se guardó %v", c.nombre, rr.Code, cuerpoDe(rr), e.repo.otorgadas)
 		}
-		if c.guardadas != nil && e.repo.version != "1.1 del 2026-11-12" {
+		if c.guardadas != nil && e.repo.version != "1.2 del 2026-11-17" {
 			t.Errorf("%s: versión %q", c.nombre, e.repo.version)
 		}
 	}
 	// Si la lectura de lo vigente falla, no se guarda nada.
 	e := nuevoEntorno(t)
 	e.repo.errVigentes = errors.New("base caída")
-	rr := e.pedir("POST", "/api/v1/autorizaciones", `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados"],"version":"1.1"}`, e.sesion(sinAutorizar), false)
+	rr := e.pedir("POST", "/api/v1/autorizaciones", `{"finalidades":["cuenta_y_acceso","funciones_financieras","transmision_a_encargados"],"version":"1.2"}`, e.sesion(sinAutorizar), false)
 	if rr.Code != 500 || e.repo.otorgadas != nil {
 		t.Errorf("fallo de la base: %d %s, se guardó %v", rr.Code, cuerpoDe(rr), e.repo.otorgadas)
 	}

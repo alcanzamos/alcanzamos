@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { SIN_CONEXION, pedir } from "../../src/api/cliente";
+import { fijarOrigenDelApi } from "../../src/configuracion";
 import { json, simularApi } from "../ayudas";
 
 describe("cliente del API", () => {
-  it("usa rutas relativas, la cookie del mismo origen y JSON", async () => {
+  it("manda la cookie de sesión también a otro origen (credentials: include) y JSON", async () => {
     simularApi(() => json(202, { estado: "ok" }));
     const respuesta = await pedir("POST", "/api/v1/cuentas", { a: 1 });
     expect(respuesta).toEqual({
@@ -13,7 +14,7 @@ describe("cliente del API", () => {
     });
     expect(fetch).toHaveBeenCalledWith("/api/v1/cuentas", {
       method: "POST",
-      credentials: "same-origin",
+      credentials: "include",
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
@@ -22,12 +23,27 @@ describe("cliente del API", () => {
     });
   });
 
+  it("sin configuración cargada las rutas quedan relativas; con ella, van al origen del API", async () => {
+    simularApi(() => json(200, {}));
+    await pedir("GET", "/api/v1/cuentas/estado");
+    fijarOrigenDelApi("https://api-uat.alcanzamos.co");
+    await pedir("GET", "/api/v1/cuentas/estado?a=1");
+    await pedir("DELETE", "/api/v1/movimientos/7");
+    expect(vi.mocked(fetch).mock.calls.map(([ruta]) => ruta)).toEqual([
+      "/api/v1/cuentas/estado",
+      "https://api-uat.alcanzamos.co/api/v1/cuentas/estado?a=1",
+      "https://api-uat.alcanzamos.co/api/v1/movimientos/7",
+    ]);
+    for (const [, opciones] of vi.mocked(fetch).mock.calls)
+      expect(opciones?.credentials).toBe("include");
+  });
+
   it("todo POST manda Content-Type: application/json, también sin cuerpo (D-175, E17 3.15 (d))", async () => {
     simularApi(() => json(202, {}));
     await pedir("POST", "/api/v1/cuentas/verificacion/reenvio");
     expect(fetch).toHaveBeenCalledWith("/api/v1/cuentas/verificacion/reenvio", {
       method: "POST",
-      credentials: "same-origin",
+      credentials: "include",
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",

@@ -38,8 +38,10 @@ func TestMigracion0005SiembraYQuitaLaTransmisionAEncargados(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if r, err := p.Down(ctx); err != nil || r.Source.Path != "0006_aviso_de_purga.sql" { // la que va después
-		t.Fatalf("Down: %+v, %v", r, err)
+	for _, despues := range []string{"0007_autorizacion_reemplazada.sql", "0006_aviso_de_purga.sql"} { // las que van después
+		if r, err := p.Down(ctx); err != nil || r.Source.Path != despues {
+			t.Fatalf("Down: %+v, %v; se esperaba %s", r, err, despues)
+		}
 	}
 
 	// Con una autorización guardada, bajar falla y no cambia nada.
@@ -71,7 +73,7 @@ func TestMigracion0005SiembraYQuitaLaTransmisionAEncargados(t *testing.T) {
 	if tipo, activa, total := fila(); tipo != "necesaria" || !activa || total != 8 {
 		t.Fatalf("tras volver a subir: %q %v %d", tipo, activa, total)
 	}
-	if _, err := p.Up(ctx); err != nil { // la 0006
+	if _, err := p.Up(ctx); err != nil { // la 0006 y la 0007
 		t.Fatalf("subir las que siguen: %v", err)
 	}
 }
