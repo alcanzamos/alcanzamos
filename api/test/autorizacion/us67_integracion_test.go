@@ -36,13 +36,14 @@ func (s *servidorDePrueba) autorizar(persona, finalidad, version string) {
 	}
 }
 
-// cuentaDeAntes es una cuenta verificada con sesión que tenía, antes del cambio, las dos necesarias de entonces y datos:
-// un movimiento. Le falta `transmision_a_encargados`.
+// cuentaDeAntes es una cuenta verificada con sesión que tenía, antes del cambio, las dos necesarias de entonces (aceptadas
+// con la versión vigente: con una anterior tampoco las tendría, bug 308) y datos: un movimiento. Le falta
+// `transmision_a_encargados`.
 func (s *servidorDePrueba) cuentaDeAntes(correo string, android bool) (*cliente, string) {
 	s.t.Helper()
 	c, persona := s.nuevaCuentaVerificada(correo, android)
-	s.autorizar(persona, "cuenta_y_acceso", versionVieja)
-	s.autorizar(persona, "funciones_financieras", versionVieja)
+	s.autorizar(persona, "cuenta_y_acceso", versionNueva)
+	s.autorizar(persona, "funciones_financieras", versionNueva)
 	if _, err := s.pool.Exec(context.Background(),
 		`INSERT INTO movimiento (persona_id, tipo, monto, fecha, medio, descripcion, categoria_id) VALUES ($1::uuid, 'gasto', 25000, '2026-11-02', 'efectivo', 'mercado', 1)`, persona); err != nil {
 		s.t.Fatal(err)
@@ -129,7 +130,7 @@ func TestLaCuentaDeAntesDelCambioEntraAlModoLimitadoYAlAceptarRecuperaTodo(t *te
 			filas[f] = v
 		}
 		quiere := map[string]string{
-			"cuenta_y_acceso": versionVieja + "|" + persona + "|", "funciones_financieras": versionVieja + "|" + persona + "|",
+			"cuenta_y_acceso": versionNueva + "|" + persona + "|", "funciones_financieras": versionNueva + "|" + persona + "|",
 			"transmision_a_encargados": versionNueva + "|" + persona + "|",
 		}
 		if len(filas) != 3 {

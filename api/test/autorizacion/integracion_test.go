@@ -567,7 +567,7 @@ func TestElRepositorioNoBorraUnaCuentaAutorizada(t *testing.T) {
 	repo := pg.NuevoAutorizaciones(s.pool)
 	ahora := s.reloj.T
 	necesarias := []string{"cuenta_y_acceso", "funciones_financieras", "transmision_a_encargados"}
-	if err := repo.Otorgar(context.Background(), persona, necesarias, "1.0 del 2026-10-30", ahora); err != nil {
+	if err := repo.Otorgar(context.Background(), persona, necesarias, autorizacion.VersionActual.Texto(), ahora); err != nil {
 		t.Fatal(err)
 	}
 	if err := repo.Rechazar(context.Background(), persona, necesarias, ahora, ahora); !errors.Is(err, autorizacion.ErrYaAutorizada) {
