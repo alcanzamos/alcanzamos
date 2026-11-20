@@ -17,6 +17,11 @@ pr:
       - .azure-pipelines/reglas.yml
       - .azure-pipelines/plantillas/reglas.yml
 
+# Agente hospedado: las plantillas no fijan pool (D-213; el control único y la revisión diaria corren en el agente propio
+# `alcanzamos-local`, este pipeline por carpeta sigue deshabilitado y no cambia).
+pool:
+  vmImage: ubuntu-24.04
+
 # Los pasos viven en plantillas/reglas.yml.
 jobs:
   - template: plantillas/reglas.yml

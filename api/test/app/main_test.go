@@ -22,10 +22,41 @@ func TestSubcomandoDesconocidoFalla(t *testing.T) {
 	}
 }
 
-func TestMigrarSinURLFalla(t *testing.T) {
-	t.Setenv("BASE_DE_DATOS_URL", "")
-	if codigo, _ := ejecutar("migrar"); codigo != 1 {
-		t.Fatalf("código %d, se esperaba 1 por la falta de la URL", codigo)
+// sinBaseDeDatos deja sin configurar las dos formas de conectar: la URL y la identidad administrada (D-204 (1)). Sin
+// esto, un PGHOST del entorno de quien corre las pruebas cambiaría el resultado.
+func sinBaseDeDatos(t *testing.T) {
+	t.Helper()
+	for _, v := range []string{"BASE_DE_DATOS_URL", "PGHOST", "PGDATABASE", "PGUSER", "PGSSLMODE", "AZURE_CLIENT_ID"} {
+		t.Setenv(v, "")
+	}
+}
+
+// Sin URL ni identidad, migrar falla y el error dice las dos formas de conectar (antes solo faltaba la URL).
+func TestMigrarSinURLNiIdentidadFalla(t *testing.T) {
+	sinBaseDeDatos(t)
+	codigo, salida := ejecutar("migrar")
+	if codigo != 1 || !strings.Contains(salida, "BASE_DE_DATOS_URL") || !strings.Contains(salida, "PGHOST") ||
+		!strings.Contains(salida, "AZURE_CLIENT_ID") {
+		t.Fatalf("código %d, se esperaba 1 y un error que nombre BASE_DE_DATOS_URL y las variables de la identidad: %s", codigo, salida)
+	}
+}
+
+// migrar usa la misma conexión que el API, con la identidad que le den (la del migrador, D-204 (1)): la configuración
+// incompleta o con un PGSSLMODE más débil falla antes de pedir ningún token.
+func TestMigrarConIdentidadIncompletaOSinVerifyFullFalla(t *testing.T) {
+	sinBaseDeDatos(t)
+	t.Setenv("PGHOST", "pg.postgres.database.azure.com")
+	t.Setenv("PGDATABASE", "alcanzamos")
+	t.Setenv("PGUSER", "id-migrador")
+	t.Setenv("PGSSLMODE", "require")
+	codigo, salida := ejecutar("migrar")
+	if codigo != 1 || !strings.Contains(salida, "AZURE_CLIENT_ID") || strings.Contains(salida, "PGHOST") {
+		t.Fatalf("código %d, se esperaba 1 con AZURE_CLIENT_ID como la que falta: %s", codigo, salida)
+	}
+	t.Setenv("AZURE_CLIENT_ID", "11111111-2222-3333-4444-555555555555")
+	codigo, salida = ejecutar("migrar")
+	if codigo != 1 || !strings.Contains(salida, "PGSSLMODE") || !strings.Contains(salida, "verify-full") {
+		t.Fatalf("código %d, se esperaba 1 por PGSSLMODE distinto de verify-full: %s", codigo, salida)
 	}
 }
 
@@ -38,11 +69,12 @@ func entornoDeCorreo(t *testing.T) {
 	t.Setenv("URL_PUBLICA", "https://app.b.test")
 }
 
-func TestTareasSinURLFalla(t *testing.T) {
+func TestTareasSinURLNiIdentidadFalla(t *testing.T) {
 	entornoDeCorreo(t)
-	t.Setenv("BASE_DE_DATOS_URL", "")
-	if codigo, _ := ejecutar("tareas"); codigo != 1 {
-		t.Fatalf("código %d, se esperaba 1 por la falta de la URL", codigo)
+	sinBaseDeDatos(t)
+	codigo, salida := ejecutar("tareas")
+	if codigo != 1 || !strings.Contains(salida, "BASE_DE_DATOS_URL") || strings.Contains(salida, "tareas: fin") {
+		t.Fatalf("código %d, se esperaba 1 por la falta de la conexión: %s", codigo, salida)
 	}
 }
 

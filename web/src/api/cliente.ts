@@ -1,4 +1,7 @@
-// Único lugar que llama al API (D-129): rutas relativas del mismo origen y la cookie de sesión.
+import { urlDelApi } from "../configuracion";
+
+// Único lugar que llama al API (D-129): rutas bajo el origen del API que dice `/config.json` (`configuracion.ts`) y la
+// cookie de sesión, que va también a ese otro origen (`credentials: "include"`; el API responde con CORS y credenciales).
 // No decide nada de negocio: devuelve el estado, el código de error y los errores de campo que manda el API.
 export type Respuesta<T> =
   | { ok: true; estado: number; cuerpo: T }
@@ -48,9 +51,9 @@ export async function pedir<T = Cuerpo>(
 ): Promise<Respuesta<T>> {
   let respuesta: Response;
   try {
-    respuesta = await fetch(ruta, {
+    respuesta = await fetch(urlDelApi(ruta), {
       method: metodo,
-      credentials: "same-origin",
+      credentials: "include",
       headers: {
         Accept: "application/json",
         // Todo pedido que no es GET lleva el tipo, también sin cuerpo: el API rechaza con 415 el que no lo trae (D-175,

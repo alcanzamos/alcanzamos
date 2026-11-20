@@ -1,60 +1,63 @@
-# Identidad del pipeline: service principal con identidad federada de
-# Azure DevOps (workload identity federation). Sin secretos.
+# Identidad del pipeline: identidad administrada asignada por el usuario, con una
+# credencial federada de Azure DevOps (workload identity federation). Sin claves
+# y sin permisos de directorio en Entra: no hay proveedor azuread (D-049, D-205 (1)).
 data "azurerm_client_config" "actual" {}
 
 locals {
   conexion_de_servicio = coalesce(var.conexion_de_servicio, "sc-${local.sufijo}")
+  emisor_federado      = coalesce(var.credencial_federada_emisor, "https://vstoken.dev.azure.com/${var.azure_devops_organizacion_id}")
+  sujeto_federado      = coalesce(var.credencial_federada_sujeto, "sc://alcanzamos/alcanzamos/${local.conexion_de_servicio}")
+  # Una identidad por pieza que corre en el ambiente (E11-INF 2.3, 2.3 bis, 2.4; D-206 (7)).
+  identidades_de_carga = toset(["api", "web", "tareas", "migrador", "psql"])
 }
 
-resource "azuread_application" "pipeline" {
-  display_name = "app-pipeline-${local.sufijo}"
-}
-
-resource "azuread_service_principal" "pipeline" {
-  client_id = azuread_application.pipeline.client_id
-}
-
-resource "azuread_application_federated_identity_credential" "azure_devops" {
-  application_id = azuread_application.pipeline.id
-  display_name   = "azure-devops-${local.conexion_de_servicio}"
-  audiences      = ["api://AzureADTokenExchange"]
-  issuer         = "https://vstoken.dev.azure.com/${var.azure_devops_organizacion_id}"
-  subject        = "sc://alcanzamos/alcanzamos/${local.conexion_de_servicio}"
-}
-
-# Permisos solo sobre el grupo de recursos del proyecto (D-119, opción A).
-resource "azurerm_role_assignment" "pipeline_contribuye" {
-  scope                = azurerm_resource_group.principal.id
-  role_definition_name = "Contributor"
-  principal_id         = azuread_service_principal.pipeline.object_id
-}
-
-# Estado remoto: la identidad escribe solo en su cuenta de almacenamiento.
-resource "azurerm_role_assignment" "pipeline_estado" {
-  scope                = azurerm_storage_account.estado.id
-  role_definition_name = "Storage Blob Data Contributor"
-  principal_id         = azuread_service_principal.pipeline.object_id
-}
-
-# Identidad administrada del API y sus roles, en el grupo del proyecto.
-# Se crean aquí para que el pipeline no necesite permisos para asignar roles.
-resource "azurerm_user_assigned_identity" "api" {
-  name                = "id-${local.sufijo}"
+resource "azurerm_user_assigned_identity" "pipeline" {
+  name                = "id-alcanzamos-pipeline-${local.abreviatura[var.ambiente]}-${local.region}"
   location            = azurerm_resource_group.principal.location
   resource_group_name = azurerm_resource_group.principal.name
   tags                = local.etiquetas
 }
 
+resource "azurerm_federated_identity_credential" "azure_devops" {
+  name                      = "azure-devops-${local.conexion_de_servicio}"
+  user_assigned_identity_id = azurerm_user_assigned_identity.pipeline.id
+  audience                  = ["api://AzureADTokenExchange"]
+  issuer                    = local.emisor_federado
+  subject                   = local.sujeto_federado
+}
+
+# El pipeline tiene solo estos dos roles. Ninguno puede asignar roles (ni Owner,
+# ni User Access Administrator, ni Role Based Access Control Administrator): los
+# roles de las demás identidades los asigna el dueño con este bootstrap.
+resource "azurerm_role_assignment" "pipeline" {
+  for_each = {
+    # Permisos solo sobre el grupo de recursos de su ambiente (D-119, opción A; E11-INF 2.17).
+    grupo = { scope = azurerm_resource_group.principal.id, rol = "Contributor" }
+    # Estado remoto: la identidad escribe solo en la cuenta de almacenamiento de su ambiente.
+    estado = { scope = azurerm_storage_account.estado.id, rol = "Storage Blob Data Contributor" }
+  }
+
+  scope                = each.value.scope
+  role_definition_name = each.value.rol
+  principal_id         = azurerm_user_assigned_identity.pipeline.principal_id
+  principal_type       = "ServicePrincipal"
+}
+
+# Identidades de carga, en el grupo del ambiente. Se crean aquí para que el
+# pipeline no necesite permisos para asignar roles.
+resource "azurerm_user_assigned_identity" "carga" {
+  for_each = local.identidades_de_carga
+
+  name                = "id-alcanzamos-${each.key}-${local.abreviatura[var.ambiente]}-${local.region}"
+  location            = azurerm_resource_group.principal.location
+  resource_group_name = azurerm_resource_group.principal.name
+  tags                = local.etiquetas
+}
+
+# Provisional: el segundo paso (T6) lo cambia por Key Vault Secrets User sobre cada secreto.
 resource "azurerm_role_assignment" "api_lee_secretos" {
   scope                = azurerm_resource_group.principal.id
   role_definition_name = "Key Vault Secrets User"
-  principal_id         = azurerm_user_assigned_identity.api.principal_id
-}
-
-# Rol que indica Microsoft para enviar correo con Entra ID
-# (learn.microsoft.com/azure/communication-services/quickstarts/email/send-email-smtp/smtp-authentication).
-resource "azurerm_role_assignment" "api_envia_correo" {
-  scope                = azurerm_resource_group.principal.id
-  role_definition_name = "Communication and Email Service Owner"
-  principal_id         = azurerm_user_assigned_identity.api.principal_id
+  principal_id         = azurerm_user_assigned_identity.carga["api"].principal_id
+  principal_type       = "ServicePrincipal"
 }

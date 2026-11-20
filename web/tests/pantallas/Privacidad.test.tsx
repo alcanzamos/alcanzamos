@@ -35,7 +35,7 @@ const tarjetas = [
   ],
   [
     "Dónde se guardan",
-    "En Azure, en México. El correo que te enviamos sale por un servicio que guarda sus datos en Francia, y lo que escribes a privacidad@alcanzamos.co queda en Estados Unidos. Los detalles están en la política.",
+    "En Azure, en Estados Unidos. El correo que te enviamos y lo que escribes a privacidad@alcanzamos.co también quedan en Estados Unidos. Los detalles están en la política.",
   ],
 ];
 

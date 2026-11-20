@@ -1,0 +1,29 @@
+{
+  "cli": {
+    "version": "27.9.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "medicion": {
+      "distribution": "internal",
+      "node": "24.22.1",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_URL_API": "http://localhost:18090"
+      }
+    },
+    "uat": {
+      "distribution": "store",
+      "node": "24.22.1",
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_URL_API": "https://api-uat.alcanzamos.co"
+      }
+    }
+  }
+}

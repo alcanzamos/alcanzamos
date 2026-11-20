@@ -8,10 +8,6 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "= 5.11.0"
     }
-    azuread = {
-      source  = "hashicorp/azuread"
-      version = "= 3.10.0"
-    }
   }
 
   # Estado local, un archivo por ambiente (uat.tfstate, produccion.tfstate):
@@ -19,10 +15,10 @@ terraform {
   backend "local" {}
 }
 
+# Los proveedores de recursos no se registran aquí: con una sola suscripción, los dos bootstraps serían dueños del
+# mismo registro. Los registra infra/suscripcion, una sola vez, antes de este bootstrap.
 provider "azurerm" {
   features {}
   subscription_id                 = var.subscription_id
   resource_provider_registrations = "none"
 }
-
-provider "azuread" {}

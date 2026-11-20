@@ -25,7 +25,7 @@ describe("PN-68 · lo que dice", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(porTexto("Versión 1.1 del 12 de noviembre de 2026.")),
+      screen.getByText(porTexto("Versión 1.2 del 17 de noviembre de 2026.")),
     ).toBeInTheDocument();
     expect(
       screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent),
@@ -125,8 +125,8 @@ describe("PN-68 · lo que dice", () => {
       .getAllByRole("listitem")
       .map((i) => i.textContent);
     expect(items).toEqual([
-      "Tus datos se guardan en Microsoft Azure, en México.",
-      "El correo que te enviamos (verificar tu cuenta, recuperar el acceso, avisos a quien tiene una tutoría) sale por Azure Communication Services, que guarda sus datos en Francia.",
+      "Tus datos se guardan en Microsoft Azure, en Estados Unidos.",
+      "El correo que te enviamos (verificar tu cuenta, recuperar el acceso, avisos a quien tiene una tutoría) sale por Zoho CPaaS, que guarda sus datos en Estados Unidos.",
       "Lo que escribes a privacidad@alcanzamos.co queda en Zoho Mail, en Estados Unidos.",
       "Estas empresas son encargadas: tratan los datos por cuenta de Alcanzamos, que es el responsable, y solo para lo que les pedimos.",
       "Si activas los avisos con la app cerrada, el código de tu teléfono o de tu navegador y un aviso que solo dice «Tienes un aviso en Alcanzamos.» pasan por el servicio de notificaciones de Google (Firebase Cloud Messaging) en Android, o por el de la empresa que hace tu navegador en la web. Esas empresas no dicen en qué país los procesan.",

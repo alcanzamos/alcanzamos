@@ -35,7 +35,7 @@ func (a *Tokens) Registrar(ctx context.Context, persona, dispositivo, token stri
 	}
 	var autorizada bool
 	if err := tx.QueryRow(ctx,
-		`SELECT EXISTS (SELECT 1 FROM autorizacion WHERE titular_id = $1::uuid AND finalidad = $2 AND retirada_en IS NULL)`,
+		`SELECT EXISTS (SELECT 1 FROM autorizacion WHERE titular_id = $1::uuid AND finalidad = $2 AND `+condicionVigente+`)`,
 		persona, cuenta.Avisos).Scan(&autorizada); err != nil {
 		return fmt.Errorf("leer la autorización de los avisos: %w", err)
 	}

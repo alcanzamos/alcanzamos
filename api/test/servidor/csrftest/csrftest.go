@@ -43,7 +43,9 @@ const (
 	errorDe415 = `{"error":"tipo_de_contenido_no_permitido"}`
 )
 
-// Casos son los de SEG-016 (a) a (d) y la reproducción de A-18, con `urlPublica` como `URL_PUBLICA`.
+// Casos son los de SEG-016 (a) a (d) y la reproducción de A-18, con `urlPublica` como `URL_PUBLICA`. Con la web en otro
+// origen del mismo sitio (app.* y api.*, E11-INF 2.16), el navegador manda `Sec-Fetch-Site: same-site` y la defensa lo acepta
+// solo si `Origin` es el de `URL_PUBLICA`.
 func Casos(urlPublica string) []Caso {
 	json := "application/json"
 	h := func(kv ...string) map[string]string {
@@ -59,6 +61,11 @@ func Casos(urlPublica string) []Caso {
 		{"(a) none", h("Sec-Fetch-Site", "none", "Content-Type", json), 403},
 		{"(a) cross-site con Bearer", h("Sec-Fetch-Site", "cross-site", "Authorization", "Bearer abc", "Content-Type", json), 403},
 		{"(a) cross-site con Origin de URL_PUBLICA", h("Sec-Fetch-Site", "cross-site", "Origin", urlPublica, "Content-Type", json), 403},
+		{"(a) same-site con el Origin de URL_PUBLICA", h("Sec-Fetch-Site", "same-site", "Origin", urlPublica, "Content-Type", json), 0},
+		{"(a) same-site con Origin ajeno", h("Sec-Fetch-Site", "same-site", "Origin", "https://atacante.example", "Content-Type", json), 403},
+		{"(a) same-site con Origin null", h("Sec-Fetch-Site", "same-site", "Origin", "null", "Content-Type", json), 403},
+		{"(a) same-site con Bearer y sin Origin", h("Sec-Fetch-Site", "same-site", "Authorization", "Bearer abc", "Content-Type", json), 403},
+		{"(a) same-site con el Origin de URL_PUBLICA y text/plain", h("Sec-Fetch-Site", "same-site", "Origin", urlPublica, "Content-Type", "text/plain"), 415},
 		{"(a) same-origin", h("Sec-Fetch-Site", "same-origin", "Content-Type", json), 0},
 		{"(b) Origin ajeno", h("Origin", "https://atacante.example", "Content-Type", json), 403},
 		{"(b) Origin ajeno con Bearer", h("Origin", "https://atacante.example", "Authorization", "Bearer abc", "Content-Type", json), 403},

@@ -17,7 +17,7 @@ test.describe("PN-68 · la pantalla", () => {
     await expect(titulo(page)).toBeVisible();
     await expect(page).toHaveTitle("Política de tratamiento · Alcanzamos");
     await expect(
-      page.getByText("Versión 1.1 del 12 de noviembre de 2026."),
+      page.getByText("Versión 1.2 del 17 de noviembre de 2026."),
     ).toBeVisible();
     await expect(page.getByRole("heading", { level: 2 })).toHaveText([
       "Quién responde por tus datos",
@@ -47,9 +47,9 @@ test.describe("PN-68 · la pantalla", () => {
     const donde = page.getByRole("region", {
       name: "Dónde guardamos tus datos",
     });
-    await expect(donde).toContainText("Microsoft Azure, en México");
+    await expect(donde).toContainText("Microsoft Azure, en Estados Unidos");
     await expect(donde).toContainText(
-      "Azure Communication Services, que guarda sus datos en Francia",
+      "Zoho CPaaS, que guarda sus datos en Estados Unidos",
     );
     await expect(donde).toContainText("Zoho Mail, en Estados Unidos");
     await expect(donde.getByRole("listitem")).toHaveCount(5);

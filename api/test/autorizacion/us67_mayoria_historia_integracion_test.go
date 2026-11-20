@@ -26,11 +26,11 @@ func TestALos18LoDelTutorQuedaComoHistoria(t *testing.T) {
 	}
 
 	const soloLaTransmision = `{"finalidades":[{"codigo":"transmision_a_encargados","tipo":"necesaria","otorgada":false}],` +
-		`"modo":"falta_una_aceptacion","version":{"numero":"1.1","fecha":"2026-11-12"}}`
+		`"modo":"falta_una_aceptacion","version":{"numero":"1.2","fecha":"2026-11-17"}}`
 	if r := c.llamar("GET", rutaAutorizar, ""); r.Codigo != 200 || r.Cuerpo != soloLaTransmision {
 		t.Fatalf("GET /autorizaciones: %d %s", r.Codigo, r.Cuerpo)
 	}
-	if r := c.llamar("POST", rutaAutorizar, `{"finalidades":["transmision_a_encargados"],"version":"1.1"}`); r.Codigo != 200 {
+	if r := c.llamar("POST", rutaAutorizar, `{"finalidades":["transmision_a_encargados"],"version":"1.2"}`); r.Codigo != 200 {
 		t.Fatalf("autorizar: %d %s", r.Codigo, r.Cuerpo)
 	}
 
@@ -51,7 +51,7 @@ func TestALos18LoDelTutorQuedaComoHistoria(t *testing.T) {
 		t.Errorf("cuenta_del_menor del tutor debía seguir igual: %d", n)
 	}
 	// Repetir la aceptación no cambia nada.
-	if r := c.llamar("POST", rutaAutorizar, `{"finalidades":["transmision_a_encargados"],"version":"1.1"}`); r.Codigo != 200 {
+	if r := c.llamar("POST", rutaAutorizar, `{"finalidades":["transmision_a_encargados"],"version":"1.2"}`); r.Codigo != 200 {
 		t.Fatalf("repetir: %d %s", r.Codigo, r.Cuerpo)
 	}
 	if n := s.contar(`SELECT count(*) FROM autorizacion WHERE titular_id = $1::uuid AND finalidad = 'transmision_a_encargados'`, titular); n != 2 {
