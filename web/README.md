@@ -203,7 +203,7 @@ cd servidor
 API_URL=http://localhost:8080 PERMITIR_API_LOCAL=true DIRECTORIO_WEB=../dist PUERTO=5173 go run .
 ```
 
-Las pruebas, desde `web/servidor/`: `go test -race ./...`. También corren `gofmt`, `go vet` y `golangci-lint` (la configuración es `web/servidor/.golangci.yml`; el binario es el que fija `api/go.mod`: `"$(go -C ../../api tool -n golangci-lint)" run`). En CI corren en la etapa `api` de `.azure-pipelines/plantillas/api.yml`, que ya corre con cualquier cambio de `web/*`.
+Las pruebas, desde `web/servidor/`: `go test -race ./...`. También corren `gofmt`, `go vet` y `golangci-lint` (la configuración es `web/servidor/.golangci.yml`; el binario es el que fija `api/go.mod`: `"$(go -C ../../api tool -n golangci-lint)" run`). En CI corren en la etapa `api` de `.azure-pipelines/plantillas/api.yml`, que corre con cualquier cambio de `web/servidor/*` (D-213); un cambio en el resto de `web/` no la corre.
 
 ### Variables de entorno
 

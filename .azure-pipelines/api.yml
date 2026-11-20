@@ -3,7 +3,8 @@
 # No usa conexión de servicio ni secretos. La barrera de cobertura (E17-ECO 5.5) levanta un PostgreSQL desechable en
 # Docker (datos sintéticos, solo en 127.0.0.1) para correr también las pruebas de integración.
 # La imagen del API ya no embebe la web (E11-INF 2.16, D-205 (10)): no corre por diseno/ ni por el logo de la web. Sí corre
-# cuando cambia web/, porque las pruebas de web/servidor (el servidor de ca-web) corren en este pipeline (ADR-001, filtros por carpeta).
+# cuando cambia web/servidor/, porque sus pruebas (el servidor de ca-web) corren en este pipeline (ADR-001, filtros por carpeta); el
+# resto de web/ no lo dispara (D-213).
 # D-183: no corre al fusionar en main. Con la rama al día (protección `strict`) y squash, main queda igual a lo
 # que ya se probó en el PR; volver a correrlo solo gasta minutos. Se vuelve a poner cuando haya despliegue.
 trigger: none
@@ -16,7 +17,7 @@ pr:
   paths:
     include:
       - api/*
-      - web/*
+      - web/servidor/*
       - .dockerignore
       - .azure-pipelines/api.yml
       - .azure-pipelines/plantillas/api.yml
@@ -25,6 +26,11 @@ pr:
       - .azure-pipelines/pruebas/cobertura.py
       - .azure-pipelines/pruebas/vulnerabilidades.py
       - .azure-pipelines/pruebas/vulnerabilidades_regresion.py
+
+# Agente hospedado: las plantillas no fijan pool (D-213; el control único y la revisión diaria corren en el agente propio
+# `alcanzamos-local`, este pipeline por carpeta sigue deshabilitado y no cambia).
+pool:
+  vmImage: ubuntu-24.04
 
 # Los pasos viven en plantillas/api.yml.
 jobs:

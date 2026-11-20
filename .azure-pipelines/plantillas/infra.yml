@@ -3,8 +3,9 @@
 # viven una sola vez. Qué hace cada paso y cuándo corre el pipeline: en infra.yml y en el README de esta carpeta.
 jobs:
   - job: infra
-    pool:
-      vmImage: ubuntu-24.04
+    # Espacio de trabajo limpio al empezar (control.yml explica por qué). Sin `pool`: lo fija el pipeline que usa esta plantilla.
+    workspace:
+      clean: all
     variables:
       OPENTOFU_VERSION: 1.13.2
       # SHA-256 fijado a mano desde tofu_1.13.2_SHA256SUMS (consultado el 2026-10-22).
@@ -54,3 +55,11 @@ jobs:
 
       - script: docker compose -f infra/local/compose.yaml --env-file infra/local/.env.example config --quiet
         displayName: El compose local es válido
+
+      # Evidencia E4: lo que queda en el demonio de Docker del CI al terminar el trabajo. `docker compose config` no crea
+      # contenedores ni imágenes: este paso comprueba que no dejó nada.
+      - script: |
+          docker ps --all
+          docker image ls --digests
+        condition: always()
+        displayName: Lo que queda en Docker (docker ps -a, docker image ls --digests)
