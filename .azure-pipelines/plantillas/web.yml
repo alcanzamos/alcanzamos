@@ -115,7 +115,7 @@ jobs:
             "$(PLAYWRIGHT_IMAGEN)" npm run e2e
         displayName: Playwright con axe-core sobre la app compilada (imagen oficial de Playwright)
 
-      # La imagen de ca-web (T13, E11-INF 2.16): Node compila web/ con diseno/ y el logo, Go compila web/servidor y la base es
+      # La imagen de ca-web (E11-INF 2.16, D-205 (10)): Node compila web/ con diseno/ y el logo, Go compila web/servidor y la base es
       # distroless nonroot. Solo se construye, no se publica: un Dockerfile roto (un digest que ya no existe, un COPY que no
       # encuentra su archivo, una compilación que falla) hace fallar el PR. Contexto: la raíz del monorepo.
       # pruebas/filtros.py comprueba que este paso corra de verdad y no publique.

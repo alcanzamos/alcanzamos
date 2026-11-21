@@ -155,8 +155,8 @@ class ModulosGo(unittest.TestCase):
                 self.rechaza(filtros_api=filtro)
 
 
-class ImagenesT13(unittest.TestCase):
-    """`revisar_imagenes`: la imagen se construye de verdad, desde la raíz y sin publicar (T13, E11-INF 2.16)."""
+class ImagenesDeCaWeb(unittest.TestCase):
+    """`revisar_imagenes`: la imagen se construye de verdad, desde la raíz y sin publicar (E11-INF 2.16)."""
     PLANTILLA = """jobs:
   - job: web
     steps:
