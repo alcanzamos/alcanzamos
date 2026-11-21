@@ -16,7 +16,7 @@ variable "imagen_api" {
 }
 
 # El paquete de ghcr.io es privado (D-200 (9)(a)): Container Apps baja la imagen con un token clásico read:packages
-# guardado en el Key Vault del ambiente y leído con la identidad del API. El valor nunca pasa por OpenTofu.
+# guardado en el Key Vault del ambiente y leído con la identidad de cada pieza (API y tareas). El valor nunca pasa por OpenTofu.
 variable "ghcr_usuario" {
   description = "Usuario de GitHub dueño del token read:packages con el que Container Apps baja la imagen de ghcr.io."
   type        = string

@@ -80,6 +80,24 @@ override_data {
 }
 
 override_data {
+  target = data.azurerm_user_assigned_identity.tareas
+  values = {
+    id           = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-tareas"
+    principal_id = "44444444-4444-4444-4444-444444444444"
+    client_id    = "dddddddd-dddd-dddd-dddd-dddddddddddd"
+  }
+}
+
+override_data {
+  target = data.azurerm_user_assigned_identity.web
+  values = {
+    id           = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-web"
+    principal_id = "55555555-5555-5555-5555-555555555555"
+    client_id    = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"
+  }
+}
+
+override_data {
   target = data.azurerm_user_assigned_identity.migrador
   values = {
     id           = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-migrador"
@@ -388,11 +406,68 @@ run "la_identidad_del_api_no_es_administradora" {
 
   assert {
     condition = alltrue([
-      length(distinct([for i in [data.azurerm_user_assigned_identity.api, data.azurerm_user_assigned_identity.migrador, data.azurerm_user_assigned_identity.psql] : i.principal_id])) == 3,
+      length(distinct([for i in [data.azurerm_user_assigned_identity.api, data.azurerm_user_assigned_identity.web, data.azurerm_user_assigned_identity.tareas, data.azurerm_user_assigned_identity.migrador, data.azurerm_user_assigned_identity.psql] : i.principal_id])) == 5,
       alltrue([for f in fileset(path.module, "*.tf") : !can(regex("admin_postgres", file("${path.module}/${f}")))]),
       alltrue([for f in fileset(path.module, "*.example") : !can(regex("admin_postgres", file("${path.module}/${f}")))]),
     ])
-    error_message = "Las tres identidades son distintas y el dueño ya no es administrador (no queda admin_postgres_* en las variables ni en los ejemplos)."
+    error_message = "Las cinco identidades de carga son distintas y el dueño ya no es administrador (no queda admin_postgres_* en las variables ni en los ejemplos)."
+  }
+}
+
+# Cada pieza con su identidad (E11-INF 2.4): se leen con los nombres reales del bootstrap, y caj-tareas ya no comparte la del API ni en la
+# asignación ni en la que usa para PostgreSQL (PGUSER y AZURE_CLIENT_ID).
+run "las_identidades_se_leen_con_los_nombres_del_bootstrap" {
+  command = plan
+
+  variables {
+    ambiente          = "produccion"
+    dominio_de_correo = "avisos.alcanzamos.co"
+  }
+
+  assert {
+    condition = alltrue([
+      data.azurerm_user_assigned_identity.api.name == "id-alcanzamos-api-prod-eus2",
+      data.azurerm_user_assigned_identity.web.name == "id-alcanzamos-web-prod-eus2",
+      data.azurerm_user_assigned_identity.tareas.name == "id-alcanzamos-tareas-prod-eus2",
+      data.azurerm_user_assigned_identity.migrador.name == "id-alcanzamos-migrador-prod-eus2",
+      data.azurerm_user_assigned_identity.psql.name == "id-alcanzamos-psql-prod-eus2",
+      alltrue([for i in [data.azurerm_user_assigned_identity.api, data.azurerm_user_assigned_identity.web, data.azurerm_user_assigned_identity.tareas, data.azurerm_user_assigned_identity.migrador, data.azurerm_user_assigned_identity.psql] : i.resource_group_name == data.azurerm_resource_group.principal.name]),
+    ])
+    error_message = "Las cinco identidades se leen como id-alcanzamos-<api|web|tareas|migrador|psql>-prod-eus2, en el grupo del ambiente."
+  }
+}
+
+run "caj_tareas_usa_la_identidad_de_tareas_tambien_para_postgres" {
+  command = plan
+
+  variables {
+    ambiente          = "uat"
+    dominio_de_correo = "avisos-uat.alcanzamos.co"
+  }
+
+  assert {
+    condition = alltrue([
+      azurerm_container_app.api.identity[0].identity_ids == toset([data.azurerm_user_assigned_identity.api.id]),
+      azurerm_container_app_job.tareas.identity[0].identity_ids == toset([data.azurerm_user_assigned_identity.tareas.id]),
+      [for e in azurerm_container_app.api.template[0].container[0].env : e.value if e.name == "PGUSER"] == ["id-alcanzamos-api-uat-eus2"],
+      [for e in azurerm_container_app.api.template[0].container[0].env : e.value if e.name == "AZURE_CLIENT_ID"] == ["aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"],
+      [for e in azurerm_container_app_job.tareas.template[0].container[0].env : e.value if e.name == "PGUSER"] == ["id-alcanzamos-tareas-uat-eus2"],
+      [for e in azurerm_container_app_job.tareas.template[0].container[0].env : e.value if e.name == "AZURE_CLIENT_ID"] == ["dddddddd-dddd-dddd-dddd-dddddddddddd"],
+    ])
+    error_message = "ca-api usa la identidad del API y caj-tareas la de tareas, en la asignación, en PGUSER y en AZURE_CLIENT_ID."
+  }
+
+  # El resto del entorno es el mismo para los dos: solo cambian PGUSER y AZURE_CLIENT_ID.
+  assert {
+    condition = alltrue([
+      for envs in [azurerm_container_app.api.template[0].container[0].env, azurerm_container_app_job.tareas.template[0].container[0].env] :
+      alltrue([
+        [for e in envs : e.value if e.name == "PGSSLMODE"] == ["verify-full"],
+        length([for e in envs : e if e.name == "PGDATABASE" && e.value == "alcanzamos"]) == 1,
+        toset([for e in envs : e.name]) == toset(["PGHOST", "PGDATABASE", "PGUSER", "PGSSLMODE", "AZURE_CLIENT_ID", "CORREO_SMTP", "CORREO_USUARIO", "CORREO_CONTRASENA", "CORREO_REMITENTE"]),
+      ])
+    ])
+    error_message = "ca-api y caj-tareas llevan las mismas variables, con PGSSLMODE = verify-full; solo cambian PGUSER y AZURE_CLIENT_ID."
   }
 }
 

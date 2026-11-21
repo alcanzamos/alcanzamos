@@ -104,24 +104,24 @@ Con `-reconfigure`, OpenTofu toma el backend nuevo sin copiar el estado del ante
 - OpenTofu no administra el DNS. Los registros del dominio de correo (DKIM, dominio de rebotes y DMARC) los entrega el agente de envío de CPaaS y los carga el dueño en Cloudflare, «DNS only» (E11-INF 2.7 y 2.9). Ya no hay una salida con registros de Azure Communication Services.
 - La alerta cuenta por tipo de evento (E11-DAR §7): la consulta agrupa por la dimensión `tipo`, y el umbral vale para cada tipo por separado.
 - La imagen del API no tiene valor por defecto. La pasa el pipeline de despliegue, solo por digest (D-200 (8)(b)): una etiqueta puede moverse a otra imagen, así que se rechaza en los dos ambientes.
-- El paquete de ghcr.io es privado (D-200 (9)(a)). Container Apps lo baja con un token clásico `read:packages` que está en el Key Vault del ambiente y que lee con la identidad del API. El valor del token nunca pasa por OpenTofu ni por el estado.
+- El paquete de ghcr.io es privado (D-200 (9)(a)). Container Apps lo baja con un token clásico `read:packages` que está en el Key Vault del ambiente y que lee con la identidad de cada pieza (la del API en `ca-api`, la de tareas en `caj-tareas`). El valor del token nunca pasa por OpenTofu ni por el estado.
 - Cada correo dice dónde escribir: `privacidad@alcanzamos.co` (RF-060). Es la condición del remitente (D-120) y los correos del API ya lo cumplen (ver «Correo» en [`api/README.md`](../../api/README.md)).
 
 ## Conexión del API y rol de PostgreSQL (D-205 (2), E11-INF 2.3 bis)
 
 El API y `caj-tareas` entran a PostgreSQL con su identidad administrada (`id-alcanzamos-api-<prod|uat>-eus2`): `PGUSER` es el nombre de la identidad y la contraseña es un token de Entra ID de esa identidad. Esa identidad **no** es administradora del servidor. Los administradores son el migrador y `caj-psql`.
 
-El rol de PostgreSQL del API lo crea el migrador, no OpenTofu: `api migrar` aplica las migraciones y después crea el rol y le da solo lo que el API necesita (lectura y escritura de las tablas, lectura del catálogo, ningún permiso de DDL ni de administración; ver [`api/README.md`](../../api/README.md), «Rol del API»). El trabajo `caj-migrar` lo recibe con `ROL_API` (el nombre de la identidad del API) y `ROL_API_OBJECT_ID` (su `principal_id` de Entra); el trabajo mismo es de una tarea posterior.
+El rol de PostgreSQL del API lo crea el migrador, no OpenTofu: `api migrar` aplica las migraciones y después crea el rol y le da solo lo que el API necesita (lectura y escritura de las tablas, lectura del catálogo, ningún permiso de DDL ni de administración; ver [`api/README.md`](../../api/README.md), «Rol del API»). `caj-tareas` se conecta con su propia identidad (`id-alcanzamos-tareas-<prod|uat>-eus2`: `PGUSER` y `AZURE_CLIENT_ID` son los suyos), así que necesita también su rol de PostgreSQL, y hoy `migrar` solo crea el del API: queda pendiente antes del primer despliegue. El trabajo `caj-migrar` lo recibe con `ROL_API` (el nombre de la identidad del API) y `ROL_API_OBJECT_ID` (su `principal_id` de Entra); el trabajo mismo es de una tarea posterior.
 
 La conexión real, el certificado `verify-full` contra el nombre privado del servidor y el rol del API solo se comprueban dentro de Azure, en UAT.
 
 ## Acceso a la imagen privada (D-200 (9)(a))
 
-El API y el trabajo programado tienen un bloque `registry` con `server = "ghcr.io"`, el usuario `ghcr_usuario` y la contraseña en el secreto `ghcr_nombre_del_secreto` de Container Apps. Ese secreto no tiene valor: apunta al secreto del mismo nombre en el Key Vault del ambiente (`<vault_uri>secrets/ghcr-lectura`, sin versión) y se lee con la identidad del API, que ya tiene «Key Vault Secrets User» sobre el grupo ([`infra/bootstrap/`](../bootstrap/README.md)). Sin versión, Container Apps toma la última: renovar el token es cargar una versión nueva con el mismo nombre.
+El API y el trabajo programado tienen un bloque `registry` con `server = "ghcr.io"`, el usuario `ghcr_usuario` y la contraseña en el secreto `ghcr_nombre_del_secreto` de Container Apps. Ese secreto no tiene valor: apunta al secreto del mismo nombre en el Key Vault del ambiente (`<vault_uri>secrets/ghcr-lectura`, sin versión) y se lee con la identidad de cada pieza: la del API en `ca-api` y la de tareas en `caj-tareas`. Esas identidades las crea [`infra/bootstrap/`](../bootstrap/README.md) sin permisos sobre el Key Vault; el rol «Key Vault Secrets User» **sobre cada secreto** lo asigna el dueño con la raíz `infra/secretos`, nunca esta raíz ni el pipeline. Sin versión, Container Apps toma la última: renovar el token es cargar una versión nueva con el mismo nombre.
 
 El token lo crea el dueño (US-79 T3): un token clásico con **solo** `read:packages`, con vencimiento, uno por ambiente. La fecha de renovación se anota como la del token de D-167.
 
-Primer despliegue de cada ambiente, en este orden. Container Apps necesita leer el token al crear la app y el trabajo, así que el token va en el Key Vault antes:
+Primer despliegue de cada ambiente, en este orden: el bootstrap del ambiente, solo el Key Vault de esta raíz (`-target`), la carga de los secretos por el dueño, `infra/secretos` (los roles sobre cada secreto) y por último esta raíz completa. Container Apps necesita leer el token al crear la app y el trabajo, así que el token va en el Key Vault, y los roles que lo leen asignados, antes:
 
 1. Crear solo el Key Vault: `tofu apply -var-file=uat.tfvars -var="imagen_api=…@sha256:<digest>" -target=azurerm_key_vault.secretos`.
 2. El Key Vault usa RBAC: para cargar el secreto, el dueño se da «Key Vault Secrets Officer» solo sobre ese Key Vault, con su cuenta:
@@ -142,7 +142,8 @@ Primer despliegue de cada ambiente, en este orden. Container Apps necesita leer 
    unset GHCR_TOKEN
    ```
 
-4. Aplicar todo (`tofu apply` sin `-target`).
+4. Asignar los roles de lectura: el dueño aplica `infra/secretos` (una vez por ambiente, después de cargar los secretos, porque el rol se da sobre cada secreto y el secreto tiene que existir).
+5. Aplicar todo (`tofu apply` sin `-target`).
 
 En producción, lo mismo con `kv-alcanzamos-prod-eus2`, `produccion.tfvars` y el token de producción. Para renovar, solo el paso 3; la app toma la versión nueva sin volver a aplicar.
 
@@ -154,7 +155,7 @@ El API y el trabajo de tareas mandan el correo por SMTP autenticado contra Zoho 
 |---|---|---|
 | `CORREO_SMTP` | `smtp.zeptomail.com:587` | Fijo en `aplicacion.tf`; el API hace STARTTLS y después se autentica |
 | `CORREO_USUARIO` | `emailapikey` | Variable `correo_usuario` |
-| `CORREO_CONTRASENA` | Referencia al secreto `correo-contrasena` | `secret_name`, nunca un valor. El secreto de Container Apps tiene `key_vault_secret_id` (`<vault_uri>secrets/correo-contrasena`, sin versión) y se lee con la identidad que tiene asignada cada app |
+| `CORREO_CONTRASENA` | Referencia al secreto `correo-contrasena` | `secret_name`, nunca un valor. El secreto de Container Apps tiene `key_vault_secret_id` (`<vault_uri>secrets/correo-contrasena`, sin versión) y se lee con la identidad que tiene asignada cada una: la del API en `ca-api` y la de tareas en `caj-tareas` |
 | `CORREO_REMITENTE` | `no-responder@<dominio_de_correo>` | Variable `correo_remitente` (o el valor armado con `dominio_de_correo`) |
 
 Los nombres son los de la US-80 ([`api/README.md`](../../api/README.md), «Correo»). `CORREO_ENDPOINT` ya no existe.
@@ -171,7 +172,7 @@ unset CPAAS_TOKEN
 
 Va en el paso 3 de «Acceso a la imagen privada»: Container Apps lee el secreto al crear la app y el trabajo, así que tiene que estar en el Key Vault antes del `tofu apply` completo, igual que el token de ghcr.io. En producción, lo mismo con `kv-alcanzamos-prod-eus2` y el token del agente de producción. Para renovar, solo ese comando: la app toma la versión nueva. En un desastre no se cargan copias: se genera un token nuevo (E11-INF P12).
 
-**Quién la lee.** Hoy, la identidad de las apps con «Key Vault Secrets User» sobre el grupo ([`infra/bootstrap/`](../bootstrap/README.md)). El segundo paso del bootstrap (T6) lo cambia a un rol sobre cada secreto: `ghcr-lectura` y `correo-contrasena`, esta última solo para el API y las tareas. Ese rol no se asigna aquí.
+**Quién la lee.** La identidad del API (en `ca-api`) y la de tareas (en `caj-tareas`), cada una con «Key Vault Secrets User» **sobre el secreto `correo-contrasena`** y sobre `ghcr-lectura`; las demás identidades no leen la contraseña de CPaaS. Esos roles los asigna el dueño con la raíz `infra/secretos`, después de cargar los secretos y antes de aplicar esta raíz completa. Esta raíz no asigna roles (una prueba lo fija).
 
 ## Región: East US 2 (D-208)
 
@@ -211,7 +212,7 @@ Consultadas el 2026-10-22:
 
 ## Validación
 
-Sin credenciales y sin aplicar. `tofu test` hace solo plan, con el proveedor simulado (`tests/ambientes.tftest.hcl`): comprueba los nombres, las etiquetas, los tamaños y el remitente de cada ambiente, los valores de UAT (S11), que producción conserve sus nombres (`tests/proveedores.tftest.hcl` comprueba además que no hay recursos de registro de proveedores y que el proveedor lleva `resource_provider_registrations = "none"`) y que se rechacen un ambiente desconocido, un dominio de otro ambiente y una retención del Key Vault fuera de 7 a 90 días. `tests/red_privada.tftest.hcl` comprueba la red (subred `/27` del entorno con solo el perfil de consumo, subred delegada y zona DNS privada de PostgreSQL), que PostgreSQL no tenga acceso público ni regla de firewall, el respaldo georredundante solo en producción, que los administradores de Entra sean el migrador y `caj-psql` (`ServicePrincipal`) y no el API, que ni el API ni los trabajos lleven la URL de conexión ni una contraseña de PostgreSQL y que no quede la región anterior en esta carpeta. `tests/registro.tftest.hcl` comprueba, en los dos ambientes, que el API y el trabajo programado bajen la imagen de ghcr.io con el token del Key Vault leído con la identidad del API, que la imagen se acepte solo por digest (se rechazan `:1.0.0`, `:v0.1.0`, `:latest`, etiqueta con digest, un digest corto, en mayúsculas o de otro algoritmo y otra imagen) y que el usuario de ghcr.io y el nombre del secreto sean válidos. `tests/correo.tftest.hcl` comprueba que no quede ningún recurso de Azure Communication Services, ni `CORREO_ENDPOINT`, ni la salida de sus registros DNS; que el API y el trabajo de tareas tengan `CORREO_SMTP`, `CORREO_USUARIO`, `CORREO_REMITENTE` y `CORREO_CONTRASENA`; que la contraseña vaya solo como `secret_name`, nunca como valor, y que su secreto apunte al Key Vault con la identidad de la app; y que se rechacen un remitente de otro dominio o sin arroba, un usuario vacío y un nombre de secreto inválido.
+Sin credenciales y sin aplicar. `tofu test` hace solo plan, con el proveedor simulado (`tests/ambientes.tftest.hcl`): comprueba los nombres, las etiquetas, los tamaños y el remitente de cada ambiente, los valores de UAT (S11), que producción conserve sus nombres (`tests/proveedores.tftest.hcl` comprueba además que no hay recursos de registro de proveedores y que el proveedor lleva `resource_provider_registrations = "none"`) y que se rechacen un ambiente desconocido, un dominio de otro ambiente y una retención del Key Vault fuera de 7 a 90 días. `tests/red_privada.tftest.hcl` comprueba la red (subred `/27` del entorno con solo el perfil de consumo, subred delegada y zona DNS privada de PostgreSQL), que PostgreSQL no tenga acceso público ni regla de firewall, el respaldo georredundante solo en producción, que los administradores de Entra sean el migrador y `caj-psql` (`ServicePrincipal`) y no el API, que ni el API ni los trabajos lleven la URL de conexión ni una contraseña de PostgreSQL y que no quede la región anterior en esta carpeta. `tests/registro.tftest.hcl` comprueba, en los dos ambientes, que el API y el trabajo programado bajen la imagen de ghcr.io con el token del Key Vault leído con la identidad de cada uno (la del API en `ca-api` y la de tareas en `caj-tareas`), que la imagen se acepte solo por digest (se rechazan `:1.0.0`, `:v0.1.0`, `:latest`, etiqueta con digest, un digest corto, en mayúsculas o de otro algoritmo y otra imagen) y que el usuario de ghcr.io y el nombre del secreto sean válidos. `tests/correo.tftest.hcl` comprueba que no quede ningún recurso de Azure Communication Services, ni `CORREO_ENDPOINT`, ni la salida de sus registros DNS; que el API y el trabajo de tareas tengan `CORREO_SMTP`, `CORREO_USUARIO`, `CORREO_REMITENTE` y `CORREO_CONTRASENA`; que la contraseña vaya solo como `secret_name`, nunca como valor, y que su secreto apunte al Key Vault con la identidad de la app; y que se rechacen un remitente de otro dominio o sin arroba, un usuario vacío y un nombre de secreto inválido.
 
 ```sh
 cd infra/azure

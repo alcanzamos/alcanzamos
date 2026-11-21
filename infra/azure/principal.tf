@@ -34,11 +34,21 @@ resource "azurerm_log_analytics_workspace" "registros" {
   tags                = local.etiquetas
 }
 
-# Las identidades de carga y sus roles los crea el módulo bootstrap (id-alcanzamos-<rol>-<ambiente>-<región>). Aquí solo se leen.
-# El API se conecta a PostgreSQL con su identidad, con un rol sin administración que le crea el migrador. Los administradores de Entra
-# del servidor son el migrador y caj-psql (datos.tf), nunca el API.
+# Las identidades de carga las crea el módulo bootstrap (id-alcanzamos-<rol>-<ambiente>-<región>, una por rol). Aquí solo se leen, y cada
+# pieza usa la suya. El API se conecta a PostgreSQL con su identidad, con un rol sin administración que le crea el migrador. Los
+# administradores de Entra del servidor son el migrador y caj-psql (datos.tf), nunca el API.
 data "azurerm_user_assigned_identity" "api" {
   name                = "id-alcanzamos-api-${local.abreviatura[var.ambiente]}-${local.region}"
+  resource_group_name = data.azurerm_resource_group.principal.name
+}
+
+data "azurerm_user_assigned_identity" "web" {
+  name                = "id-alcanzamos-web-${local.abreviatura[var.ambiente]}-${local.region}"
+  resource_group_name = data.azurerm_resource_group.principal.name
+}
+
+data "azurerm_user_assigned_identity" "tareas" {
+  name                = "id-alcanzamos-tareas-${local.abreviatura[var.ambiente]}-${local.region}"
   resource_group_name = data.azurerm_resource_group.principal.name
 }
 

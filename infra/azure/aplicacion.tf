@@ -30,6 +30,12 @@ locals {
     CORREO_REMITENTE = local.correo_remitente
   }
 
+  # El trabajo de tareas se conecta con su propia identidad: cambian PGUSER y AZURE_CLIENT_ID; el resto es igual al del API.
+  variables_tareas = merge(local.variables_api, {
+    PGUSER          = data.azurerm_user_assigned_identity.tareas.name
+    AZURE_CLIENT_ID = data.azurerm_user_assigned_identity.tareas.client_id
+  })
+
   # Remitente aprobado (D-120): no-responder@<dominio de correo del ambiente>, salvo que se pase otro del mismo dominio.
   correo_remitente = coalesce(var.correo_remitente, "no-responder@${var.dominio_de_correo}")
 
@@ -55,7 +61,7 @@ resource "azurerm_container_app" "api" {
     identity_ids = [data.azurerm_user_assigned_identity.api.id]
   }
 
-  # Paquete privado: la identidad del API (Key Vault Secrets User, del bootstrap) lee el token del Key Vault.
+  # Paquete privado: la identidad del API lee el token del Key Vault (su rol sobre el secreto lo asigna el dueño con infra/secretos).
   secret {
     name                = var.ghcr_nombre_del_secreto
     key_vault_secret_id = local.ghcr_secreto_en_key_vault
@@ -125,19 +131,19 @@ resource "azurerm_container_app_job" "tareas" {
 
   identity {
     type         = "UserAssigned"
-    identity_ids = [data.azurerm_user_assigned_identity.api.id]
+    identity_ids = [data.azurerm_user_assigned_identity.tareas.id]
   }
 
   secret {
     name                = var.ghcr_nombre_del_secreto
     key_vault_secret_id = local.ghcr_secreto_en_key_vault
-    identity            = data.azurerm_user_assigned_identity.api.id
+    identity            = data.azurerm_user_assigned_identity.tareas.id
   }
 
   secret {
     name                = var.correo_nombre_del_secreto
     key_vault_secret_id = local.correo_secreto_en_key_vault
-    identity            = data.azurerm_user_assigned_identity.api.id
+    identity            = data.azurerm_user_assigned_identity.tareas.id
   }
 
   registry {
@@ -159,7 +165,7 @@ resource "azurerm_container_app_job" "tareas" {
       memory  = var.contenedor_memoria
 
       dynamic "env" {
-        for_each = local.variables_api
+        for_each = local.variables_tareas
         content {
           name  = env.key
           value = env.value
