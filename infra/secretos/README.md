@@ -82,7 +82,8 @@ az keyvault network-rule list --name "$KV"
 
 - **Rotar es cargar una versión nueva con el mismo nombre.** Las apps toman la última versión; no se vuelve a aplicar nada.
 - **Quitar la IP no es opcional.** Si el paso 3 falla, se repite hasta que `network-rule list` no muestre la IP.
-- **Pendiente del PR de `infra/azure`:** el Key Vault de `infra/azure` todavía no lleva `network_acls` (acción por defecto «Deny» y regla de la subred). Mientras no los tenga, el Key Vault acepta tráfico público y el paso de la IP no tiene efecto; el procedimiento queda igual para cuando ese PR lo cierre.
+- **La regla con la IP del dueño queda fuera del código.** La agrega y la quita el dueño a mano. Si no la quita, el siguiente `apply` de `infra/azure` la borra, porque el código declara las reglas de red del Key Vault sin ninguna IP. Por eso no se deja abierta «hasta la próxima vez»: cada carga abre la IP y la cierra.
+- **El cierre a la subred** (acción por defecto «Deny» y la regla de la subred) lo pone `infra/azure`, en el PR de la red privada. Hasta que entre, el Key Vault acepta tráfico público y el paso de la IP no tiene efecto; el procedimiento queda igual.
 
 ## Dónde queda su estado y cómo se respalda
 
