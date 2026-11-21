@@ -373,5 +373,63 @@ class LimpiezaDockerL8(unittest.TestCase):
         self.assertIn("always()", fallas[0])
 
 
+class RevisionDiariaD213(unittest.TestCase):
+    """revision-diaria.yml, el archivo real (D-213): todos sus trabajos, también el de gitleaks, sin `pool` propio (lo fija una sola
+    vez el pipeline, arriba) y con `workspace: clean: all`. Un trabajo nuevo que fije su pool (como el `vmImage: ubuntu-24.04` con el
+    que se escribió el de gitleaks antes de D-213) o que no limpie su espacio de trabajo rompe estas pruebas."""
+    TRABAJOS = {"api", "web", "movil", "gitleaks"}
+    RUTA = filtros.CARPETA / "revision-diaria.yml"
+
+    def setUp(self):
+        self.texto = self.RUTA.read_text(encoding="utf-8")
+
+    def test_cada_trabajo_sin_pool_y_con_espacio_limpio(self):
+        trabajos = filtros.trabajos_de(self.texto)
+        self.assertEqual(set(trabajos), self.TRABAJOS)
+        for nombre, claves in trabajos.items():
+            with self.subTest(trabajo=nombre):
+                self.assertNotIn("pool", claves, f"el trabajo {nombre} fija su propio pool")
+                self.assertEqual(claves.get("workspace.clean"), "all", f"el trabajo {nombre} no limpia su espacio de trabajo")
+
+    def test_el_pool_esta_una_sola_vez_arriba(self):
+        self.assertIn("pool:", filtros.raiz(self.texto))
+        self.assertEqual(filtros.revisar_agente({"revision-diaria.yml": self.texto}), [])
+
+    def test_rechaza_el_trabajo_de_gitleaks_con_su_propio_pool(self):
+        gitleaks = filtros.trabajo(self.texto, "gitleaks")
+        mutado = self.texto.replace(gitleaks, gitleaks.replace("    steps:\n", "    pool:\n      vmImage: ubuntu-24.04\n    steps:\n", 1))
+        self.assertNotEqual(mutado, self.texto)
+        fallas = filtros.revisar_agente({"revision-diaria.yml": mutado})
+        self.assertEqual(len(fallas), 1)
+        self.assertIn("gitleaks fija su propio pool", fallas[0])
+
+    def test_rechaza_el_trabajo_de_gitleaks_sin_espacio_limpio(self):
+        gitleaks = filtros.trabajo(self.texto, "gitleaks")
+        self.assertIn("    workspace:\n      clean: all\n", gitleaks)
+        mutado = self.texto.replace(gitleaks, gitleaks.replace("    workspace:\n      clean: all\n", "", 1))
+        fallas = filtros.revisar_agente({"revision-diaria.yml": mutado})
+        self.assertEqual(len(fallas), 1)
+        self.assertIn("gitleaks debe llevar `workspace: clean: all`", fallas[0])
+
+
+
+class ComentariosContrato(unittest.TestCase):
+    """`sin_comentarios` existe una sola vez y devuelve una lista (la usa la revisión de Playwright); `texto_sin_comentarios`
+    une esa lista (la usa gitleaks). Si otra definición la tapara, la revisión de Playwright dejaría de ver sus líneas."""
+
+    def test_definicion_unica_y_contratos_lista_texto(self):
+        import ast
+
+        ruta = filtros.CARPETA / "pruebas" / "filtros.py"
+        arbol = ast.parse(ruta.read_text(encoding="utf-8"))
+        definiciones = [
+            n for n in ast.walk(arbol)
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == "sin_comentarios"
+        ]
+        self.assertEqual(len(definiciones), 1)
+        texto = "# comentario\n\nuno\n  # otro\n  dos\n"
+        self.assertEqual(filtros.sin_comentarios(texto), ["uno", "  dos"])
+        self.assertEqual(filtros.texto_sin_comentarios(texto), "uno\n  dos")
+
 if __name__ == "__main__":
     unittest.main()

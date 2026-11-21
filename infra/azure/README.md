@@ -20,10 +20,8 @@ El desarrollo sigue en local ([`infra/local/`](../local/README.md)).
 | PostgreSQL flexible 18 | `psql-alcanzamos-prod-mxc` | `psql-alcanzamos-uat-mxc` | B1ms, 32 GiB (ADR-006 §5.2). Solo Entra ID, sin contraseñas; TLS obligatorio. Nombre único en todo Azure |
 | Entorno de Container Apps | `cae-alcanzamos-prod-mxc` | `cae-alcanzamos-uat-mxc` | Consumo |
 | App del API | `ca-api-alcanzamos-prod-mxc` | `ca-api-alcanzamos-uat-mxc` | 0,25 vCPU, 0,5 GiB, réplica mínima 1 en producción y 0 en UAT (S11). Hasta 32 caracteres (26 y 25). Baja la imagen privada de ghcr.io con el token del Key Vault (ver «Acceso a la imagen privada») |
-| Trabajo programado | `caj-tareas-alcanzamos-prod-mxc` | `caj-tareas-alcanzamos-uat-mxc` | Misma imagen, comando `tareas`, cada 15 minutos (UTC). Hasta 32 caracteres (30 y 29). Mismo acceso a ghcr.io que el API |
-| Servicio de correo | `ecs-alcanzamos-prod-mxc` | `ecs-alcanzamos-uat-mxc` | Datos en Francia (D-113) |
-| Dominio de correo | `avisos.alcanzamos.co` | `avisos-uat.alcanzamos.co` | Administrado por el cliente; remitente `no-responder@<dominio>` (D-120). Un dominio pertenece a un solo servicio de correo: cada ambiente tiene el suyo (D-200 (8), S5) |
-| Communication Services | `acs-alcanzamos-prod-mxc` | `acs-alcanzamos-uat-mxc` | Datos en Francia. Nombre único en todo Azure |
+| Trabajo programado | `caj-tareas-alcanzamos-prod-mxc` | `caj-tareas-alcanzamos-uat-mxc` | Misma imagen, comando `tareas`, cada 15 minutos (UTC). Hasta 32 caracteres (30 y 29). Mismo acceso a ghcr.io y mismo correo que el API |
+| Correo | Zoho CPaaS (SMTP), sin recursos de Azure | Igual | Azure Communication Services quedó descartado (D-205 (6)): este código ya no crea servicio de correo, dominio ni Communication Services. Cada ambiente tiene su agente de envío en CPaaS y su dominio: `avisos.alcanzamos.co` y `avisos-uat.alcanzamos.co`. Remitente `no-responder@<dominio>` (D-120). Ver «Correo por Zoho CPaaS» |
 | Grupo de acciones y alerta | `ag-seguridad-alcanzamos-prod-mxc`, `alrt-seguridad-alcanzamos-prod-mxc` | `ag-seguridad-alcanzamos-uat-mxc`, `alrt-seguridad-alcanzamos-uat-mxc` | RNF-025: más de 10 eventos de un mismo tipo en 15 minutos, aviso a `andres@alcanzamos.co` (O-5, D-120), el mismo correo en los dos ambientes (S11) |
 
 El grupo (`rg-alcanzamos-<prod|uat>-mxc`), la identidad del API (`id-alcanzamos-<prod|uat>-mxc`) y sus roles los crea [`infra/bootstrap/`](../bootstrap/README.md), una vez por ambiente.
@@ -32,13 +30,16 @@ Los nombres siguen las abreviaturas de Microsoft Cloud Adoption Framework: tipo,
 
 ## Parámetros
 
-Se declaran en `ambiente.tf` (más `subscription_id`, `imagen_api` y las de ghcr.io en `variables.tf`).
+Se declaran en `ambiente.tf` (más `subscription_id`, `imagen_api`, las de ghcr.io y las de correo en `variables.tf`).
 
 | Variable | Producción | UAT | Notas |
 |---|---|---|---|
 | `ambiente` | `produccion` | `uat` | Solo esos dos valores. Forma los nombres y la etiqueta `ambiente` |
 | `subscription_id` | Pago por uso | Pago por uso, la misma | Sin valor por defecto. Una sola suscripción para los dos ambientes (D-205 (11)) |
-| `dominio_de_correo` | `avisos.alcanzamos.co` | `avisos-uat.alcanzamos.co` | Se rechaza el de producción en UAT y otro en producción |
+| `dominio_de_correo` | `avisos.alcanzamos.co` | `avisos-uat.alcanzamos.co` | Dominio del remitente. Se rechaza el de producción en UAT y otro en producción |
+| `correo_remitente` | `no-responder@avisos.alcanzamos.co` | `no-responder@avisos-uat.alcanzamos.co` | `CORREO_REMITENTE`. Sin valor, se arma así con `dominio_de_correo`; si se pasa, tiene que ser de ese dominio |
+| `correo_usuario` | `emailapikey` | Igual | `CORREO_USUARIO`, el usuario de SMTP de CPaaS. No es un secreto |
+| `correo_nombre_del_secreto` | `correo-contrasena` | Igual | Secreto del Key Vault del ambiente con la contraseña de SMTP; nombra también el secreto en Container Apps. Ver «Correo por Zoho CPaaS» |
 | `imagen_api` | El digest probado en UAT | El digest que construye el pipeline | Solo por digest: `ghcr.io/alcanzamos/alcanzamos-api@sha256:<64 hex>` (D-200 (8)(b)). La pasa el pipeline de despliegue; una etiqueta (`:1.0.0`, `:latest`, o etiqueta y digest juntos) se rechaza |
 | `ghcr_usuario` | Usuario de GitHub del token | Igual | Dueño del token `read:packages`. Sin valor por defecto; no puede ir vacío |
 | `ghcr_nombre_del_secreto` | `ghcr-lectura` | Igual | Secreto del Key Vault del ambiente con el token; nombra también el secreto en Container Apps |
@@ -91,10 +92,10 @@ Con `-reconfigure`, OpenTofu toma el backend nuevo sin copiar el estado del ante
 ## Decisiones de seguridad
 
 - Sin secretos en el repositorio. El estado de OpenTofu va en Azure Storage, con Entra ID y sin claves compartidas.
-- El API entra a PostgreSQL, Key Vault y el correo con su identidad administrada, sin contraseñas ni claves.
+- El API entra a PostgreSQL y Key Vault con su identidad administrada, sin contraseñas ni claves. La única contraseña de la aplicación es la de SMTP de Zoho CPaaS, y vive en el Key Vault (ver «Correo por Zoho CPaaS»).
 - PostgreSQL admite conexiones solo desde servicios de Azure (regla `0.0.0.0`), porque Container Apps de consumo no tiene una IP de salida fija. Esa regla deja pasar servicios de otros clientes de Azure. Lo compensan la autenticación solo con Entra ID y TLS obligatorio. Si el riesgo no se acepta, la alternativa es una red virtual, que cuesta más (ADR-006).
 - El API escucha en el puerto 8080 (`ENV PUERTO=8080` y `EXPOSE 8080` en `api/Dockerfile`).
-- OpenTofu no administra el DNS. La salida `registros_dns_de_avisos` lista los registros que el dueño carga en Cloudflare para el dominio del ambiente (E17-CCO §10.6).
+- OpenTofu no administra el DNS. Los registros del dominio de correo (DKIM, dominio de rebotes y DMARC) los entrega el agente de envío de CPaaS y los carga el dueño en Cloudflare, «DNS only» (E11-INF 2.7 y 2.9). Ya no hay una salida con registros de Azure Communication Services.
 - La alerta cuenta por tipo de evento (E11-DAR §7): la consulta agrupa por la dimensión `tipo`, y el umbral vale para cada tipo por separado.
 - La imagen del API no tiene valor por defecto. La pasa el pipeline de despliegue, solo por digest (D-200 (8)(b)): una etiqueta puede moverse a otra imagen, así que se rechaza en los dos ambientes.
 - El paquete de ghcr.io es privado (D-200 (9)(a)). Container Apps lo baja con un token clásico `read:packages` que está en el Key Vault del ambiente y que lee con la identidad del API. El valor del token nunca pasa por OpenTofu ni por el estado.
@@ -131,6 +132,33 @@ Primer despliegue de cada ambiente, en este orden. Container Apps necesita leer 
 
 En producción, lo mismo con `kv-alcanzamos-prod-mxc`, `produccion.tfvars` y el token de producción. Para renovar, solo el paso 3; la app toma la versión nueva sin volver a aplicar.
 
+## Correo por Zoho CPaaS (D-205 (6), US-80)
+
+El API y el trabajo de tareas mandan el correo por SMTP autenticado contra Zoho CPaaS (antes ZeptoMail), no por Azure Communication Services. Las dos apps reciben las mismas variables:
+
+| Variable | Valor | De dónde sale |
+|---|---|---|
+| `CORREO_SMTP` | `smtp.zeptomail.com:587` | Fijo en `aplicacion.tf`; el API hace STARTTLS y después se autentica |
+| `CORREO_USUARIO` | `emailapikey` | Variable `correo_usuario` |
+| `CORREO_CONTRASENA` | Referencia al secreto `correo-contrasena` | `secret_name`, nunca un valor. El secreto de Container Apps tiene `key_vault_secret_id` (`<vault_uri>secrets/correo-contrasena`, sin versión) y se lee con la identidad que tiene asignada cada app |
+| `CORREO_REMITENTE` | `no-responder@<dominio_de_correo>` | Variable `correo_remitente` (o el valor armado con `dominio_de_correo`) |
+
+Los nombres son los de la US-80 ([`api/README.md`](../../api/README.md), «Correo»). `CORREO_ENDPOINT` ya no existe.
+
+**La contraseña.** Es el «Send Mail Token» del agente de envío del ambiente en CPaaS (`avisos-uat` en UAT y `avisos` en producción). **Solo la carga el dueño**, directo en el Key Vault del ambiente, por la entrada estándar, con vencimiento. No se escribe en archivos, notas, chats, tickets ni variables del pipeline, y nunca pasa por OpenTofu ni por el estado (E11-INF P12):
+
+```sh
+read -rs CPAAS_TOKEN    # pega el Send Mail Token del agente del ambiente y presiona Enter; no se muestra
+printf '%s' "$CPAAS_TOKEN" | az keyvault secret set --vault-name kv-alcanzamos-uat-mxc --name correo-contrasena \
+  --file /dev/stdin --encoding utf-8 --content-type "Send Mail Token de Zoho CPaaS" \
+  --expires "<AAAA-MM-DD>T00:00:00Z" --output none
+unset CPAAS_TOKEN
+```
+
+Va en el paso 3 de «Acceso a la imagen privada»: Container Apps lee el secreto al crear la app y el trabajo, así que tiene que estar en el Key Vault antes del `tofu apply` completo, igual que el token de ghcr.io. En producción, lo mismo con `kv-alcanzamos-prod-mxc` y el token del agente de producción. Para renovar, solo ese comando: la app toma la versión nueva. En un desastre no se cargan copias: se genera un token nuevo (E11-INF P12).
+
+**Quién la lee.** Hoy, la identidad de las apps con «Key Vault Secrets User» sobre el grupo ([`infra/bootstrap/`](../bootstrap/README.md)). El segundo paso del bootstrap (T6) lo cambia a un rol sobre cada secreto: `ghcr-lectura` y `correo-contrasena`, esta última solo para el API y las tareas. Ese rol no se asigna aquí.
+
 ## Región en Azure for Students (comprobado el 2026-11-11)
 
 D-200 pide anotar las diferencias de la suscripción de estudiante. Consultas de solo lectura con `az` 2.90.0 sobre la suscripción de UAT (oferta `AzureForStudents_2018-01-01`, límite de gasto activo); no se creó ni se registró nada.
@@ -154,9 +182,9 @@ Conclusión: la suscripción de estudiante permite `mexicocentral`, y ahí está
 No bloquean la US-44.
 
 1. **Red de PostgreSQL.** Llevar el riesgo de la regla `0.0.0.0` a E11-EIP y calcular, con fuente, el costo de la red virtual. Lo decide el dueño antes de crear el servidor: esa elección no se cambia después en el mismo servidor.
-2. **Rol mínimo para enviar correo** en lugar de «Communication and Email Service Owner» sobre todo el grupo. Se define en la US-45.
+2. **Contraseña de CPaaS** en el Key Vault de cada ambiente, cargada por el dueño (ver «Correo por Zoho CPaaS»). Ya no hay rol de correo de Azure (D-205 (6)).
 3. **Comprobar con `list-skus`** que PostgreSQL 18 y la zona 1 existen en México Central, en cada suscripción: las cuotas y los servicios de la región se comparan al desplegar UAT (D-200 (8)). En la de UAT ya se comprobó la región, PostgreSQL 18 y B1ms (ver «Región en Azure for Students»); falta la zona. La zona de PostgreSQL y el tenant de Entra ID de la suscripción de UAT se comprueban al desplegar (S11; US-79 T5 y T6).
-4. **Costos en ADR-006:** Communication Services, la regla de alerta y la retención de 90 días.
+4. **Costos en ADR-006:** la regla de alerta y la retención de 90 días.
 5. **Probar que el aviso de la alerta llega** a `andres@alcanzamos.co` (O-5).
 6. **Variables de la base (D-123, D-204).** La configuración pasa `PGHOST`, `PGDATABASE`, `PGUSER`, `PGSSLMODE` (`verify-full`) y `AZURE_CLIENT_ID`. Sin `BASE_DE_DATOS_URL`, el API se conecta con esas variables y un token de Entra ID de la identidad administrada (`api/README.md`, «Dos formas de conectar»). La conexión real solo se prueba dentro de Azure, después de la sesión de arquitectura de la infraestructura.
 
@@ -175,7 +203,7 @@ Consultadas el 2026-10-22:
 
 ## Validación
 
-Sin credenciales y sin aplicar. `tofu test` hace solo plan, con el proveedor simulado (`tests/ambientes.tftest.hcl`): comprueba los nombres, las etiquetas, los tamaños y el dominio de correo de cada ambiente, los valores de UAT (S11), que producción conserve sus nombres (`tests/proveedores.tftest.hcl` comprueba además que no hay recursos de registro de proveedores y que el proveedor lleva `resource_provider_registrations = "none"`) y que se rechacen un ambiente desconocido, un dominio de otro ambiente y una retención del Key Vault fuera de 7 a 90 días. `tests/registro.tftest.hcl` comprueba, en los dos ambientes, que el API y el trabajo programado bajen la imagen de ghcr.io con el token del Key Vault leído con la identidad del API, que la imagen se acepte solo por digest (se rechazan `:1.0.0`, `:v0.1.0`, `:latest`, etiqueta con digest, un digest corto, en mayúsculas o de otro algoritmo y otra imagen) y que el usuario de ghcr.io y el nombre del secreto sean válidos.
+Sin credenciales y sin aplicar. `tofu test` hace solo plan, con el proveedor simulado (`tests/ambientes.tftest.hcl`): comprueba los nombres, las etiquetas, los tamaños y el remitente de cada ambiente, los valores de UAT (S11), que producción conserve sus nombres (`tests/proveedores.tftest.hcl` comprueba además que no hay recursos de registro de proveedores y que el proveedor lleva `resource_provider_registrations = "none"`) y que se rechacen un ambiente desconocido, un dominio de otro ambiente y una retención del Key Vault fuera de 7 a 90 días. `tests/registro.tftest.hcl` comprueba, en los dos ambientes, que el API y el trabajo programado bajen la imagen de ghcr.io con el token del Key Vault leído con la identidad del API, que la imagen se acepte solo por digest (se rechazan `:1.0.0`, `:v0.1.0`, `:latest`, etiqueta con digest, un digest corto, en mayúsculas o de otro algoritmo y otra imagen) y que el usuario de ghcr.io y el nombre del secreto sean válidos. `tests/correo.tftest.hcl` comprueba que no quede ningún recurso de Azure Communication Services, ni `CORREO_ENDPOINT`, ni la salida de sus registros DNS; que el API y el trabajo de tareas tengan `CORREO_SMTP`, `CORREO_USUARIO`, `CORREO_REMITENTE` y `CORREO_CONTRASENA`; que la contraseña vaya solo como `secret_name`, nunca como valor, y que su secreto apunte al Key Vault con la identidad de la app; y que se rechacen un remitente de otro dominio o sin arroba, un usuario vacío y un nombre de secreto inválido.
 
 ```sh
 cd infra/azure

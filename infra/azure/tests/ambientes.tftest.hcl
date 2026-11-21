@@ -42,24 +42,6 @@ mock_provider "azurerm" {
     }
   }
 
-  mock_resource "azurerm_email_communication_service" {
-    defaults = {
-      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Communication/emailServices/ecs"
-    }
-  }
-
-  mock_resource "azurerm_email_communication_service_domain" {
-    defaults = {
-      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Communication/emailServices/ecs/domains/avisos"
-    }
-  }
-
-  mock_resource "azurerm_communication_service" {
-    defaults = {
-      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Communication/communicationServices/acs"
-    }
-  }
-
   mock_resource "azurerm_monitor_action_group" {
     defaults = {
       id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Insights/actionGroups/ag"
@@ -94,8 +76,6 @@ run "produccion_conserva_nombres_y_tamanos" {
       azurerm_container_app_environment.entorno.name == "cae-alcanzamos-prod-mxc",
       azurerm_container_app.api.name == "ca-api-alcanzamos-prod-mxc",
       azurerm_container_app_job.tareas.name == "caj-tareas-alcanzamos-prod-mxc",
-      azurerm_email_communication_service.correo.name == "ecs-alcanzamos-prod-mxc",
-      azurerm_communication_service.correo.name == "acs-alcanzamos-prod-mxc",
       azurerm_monitor_action_group.seguridad.name == "ag-seguridad-alcanzamos-prod-mxc",
       azurerm_monitor_scheduled_query_rules_alert_v2.eventos_de_seguridad.name == "alrt-seguridad-alcanzamos-prod-mxc",
     ])
@@ -103,8 +83,8 @@ run "produccion_conserva_nombres_y_tamanos" {
   }
 
   assert {
-    condition     = azurerm_email_communication_service_domain.avisos.name == "avisos.alcanzamos.co"
-    error_message = "El dominio de correo de producción es avisos.alcanzamos.co (D-113)."
+    condition     = [for e in azurerm_container_app.api.template[0].container[0].env : e.value if e.name == "CORREO_REMITENTE"] == ["no-responder@avisos.alcanzamos.co"]
+    error_message = "El remitente de producción es no-responder@avisos.alcanzamos.co (D-113, D-120)."
   }
 
   assert {
@@ -151,8 +131,6 @@ run "uat_usa_nombres_propios" {
       azurerm_container_app_environment.entorno.name == "cae-alcanzamos-uat-mxc",
       azurerm_container_app.api.name == "ca-api-alcanzamos-uat-mxc",
       azurerm_container_app_job.tareas.name == "caj-tareas-alcanzamos-uat-mxc",
-      azurerm_email_communication_service.correo.name == "ecs-alcanzamos-uat-mxc",
-      azurerm_communication_service.correo.name == "acs-alcanzamos-uat-mxc",
       azurerm_monitor_action_group.seguridad.name == "ag-seguridad-alcanzamos-uat-mxc",
       azurerm_monitor_scheduled_query_rules_alert_v2.eventos_de_seguridad.name == "alrt-seguridad-alcanzamos-uat-mxc",
     ])
@@ -160,8 +138,8 @@ run "uat_usa_nombres_propios" {
   }
 
   assert {
-    condition     = azurerm_email_communication_service_domain.avisos.name == "avisos-uat.alcanzamos.co"
-    error_message = "El dominio de correo de UAT es avisos-uat.alcanzamos.co (S5)."
+    condition     = [for e in azurerm_container_app.api.template[0].container[0].env : e.value if e.name == "CORREO_REMITENTE"] == ["no-responder@avisos-uat.alcanzamos.co"]
+    error_message = "El remitente de UAT es no-responder@avisos-uat.alcanzamos.co (S5, D-120)."
   }
 
   assert {
@@ -296,7 +274,7 @@ run "ambiente_desconocido_se_rechaza" {
   expect_failures = [var.ambiente]
 }
 
-# El dominio de producción no se crea en UAT (ni al revés): cada Email Communication Service tiene el suyo (D-200 (8)).
+# El dominio de producción no se usa en UAT (ni al revés): cada ambiente tiene su dominio de remitente y su agente de CPaaS (D-200 (8), D-205 (6)).
 run "uat_no_usa_el_dominio_de_produccion" {
   command = plan
 
