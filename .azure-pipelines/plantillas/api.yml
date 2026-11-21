@@ -43,7 +43,7 @@ jobs:
         workingDirectory: api
         displayName: Pruebas con detector de carreras
 
-      # web/servidor (infra-d205 T14): el servidor de archivos estáticos de ca-web es un módulo de Go aparte, solo con la
+      # web/servidor (E11-INF 2.16, D-205 (10)): el servidor de archivos estáticos de ca-web es un módulo de Go aparte, solo con la
       # biblioteca estándar. Corre en esta etapa porque corre cuando cambia web/servidor/* (filtro de api.yml y del control, D-213) y ya
       # trae Go fijado: no hace falta otra instalación ni otro filtro. pruebas/filtros.py comprueba que cada go.mod tenga
       # sus pasos aquí. Misma configuración de lint que el API, con el golangci-lint fijado en api/go.mod.
