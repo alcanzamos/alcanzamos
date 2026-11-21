@@ -28,7 +28,7 @@ resource "azurerm_federated_identity_credential" "azure_devops" {
 
 # El pipeline tiene solo estos dos roles. Ninguno puede asignar roles (ni Owner,
 # ni User Access Administrator, ni Role Based Access Control Administrator): los
-# roles de las demás identidades los asigna el dueño con este bootstrap.
+# roles de las demás identidades los asigna el dueño con infra/secretos.
 resource "azurerm_role_assignment" "pipeline" {
   for_each = {
     # Permisos solo sobre el grupo de recursos de su ambiente (D-119, opción A; E11-INF 2.17).
@@ -54,10 +54,6 @@ resource "azurerm_user_assigned_identity" "carga" {
   tags                = local.etiquetas
 }
 
-# Provisional: el segundo paso (T6) lo cambia por Key Vault Secrets User sobre cada secreto.
-resource "azurerm_role_assignment" "api_lee_secretos" {
-  scope                = azurerm_resource_group.principal.id
-  role_definition_name = "Key Vault Secrets User"
-  principal_id         = azurerm_user_assigned_identity.carga["api"].principal_id
-  principal_type       = "ServicePrincipal"
-}
+# Las identidades de carga no tienen ningún rol aquí. Cuando infra/azure crea el Key Vault y el dueño carga los secretos,
+# infra/secretos asigna a cada una el rol de lectura de secretos sobre cada secreto que necesita, y solo sobre ese
+# (E11-INF 2.5, 2.14; D-205 (5)). El rol provisional sobre el grupo, que tenía el API, se quitó.

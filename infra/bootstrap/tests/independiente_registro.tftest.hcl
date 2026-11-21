@@ -1,4 +1,4 @@
-# S4: el rol debe apuntar a la identidad y al grupo correctos.
+# E11-INF 2.14: el bootstrap ya no da a las identidades de carga ningún rol (los de secretos están en infra/secretos).
 # Nombres del bootstrap por ambiente (US-79, D-200 (8)): cada suscripción tiene su grupo, su estado y sus identidades.
 # Corre sin credenciales ni Azure: los proveedores son simulacros y solo se hace plan.
 #   tofu init -backend=false && tofu test
@@ -31,32 +31,30 @@ variables {
 }
 
 
-run "uat_rbac" {
+run "uat_sin_rol_de_secretos_en_el_grupo" {
   command = plan
   variables {
     ambiente = "uat"
   }
   assert {
     condition = alltrue([
-      azurerm_role_assignment.api_lee_secretos.principal_id == azurerm_user_assigned_identity.carga["api"].principal_id,
-      azurerm_role_assignment.api_lee_secretos.scope == azurerm_resource_group.principal.id,
-      azurerm_role_assignment.api_lee_secretos.role_definition_name == "Key Vault Secrets User",
+      toset([for a in values(azurerm_role_assignment.pipeline) : a.role_definition_name]) == toset(["Contributor", "Storage Blob Data Contributor"]),
+      alltrue([for i in values(azurerm_user_assigned_identity.carga) : i.principal_id != azurerm_role_assignment.pipeline["grupo"].principal_id]),
     ])
-    error_message = "S4: el API necesita leer secretos del grupo que contiene el Key Vault."
+    error_message = "El API ya no lee secretos con un rol sobre el grupo; el único rol sobre el grupo es Contributor del pipeline."
   }
 }
 
-run "produccion_rbac" {
+run "produccion_sin_rol_de_secretos_en_el_grupo" {
   command = plan
   variables {
     ambiente = "produccion"
   }
   assert {
     condition = alltrue([
-      azurerm_role_assignment.api_lee_secretos.principal_id == azurerm_user_assigned_identity.carga["api"].principal_id,
-      azurerm_role_assignment.api_lee_secretos.scope == azurerm_resource_group.principal.id,
-      azurerm_role_assignment.api_lee_secretos.role_definition_name == "Key Vault Secrets User",
+      toset([for a in values(azurerm_role_assignment.pipeline) : a.role_definition_name]) == toset(["Contributor", "Storage Blob Data Contributor"]),
+      alltrue([for i in values(azurerm_user_assigned_identity.carga) : i.principal_id != azurerm_role_assignment.pipeline["grupo"].principal_id]),
     ])
-    error_message = "S4: el API necesita leer secretos del grupo que contiene el Key Vault."
+    error_message = "El API ya no lee secretos con un rol sobre el grupo; el único rol sobre el grupo es Contributor del pipeline."
   }
 }

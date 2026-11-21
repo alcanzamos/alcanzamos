@@ -88,17 +88,17 @@ run "pipeline_no_gana_mas_roles" {
 
   assert {
     condition = alltrue([
-      toset([for m in regexall("(?m)^resource\\s+\"azurerm_role_assignment\"\\s+\"([a-z_]+)\"", join("\n", [for f in fileset(path.module, "*.tf") : file("${path.module}/${f}")])) : m[0]]) == toset(["pipeline", "api_lee_secretos"]),
+      toset([for m in regexall("(?m)^resource\\s+\"azurerm_role_assignment\"\\s+\"([a-z_]+)\"", join("\n", [for f in fileset(path.module, "*.tf") : file("${path.module}/${f}")])) : m[0]]) == toset(["pipeline"]),
       length(regexall("azurerm_user_assigned_identity\\.pipeline\\.principal_id", join("\n", [for f in fileset(path.module, "*.tf") : file("${path.module}/${f}")]))) == 1,
     ])
-    error_message = "Solo azurerm_role_assignment.pipeline (dos roles) puede usar la identidad del pipeline, y no hay más asignaciones que las dos conocidas."
+    error_message = "Solo azurerm_role_assignment.pipeline (dos roles) puede usar la identidad del pipeline, y no hay más asignaciones que esa (los roles de secretos están en infra/secretos)."
   }
 
   assert {
     condition = alltrue([
       length(azurerm_role_assignment.pipeline) == 2,
       toset([for a in values(azurerm_role_assignment.pipeline) : a.role_definition_name]) == toset(["Contributor", "Storage Blob Data Contributor"]),
-      azurerm_role_assignment.api_lee_secretos.principal_id != azurerm_user_assigned_identity.pipeline.principal_id,
+      alltrue([for i in values(azurerm_user_assigned_identity.carga) : i.principal_id != azurerm_user_assigned_identity.pipeline.principal_id]),
     ])
     error_message = "El pipeline tiene solo Contributor sobre su grupo y Storage Blob Data Contributor sobre su estado."
   }
