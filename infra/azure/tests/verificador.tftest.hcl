@@ -42,24 +42,6 @@ mock_provider "azurerm" {
     }
   }
 
-  mock_resource "azurerm_email_communication_service" {
-    defaults = {
-      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Communication/emailServices/ecs"
-    }
-  }
-
-  mock_resource "azurerm_email_communication_service_domain" {
-    defaults = {
-      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Communication/emailServices/ecs/domains/avisos"
-    }
-  }
-
-  mock_resource "azurerm_communication_service" {
-    defaults = {
-      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Communication/communicationServices/acs"
-    }
-  }
-
   mock_resource "azurerm_monitor_action_group" {
     defaults = {
       id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Insights/actionGroups/ag"
@@ -98,18 +80,13 @@ run "produccion_conserva_seguridad_y_valores_fijos" {
       azurerm_postgresql_flexible_server_configuration.tls.value == "on",
       azurerm_postgresql_flexible_server_firewall_rule.servicios_azure.start_ip_address == "0.0.0.0",
       azurerm_log_analytics_workspace.registros.sku == "PerGB2018",
-      azurerm_email_communication_service.correo.data_location == "France",
-      azurerm_communication_service.correo.data_location == "France",
-      azurerm_email_communication_service_domain.avisos.domain_management == "CustomerManaged",
-      azurerm_email_communication_service_domain_sender_username.avisos.name == "no-responder",
-      azurerm_email_communication_service_domain_sender_username.avisos.display_name == "Alcanzamos",
       [for r in azurerm_monitor_action_group.seguridad.email_receiver : r.email_address] == ["andres@alcanzamos.co"],
       azurerm_monitor_scheduled_query_rules_alert_v2.eventos_de_seguridad.criteria[0].threshold == 10,
       azurerm_monitor_scheduled_query_rules_alert_v2.eventos_de_seguridad.window_duration == "PT15M",
       azurerm_container_app.api.ingress[0].target_port == 8080,
       azurerm_container_app_job.tareas.schedule_trigger_config[0].cron_expression == "*/15 * * * *",
       azurerm_container_app_job.tareas.template[0].container[0].command == tolist(["/alcanzamos", "tareas"]),
-      toset([for e in azurerm_container_app.api.template[0].container[0].env : e.name]) == toset(["PGHOST", "PGDATABASE", "PGUSER", "PGSSLMODE", "AZURE_CLIENT_ID", "CORREO_ENDPOINT", "CORREO_REMITENTE"]),
+      toset([for e in azurerm_container_app.api.template[0].container[0].env : e.name]) == toset(["PGHOST", "PGDATABASE", "PGUSER", "PGSSLMODE", "AZURE_CLIENT_ID", "CORREO_SMTP", "CORREO_USUARIO", "CORREO_CONTRASENA", "CORREO_REMITENTE"]),
       [for e in azurerm_container_app.api.template[0].container[0].env : e.value if e.name == "PGSSLMODE"] == ["verify-full"],
     ])
     error_message = "Producción cambió algo que no es un parámetro de ambiente."
@@ -118,7 +95,6 @@ run "produccion_conserva_seguridad_y_valores_fijos" {
     condition = alltrue([for t in [
       azurerm_log_analytics_workspace.registros.tags, azurerm_key_vault.secretos.tags, azurerm_postgresql_flexible_server.datos.tags,
       azurerm_container_app_environment.entorno.tags, azurerm_container_app.api.tags, azurerm_container_app_job.tareas.tags,
-      azurerm_email_communication_service.correo.tags, azurerm_email_communication_service_domain.avisos.tags, azurerm_communication_service.correo.tags,
       azurerm_monitor_action_group.seguridad.tags, azurerm_monitor_scheduled_query_rules_alert_v2.eventos_de_seguridad.tags,
     ] : t == tomap({ proyecto = "alcanzamos", ambiente = "produccion", origen = "opentofu" })])
     error_message = "Alguna etiqueta de producción cambió."
@@ -136,7 +112,6 @@ run "uat_etiqueta_todos_los_recursos_y_cumple_formatos" {
     condition = alltrue([for t in [
       azurerm_log_analytics_workspace.registros.tags, azurerm_key_vault.secretos.tags, azurerm_postgresql_flexible_server.datos.tags,
       azurerm_container_app_environment.entorno.tags, azurerm_container_app.api.tags, azurerm_container_app_job.tareas.tags,
-      azurerm_email_communication_service.correo.tags, azurerm_email_communication_service_domain.avisos.tags, azurerm_communication_service.correo.tags,
       azurerm_monitor_action_group.seguridad.tags, azurerm_monitor_scheduled_query_rules_alert_v2.eventos_de_seguridad.tags,
     ] : t == tomap({ proyecto = "alcanzamos", ambiente = "uat", origen = "opentofu" })])
     error_message = "Alguna etiqueta de UAT no dice uat."
