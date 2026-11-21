@@ -70,7 +70,7 @@ ESPERADO = {
     "api/Dockerfile": {"comun", "api"},
     # El .dockerignore de la raíz lo comparten las dos imágenes (contexto: la raíz del monorepo): decide qué entra en cada build.
     ".dockerignore": {"comun", "api", "web"},
-    # La imagen de ca-web (T13): la construye plantillas/web.yml, en la etapa web; la etapa api no la construye.
+    # La imagen de ca-web (E11-INF 2.16): la construye plantillas/web.yml, en la etapa web; la etapa api no la construye.
     "web/Dockerfile": {"comun", "web"},
     "api/.golangci.yml": {"comun", "api"},
     "api/go.mod": {"comun", "api"},
@@ -531,7 +531,7 @@ def publica(orden):
 def construye_la_imagen(dockerfile):
     """Predicado para `ejecuta`: la orden es `docker build --file <dockerfile> ... .` desde la raíz del monorepo (el contexto
     de todas las imágenes) y no publica nada (`publica`), y ninguna orden anterior del paso cambia de carpeta ni hace
-    `docker push` (T13, E11-INF 2.16)."""
+    `docker push` (E11-INF 2.16)."""
     def es_la_orden(orden, antes):
         return (orden[:2] == ["docker", "build"] and orden[-1] == "." and not publica(orden)
                 and not any(re.match(r"(cd|pushd|docker push)\b", a) for a in antes)
