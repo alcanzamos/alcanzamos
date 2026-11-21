@@ -22,6 +22,16 @@ import (
 // Sin BASE_DE_DATOS_URL, o sin PostgreSQL alcanzable, salta la prueba.
 func Nueva(t *testing.T) *pgxpool.Pool {
 	t.Helper()
+	pool := NuevaSinMigrar(t)
+	if _, err := bd.Subir(context.Background(), pool); err != nil {
+		t.Fatal(err)
+	}
+	return pool
+}
+
+// NuevaSinMigrar es Nueva sin aplicar las migraciones: la base queda vacía.
+func NuevaSinMigrar(t *testing.T) *pgxpool.Pool {
+	t.Helper()
 	ctx := context.Background()
 	base := os.Getenv(bd.VariableURL)
 	if base == "" {
@@ -58,8 +68,5 @@ func Nueva(t *testing.T) *pgxpool.Pool {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	if _, err := bd.Subir(ctx, pool); err != nil {
-		t.Fatal(err)
-	}
 	return pool
 }

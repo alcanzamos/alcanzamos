@@ -114,3 +114,23 @@ func TestTareasSinConfiguracionDeCorreoFalla(t *testing.T) {
 		t.Fatalf("se esperaba un error que nombre las variables que faltan, sin correr tareas: %d %s", codigo, salida)
 	}
 }
+
+// L24 (a): en Azure ni el API ni los trabajos (`tareas`, `migrar`) aceptan BASE_DE_DATOS_URL. Fallan antes de abrir ninguna
+// conexión (el puerto 1 no tiene a nadie) y sin repetir la URL, que lleva la contraseña.
+func TestEnAzureNingunSubcomandoAceptaLaURLDeLaBase(t *testing.T) {
+	for _, subcomando := range []string{"api", "tareas", "migrar"} {
+		t.Run(subcomando, func(t *testing.T) {
+			entornoDeCorreo(t)
+			sinBaseDeDatos(t)
+			t.Setenv("BASE_DE_DATOS_URL", "postgres://alguien:CLAVE-FIJA-DE-PRUEBA@127.0.0.1:1/alcanzamos?sslmode=disable&connect_timeout=1")
+			t.Setenv("AZURE_CLIENT_ID", "11111111-2222-3333-4444-555555555555")
+			codigo, salida := ejecutar(subcomando)
+			if codigo != 1 || !strings.Contains(salida, "BASE_DE_DATOS_URL") || !strings.Contains(salida, "AZURE_CLIENT_ID") {
+				t.Fatalf("código %d, se esperaba 1 con un error que nombre BASE_DE_DATOS_URL y AZURE_CLIENT_ID: %s", codigo, salida)
+			}
+			if strings.Contains(salida, "CLAVE-FIJA-DE-PRUEBA") || strings.Contains(salida, "conectar con PostgreSQL") || strings.Contains(salida, "tareas: fin") {
+				t.Fatalf("debía fallar antes de conectar y sin repetir la URL: %s", salida)
+			}
+		})
+	}
+}
