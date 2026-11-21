@@ -337,10 +337,11 @@ func TestAsegurarElRolRechazaNombresPeligrososSinTocarNada(t *testing.T) {
 }
 
 // En Azure el rol se crea con la función de Entra de Azure Database for PostgreSQL: pgaadauth_create_principal_with_oid, como servicio y
-// sin administración, y se comprueba con pgaadauth_list_principals(false), que devuelve TABLE(rolename, principalType, objectId, tenantId,
-// isMfa, isAdmin) (https://learn.microsoft.com/en-us/azure/postgresql/security/security-manage-entra-users). Aquí las dos funciones son
-// una copia mínima que anota cómo las llamaron y qué roles son de Entra, porque PostgreSQL local no las trae. Las columnas llevan comillas
-// y mayúsculas, como las documenta Microsoft, para que la prueba falle si el código las pide por nombre en vez de por posición.
+// sin administración, y se comprueba con pgaadauth_list_principals(false), que devuelve TABLE(rolename name, principalType text, objectId
+// text, tenantId text, isMfa integer, isAdmin integer) (https://learn.microsoft.com/en-us/azure/postgresql/security/security-manage-entra-users).
+// Aquí las dos funciones son una copia mínima que anota cómo las llamaron y qué roles son de Entra, porque PostgreSQL local no las trae. Las
+// columnas llevan comillas y mayúsculas, como las documenta Microsoft; las pruebas de reemplazarListaDeEntra las cambian de orden, de
+// mayúsculas o de nombre para comprobar que el código las busca por nombre y no por posición.
 const funcionDeEntraFalsa = `
 CREATE TABLE llamadas_a_entra (nombre text, object_id text, tipo text, es_admin boolean, es_mfa boolean);
 CREATE TABLE principales_de_entra (rolename name, "principalType" text, "objectId" text, "tenantId" text, "isMfa" integer, "isAdmin" integer);
@@ -641,6 +642,110 @@ func TestEnAzureUnRolExistenteSoloSeAceptaLigadoAlObjectIDConfigurado(t *testing
 				t.Error("el rol aceptado queda con lo justo")
 			}
 		})
+	}
+}
+
+// reemplazarListaDeEntra redefine pgaadauth_list_principals con otras columnas (la sección `columnas` es el TABLE(...) y `seleccion` la lista
+// de columnas de principales_de_entra que las llena, en el mismo orden): sirve para probar que el código lee por nombre, no por posición.
+func reemplazarListaDeEntra(t *testing.T, pool *pgxpool.Pool, columnas, seleccion string) {
+	t.Helper()
+	sql(t, pool, "DROP FUNCTION pgaadauth_list_principals(boolean)",
+		"CREATE FUNCTION pgaadauth_list_principals(isadminvalue boolean) RETURNS TABLE ("+columnas+") LANGUAGE sql AS $f$ "+
+			`SELECT `+seleccion+` FROM principales_de_entra WHERE NOT isadminvalue OR "isAdmin" = 1; $f$`)
+	pool.Reset() // las conexiones guardan el plan con las columnas de antes ("cached plan must not change result type")
+}
+
+// Las columnas de pgaadauth_list_principals se leen por nombre (rolename y objectId), no por posición: con otro orden, o con los nombres
+// en minúsculas (como los plegaría PostgreSQL sin comillas), el rol de Entra con su object id se acepta igual. Cada uno para api y tareas.
+func TestEnAzureLasColumnasDeLaListaDeEntraSeLeenPorNombre(t *testing.T) {
+	pool := pgtest.Nueva(t)
+	sql(t, pool, funcionDeEntraFalsa)
+	ids := map[string]string{"api": objectIDDelAPI, "tareas": objectIDDeTareas}
+	variantes := map[string][2]string{
+		"otro orden": {`"tenantId" text, "isAdmin" integer, "objectId" text, "isMfa" integer, "principalType" text, rolename name`,
+			`"tenantId", "isAdmin", "objectId", "isMfa", "principalType", rolename`},
+		"con el object id primero": {`"objectId" text, rolename name, "principalType" text, "tenantId" text, "isMfa" integer, "isAdmin" integer`,
+			`"objectId", rolename, "principalType", "tenantId", "isMfa", "isAdmin"`},
+		"en minúsculas": {`rolename name, principaltype text, objectid text, tenantid text, ismfa integer, isadmin integer`,
+			`rolename, "principalType", "objectId", "tenantId", "isMfa", "isAdmin"`},
+	}
+	for nombre, v := range variantes {
+		reemplazarListaDeEntra(t, pool, v[0], v[1])
+		for _, app := range aplicaciones {
+			t.Run(nombre+"/"+app, func(t *testing.T) {
+				rol := nuevoRolDe(t, pool, app)
+				sql(t, pool, "SELECT pgaadauth_create_principal_with_oid('"+rol+"', '"+ids[app]+"', 'service', false, false)")
+				if err := asegurarEnAzure(t, pool, rol, ids[app]); err != nil {
+					t.Fatalf("el rol de Entra con su object id debía aceptarse: %v", err)
+				}
+				if !tienePermiso(t, pool, rol, "persona", "DELETE") {
+					t.Error("el rol aceptado queda con lo justo")
+				}
+				// Y con otro object id sigue rechazado: leer por nombre no relaja la comparación.
+				otro := nuevoRolDe(t, pool, app)
+				sql(t, pool, "SELECT pgaadauth_create_principal_with_oid('"+otro+"', '12345678-1234-1234-1234-123456789abc', 'service', false, false)")
+				if err := asegurarEnAzure(t, pool, otro, ids[app]); err == nil || !strings.Contains(err.Error(), "otro object id") {
+					t.Fatalf("otro object id debía rechazarse: %v", err)
+				}
+			})
+		}
+	}
+}
+
+// Si la función de Entra no devuelve la columna rolename o la objectId (falta, está renombrada, aparece dos veces o no es texto), el rol se rechaza: falla
+// cerrado, nombra la columna que falta y la función, y no toca nada del rol. Aunque la función no devuelva filas y el rol exista: sin la
+// columna no se puede saber a qué object id está ligado. Cada uno para api y tareas.
+func TestEnAzureSinLaColumnaDeLaListaDeEntraFallaCerrado(t *testing.T) {
+	pool := pgtest.Nueva(t)
+	sql(t, pool, funcionDeEntraFalsa)
+	ids := map[string]string{"api": objectIDDelAPI, "tareas": objectIDDeTareas}
+	casos := []struct{ nombre, columnas, seleccion, falta string }{
+		{"objectId renombrada", `rolename name, "principalType" text, "principalId" text, "tenantId" text`, `rolename, "principalType", "objectId", "tenantId"`, "objectId"},
+		{"sin objectId", `rolename name, "principalType" text, "tenantId" text`, `rolename, "principalType", "tenantId"`, "objectId"},
+		{"rolename renombrada", `"roleName2" name, "principalType" text, "objectId" text`, `rolename, "principalType", "objectId"`, "rolename"},
+		{"sin rolename", `"principalType" text, "objectId" text, "tenantId" text`, `"principalType", "objectId", "tenantId"`, "rolename"},
+		{"objectId que no es texto", `rolename name, "principalType" text, "objectId" uuid`, `rolename, "principalType", "objectId"::uuid`, "objectId"},
+		{"objectId repetida", `rolename name, "principalType" text, "objectId" text, objectid text`, `rolename, "principalType", "objectId", "objectId"`, "objectId"},
+	}
+	for _, c := range casos {
+		reemplazarListaDeEntra(t, pool, c.columnas, c.seleccion)
+		for _, app := range aplicaciones {
+			t.Run(c.nombre+"/"+app, func(t *testing.T) {
+				rol := nuevoRolDe(t, pool, app)
+				sql(t, pool, "SELECT pgaadauth_create_principal_with_oid('"+rol+"', '"+ids[app]+"', 'service', false, false)")
+				darDeMas(t, pool, rol)
+				err := asegurarEnAzure(t, pool, rol, ids[app])
+				if err == nil || !strings.Contains(err.Error(), rol) || !strings.Contains(err.Error(), "pgaadauth_list_principals") || !strings.Contains(err.Error(), c.falta) {
+					t.Fatalf("sin la columna %s debía fallar cerrado nombrando al rol, la función y la columna: %v", c.falta, err)
+				}
+				comprobarSinTocar(t, pool, rol)
+			})
+		}
+	}
+	t.Run("sin filas", func(t *testing.T) {
+		reemplazarListaDeEntra(t, pool, `rolename name, "principalType" text, "principalId" text`, `rolename, "principalType", "objectId"`)
+		sql(t, pool, "DELETE FROM principales_de_entra")
+		rol := nuevoRolDe(t, pool, "api")
+		sql(t, pool, "CREATE ROLE "+pgx.Identifier{rol}.Sanitize()+" LOGIN")
+		darDeMas(t, pool, rol)
+		err := asegurarEnAzure(t, pool, rol, objectIDDelAPI)
+		if err == nil || !strings.Contains(err.Error(), "objectId") {
+			t.Fatalf("sin filas y sin la columna también debía nombrar la columna que falta: %v", err)
+		}
+		comprobarSinTocar(t, pool, rol)
+	})
+}
+
+// ValidarRoles (solo lectura, lo que corre `migrar` antes de migrar) también falla cerrado sin la columna, y no crea nada.
+func TestValidarRolesFallaCerradoSinLaColumnaDeLaListaDeEntra(t *testing.T) {
+	pool := pgtest.NuevaSinMigrar(t)
+	sql(t, pool, funcionDeEntraFalsa)
+	rol := nuevoRolDe(t, pool, "api")
+	sql(t, pool, "SELECT pgaadauth_create_principal_with_oid('"+rol+"', '"+objectIDDelAPI+"', 'service', false, false)")
+	reemplazarListaDeEntra(t, pool, `rolename name, "principalId" text`, `rolename, "objectId"`)
+	err := bd.ValidarRoles(context.Background(), pool, []bd.RolDeLaAplicacion{{Nombre: rol, ObjectID: objectIDDelAPI, EnAzure: true}})
+	if err == nil || !strings.Contains(err.Error(), "objectId") || !strings.Contains(err.Error(), "ROLES_DE_APLICACION") {
+		t.Fatalf("se esperaba el rechazo nombrando la columna y la variable: %v", err)
 	}
 }
 

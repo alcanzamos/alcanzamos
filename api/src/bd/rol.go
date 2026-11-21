@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -287,29 +288,72 @@ func (r RolDeLaAplicacion) revisar(ctx context.Context, pool *pgxpool.Pool) erro
 	return sinMembresias(ctx, pool, r.Nombre)
 }
 
+// Columnas de pgaadauth_list_principals que lee ligadoAEntra, con los nombres que documenta Microsoft: la función devuelve
+// TABLE(rolename name, principalType text, objectId text, tenantId text, isMfa integer, isAdmin integer)
+// (https://learn.microsoft.com/en-us/azure/postgresql/security/security-manage-entra-users, «List Microsoft Entra roles using SQL»,
+// consultada el 2026-11-20). Es la única fuente: la página no dice cómo quedan en el catálogo las mayúsculas de `objectId` (sin comillas
+// PostgreSQL las plegaría a `objectid`), así que se buscan sin distinguir mayúsculas; el resto del nombre tiene que ser exacto. Esa
+// comprobación contra la función real de Azure queda en el hito de UAT.
+const (
+	columnaNombreDelRolDeEntra = "rolename"
+	columnaObjectIDDeEntra     = "objectId"
+)
+
+// columnaDeEntra devuelve la posición de la columna `nombre` entre las que devolvió la consulta. Falla si falta o si aparece más de una
+// (dos columnas que solo difieren en las mayúsculas): sin una columna única no se puede saber cuál es el dato, y se rechaza el rol.
+func columnaDeEntra(campos []pgconn.FieldDescription, nombre string) (int, error) {
+	posicion, nombres := -1, make([]string, len(campos))
+	for i, c := range campos {
+		nombres[i] = c.Name
+	}
+	for i, c := range campos {
+		if !strings.EqualFold(c.Name, nombre) {
+			continue
+		}
+		if posicion >= 0 {
+			return 0, fmt.Errorf("pgaadauth_list_principals devuelve la columna %q más de una vez (columnas: %s)", nombre, strings.Join(nombres, ", "))
+		}
+		posicion = i
+	}
+	if posicion < 0 {
+		return 0, fmt.Errorf("pgaadauth_list_principals no devuelve la columna %q (columnas: %s)", nombre, strings.Join(nombres, ", "))
+	}
+	return posicion, nil
+}
+
 // ligadoAEntra falla si el rol de PostgreSQL no es un principal de Entra o está ligado a otro object id que el configurado. Lista los
-// principales con pgaadauth_list_principals(false), que devuelve TABLE(rolename, principalType, objectId, tenantId, isMfa, isAdmin)
-// (https://learn.microsoft.com/en-us/azure/postgresql/security/security-manage-entra-users): todos los roles de Entra, no solo los
-// administradores. Las columnas se leen por posición (rolename, principalType y objectId son las tres primeras) para no depender de
-// cómo la función escriba los nombres, con mayúsculas o sin ellas. El object id se compara sin distinguir mayúsculas, como los GUID.
+// principales con pgaadauth_list_principals(false): todos los roles de Entra, no solo los administradores. Las columnas se leen por
+// nombre (rolename y objectId, ver arriba), nunca por posición: si la función cambia el orden de sus columnas o falta alguna de las dos, el
+// rol se rechaza (falla cerrado, nombrando la columna), también si la lista viene sin filas. El object id se compara sin distinguir
+// mayúsculas, como los GUID.
 func ligadoAEntra(ctx context.Context, pool *pgxpool.Pool, nombre, objectID string) error {
 	filas, err := pool.Query(ctx, "SELECT * FROM pgaadauth_list_principals(false)")
 	if err != nil {
 		return fmt.Errorf("comprobar en Entra el rol %q: %w", nombre, err)
 	}
 	defer filas.Close()
+	campos := filas.FieldDescriptions()
+	columnaRol, err := columnaDeEntra(campos, columnaNombreDelRolDeEntra)
+	if err != nil {
+		return fmt.Errorf("comprobar en Entra el rol %q: %w", nombre, err)
+	}
+	columnaID, err := columnaDeEntra(campos, columnaObjectIDDeEntra)
+	if err != nil {
+		return fmt.Errorf("comprobar en Entra el rol %q: %w", nombre, err)
+	}
 	for filas.Next() {
 		valores, err := filas.Values()
 		if err != nil {
 			return fmt.Errorf("comprobar en Entra el rol %q: %w", nombre, err)
 		}
-		if len(valores) < 3 {
-			return fmt.Errorf("comprobar en Entra el rol %q: la lista de principales trae %d columnas y se esperaban al menos 3", nombre, len(valores))
-		}
-		if fmt.Sprint(valores[0]) != nombre {
+		if rol, _ := valores[columnaRol].(string); rol != nombre {
 			continue
 		}
-		if ligado := fmt.Sprint(valores[2]); !strings.EqualFold(ligado, objectID) {
+		ligado, ok := valores[columnaID].(string)
+		if !ok {
+			return fmt.Errorf("comprobar en Entra el rol %q: la columna %q de pgaadauth_list_principals no es texto (es %T)", nombre, columnaObjectIDDeEntra, valores[columnaID])
+		}
+		if !strings.EqualFold(ligado, objectID) {
 			return fmt.Errorf("el rol %q ya existe y está ligado a otro object id de Entra (%s), no al configurado (%s): no se toca", nombre, ligado, objectID)
 		}
 		return filas.Err()
