@@ -4,10 +4,21 @@ resource "azurerm_container_app_environment" "entorno" {
   location                   = data.azurerm_resource_group.principal.location
   resource_group_name        = data.azurerm_resource_group.principal.name
   log_analytics_workspace_id = azurerm_log_analytics_workspace.registros.id
+  infrastructure_subnet_id   = azurerm_subnet.entorno.id
   tags                       = local.etiquetas
+
+  # Solo consumo (D-205 (2)): ningún perfil dedicado, así que no se paga capacidad reservada.
+  workload_profile {
+    name                  = local.perfil_de_consumo
+    workload_profile_type = "Consumption"
+  }
 }
 
 locals {
+  perfil_de_consumo = "Consumption"
+
+  # La base se conecta solo con la identidad administrada: ni una URL de conexión ni una contraseña, y siempre con verify-full.
+  # El API se niega a arrancar en Azure si recibe la URL (src/bd); una prueba de infra/azure prohíbe que vuelva a estar aquí.
   variables_api = {
     PGHOST           = azurerm_postgresql_flexible_server.datos.fqdn
     PGDATABASE       = azurerm_postgresql_flexible_server_database.alcanzamos.name
@@ -36,6 +47,7 @@ resource "azurerm_container_app" "api" {
   container_app_environment_id = azurerm_container_app_environment.entorno.id
   resource_group_name          = data.azurerm_resource_group.principal.name
   revision_mode                = "Single"
+  workload_profile_name        = local.perfil_de_consumo
   tags                         = local.etiquetas
 
   identity {
@@ -108,6 +120,7 @@ resource "azurerm_container_app_job" "tareas" {
   container_app_environment_id = azurerm_container_app_environment.entorno.id
   replica_timeout_in_seconds   = 300
   replica_retry_limit          = 1
+  workload_profile_name        = local.perfil_de_consumo
   tags                         = local.etiquetas
 
   identity {

@@ -12,7 +12,9 @@ mock_provider "azurerm" {
 
   mock_data "azurerm_user_assigned_identity" {
     defaults = {
-      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id"
+      id           = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id"
+      principal_id = "00000000-0000-0000-0000-000000000000"
+      client_id    = "00000000-0000-0000-0000-000000000000"
     }
   }
 
@@ -42,6 +44,25 @@ mock_provider "azurerm" {
     }
   }
 
+  # La red y la zona DNS privada: el proveedor valida la forma de sus ID cuando pasan a PostgreSQL y al entorno.
+  mock_resource "azurerm_virtual_network" {
+    defaults = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet"
+    }
+  }
+
+  mock_resource "azurerm_subnet" {
+    defaults = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet/subnets/snet"
+    }
+  }
+
+  mock_resource "azurerm_private_dns_zone" {
+    defaults = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Network/privateDnsZones/zona.postgres.database.azure.com"
+    }
+  }
+
   mock_resource "azurerm_monitor_action_group" {
     defaults = {
       id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Insights/actionGroups/ag"
@@ -50,11 +71,9 @@ mock_provider "azurerm" {
 }
 
 variables {
-  subscription_id          = "00000000-0000-0000-0000-000000000000"
-  admin_postgres_object_id = "00000000-0000-0000-0000-000000000000"
-  admin_postgres_nombre    = "andres@alcanzamos.co"
-  imagen_api               = "ghcr.io/alcanzamos/alcanzamos-api@sha256:0000000000000000000000000000000000000000000000000000000000000000"
-  ghcr_usuario             = "usuario-de-prueba"
+  subscription_id = "00000000-0000-0000-0000-000000000000"
+  imagen_api      = "ghcr.io/alcanzamos/alcanzamos-api@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  ghcr_usuario    = "usuario-de-prueba"
 }
 
 # Producción conserva los nombres aprobados (O-14, D-120) y los tamaños de ADR-006 §5.2.
@@ -68,16 +87,16 @@ run "produccion_conserva_nombres_y_tamanos" {
 
   assert {
     condition = alltrue([
-      data.azurerm_resource_group.principal.name == "rg-alcanzamos-prod-mxc",
-      data.azurerm_user_assigned_identity.api.name == "id-alcanzamos-prod-mxc",
-      azurerm_log_analytics_workspace.registros.name == "log-alcanzamos-prod-mxc",
-      azurerm_key_vault.secretos.name == "kv-alcanzamos-prod-mxc",
-      azurerm_postgresql_flexible_server.datos.name == "psql-alcanzamos-prod-mxc",
-      azurerm_container_app_environment.entorno.name == "cae-alcanzamos-prod-mxc",
-      azurerm_container_app.api.name == "ca-api-alcanzamos-prod-mxc",
-      azurerm_container_app_job.tareas.name == "caj-tareas-alcanzamos-prod-mxc",
-      azurerm_monitor_action_group.seguridad.name == "ag-seguridad-alcanzamos-prod-mxc",
-      azurerm_monitor_scheduled_query_rules_alert_v2.eventos_de_seguridad.name == "alrt-seguridad-alcanzamos-prod-mxc",
+      data.azurerm_resource_group.principal.name == "rg-alcanzamos-prod-eus2",
+      data.azurerm_user_assigned_identity.api.name == "id-alcanzamos-api-prod-eus2",
+      azurerm_log_analytics_workspace.registros.name == "log-alcanzamos-prod-eus2",
+      "kv-alcanzamos-prod-eus2" == azurerm_key_vault.secretos.name,
+      azurerm_postgresql_flexible_server.datos.name == "psql-alcanzamos-prod-eus2",
+      azurerm_container_app_environment.entorno.name == "cae-alcanzamos-prod-eus2",
+      azurerm_container_app.api.name == "ca-api-alcanzamos-prod-eus2",
+      azurerm_container_app_job.tareas.name == "caj-tareas-alcanzamos-prod-eus2",
+      azurerm_monitor_action_group.seguridad.name == "ag-seguridad-alcanzamos-prod-eus2",
+      azurerm_monitor_scheduled_query_rules_alert_v2.eventos_de_seguridad.name == "alrt-seguridad-alcanzamos-prod-eus2",
     ])
     error_message = "Los nombres de producción deben seguir siendo los aprobados (O-14, D-120)."
   }
@@ -123,16 +142,16 @@ run "uat_usa_nombres_propios" {
 
   assert {
     condition = alltrue([
-      data.azurerm_resource_group.principal.name == "rg-alcanzamos-uat-mxc",
-      data.azurerm_user_assigned_identity.api.name == "id-alcanzamos-uat-mxc",
-      azurerm_log_analytics_workspace.registros.name == "log-alcanzamos-uat-mxc",
-      azurerm_key_vault.secretos.name == "kv-alcanzamos-uat-mxc",
-      azurerm_postgresql_flexible_server.datos.name == "psql-alcanzamos-uat-mxc",
-      azurerm_container_app_environment.entorno.name == "cae-alcanzamos-uat-mxc",
-      azurerm_container_app.api.name == "ca-api-alcanzamos-uat-mxc",
-      azurerm_container_app_job.tareas.name == "caj-tareas-alcanzamos-uat-mxc",
-      azurerm_monitor_action_group.seguridad.name == "ag-seguridad-alcanzamos-uat-mxc",
-      azurerm_monitor_scheduled_query_rules_alert_v2.eventos_de_seguridad.name == "alrt-seguridad-alcanzamos-uat-mxc",
+      data.azurerm_resource_group.principal.name == "rg-alcanzamos-uat-eus2",
+      data.azurerm_user_assigned_identity.api.name == "id-alcanzamos-api-uat-eus2",
+      azurerm_log_analytics_workspace.registros.name == "log-alcanzamos-uat-eus2",
+      "kv-alcanzamos-uat-eus2" == azurerm_key_vault.secretos.name,
+      azurerm_postgresql_flexible_server.datos.name == "psql-alcanzamos-uat-eus2",
+      azurerm_container_app_environment.entorno.name == "cae-alcanzamos-uat-eus2",
+      azurerm_container_app.api.name == "ca-api-alcanzamos-uat-eus2",
+      azurerm_container_app_job.tareas.name == "caj-tareas-alcanzamos-uat-eus2",
+      azurerm_monitor_action_group.seguridad.name == "ag-seguridad-alcanzamos-uat-eus2",
+      azurerm_monitor_scheduled_query_rules_alert_v2.eventos_de_seguridad.name == "alrt-seguridad-alcanzamos-uat-eus2",
     ])
     error_message = "UAT debe usar sus propios nombres, con «uat» en el sufijo."
   }

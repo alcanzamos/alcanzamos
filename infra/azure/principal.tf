@@ -6,7 +6,9 @@ locals {
     uat        = "uat"
     produccion = "prod"
   }
-  sufijo = "alcanzamos-${local.abreviatura[var.ambiente]}-mxc"
+  # East US 2 (D-208): sufijo -eus2.
+  region = "eus2"
+  sufijo = "alcanzamos-${local.abreviatura[var.ambiente]}-${local.region}"
   etiquetas = {
     proyecto = "alcanzamos"
     ambiente = var.ambiente
@@ -32,9 +34,21 @@ resource "azurerm_log_analytics_workspace" "registros" {
   tags                = local.etiquetas
 }
 
-# La identidad del API y sus roles los crea el módulo bootstrap.
+# Las identidades de carga y sus roles los crea el módulo bootstrap (id-alcanzamos-<rol>-<ambiente>-<región>). Aquí solo se leen.
+# El API se conecta a PostgreSQL con su identidad, con un rol sin administración que le crea el migrador. Los administradores de Entra
+# del servidor son el migrador y caj-psql (datos.tf), nunca el API.
 data "azurerm_user_assigned_identity" "api" {
-  name                = "id-${local.sufijo}"
+  name                = "id-alcanzamos-api-${local.abreviatura[var.ambiente]}-${local.region}"
+  resource_group_name = data.azurerm_resource_group.principal.name
+}
+
+data "azurerm_user_assigned_identity" "migrador" {
+  name                = "id-alcanzamos-migrador-${local.abreviatura[var.ambiente]}-${local.region}"
+  resource_group_name = data.azurerm_resource_group.principal.name
+}
+
+data "azurerm_user_assigned_identity" "psql" {
+  name                = "id-alcanzamos-psql-${local.abreviatura[var.ambiente]}-${local.region}"
   resource_group_name = data.azurerm_resource_group.principal.name
 }
 

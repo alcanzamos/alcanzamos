@@ -79,16 +79,6 @@ variable "correo_nombre_del_secreto" {
   }
 }
 
-variable "admin_postgres_object_id" {
-  description = "Object ID en Entra ID de quien administra PostgreSQL. Sin contraseñas."
-  type        = string
-}
-
-variable "admin_postgres_nombre" {
-  description = "Nombre en Entra ID de quien administra PostgreSQL."
-  type        = string
-}
-
 # O-5 (D-120): más de 10 eventos de un mismo tipo en 15 minutos, por correo.
 variable "alerta_umbral" {
   description = "Eventos de un mismo tipo que se pueden tolerar en la ventana; la alerta salta con más (O-5, D-120)."

@@ -11,7 +11,9 @@ mock_provider "azurerm" {
 
   mock_data "azurerm_user_assigned_identity" {
     defaults = {
-      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id"
+      id           = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id"
+      principal_id = "00000000-0000-0000-0000-000000000000"
+      client_id    = "00000000-0000-0000-0000-000000000000"
     }
   }
 
@@ -41,6 +43,25 @@ mock_provider "azurerm" {
     }
   }
 
+  # La red y la zona DNS privada: el proveedor valida la forma de sus ID cuando pasan a PostgreSQL y al entorno.
+  mock_resource "azurerm_virtual_network" {
+    defaults = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet"
+    }
+  }
+
+  mock_resource "azurerm_subnet" {
+    defaults = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet/subnets/snet"
+    }
+  }
+
+  mock_resource "azurerm_private_dns_zone" {
+    defaults = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Network/privateDnsZones/zona.postgres.database.azure.com"
+    }
+  }
+
   mock_resource "azurerm_monitor_action_group" {
     defaults = {
       id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Insights/actionGroups/ag"
@@ -50,11 +71,9 @@ mock_provider "azurerm" {
 }
 
 variables {
-  subscription_id          = "00000000-0000-0000-0000-000000000000"
-  admin_postgres_object_id = "00000000-0000-0000-0000-000000000000"
-  admin_postgres_nombre    = "andres@alcanzamos.co"
-  imagen_api               = "ghcr.io/alcanzamos/alcanzamos-api@sha256:0000000000000000000000000000000000000000000000000000000000000000"
-  ghcr_usuario             = "usuario-de-prueba"
+  subscription_id = "00000000-0000-0000-0000-000000000000"
+  imagen_api      = "ghcr.io/alcanzamos/alcanzamos-api@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  ghcr_usuario    = "usuario-de-prueba"
 }
 
 # Azure Communication Services queda descartado (D-205 (6)): ningún .tf de la raíz declara sus recursos, ni CORREO_ENDPOINT, ni la
