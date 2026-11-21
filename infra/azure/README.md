@@ -67,7 +67,7 @@ Azure arranca solo un servidor detenido a los 7 días (Microsoft Learn, «Limits
 
 ## Estado de cada ambiente
 
-Cada ambiente tiene su propio estado remoto, en su propia suscripción: el bootstrap de cada ambiente crea una cuenta de almacenamiento con el contenedor `tfstate`, y la clave del estado es `<ambiente>.tfstate`. El bloque `backend "azurerm" {}` de `versiones.tf` queda vacío y los valores se pasan con `-backend-config` al iniciar. No son secretos (nombres y el ID de la suscripción), pero no se guardan en archivos del repositorio. La salida `backend` del bootstrap da los nombres y la clave.
+Cada ambiente tiene su propio estado remoto. Los dos ambientes comparten la suscripción y se separan por grupo de recursos, red, identidad y Key Vault (D-205 (11), E11-INF 2.17): el bootstrap de cada ambiente crea una cuenta de almacenamiento con el contenedor `tfstate`, y la clave del estado es `<ambiente>.tfstate`. El bloque `backend "azurerm" {}` de `versiones.tf` queda vacío y los valores se pasan con `-backend-config` al iniciar. No son secretos (nombres y el ID de la suscripción), pero no se guardan en archivos del repositorio. La salida `backend` del bootstrap da los nombres y la clave.
 
 | Ambiente | `resource_group_name` | `storage_account_name` | `container_name` | `key` |
 |---|---|---|---|---|
