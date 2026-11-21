@@ -13,6 +13,16 @@ variable "subscription_id" {
   type        = string
 }
 
+variable "dueno_object_id" {
+  description = "Object ID en Entra ID del dueño, quien carga y rota los secretos: recibe «Key Vault Secrets Officer» sobre el Key Vault del ambiente. Se obtiene con az ad signed-in-user show --query id -o tsv. Sin valor por defecto."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.dueno_object_id))
+    error_message = "El object ID del dueño es un GUID: 8-4-4-4-12 caracteres hexadecimales, sin espacios."
+  }
+}
+
 # Los dos nombres son los mismos que las variables de infra/azure: si allá cambian, aquí también.
 variable "ghcr_nombre_del_secreto" {
   description = "Nombre del secreto del Key Vault del ambiente con el token read:packages de ghcr.io. Igual a ghcr_nombre_del_secreto de infra/azure."

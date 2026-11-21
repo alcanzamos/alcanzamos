@@ -1,6 +1,7 @@
-# Segundo paso del bootstrap (E11-INF 2.5, 2.14; D-205 (5)): el rol de lectura de cada secreto del Key Vault. Lo aplica el
-# dueño con su propia cuenta, una vez por ambiente, DESPUÉS de infra/azure (que crea el Key Vault) y de cargar los
-# secretos: un rol sobre un secreto necesita que el secreto exista.
+# Segundo paso del bootstrap (E11-INF 2.5, 2.14; D-205 (5)): el rol de lectura de cada secreto del Key Vault y el rol del
+# dueño para cargarlos. Lo aplica el dueño con su propia cuenta, una vez por ambiente, DESPUÉS de infra/azure (que crea el
+# Key Vault). Primero solo el rol del dueño (-target), luego carga los secretos, y después todo: un rol sobre un secreto
+# necesita que el secreto exista (ver el README).
 terraform {
   required_version = "= 1.13.2"
 
