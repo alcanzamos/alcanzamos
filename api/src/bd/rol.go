@@ -22,6 +22,11 @@ import (
 // que solo cambian por migración) y nada más: ni la tabla de control de goose, ni TRUNCATE, REFERENCES ni TRIGGER, ni CREATE en el
 // esquema, ni roles, bases ni membresías. Las aplicaciones no usan secuencias (las claves son uuid): si una migración las trae, hay que
 // darles USAGE aquí.
+//
+// «Exactamente lo justo» incluye lo heredado: un rol que es miembro de otro (pg_read_all_data, un grupo con CREATE en el esquema…)
+// hereda permisos que darLoJusto no puede quitar, así que un rol de aplicación que es miembro de CUALQUIER otro rol se rechaza, sin
+// tocarlo y sin quitarle la membresía en silencio. En Azure, un rol que ya existe tiene que ser el principal de Entra de esa identidad
+// (su object id): otra identidad con el mismo nombre no puede quedarse con los permisos de la aplicación.
 const (
 	// VariableRolesDeAplicacion lista los roles que crea el migrador: pares `<nombre de la identidad de Entra>=<object id>` separados por
 	// comas, por ejemplo `id-alcanzamos-api-uat-eus2=<guid>,id-alcanzamos-tareas-uat-eus2=<guid>`. En Azure es obligatoria y cada par
@@ -193,16 +198,39 @@ func AsegurarRolesCon(ctx context.Context, pool *pgxpool.Pool, roles []RolDeLaAp
 	return asegurarRoles(ctx, pool, roles, func(RolDeLaAplicacion) CrearRol { return crear })
 }
 
-// asegurarRoles valida la lista entera antes de tocar nada (un rol compartido o un nombre malo no dejan ni el primero creado) y después
-// asegura cada rol en orden, con exactamente los mismos permisos mínimos. Cada rol es idempotente: si uno falla, volver a correr
-// termina los demás.
-func asegurarRoles(ctx context.Context, pool *pgxpool.Pool, roles []RolDeLaAplicacion, crear func(RolDeLaAplicacion) CrearRol) error {
+// ValidarRoles revisa, en solo lectura, toda la lista contra la base a la que está conectado el migrador: los nombres (reservados, repetidos
+// y el de current_user, que es quien de verdad conectó, no lo que diga PGUSER) y, de cada rol que ya existe, que no tenga administración, que
+// no sea miembro de ningún otro rol y, en Azure, que sea el principal de Entra de su object id. No crea ni toca nada. `migrar` la corre antes
+// de migrar: una configuración o un rol malos no dejan el esquema a medias. Los errores nombran ROLES_DE_APLICACION.
+func ValidarRoles(ctx context.Context, pool *pgxpool.Pool, roles []RolDeLaAplicacion) error {
 	var yo string
 	if err := pool.QueryRow(ctx, "SELECT current_user").Scan(&yo); err != nil {
-		return fmt.Errorf("leer el usuario del migrador: %w", err)
+		return fmt.Errorf("%s: leer el usuario del migrador: %w", VariableRolesDeAplicacion, err)
 	}
 	if err := validarRoles(roles, yo); err != nil {
-		return fmt.Errorf("roles de la aplicación: %w", err)
+		return fmt.Errorf("%s: %w", VariableRolesDeAplicacion, err)
+	}
+	for _, r := range roles {
+		existe, err := existeElRol(ctx, pool, r.Nombre)
+		if err != nil {
+			return fmt.Errorf("%s: %w", VariableRolesDeAplicacion, err)
+		}
+		if !existe {
+			continue // se crea después, ya con lo justo
+		}
+		if err := r.revisar(ctx, pool); err != nil {
+			return fmt.Errorf("%s: %w", VariableRolesDeAplicacion, err)
+		}
+	}
+	return nil
+}
+
+// asegurarRoles revisa la lista entera antes de tocar nada (ValidarRoles: un rol compartido, un nombre malo o un rol existente con más de lo
+// justo no dejan ni el primero creado) y después asegura cada rol en orden, con exactamente los mismos permisos mínimos. Cada rol es
+// idempotente: si uno falla, volver a correr termina los demás.
+func asegurarRoles(ctx context.Context, pool *pgxpool.Pool, roles []RolDeLaAplicacion, crear func(RolDeLaAplicacion) CrearRol) error {
+	if err := ValidarRoles(ctx, pool, roles); err != nil {
+		return err
 	}
 	for _, r := range roles {
 		if err := r.AsegurarCon(ctx, pool, crear(r)); err != nil {
@@ -213,8 +241,8 @@ func asegurarRoles(ctx context.Context, pool *pgxpool.Pool, roles []RolDeLaAplic
 }
 
 // AsegurarCon es Asegurar con la función de creación dada. Se puede correr cuantas veces haga falta: cada `migrar` lo corre, y deja los
-// permisos exactamente como se definen aunque alguien haya dado de más o de menos. Un rol que ya existe con administración (atributos
-// de administración o membresía de un rol que los tiene) se rechaza sin tocar nada.
+// permisos exactamente como se definen aunque alguien haya dado de más o de menos. Un rol que ya existe se acepta solo si no tiene
+// administración, no es miembro de ningún otro rol y, en Azure, es el principal de Entra de su object id; si no, falla sin tocar nada de ese rol.
 func (r RolDeLaAplicacion) AsegurarCon(ctx context.Context, pool *pgxpool.Pool, crear CrearRol) error {
 	var yo string
 	if err := pool.QueryRow(ctx, "SELECT current_user").Scan(&yo); err != nil {
@@ -223,19 +251,73 @@ func (r RolDeLaAplicacion) AsegurarCon(ctx context.Context, pool *pgxpool.Pool, 
 	if err := validarNombreDeRol(r.Nombre, yo); err != nil {
 		return fmt.Errorf("rol de la aplicación: %w", err)
 	}
-	var existe bool
-	if err := pool.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = $1)", r.Nombre).Scan(&existe); err != nil {
-		return fmt.Errorf("buscar el rol %q: %w", r.Nombre, err)
+	existe, err := existeElRol(ctx, pool, r.Nombre)
+	if err != nil {
+		return err
 	}
 	if !existe {
 		if err := crear(ctx, pool, r.Nombre, r.ObjectID); err != nil {
 			return fmt.Errorf("crear el rol %q: %w", r.Nombre, err)
 		}
 	}
-	if err := sinAdministracion(ctx, pool, r.Nombre); err != nil {
+	if err := r.revisar(ctx, pool); err != nil {
 		return err
 	}
 	return darLoJusto(ctx, pool, r.Nombre)
+}
+
+func existeElRol(ctx context.Context, pool *pgxpool.Pool, nombre string) (bool, error) {
+	var existe bool
+	if err := pool.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = $1)", nombre).Scan(&existe); err != nil {
+		return false, fmt.Errorf("buscar el rol %q: %w", nombre, err)
+	}
+	return existe, nil
+}
+
+// revisar es la revisión de solo lectura de un rol que existe: nada se toca si falla.
+func (r RolDeLaAplicacion) revisar(ctx context.Context, pool *pgxpool.Pool) error {
+	if r.EnAzure {
+		if err := ligadoAEntra(ctx, pool, r.Nombre, r.ObjectID); err != nil {
+			return err
+		}
+	}
+	if err := sinAdministracion(ctx, pool, r.Nombre); err != nil {
+		return err
+	}
+	return sinMembresias(ctx, pool, r.Nombre)
+}
+
+// ligadoAEntra falla si el rol de PostgreSQL no es un principal de Entra o está ligado a otro object id que el configurado. Lista los
+// principales con pgaadauth_list_principals(false), que devuelve TABLE(rolename, principalType, objectId, tenantId, isMfa, isAdmin)
+// (https://learn.microsoft.com/en-us/azure/postgresql/security/security-manage-entra-users): todos los roles de Entra, no solo los
+// administradores. Las columnas se leen por posición (rolename, principalType y objectId son las tres primeras) para no depender de
+// cómo la función escriba los nombres, con mayúsculas o sin ellas. El object id se compara sin distinguir mayúsculas, como los GUID.
+func ligadoAEntra(ctx context.Context, pool *pgxpool.Pool, nombre, objectID string) error {
+	filas, err := pool.Query(ctx, "SELECT * FROM pgaadauth_list_principals(false)")
+	if err != nil {
+		return fmt.Errorf("comprobar en Entra el rol %q: %w", nombre, err)
+	}
+	defer filas.Close()
+	for filas.Next() {
+		valores, err := filas.Values()
+		if err != nil {
+			return fmt.Errorf("comprobar en Entra el rol %q: %w", nombre, err)
+		}
+		if len(valores) < 3 {
+			return fmt.Errorf("comprobar en Entra el rol %q: la lista de principales trae %d columnas y se esperaban al menos 3", nombre, len(valores))
+		}
+		if fmt.Sprint(valores[0]) != nombre {
+			continue
+		}
+		if ligado := fmt.Sprint(valores[2]); !strings.EqualFold(ligado, objectID) {
+			return fmt.Errorf("el rol %q ya existe y está ligado a otro object id de Entra (%s), no al configurado (%s): no se toca", nombre, ligado, objectID)
+		}
+		return filas.Err()
+	}
+	if err := filas.Err(); err != nil {
+		return fmt.Errorf("comprobar en Entra el rol %q: %w", nombre, err)
+	}
+	return fmt.Errorf("el rol %q ya existe y no es un principal de Entra (no figura en pgaadauth_list_principals): no es la identidad de la aplicación, no se toca", nombre)
 }
 
 // sinAdministracion falla si el rol, o un rol del que es miembro, es superusuario o puede crear roles o bases, replicar, saltarse la
@@ -255,6 +337,27 @@ func sinAdministracion(ctx context.Context, pool *pgxpool.Pool, nombre string) e
 	}
 	if len(roles) > 0 {
 		return fmt.Errorf("el rol %q tiene privilegios de administración (por %s): una aplicación no puede tenerlos", nombre, strings.Join(roles, ", "))
+	}
+	return nil
+}
+
+// sinMembresias falla si el rol es miembro de CUALQUIER otro rol (pg_auth_members, también los predefinidos como pg_read_all_data): lo que
+// heredaría no se le puede quitar con REVOKE sobre sus propios permisos, y el rol de una aplicación termina con exactamente lo justo. No
+// quita la membresía: es una decisión de quien la dio.
+func sinMembresias(ctx context.Context, pool *pgxpool.Pool, nombre string) error {
+	filas, err := pool.Query(ctx, `
+		SELECT g.rolname FROM pg_auth_members m
+		JOIN pg_roles g ON g.oid = m.roleid JOIN pg_roles r ON r.oid = m.member
+		WHERE r.rolname = $1 ORDER BY g.rolname`, nombre)
+	if err != nil {
+		return fmt.Errorf("revisar las membresías del rol %q: %w", nombre, err)
+	}
+	grupos, err := pgx.CollectRows(filas, pgx.RowTo[string])
+	if err != nil {
+		return fmt.Errorf("revisar las membresías del rol %q: %w", nombre, err)
+	}
+	if len(grupos) > 0 {
+		return fmt.Errorf("el rol %q es miembro de %s: una aplicación no es miembro de ningún otro rol, porque heredaría permisos de más; quita la membresía a mano (no se quita sola)", nombre, strings.Join(grupos, ", "))
 	}
 	return nil
 }

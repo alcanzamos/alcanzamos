@@ -337,16 +337,26 @@ func TestAsegurarElRolRechazaNombresPeligrososSinTocarNada(t *testing.T) {
 }
 
 // En Azure el rol se crea con la función de Entra de Azure Database for PostgreSQL: pgaadauth_create_principal_with_oid, como servicio y
-// sin administración. Aquí la función es una copia mínima que anota cómo la llamaron, porque PostgreSQL local no la trae.
+// sin administración, y se comprueba con pgaadauth_list_principals(false), que devuelve TABLE(rolename, principalType, objectId, tenantId,
+// isMfa, isAdmin) (https://learn.microsoft.com/en-us/azure/postgresql/security/security-manage-entra-users). Aquí las dos funciones son
+// una copia mínima que anota cómo las llamaron y qué roles son de Entra, porque PostgreSQL local no las trae. Las columnas llevan comillas
+// y mayúsculas, como las documenta Microsoft, para que la prueba falle si el código las pide por nombre en vez de por posición.
 const funcionDeEntraFalsa = `
 CREATE TABLE llamadas_a_entra (nombre text, object_id text, tipo text, es_admin boolean, es_mfa boolean);
+CREATE TABLE principales_de_entra (rolename name, "principalType" text, "objectId" text, "tenantId" text, "isMfa" integer, "isAdmin" integer);
 CREATE FUNCTION pgaadauth_create_principal_with_oid(nombre text, object_id text, tipo text, es_admin boolean, es_mfa boolean)
 RETURNS text LANGUAGE plpgsql AS $f$
 BEGIN
   INSERT INTO llamadas_a_entra VALUES (nombre, object_id, tipo, es_admin, es_mfa);
   EXECUTE format('CREATE ROLE %I LOGIN', nombre);
+  INSERT INTO principales_de_entra VALUES (nombre, tipo, object_id, '00000000-0000-0000-0000-000000000000', CASE WHEN es_mfa THEN 1 ELSE 0 END, CASE WHEN es_admin THEN 1 ELSE 0 END);
   RETURN 'Created role for ' || nombre;
-END $f$;`
+END $f$;
+CREATE FUNCTION pgaadauth_list_principals(isadminvalue boolean)
+RETURNS TABLE (rolename name, "principalType" text, "objectId" text, "tenantId" text, "isMfa" integer, "isAdmin" integer)
+LANGUAGE sql AS $f$
+  SELECT * FROM principales_de_entra WHERE NOT isadminvalue OR "isAdmin" = 1;
+$f$;`
 
 func llamadasAEntra(t *testing.T, pool *pgxpool.Pool) [][5]string {
 	t.Helper()
@@ -494,5 +504,167 @@ func TestLosRolesDeAplicacionNoSeAfectanEntreSi(t *testing.T) {
 	}
 	if !tienePermiso(t, pool, tareas, "persona", "SELECT") {
 		t.Error("quitarle un permiso a un rol no debe tocar al otro")
+	}
+}
+
+// asegurarEnAzure corre Asegurar con la función de Entra falsa y el object id dado.
+func asegurarEnAzure(t *testing.T, pool *pgxpool.Pool, nombre, objectID string) error {
+	t.Helper()
+	return bd.RolDeLaAplicacion{Nombre: nombre, ObjectID: objectID, EnAzure: true}.Asegurar(context.Background(), pool)
+}
+
+// darDeMas deja una marca en el rol: un permiso directo que ninguna ruta de Asegurar conserva (darLoJusto lo quitaría). Si después de un
+// rechazo la marca sigue, el rol no se tocó.
+func darDeMas(t *testing.T, pool *pgxpool.Pool, rol string) {
+	t.Helper()
+	if _, err := pool.Exec(context.Background(), "GRANT INSERT ON finalidad TO "+pgx.Identifier{rol}.Sanitize()); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func comprobarSinTocar(t *testing.T, pool *pgxpool.Pool, rol string) {
+	t.Helper()
+	if !tienePermiso(t, pool, rol, "finalidad", "INSERT") {
+		t.Errorf("el rol %s se tocó: la marca (INSERT sobre finalidad) ya no está", rol)
+	}
+	if tienePermiso(t, pool, rol, "persona", "DELETE") {
+		t.Errorf("el rol %s se tocó: ahora puede borrar personas", rol)
+	}
+}
+
+func sql(t *testing.T, pool *pgxpool.Pool, sentencias ...string) {
+	t.Helper()
+	for _, s := range sentencias {
+		if _, err := pool.Exec(context.Background(), s); err != nil {
+			t.Fatalf("%s: %v", s, err)
+		}
+	}
+}
+
+// Un rol de aplicación termina con exactamente los permisos mínimos: si es miembro de CUALQUIER otro rol (pg_read_all_data, un grupo
+// ordinario con CREATE en el esquema o con TRUNCATE) heredaría de más y darLoJusto no lo puede quitar, así que falla cerrado, nombra al
+// grupo y no toca nada del rol. No se quitan membresías en silencio.
+func TestAsegurarRechazaUnRolMiembroDeCualquierOtroRolSinTocarlo(t *testing.T) {
+	pool := pgtest.Nueva(t)
+	casos := map[string]func(t *testing.T) string{ // devuelve el nombre del grupo
+		"pg_read_all_data": func(*testing.T) string { return "pg_read_all_data" },
+		"grupo con CREATE en el esquema": func(t *testing.T) string {
+			g := nuevoRolDe(t, pool, "grupo")
+			sql(t, pool, "CREATE ROLE "+pgx.Identifier{g}.Sanitize()+" NOLOGIN", "GRANT CREATE ON SCHEMA public TO "+pgx.Identifier{g}.Sanitize())
+			return g
+		},
+		"grupo con TRUNCATE": func(t *testing.T) string {
+			g := nuevoRolDe(t, pool, "grupo")
+			sql(t, pool, "CREATE ROLE "+pgx.Identifier{g}.Sanitize()+" NOLOGIN", "GRANT TRUNCATE ON persona TO "+pgx.Identifier{g}.Sanitize())
+			return g
+		},
+		"grupo sin ningún permiso": func(t *testing.T) string {
+			g := nuevoRolDe(t, pool, "grupo")
+			sql(t, pool, "CREATE ROLE "+pgx.Identifier{g}.Sanitize()+" NOLOGIN")
+			return g
+		},
+	}
+	for _, app := range aplicaciones {
+		for nombre, preparar := range casos {
+			t.Run(app+"/"+nombre, func(t *testing.T) {
+				grupo := preparar(t)
+				rol := nuevoRolDe(t, pool, app)
+				sql(t, pool, "CREATE ROLE "+pgx.Identifier{rol}.Sanitize()+" LOGIN", "GRANT "+pgx.Identifier{grupo}.Sanitize()+" TO "+pgx.Identifier{rol}.Sanitize())
+				darDeMas(t, pool, rol)
+				err := asegurar(t, pool, rol)
+				if err == nil || !strings.Contains(err.Error(), grupo) || !strings.Contains(err.Error(), rol) {
+					t.Fatalf("un miembro de %s debía rechazarse nombrando al rol y al grupo: %v", grupo, err)
+				}
+				comprobarSinTocar(t, pool, rol)
+				var miembroDe int
+				if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.member WHERE r.rolname = $1`, rol).Scan(&miembroDe); err != nil || miembroDe != 1 {
+					t.Errorf("la membresía no se quita en silencio: %d (%v)", miembroDe, err)
+				}
+			})
+		}
+	}
+}
+
+// La lista se revisa entera antes de tocar nada: un rol malo no deja asegurado, ni creado, al bueno que va antes.
+func TestAsegurarLosRolesConUnMiembroDeOtroRolNoTocaNiCreaNingunoDeLaLista(t *testing.T) {
+	ctx := context.Background()
+	pool := pgtest.Nueva(t)
+	nuevo, malo := nuevoRolDe(t, pool, "api"), nuevoRolDe(t, pool, "tareas")
+	sql(t, pool, "CREATE ROLE "+pgx.Identifier{malo}.Sanitize()+" LOGIN", "GRANT pg_read_all_data TO "+pgx.Identifier{malo}.Sanitize())
+	darDeMas(t, pool, malo)
+	err := bd.AsegurarRolesCon(ctx, pool, []bd.RolDeLaAplicacion{{Nombre: nuevo}, {Nombre: malo}}, bd.CrearRolLocal)
+	if err == nil || !strings.Contains(err.Error(), "pg_read_all_data") {
+		t.Fatalf("se esperaba el rechazo nombrando pg_read_all_data: %v", err)
+	}
+	var existe bool
+	if err := pool.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = $1)", nuevo).Scan(&existe); err != nil || existe {
+		t.Errorf("el rol bueno no debía crearse: %v (%v)", existe, err)
+	}
+	comprobarSinTocar(t, pool, malo)
+}
+
+// En Azure un rol que ya existe tiene que ser un principal de Entra ligado al object id configurado: con otro object id, o sin ser de
+// Entra, falla cerrado y no toca nada del rol (otra identidad con el mismo nombre no puede quedarse con los permisos del API).
+func TestEnAzureUnRolExistenteSoloSeAceptaLigadoAlObjectIDConfigurado(t *testing.T) {
+	pool := pgtest.Nueva(t)
+	sql(t, pool, funcionDeEntraFalsa)
+	otroID := "12345678-1234-1234-1234-123456789abc"
+	ids := map[string]string{"api": objectIDDelAPI, "tareas": objectIDDeTareas}
+	for _, app := range aplicaciones {
+		t.Run(app+"/otro object id", func(t *testing.T) {
+			rol := nuevoRolDe(t, pool, app)
+			sql(t, pool, "SELECT pgaadauth_create_principal_with_oid('"+rol+"', '"+otroID+"', 'service', false, false)")
+			darDeMas(t, pool, rol)
+			err := asegurarEnAzure(t, pool, rol, ids[app])
+			if err == nil || !strings.Contains(err.Error(), rol) || !strings.Contains(err.Error(), "object id") || !strings.Contains(err.Error(), otroID) {
+				t.Fatalf("un rol de otro object id debía rechazarse nombrando al rol y al object id: %v", err)
+			}
+			comprobarSinTocar(t, pool, rol)
+		})
+		t.Run(app+"/no es de Entra", func(t *testing.T) {
+			rol := nuevoRolDe(t, pool, app)
+			sql(t, pool, "CREATE ROLE "+pgx.Identifier{rol}.Sanitize()+" LOGIN")
+			darDeMas(t, pool, rol)
+			err := asegurarEnAzure(t, pool, rol, ids[app])
+			if err == nil || !strings.Contains(err.Error(), rol) || !strings.Contains(err.Error(), "Entra") {
+				t.Fatalf("un rol que no es de Entra debía rechazarse: %v", err)
+			}
+			comprobarSinTocar(t, pool, rol)
+		})
+		t.Run(app+"/mismo object id en otras mayúsculas", func(t *testing.T) {
+			rol := nuevoRolDe(t, pool, app)
+			sql(t, pool, "SELECT pgaadauth_create_principal_with_oid('"+rol+"', '"+ids[app]+"', 'service', false, false)")
+			if err := asegurarEnAzure(t, pool, rol, strings.ToUpper(ids[app])); err != nil {
+				t.Fatalf("el mismo object id (sin distinguir mayúsculas) debía aceptarse: %v", err)
+			}
+			if !tienePermiso(t, pool, rol, "persona", "DELETE") {
+				t.Error("el rol aceptado queda con lo justo")
+			}
+		})
+	}
+}
+
+// ValidarRoles (lo que corre `migrar` antes de migrar) revisa en solo lectura toda la lista, también el object id en Azure, y no crea
+// ni toca nada.
+func TestValidarRolesRevisaLaListaEnteraEnSoloLectura(t *testing.T) {
+	ctx := context.Background()
+	pool := pgtest.NuevaSinMigrar(t)
+	sql(t, pool, funcionDeEntraFalsa)
+	bueno, ajeno := nuevoRolDe(t, pool, "api"), nuevoRolDe(t, pool, "tareas")
+	sql(t, pool, "SELECT pgaadauth_create_principal_with_oid('"+ajeno+"', '12345678-1234-1234-1234-123456789abc', 'service', false, false)")
+	llamadas := len(llamadasAEntra(t, pool))
+	lista := []bd.RolDeLaAplicacion{{Nombre: bueno, ObjectID: objectIDDelAPI, EnAzure: true}, {Nombre: ajeno, ObjectID: objectIDDeTareas, EnAzure: true}}
+	if err := bd.ValidarRoles(ctx, pool, lista); err == nil || !strings.Contains(err.Error(), ajeno) || !strings.Contains(err.Error(), "ROLES_DE_APLICACION") {
+		t.Fatalf("se esperaba el rechazo del rol de otro object id, nombrando la variable: %v", err)
+	}
+	if err := bd.ValidarRoles(ctx, pool, lista[:1]); err != nil {
+		t.Fatalf("un rol que todavía no existe es válido: %v", err)
+	}
+	var existe bool
+	if err := pool.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = $1)", bueno).Scan(&existe); err != nil || existe {
+		t.Errorf("validar no crea roles: %v (%v)", existe, err)
+	}
+	if n := len(llamadasAEntra(t, pool)); n != llamadas {
+		t.Errorf("validar no llama a la función de creación: %d llamadas nuevas", n-llamadas)
 	}
 }

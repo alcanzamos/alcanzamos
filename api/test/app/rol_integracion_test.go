@@ -100,11 +100,62 @@ func comprobarQueNoMigra(t *testing.T, pool *pgxpool.Pool, variable, rol string)
 	if codigo != 1 || !strings.Contains(salida, variable) || strings.Contains(salida, "migraciones aplicadas") {
 		t.Fatalf("código %d, se esperaba 1 con un error de %s y sin migrar: %s", codigo, variable, salida)
 	}
-	var tablas, roles int
-	if err := pool.QueryRow(context.Background(), "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'").Scan(&tablas); err != nil || tablas != 0 {
-		t.Fatalf("no debía quedar ninguna tabla: %d (%v)", tablas, err)
+	comprobarSinTablas(t, pool)
+	var roles int
+	if rol == "" {
+		return
 	}
 	if err := pool.QueryRow(context.Background(), "SELECT count(*) FROM pg_roles WHERE rolname = $1", rol).Scan(&roles); err != nil || roles != 0 {
 		t.Fatalf("no debía crearse el rol %q: %d (%v)", rol, roles, err)
+	}
+}
+
+// El rol del propio migrador se valida contra current_user, que es el usuario que de verdad conectó, no contra PGUSER: con la URL, PGUSER
+// puede estar vacío o ser otro. Falla antes de migrar, no después.
+func TestMigrarValidaLaListaContraElUsuarioQueConectaAntesDeMigrar(t *testing.T) {
+	const bueno = "id-alcanzamos-api-prueba-sin-crear"
+	for nombre, lista := range map[string]string{
+		"solo el migrador":     "alcanzamos",
+		"el migrador al final": bueno + ",alcanzamos",
+		"otra capitalización":  bueno + ",ALCANZAMOS",
+	} {
+		for _, pguser := range []string{"", "otro-usuario"} {
+			t.Run(nombre+"/PGUSER="+pguser, func(t *testing.T) {
+				pool := pgtest.NuevaSinMigrar(t)
+				t.Setenv("BASE_DE_DATOS_URL", pool.Config().ConnString())
+				t.Setenv("PGUSER", pguser)
+				t.Setenv("ROLES_DE_APLICACION", lista)
+				comprobarQueNoMigra(t, pool, "ROLES_DE_APLICACION", bueno)
+			})
+		}
+	}
+}
+
+// El estado de los roles que ya existen también se revisa antes de migrar: un rol que es miembro de otro (aquí pg_read_all_data) hace
+// fallar `migrar` nombrando el grupo, sin migrar ni tocar al rol.
+func TestMigrarConUnRolMiembroDeOtroRolFallaAntesDeMigrar(t *testing.T) {
+	pool := pgtest.NuevaSinMigrar(t)
+	rol := nombreDeRolDePrueba(t, pool, "api")
+	for _, s := range []string{"CREATE ROLE " + pgx.Identifier{rol}.Sanitize() + " LOGIN", "GRANT pg_read_all_data TO " + pgx.Identifier{rol}.Sanitize()} {
+		if _, err := pool.Exec(context.Background(), s); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("BASE_DE_DATOS_URL", pool.Config().ConnString())
+	t.Setenv("PGUSER", "")
+	t.Setenv("ROLES_DE_APLICACION", rol)
+	codigo, salida := ejecutar("migrar")
+	if codigo != 1 || !strings.Contains(salida, "pg_read_all_data") || !strings.Contains(salida, rol) || strings.Contains(salida, "migraciones aplicadas") {
+		t.Fatalf("código %d, se esperaba 1 nombrando al rol y a pg_read_all_data, sin migrar: %s", codigo, salida)
+	}
+	comprobarSinTablas(t, pool)
+}
+
+// comprobarSinTablas falla si el esquema quedó con alguna tabla: no se migró.
+func comprobarSinTablas(t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
+	var tablas int
+	if err := pool.QueryRow(context.Background(), "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'").Scan(&tablas); err != nil || tablas != 0 {
+		t.Fatalf("no debía quedar ninguna tabla: %d (%v)", tablas, err)
 	}
 }

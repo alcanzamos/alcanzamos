@@ -168,10 +168,17 @@ func migrar(ctx context.Context, log *slog.Logger) error {
 		return err
 	}
 	defer pool.Close()
-	// Los roles se leen y validan enteros antes de migrar: una configuración mala no deja el esquema a medias.
+	// Los roles se leen y validan enteros antes de migrar: una configuración mala no deja el esquema a medias. Primero la lista contra el
+	// entorno y después, ya conectados, contra quien de verdad conectó (current_user, no PGUSER) y contra el estado de los roles que ya existen
+	// (administración, membresías, object id de Entra): todo en solo lectura.
 	roles, err := bd.LeerRolesDeLaAplicacion(os.Getenv)
 	if err != nil {
 		return err
+	}
+	if len(roles) > 0 {
+		if err := bd.ValidarRoles(ctx, pool, roles); err != nil {
+			return err
+		}
 	}
 	n, err := bd.Subir(ctx, pool)
 	if err != nil {
