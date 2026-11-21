@@ -16,6 +16,11 @@ resource "azurerm_subnet" "entorno" {
   virtual_network_name = azurerm_virtual_network.red.name
   address_prefixes     = [cidrsubnet(var.red_espacio_de_direcciones, 3, 0)]
 
+  # Punto de conexión de servicio hacia el Key Vault: su firewall deja pasar solo esta subred (principal.tf).
+  service_endpoint {
+    service = "Microsoft.KeyVault"
+  }
+
   delegation {
     name = "entorno-de-container-apps"
 

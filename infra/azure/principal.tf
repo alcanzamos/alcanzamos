@@ -73,4 +73,13 @@ resource "azurerm_key_vault" "secretos" {
   purge_protection_enabled   = true
   soft_delete_retention_days = var.secretos_dias_de_retencion
   tags                       = local.etiquetas
+
+  # Firewall cerrado salvo la subred del entorno (P9, E11-INF 6.3): Container Apps llega por el punto de conexión de servicio de la
+  # subred. Sin bypass ni reglas de IP en el código: el dueño abre su IP solo mientras carga secretos (README de infra/secretos), y la
+  # siguiente aplicación de esta raíz la cierra.
+  network_acls {
+    default_action             = "Deny"
+    bypass                     = "None"
+    virtual_network_subnet_ids = [azurerm_subnet.entorno.id]
+  }
 }

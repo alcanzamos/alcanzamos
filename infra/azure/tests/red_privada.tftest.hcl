@@ -504,6 +504,58 @@ run "ni_el_api_ni_los_trabajos_reciben_url_ni_contrasena_de_base" {
   }
 }
 
+# --- El Key Vault (P9, E11-INF 6.3) ---------------------------------------------------------------------------------------------------
+
+# El firewall del Key Vault queda cerrado salvo la subred del entorno, que llega por el punto de conexión de servicio de Microsoft.KeyVault: es
+# la ruta por la que Container Apps lee los secretos y baja la imagen. Sin reglas de IP en el código: el dueño abre la suya solo mientras carga
+# secretos (README de infra/secretos) y la siguiente aplicación la cierra.
+run "el_key_vault_solo_se_abre_a_la_subred_del_entorno_en_produccion" {
+  command = plan
+
+  variables {
+    ambiente          = "produccion"
+    dominio_de_correo = "avisos.alcanzamos.co"
+  }
+
+  assert {
+    condition = alltrue([
+      length(azurerm_key_vault.secretos.network_acls) == 1,
+      one(azurerm_key_vault.secretos.network_acls).default_action == "Deny",
+      one(azurerm_key_vault.secretos.network_acls).bypass == "None",
+      one(azurerm_key_vault.secretos.network_acls).virtual_network_subnet_ids == toset([azurerm_subnet.entorno.id]),
+      try(length(one(azurerm_key_vault.secretos.network_acls).ip_rules), 0) == 0,
+    ])
+    error_message = "El Key Vault niega todo por defecto (default_action = Deny, bypass = None) y solo deja pasar la subred del entorno, sin reglas de IP."
+  }
+
+  assert {
+    condition = alltrue([
+      [for e in azurerm_subnet.entorno.service_endpoint : e.service] == ["Microsoft.KeyVault"],
+      length(azurerm_subnet.postgres.service_endpoint) == 0,
+    ])
+    error_message = "La subred del entorno tiene el punto de conexión de servicio Microsoft.KeyVault, y la de PostgreSQL ninguno."
+  }
+}
+
+run "el_key_vault_de_uat_tambien_va_cerrado" {
+  command = plan
+
+  variables {
+    ambiente          = "uat"
+    dominio_de_correo = "avisos-uat.alcanzamos.co"
+  }
+
+  assert {
+    condition = alltrue([
+      one(azurerm_key_vault.secretos.network_acls).default_action == "Deny",
+      one(azurerm_key_vault.secretos.network_acls).virtual_network_subnet_ids == toset([azurerm_subnet.entorno.id]),
+      try(length(one(azurerm_key_vault.secretos.network_acls).ip_rules), 0) == 0,
+      [for e in azurerm_subnet.entorno.service_endpoint : e.service] == ["Microsoft.KeyVault"],
+    ])
+    error_message = "UAT cierra el Key Vault igual que producción: es donde se prueba (P9)."
+  }
+}
+
 # --- La región ----------------------------------------------------------------------------------------------------------------------
 
 # D-208: East US 2. Nada de lo que está en infra/azure (código, ejemplos y README) conserva la región anterior.
