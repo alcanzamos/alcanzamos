@@ -111,20 +111,25 @@ func comprobarQueNoMigra(t *testing.T, pool *pgxpool.Pool, variable, rol string)
 }
 
 // El rol del propio migrador se valida contra current_user, que es el usuario que de verdad conectó, no contra PGUSER: con la URL, PGUSER
-// puede estar vacío o ser otro. Falla antes de migrar, no después.
+// puede estar vacío o ser otro. Falla antes de migrar, no después. El usuario que conecta se lee de la base (current_user), no se
+// supone: depende de la URL con que corren las pruebas.
 func TestMigrarValidaLaListaContraElUsuarioQueConectaAntesDeMigrar(t *testing.T) {
 	const bueno = "id-alcanzamos-api-prueba-sin-crear"
-	for nombre, lista := range map[string]string{
-		"solo el migrador":     "alcanzamos",
-		"el migrador al final": bueno + ",alcanzamos",
-		"otra capitalización":  bueno + ",ALCANZAMOS",
+	for nombre, lista := range map[string]func(usuario string) string{
+		"solo el migrador":     func(u string) string { return u },
+		"el migrador al final": func(u string) string { return bueno + "," + u },
+		"otra capitalización":  func(u string) string { return bueno + "," + strings.ToUpper(u) },
 	} {
 		for _, pguser := range []string{"", "otro-usuario"} {
 			t.Run(nombre+"/PGUSER="+pguser, func(t *testing.T) {
 				pool := pgtest.NuevaSinMigrar(t)
+				var usuario string
+				if err := pool.QueryRow(context.Background(), "SELECT current_user").Scan(&usuario); err != nil {
+					t.Fatal(err)
+				}
 				t.Setenv("BASE_DE_DATOS_URL", pool.Config().ConnString())
 				t.Setenv("PGUSER", pguser)
-				t.Setenv("ROLES_DE_APLICACION", lista)
+				t.Setenv("ROLES_DE_APLICACION", lista(usuario))
 				comprobarQueNoMigra(t, pool, "ROLES_DE_APLICACION", bueno)
 			})
 		}
