@@ -86,8 +86,9 @@ Ningún dominio ni dirección va fija en el código (D-129). `config.Cargar` lee
 
 | Variable | Qué es | Ejemplo local (Mailpit de `infra/local`) |
 |---|---|---|
-| `BASE_DE_DATOS_URL` | Cadena de conexión de PostgreSQL. Si está, gana (local y pruebas); sin ella se usa la identidad administrada (siguiente fila) | `postgres://alcanzamos:solo-local@127.0.0.1:5432/alcanzamos` |
+| `BASE_DE_DATOS_URL` | Cadena de conexión de PostgreSQL, solo para local y pruebas: si está, gana. **En Azure se rechaza**: con `AZURE_CLIENT_ID`, `IDENTITY_ENDPOINT` o `CONTAINER_APP_NAME` definidas, el API, las tareas y `migrar` no arrancan. Sin ella se usa la identidad administrada (siguiente fila) | `postgres://alcanzamos:solo-local@127.0.0.1:5432/alcanzamos` |
 | `PGHOST`, `PGDATABASE`, `PGUSER`, `PGSSLMODE` y `AZURE_CLIENT_ID` | Conexión con identidad administrada de Azure, solo sin `BASE_DE_DATOS_URL`: las cinco son obligatorias y `PGSSLMODE` tiene que ser `verify-full` (ver [Base de datos y migraciones](#base-de-datos-y-migraciones)) | no se usan en local |
+| `ROL_API` y `ROL_API_OBJECT_ID` | Solo `migrar`. Nombre del rol de PostgreSQL de la identidad del API (el mismo de su `PGUSER`) y su object id de Entra. Con `ROL_API`, `migrar` crea ese rol y le da lo justo después de migrar (ver [Rol del API](#rol-del-api-en-postgresql)). En Azure son obligatorias las dos | vacías (local no las necesita) |
 | `CORREO_SMTP` | `host:puerto` del servidor SMTP. En producción, Zoho CPaaS (antes ZeptoMail): `smtp.zeptomail.com:587`, con STARTTLS (D-205 (6), US-80). Sin `CORREO_USUARIO` usa STARTTLS si el servidor lo ofrece; con él, STARTTLS es obligatorio. No admite TLS implícito (puerto 465) | `127.0.0.1:1025` |
 | `CORREO_USUARIO` | Opcional. Usuario del SMTP; con CPaaS es siempre `emailapikey`. Va junto con `CORREO_CONTRASENA`: una sola de las dos hace fallar el arranque y el error nombra la que falta | vacía (Mailpit no autentica) |
 | `CORREO_CONTRASENA` | Opcional. Contraseña del SMTP; con CPaaS es el token del agente de envío («Send Mail Token»). **En Azure es un `secretRef` del Key Vault**: nunca va en claro en la plantilla, en un archivo ni en el repositorio. Se recorta de espacios y saltos de línea en los extremos. Nunca se registra ni sale en un error (ver «Correo») | vacía |
@@ -995,8 +996,10 @@ Cuerpo: `{"texto": "gasté 15 mil en almuerzo ayer"}`. Hasta **280 caracteres** 
 
 | Forma | Cuándo | Cómo conecta |
 |---|---|---|
-| **URL** | `BASE_DE_DATOS_URL` está (local, pruebas y el compose de `infra/local`) | La URL tal cual, con su contraseña y su `sslmode`. **Gana** si está: las variables de la identidad no se miran |
+| **URL** | `BASE_DE_DATOS_URL` está y el proceso **no** corre en Azure (local, pruebas y el compose de `infra/local`) | La URL tal cual, con su contraseña y su `sslmode`. **Gana** a las variables de la identidad, que no se miran |
 | **Identidad administrada** | `BASE_DE_DATOS_URL` falta (Azure; D-123) | `PGHOST`, `PGDATABASE`, `PGUSER` y `PGSSLMODE` arman el destino y la contraseña es un **token de Entra ID** de la identidad administrada de usuario cuyo client id es `AZURE_CLIENT_ID` |
+
+**En Azure la URL no vale** (E11-INF 2.3 bis): llevaría una contraseña fija o una conexión sin `verify-full`. Si `BASE_DE_DATOS_URL` está y el proceso corre en Azure, `bd.ConfigurarPool` falla antes de abrir ninguna conexión, y con él el API, `tareas` y `migrar`. «Corre en Azure» es que esté definida alguna de `AZURE_CLIENT_ID` (la pone `infra/azure`), `IDENTITY_ENDPOINT` o `CONTAINER_APP_NAME` (las pone Container Apps en toda réplica, aunque alguien quite la primera); una en blanco no cuenta. El error nombra las variables y nunca repite la URL. Quien trabaje en local con alguna de esas variables en su terminal tiene que quitarla (`unset AZURE_CLIENT_ID`). `infra/azure` tiene una prueba que impide que la URL vuelva a la plantilla del API y de los trabajos.
 
 Con la identidad administrada:
 
@@ -1004,9 +1007,31 @@ Con la identidad administrada:
 - **`PGSSLMODE` tiene que ser exactamente `verify-full`** (TLS con el certificado y el nombre del servidor verificados, sin alternativas más débiles). Cualquier otro valor (`require`, `verify-ca`, `prefer`…) se rechaza al arrancar: el token viaja como contraseña y no se manda por una conexión que no se verifica. Con la URL no se exige (en local no hay TLS).
 - **El token se pide en cada conexión nueva del pool**, con `BeforeConnect` de `pgxpool` y el contexto de la conexión: una cancelación o un plazo cortan la petición. Alcance (`bd.AlcanceEntra`): `https://ossrdbms-aad.database.windows.net/.default`. La credencial es `azidentity.ManagedIdentityCredential` con el client id de `AZURE_CLIENT_ID`; `azidentity` guarda el token en memoria hasta que está por vencer, así que no toda conexión llega hasta Entra ID, y una conexión nueva después de la renovación lleva el token nuevo. Las conexiones abiertas no necesitan renovarse: el token solo se usa al autenticar.
 - **Un error del token es un error de la conexión** (`obtener el token de Entra ID para PostgreSQL: …`, con la causa envuelta: `errors.Is` encuentra `context.Canceled`), también un token vacío. **El token nunca se escribe**: el paquete no registra nada y ningún error lo lleva; no se guarda en la configuración del pool, solo en la copia de cada conexión.
-- **`migrar` conecta igual** y lo hará con la identidad que le den: en Azure, la del migrador (propia, distinta de la del API, D-204 (1)), con su `AZURE_CLIENT_ID` y su `PGUSER`. El trabajo de Container Apps que lo corre es de `infra/`, no de esta carpeta.
+- **`migrar` conecta igual** y lo hará con la identidad que le den: en Azure, la del migrador (propia, distinta de la del API, D-204 (1)), con su `AZURE_CLIENT_ID` y su `PGUSER`; esa identidad es administradora de Entra del servidor. Además crea el rol del API (ver «Rol del API en PostgreSQL»). El trabajo de Container Apps que lo corre es de `infra/`, no de esta carpeta.
 - **La fuente de tokens se inyecta** (`bd.FuenteDeTokens`, `bd.NuevaFuente`, `bd.ConectarCon` y `bd.ConfigurarPool` reciben el entorno y la fábrica de fuentes), así que las pruebas (`test/bd/identidad_test.go`) usan una falsa y no tocan la red: configuración incompleta con cada variable, la prioridad de la URL, `verify-full`, error y cancelación del token, una petición por conexión nueva (y el token renovado), y que el token no sale en errores ni en el registro (`slog` ni `log`).
 - **Qué no está probado aquí:** la conexión real con Entra ID y con PostgreSQL de Azure solo se prueba dentro de Azure. Todavía no hay ningún recurso creado: el despliegue espera la sesión de arquitectura de la infraestructura (L12 de la US-79, D-204). Hasta entonces, lo de esta carpeta está probado con la fuente falsa y la conexión real sigue sin verse.
+
+### Rol del API en PostgreSQL
+
+El API no se conecta como administrador. La identidad del API **no** es administradora de Entra del servidor (lo son el migrador y `caj-psql`); entra con un rol de PostgreSQL propio que le crea el migrador (`bd.RolDeLaAplicacion`, `src/bd/rol.go`), con lo justo:
+
+| Sobre | Permisos del rol del API |
+|---|---|
+| Tablas del API (todas las de `public`, también las que traigan migraciones nuevas) | `SELECT`, `INSERT`, `UPDATE`, `DELETE` |
+| Catálogo (`categoria` y `finalidad`, que solo cambian por migración) | `SELECT` |
+| `goose_db_version` (control de las migraciones) | Ninguno |
+| Esquema `public` | `USAGE`; sin `CREATE`: ningún DDL |
+| Todo lo demás | `TRUNCATE`, `REFERENCES`, `TRIGGER`, secuencias, funciones propias, crear roles o bases, membresías: ninguno. El rol no es superusuario, ni administrador de Azure, ni `CREATEROLE`, `CREATEDB`, `REPLICATION` ni `BYPASSRLS` |
+
+`migrar` lo hace después de migrar, si trae `ROL_API` (en Azure es obligatoria, con `ROL_API_OBJECT_ID`: sin ellas falla antes de migrar, para que el API no se quede sin rol):
+
+1. Si el rol no existe, lo crea. En Azure, con la función de Entra `pgaadauth_create_principal_with_oid(nombre, object id, 'service', false, false)` (identidad administrada, sin administración, sin MFA); fuera de Azure, con `CREATE ROLE … LOGIN` (local y pruebas, sin contraseña).
+2. Si el rol ya existe con administración, o es miembro de un rol que la tiene, **falla sin tocar nada** y dice cuál.
+3. Quita todo lo que el rol tenga sobre las tablas y el esquema y le da exactamente lo de la tabla de arriba. Cada `migrar` lo repite, así una tabla nueva queda cubierta y un permiso dado de más se va.
+
+El nombre del rol se valida antes de llegar a SQL: empieza con una letra, lleva solo letras, números, punto, guion y guion bajo (hasta 63), no es uno reservado (`postgres`, `public`, `pg_*`, `azure*`…) y no es el del propio migrador.
+
+Pruebas: `test/bd/rol_test.go` (la lectura de la configuración, sin PostgreSQL) y `test/bd/rol_integracion_test.go` y `test/app/rol_integracion_test.go` (con PostgreSQL: la tabla de permisos, DDL y administración rechazados con `42501`, idempotencia, rol con administración rechazado, nombres peligrosos, la llamada a la función de Entra con una copia local de ella y `migrar` de punta a punta). Se comprobó además, una vez, el conjunto de pruebas de integración corriendo con el rol del API en vez del dueño: todo lo que falló fue de las pruebas mismas (sus montajes crean funciones, secuencias o tablas, renombran tablas, leen `goose_db_version` o bloquean filas del catálogo), ninguna ruta del API pidió un permiso de más. Hay dos cosas que PostgreSQL deja a todo el que se conecta y que este rol conserva: crear tablas temporales (`TEMPORARY` sobre la base es de `PUBLIC`) y ejecutar las funciones del esquema. **Qué no está probado aquí:** la función de Entra real y los permisos de `azure_pg_admin` solo se comprueban en Azure, en UAT.
 
 ### Migraciones
 

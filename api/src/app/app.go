@@ -160,18 +160,32 @@ func puerto() string {
 	return "8080"
 }
 
-// migrar aplica las migraciones pendientes y termina.
+// migrar aplica las migraciones pendientes y termina. Si el entorno trae el rol del API (ROL_API; en Azure es obligatorio), después
+// lo crea y le da lo justo (bd.RolDeLaAplicacion).
 func migrar(ctx context.Context, log *slog.Logger) error {
 	pool, err := bd.Conectar(ctx)
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
+	// El rol del API se lee antes de migrar: una configuración mala no deja el esquema a medias.
+	rol, err := bd.LeerRolDeLaAplicacion(os.Getenv)
+	if err != nil {
+		return err
+	}
 	n, err := bd.Subir(ctx, pool)
 	if err != nil {
 		return err
 	}
 	log.Info("migraciones aplicadas", "cantidad", n)
+	if rol == nil {
+		return nil
+	}
+	// El migrador es administrador; la identidad del API no. Con el esquema al día, el migrador crea el rol del API y le da lo justo.
+	if err := rol.Asegurar(ctx, pool); err != nil {
+		return err
+	}
+	log.Info("rol del API asegurado", "rol", rol.Nombre)
 	return nil
 }
 
