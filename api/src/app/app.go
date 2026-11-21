@@ -160,16 +160,16 @@ func puerto() string {
 	return "8080"
 }
 
-// migrar aplica las migraciones pendientes y termina. Si el entorno trae el rol del API (ROL_API; en Azure es obligatorio), después
-// lo crea y le da lo justo (bd.RolDeLaAplicacion).
+// migrar aplica las migraciones pendientes y termina. Si el entorno trae los roles de las aplicaciones (ROLES_DE_APLICACION; en Azure es
+// obligatoria), después crea un rol por identidad y a cada uno le da lo justo (bd.RolDeLaAplicacion).
 func migrar(ctx context.Context, log *slog.Logger) error {
 	pool, err := bd.Conectar(ctx)
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
-	// El rol del API se lee antes de migrar: una configuración mala no deja el esquema a medias.
-	rol, err := bd.LeerRolDeLaAplicacion(os.Getenv)
+	// Los roles se leen y validan enteros antes de migrar: una configuración mala no deja el esquema a medias.
+	roles, err := bd.LeerRolesDeLaAplicacion(os.Getenv)
 	if err != nil {
 		return err
 	}
@@ -178,14 +178,17 @@ func migrar(ctx context.Context, log *slog.Logger) error {
 		return err
 	}
 	log.Info("migraciones aplicadas", "cantidad", n)
-	if rol == nil {
+	if len(roles) == 0 {
 		return nil
 	}
-	// El migrador es administrador; la identidad del API no. Con el esquema al día, el migrador crea el rol del API y le da lo justo.
-	if err := rol.Asegurar(ctx, pool); err != nil {
+	// El migrador es administrador; las identidades de las aplicaciones no. Con el esquema al día, el migrador crea un rol por identidad y
+	// le da lo justo a cada uno.
+	if err := bd.AsegurarRoles(ctx, pool, roles); err != nil {
 		return err
 	}
-	log.Info("rol del API asegurado", "rol", rol.Nombre)
+	for _, rol := range roles {
+		log.Info("rol de la aplicación asegurado", "rol", rol.Nombre)
+	}
 	return nil
 }
 

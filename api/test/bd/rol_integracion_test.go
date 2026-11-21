@@ -21,13 +21,19 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/test/pgtest"
 )
 
+// aplicaciones son las identidades que tienen rol: cada prueba de permisos corre para cada una (E11-INF 2.3 bis y 2.4).
+var aplicaciones = []string{"api", "tareas"}
+
 // nuevoRol devuelve un nombre de rol único, y al terminar la prueba le quita sus permisos y lo borra. Los roles son del clúster:
 // sin esto quedarían entre pruebas.
-func nuevoRol(t *testing.T, pool *pgxpool.Pool) string {
+func nuevoRol(t *testing.T, pool *pgxpool.Pool) string { return nuevoRolDe(t, pool, "api") }
+
+// nuevoRolDe es nuevoRol con el nombre de la identidad de la aplicación como prefijo.
+func nuevoRolDe(t *testing.T, pool *pgxpool.Pool, aplicacion string) string {
 	t.Helper()
 	b := make([]byte, 5)
 	_, _ = rand.Read(b)
-	nombre := "api_prueba_" + hex.EncodeToString(b)
+	nombre := "id-alcanzamos-" + aplicacion + "-prueba-" + hex.EncodeToString(b)
 	t.Cleanup(func() {
 		id := pgx.Identifier{nombre}.Sanitize()
 		_, _ = pool.Exec(context.Background(), "DROP OWNED BY "+id)
@@ -39,6 +45,21 @@ func nuevoRol(t *testing.T, pool *pgxpool.Pool) string {
 func asegurar(t *testing.T, pool *pgxpool.Pool, nombre string) error {
 	t.Helper()
 	return bd.RolDeLaAplicacion{Nombre: nombre}.AsegurarCon(context.Background(), pool, bd.CrearRolLocal)
+}
+
+// rolesDeLasAplicaciones crea los nombres de rol de todas las aplicaciones (uno por identidad) y los asegura juntos, como hace `migrar`.
+func rolesDeLasAplicaciones(t *testing.T, pool *pgxpool.Pool) map[string]string {
+	t.Helper()
+	roles := map[string]string{}
+	var lista []bd.RolDeLaAplicacion
+	for _, app := range aplicaciones {
+		roles[app] = nuevoRolDe(t, pool, app)
+		lista = append(lista, bd.RolDeLaAplicacion{Nombre: roles[app]})
+	}
+	if err := bd.AsegurarRolesCon(context.Background(), pool, lista, bd.CrearRolLocal); err != nil {
+		t.Fatal(err)
+	}
+	return roles
 }
 
 // intentar corre sentencias como el rol, cada una en su transacción (que se deshace), y devuelve el código SQLSTATE del error o "".
@@ -89,12 +110,16 @@ func tienePermiso(t *testing.T, pool *pgxpool.Pool, rol, tabla, permiso string) 
 }
 
 // Lo justo: leer y escribir las tablas del API, solo leer el catálogo, nada del control de las migraciones, ninguna administración.
-func TestElRolDelAPITieneSoloLoJusto(t *testing.T) {
+func TestCadaRolDeAplicacionTieneSoloLoJusto(t *testing.T) {
 	pool := pgtest.Nueva(t)
-	rol := nuevoRol(t, pool)
-	if err := asegurar(t, pool, rol); err != nil {
-		t.Fatal(err)
+	roles := rolesDeLasAplicaciones(t, pool)
+	for _, app := range aplicaciones {
+		t.Run(app, func(t *testing.T) { comprobarSoloLoJusto(t, pool, roles[app]) })
 	}
+}
+
+func comprobarSoloLoJusto(t *testing.T, pool *pgxpool.Pool, rol string) {
+	t.Helper()
 
 	var login, super, creaBases, creaRoles, replica, saltaRLS bool
 	err := pool.QueryRow(context.Background(),
@@ -140,14 +165,18 @@ func TestElRolDelAPITieneSoloLoJusto(t *testing.T) {
 	}
 }
 
-// Lo que el API hace de verdad corre, y todo DDL y toda administración se rechaza con «permiso denegado» (42501). CREATE DATABASE no se
+// Lo que la aplicación hace de verdad corre, y todo DDL y toda administración se rechaza con «permiso denegado» (42501). CREATE DATABASE no se
 // prueba aquí (no corre dentro de una transacción): rolcreatedb falso se comprueba en la prueba de arriba.
-func TestElRolDelAPIEscribeYNoPuedeHacerDDLNiAdministrar(t *testing.T) {
+func TestCadaRolDeAplicacionEscribeYNoPuedeHacerDDLNiAdministrar(t *testing.T) {
 	pool := pgtest.Nueva(t)
-	rol := nuevoRol(t, pool)
-	if err := asegurar(t, pool, rol); err != nil {
-		t.Fatal(err)
+	roles := rolesDeLasAplicaciones(t, pool)
+	for _, app := range aplicaciones {
+		t.Run(app, func(t *testing.T) { comprobarEscribeYNoAdministra(t, pool, roles[app]) })
 	}
+}
+
+func comprobarEscribeYNoAdministra(t *testing.T, pool *pgxpool.Pool, rol string) {
+	t.Helper()
 	for _, permitida := range []string{
 		"SELECT count(*) FROM persona",
 		"SELECT count(*) FROM finalidad",
@@ -188,50 +217,58 @@ func TestElRolDelAPIEscribeYNoPuedeHacerDDLNiAdministrar(t *testing.T) {
 }
 
 // Se puede correr cuantas veces haga falta (cada `migrar` lo vuelve a correr), alcanza las tablas que traigan las migraciones
-// nuevas y deja el rol exactamente como se define, aunque alguien le haya dado de más.
-func TestAsegurarElRolEsIdempotenteYAlcanzaLasTablasNuevas(t *testing.T) {
+// nuevas y deja cada rol exactamente como se define, aunque alguien le haya dado de más o de menos.
+func TestAsegurarLosRolesEsIdempotenteYAlcanzaLasTablasNuevas(t *testing.T) {
 	ctx := context.Background()
 	pool := pgtest.Nueva(t)
-	rol := nuevoRol(t, pool)
-	for i := 0; i < 2; i++ {
-		if err := asegurar(t, pool, rol); err != nil {
-			t.Fatalf("vuelta %d: %v", i+1, err)
-		}
+	roles := rolesDeLasAplicaciones(t, pool)
+	var lista []bd.RolDeLaAplicacion
+	for _, app := range aplicaciones {
+		lista = append(lista, bd.RolDeLaAplicacion{Nombre: roles[app]})
+	}
+	if err := bd.AsegurarRolesCon(ctx, pool, lista, bd.CrearRolLocal); err != nil { // la segunda vuelta: los roles ya existen
+		t.Fatal(err)
 	}
 
 	if _, err := pool.Exec(ctx, "CREATE TABLE tabla_de_una_migracion_nueva (id int PRIMARY KEY)"); err != nil {
 		t.Fatal(err)
 	}
-	if tienePermiso(t, pool, rol, "tabla_de_una_migracion_nueva", "SELECT") {
-		t.Fatal("una tabla nueva no debe quedar abierta antes de volver a asegurar el rol")
-	}
-	// Alguien le da de más (TRUNCATE, la tabla de control, escribir el catálogo), o le quita lo que sí necesita.
-	for _, sentencia := range []string{
-		"GRANT TRUNCATE ON persona TO " + pgx.Identifier{rol}.Sanitize(),
-		"GRANT ALL ON goose_db_version TO " + pgx.Identifier{rol}.Sanitize(),
-		"GRANT INSERT ON finalidad TO " + pgx.Identifier{rol}.Sanitize(),
-		"REVOKE DELETE ON sesion FROM " + pgx.Identifier{rol}.Sanitize(),
-		"GRANT CREATE ON SCHEMA public TO " + pgx.Identifier{rol}.Sanitize(),
-	} {
-		if _, err := pool.Exec(ctx, sentencia); err != nil {
-			t.Fatal(err)
+	for _, app := range aplicaciones {
+		if tienePermiso(t, pool, roles[app], "tabla_de_una_migracion_nueva", "SELECT") {
+			t.Fatalf("%s: una tabla nueva no debe quedar abierta antes de volver a asegurar el rol", app)
+		}
+		// Alguien le da de más (TRUNCATE, la tabla de control, escribir el catálogo), o le quita lo que sí necesita.
+		id := pgx.Identifier{roles[app]}.Sanitize()
+		for _, sentencia := range []string{
+			"GRANT TRUNCATE ON persona TO " + id,
+			"GRANT ALL ON goose_db_version TO " + id,
+			"GRANT INSERT ON finalidad TO " + id,
+			"REVOKE DELETE ON sesion FROM " + id,
+			"GRANT CREATE ON SCHEMA public TO " + id,
+		} {
+			if _, err := pool.Exec(ctx, sentencia); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
-	if err := asegurar(t, pool, rol); err != nil {
+	if err := bd.AsegurarRolesCon(ctx, pool, lista, bd.CrearRolLocal); err != nil {
 		t.Fatal(err)
 	}
-	quiere := map[[2]string]bool{
-		{"tabla_de_una_migracion_nueva", "SELECT"}: true, {"tabla_de_una_migracion_nueva", "DELETE"}: true, {"tabla_de_una_migracion_nueva", "TRUNCATE"}: false,
-		{"persona", "TRUNCATE"}: false, {"goose_db_version", "SELECT"}: false, {"finalidad", "INSERT"}: false, {"sesion", "DELETE"}: true,
-	}
-	for k, v := range quiere {
-		if got := tienePermiso(t, pool, rol, k[0], k[1]); got != v {
-			t.Errorf("%s sobre %s: %v, se esperaba %v", k[1], k[0], got, v)
+	for _, app := range aplicaciones {
+		rol := roles[app]
+		quiere := map[[2]string]bool{
+			{"tabla_de_una_migracion_nueva", "SELECT"}: true, {"tabla_de_una_migracion_nueva", "DELETE"}: true, {"tabla_de_una_migracion_nueva", "TRUNCATE"}: false,
+			{"persona", "TRUNCATE"}: false, {"goose_db_version", "SELECT"}: false, {"finalidad", "INSERT"}: false, {"sesion", "DELETE"}: true,
 		}
-	}
-	var creaEnEsquema bool
-	if err := pool.QueryRow(ctx, "SELECT has_schema_privilege($1::name, 'public', 'CREATE')", rol).Scan(&creaEnEsquema); err != nil || creaEnEsquema {
-		t.Errorf("CREATE sobre el esquema debía quedar quitado: %v (%v)", creaEnEsquema, err)
+		for k, v := range quiere {
+			if got := tienePermiso(t, pool, rol, k[0], k[1]); got != v {
+				t.Errorf("%s: %s sobre %s: %v, se esperaba %v", app, k[1], k[0], got, v)
+			}
+		}
+		var creaEnEsquema bool
+		if err := pool.QueryRow(ctx, "SELECT has_schema_privilege($1::name, 'public', 'CREATE')", rol).Scan(&creaEnEsquema); err != nil || creaEnEsquema {
+			t.Errorf("%s: CREATE sobre el esquema debía quedar quitado: %v (%v)", app, creaEnEsquema, err)
+		}
 	}
 }
 
@@ -327,29 +364,39 @@ func llamadasAEntra(t *testing.T, pool *pgxpool.Pool) [][5]string {
 	return llamadas
 }
 
-func TestEnAzureElRolSeCreaConLaFuncionDeEntraComoServicioYSinAdministracion(t *testing.T) {
+func TestEnAzureCadaRolSeCreaConLaFuncionDeEntraComoServicioYSinAdministracion(t *testing.T) {
 	ctx := context.Background()
 	pool := pgtest.Nueva(t)
 	if _, err := pool.Exec(ctx, funcionDeEntraFalsa); err != nil {
 		t.Fatal(err)
 	}
-	rol := nuevoRol(t, pool)
-
-	r := bd.RolDeLaAplicacion{Nombre: rol, ObjectID: objectIDDelAPI, EnAzure: true}
-	for i := 0; i < 2; i++ { // la segunda vez el rol ya existe: no se vuelve a crear
-		if err := r.Asegurar(ctx, pool); err != nil {
+	ids := map[string]string{"api": objectIDDelAPI, "tareas": objectIDDeTareas}
+	roles := map[string]string{}
+	var lista []bd.RolDeLaAplicacion
+	for _, app := range aplicaciones {
+		roles[app] = nuevoRolDe(t, pool, app)
+		lista = append(lista, bd.RolDeLaAplicacion{Nombre: roles[app], ObjectID: ids[app], EnAzure: true})
+	}
+	for i := 0; i < 2; i++ { // la segunda vez los roles ya existen: no se vuelven a crear
+		if err := bd.AsegurarRoles(ctx, pool, lista); err != nil {
 			t.Fatalf("vuelta %d: %v", i+1, err)
 		}
 	}
 	llamadas := llamadasAEntra(t, pool)
-	if len(llamadas) != 1 || llamadas[0] != [5]string{rol, objectIDDelAPI, "service", "false", "false"} {
-		t.Fatalf("se esperaba una sola llamada (nombre, object id, 'service', no administrador, sin MFA): %v", llamadas)
+	if len(llamadas) != len(aplicaciones) {
+		t.Fatalf("se esperaba una sola llamada por rol: %v", llamadas)
 	}
-	if !tienePermiso(t, pool, rol, "persona", "DELETE") || tienePermiso(t, pool, rol, "goose_db_version", "SELECT") {
-		t.Error("el rol de Entra queda con los mismos permisos justos")
-	}
-	if codigo := intentar(t, pool, rol, "CREATE TABLE intrusa (a int)"); codigo != "42501" {
-		t.Errorf("el rol de Entra tampoco hace DDL: %q", codigo)
+	for _, app := range aplicaciones {
+		quiere := [5]string{roles[app], ids[app], "service", "false", "false"}
+		if !slices.Contains(llamadas, quiere) {
+			t.Errorf("%s: falta la llamada (nombre, object id, 'service', no administrador, sin MFA) %v en %v", app, quiere, llamadas)
+		}
+		if !tienePermiso(t, pool, roles[app], "persona", "DELETE") || tienePermiso(t, pool, roles[app], "goose_db_version", "SELECT") {
+			t.Errorf("%s: el rol de Entra queda con los mismos permisos justos", app)
+		}
+		if codigo := intentar(t, pool, roles[app], "CREATE TABLE intrusa (a int)"); codigo != "42501" {
+			t.Errorf("%s: el rol de Entra tampoco hace DDL: %q", app, codigo)
+		}
 	}
 }
 
@@ -382,5 +429,70 @@ func TestSiEntraRechazaElRolElMigradorFalla(t *testing.T) {
 	var existe bool
 	if err := pool.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = $1)", rol).Scan(&existe); err != nil || existe {
 		t.Errorf("no debía quedar un rol a medias: %v (%v)", existe, err)
+	}
+}
+
+// La lista se valida entera antes de crear nada: un rol compartido (el mismo nombre dos veces), una identidad con dos roles, un nombre
+// peligroso o el del migrador no dejan ningún rol creado, ni siquiera el bueno que va antes.
+func TestAsegurarLosRolesRechazaLaListaEnteraSinCrearNada(t *testing.T) {
+	ctx := context.Background()
+	pool := pgtest.Nueva(t)
+	var yo string
+	if err := pool.QueryRow(ctx, "SELECT current_user").Scan(&yo); err != nil {
+		t.Fatal(err)
+	}
+	bueno := nuevoRolDe(t, pool, "api")
+	compartido := nuevoRolDe(t, pool, "compartido")
+	casos := map[string][]bd.RolDeLaAplicacion{
+		"nombre repetido":     {{Nombre: bueno}, {Nombre: compartido}, {Nombre: compartido}},
+		"otra capitalización": {{Nombre: bueno}, {Nombre: compartido}, {Nombre: strings.ToUpper(compartido)}},
+		"misma identidad":     {{Nombre: bueno, ObjectID: objectIDDelAPI}, {Nombre: compartido, ObjectID: objectIDDelAPI}},
+		"nombre peligroso":    {{Nombre: bueno}, {Nombre: `x"; DROP TABLE persona; --`}},
+		"nombre del migrador": {{Nombre: bueno}, {Nombre: yo}},
+		"nombre reservado":    {{Nombre: bueno}, {Nombre: "pg_monitor"}},
+	}
+	for nombre, lista := range casos {
+		var antes, despues int
+		if err := pool.QueryRow(ctx, "SELECT count(*) FROM pg_roles").Scan(&antes); err != nil {
+			t.Fatal(err)
+		}
+		if err := bd.AsegurarRolesCon(ctx, pool, lista, bd.CrearRolLocal); err == nil {
+			t.Errorf("%s: la lista debía rechazarse", nombre)
+		}
+		if err := pool.QueryRow(ctx, "SELECT count(*) FROM pg_roles").Scan(&despues); err != nil || despues != antes {
+			t.Errorf("%s: roles antes %d y después %d: no debía crearse ninguno (%v)", nombre, antes, despues, err)
+		}
+		if tienePermiso(t, pool, yo, "persona", "DELETE") == false {
+			t.Errorf("%s: el migrador debía conservar sus permisos", nombre)
+		}
+	}
+}
+
+// Los permisos de un rol no dependen del otro: quitarle lo suyo a uno no toca al otro, y asegurar uno solo no abre nada al que falta.
+func TestLosRolesDeAplicacionNoSeAfectanEntreSi(t *testing.T) {
+	ctx := context.Background()
+	pool := pgtest.Nueva(t)
+	api, tareas := nuevoRolDe(t, pool, "api"), nuevoRolDe(t, pool, "tareas")
+	if err := asegurar(t, pool, api); err != nil {
+		t.Fatal(err)
+	}
+	var existe bool
+	if err := pool.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = $1)", tareas).Scan(&existe); err != nil || existe {
+		t.Fatalf("asegurar un rol no crea el otro: %v (%v)", existe, err)
+	}
+	if err := asegurar(t, pool, tareas); err != nil {
+		t.Fatal(err)
+	}
+	for _, rol := range []string{api, tareas} {
+		var miembro bool
+		if err := pool.QueryRow(ctx, "SELECT pg_has_role($1::name, $2::name, 'MEMBER')", rol, map[string]string{api: tareas, tareas: api}[rol]).Scan(&miembro); err != nil || miembro {
+			t.Errorf("%s no debe ser miembro del otro rol: %v (%v)", rol, miembro, err)
+		}
+	}
+	if _, err := pool.Exec(ctx, "REVOKE SELECT ON persona FROM "+pgx.Identifier{api}.Sanitize()); err != nil {
+		t.Fatal(err)
+	}
+	if !tienePermiso(t, pool, tareas, "persona", "SELECT") {
+		t.Error("quitarle un permiso a un rol no debe tocar al otro")
 	}
 }
