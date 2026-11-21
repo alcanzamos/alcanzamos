@@ -160,18 +160,42 @@ func puerto() string {
 	return "8080"
 }
 
-// migrar aplica las migraciones pendientes y termina.
+// migrar aplica las migraciones pendientes y termina. Si el entorno trae los roles de las aplicaciones (ROLES_DE_APLICACION; en Azure es
+// obligatoria), después crea un rol por identidad y a cada uno le da lo justo (bd.RolDeLaAplicacion).
 func migrar(ctx context.Context, log *slog.Logger) error {
 	pool, err := bd.Conectar(ctx)
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
+	// Los roles se leen y validan enteros antes de migrar: una configuración mala no deja el esquema a medias. Primero la lista contra el
+	// entorno y después, ya conectados, contra quien de verdad conectó (current_user, no PGUSER) y contra el estado de los roles que ya existen
+	// (administración, membresías, object id de Entra): todo en solo lectura.
+	roles, err := bd.LeerRolesDeLaAplicacion(os.Getenv)
+	if err != nil {
+		return err
+	}
+	if len(roles) > 0 {
+		if err := bd.ValidarRoles(ctx, pool, roles); err != nil {
+			return err
+		}
+	}
 	n, err := bd.Subir(ctx, pool)
 	if err != nil {
 		return err
 	}
 	log.Info("migraciones aplicadas", "cantidad", n)
+	if len(roles) == 0 {
+		return nil
+	}
+	// El migrador es administrador; las identidades de las aplicaciones no. Con el esquema al día, el migrador crea un rol por identidad y
+	// le da lo justo a cada uno.
+	if err := bd.AsegurarRoles(ctx, pool, roles); err != nil {
+		return err
+	}
+	for _, rol := range roles {
+		log.Info("rol de la aplicación asegurado", "rol", rol.Nombre)
+	}
 	return nil
 }
 

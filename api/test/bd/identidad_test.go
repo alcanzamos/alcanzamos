@@ -142,8 +142,11 @@ func TestUnaVariableSoloDeEspaciosCuentaComoFaltante(t *testing.T) {
 	}
 }
 
-func TestLaURLGanaSobreLaIdentidad(t *testing.T) {
+// Fuera de Azure (sin AZURE_CLIENT_ID ni las otras señales), la URL gana y las variables PG* sueltas no se miran: así se
+// conecta quien trabaja en local, donde PGHOST y compañía pueden venir del entorno de la terminal.
+func TestFueraDeAzureLaURLGanaSobreLasVariablesDeLaIdentidad(t *testing.T) {
 	env := entornoCompleto()
+	delete(env, "AZURE_CLIENT_ID")
 	env["BASE_DE_DATOS_URL"] = "postgres://local:solo-local@127.0.0.1:55432/local?sslmode=disable"
 	fab := nuevaFabrica(&fuenteFalsa{})
 	cfg, err := bd.ConfigurarPool(entorno(env), fab.nueva)
@@ -159,6 +162,56 @@ func TestLaURLGanaSobreLaIdentidad(t *testing.T) {
 	}
 	if c.RuntimeParams["timezone"] != "UTC" {
 		t.Errorf("con la URL también se fija UTC: %v", c.RuntimeParams)
+	}
+}
+
+// L24 (a): en Azure no se conecta con una URL (contraseña fija, o una conexión sin verify-full). Basta una señal de que
+// corre en Azure: AZURE_CLIENT_ID (que pone infra/azure en el API y en los trabajos) o las que pone Container Apps.
+func TestEnAzureLaURLSeRechazaConCualquierSenal(t *testing.T) {
+	const url = "postgres://alguien:CLAVE-FIJA-DE-PRUEBA@127.0.0.1:55432/local?sslmode=disable"
+	senales := map[string]string{
+		"AZURE_CLIENT_ID":    clienteID,
+		"IDENTITY_ENDPOINT":  "http://localhost:42356/msi/token",
+		"CONTAINER_APP_NAME": "ca-api-alcanzamos-prod-eus2",
+	}
+	for nombre, valor := range senales {
+		t.Run(nombre, func(t *testing.T) {
+			// Con la identidad completa o sin ella, y con la señal sola: siempre se rechaza.
+			for etiqueta, env := range map[string]map[string]string{"solo la URL y la señal": {}, "con la identidad completa": entornoCompleto()} {
+				env["BASE_DE_DATOS_URL"] = url
+				env[nombre] = valor
+				fab := nuevaFabrica(&fuenteFalsa{})
+				cfg, err := bd.ConfigurarPool(entorno(env), fab.nueva)
+				if err == nil || cfg != nil {
+					t.Fatalf("%s: con %s y la URL debía rechazarse", etiqueta, nombre)
+				}
+				for _, v := range []string{"BASE_DE_DATOS_URL", nombre} { // el error nombra la variable de la URL y la señal
+					if !strings.Contains(err.Error(), v) {
+						t.Errorf("%s: el error no nombra %s: %v", etiqueta, v, err)
+					}
+				}
+				if strings.Contains(err.Error(), "CLAVE-FIJA-DE-PRUEBA") || strings.Contains(err.Error(), "127.0.0.1") {
+					t.Errorf("%s: el error repite la URL, que lleva la contraseña: %v", etiqueta, err)
+				}
+				if fab.pedidas != 0 {
+					t.Errorf("%s: no debía pedirse ninguna fuente de tokens: %d", etiqueta, fab.pedidas)
+				}
+			}
+		})
+	}
+}
+
+// Una señal vacía o de solo espacios no cuenta (igual que una variable de la identidad), y una URL vacía tampoco es una URL.
+func TestUnaSenalVaciaNoImpideLaURLNiUnaURLVaciaImpideLaIdentidad(t *testing.T) {
+	env := map[string]string{
+		"BASE_DE_DATOS_URL": "postgres://local:solo-local@127.0.0.1:55432/local?sslmode=disable",
+		"AZURE_CLIENT_ID":   "   ",
+	}
+	if _, err := bd.ConfigurarPool(entorno(env), nuevaFabrica(&fuenteFalsa{}).nueva); err != nil {
+		t.Fatalf("una señal en blanco no es una señal: %v", err)
+	}
+	if _, err := bd.ConfigurarPool(entorno(entornoCompleto()), nuevaFabrica(&fuenteFalsa{}).nueva); err != nil {
+		t.Fatalf("la identidad sin URL sigue funcionando: %v", err)
 	}
 }
 
