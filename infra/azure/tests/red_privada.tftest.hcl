@@ -517,6 +517,60 @@ run "el_migrador_recibe_los_roles_de_aplicacion_con_los_nombres_y_object_id_de_l
   }
 }
 
+# L42 (#143): caj-migrar lee un solo secreto, el del token de ghcr.io, y lo lee con su propia identidad (la del migrador, no la del API). No recibe
+# nada del correo: ni el secreto de la contraseña de SMTP ni ninguna variable CORREO_*. Si alguien le suma el secreto del correo o una variable de
+# correo, esta prueba falla.
+run "caj_migrar_solo_lee_ghcr_lectura_con_su_identidad_y_no_recibe_nada_del_correo" {
+  command = plan
+
+  variables {
+    ambiente          = "produccion"
+    dominio_de_correo = "avisos.alcanzamos.co"
+  }
+
+  # Exactamente un secreto: el de ghcr.io, por referencia al Key Vault y con la identidad del migrador; sin valor en claro.
+  assert {
+    condition = alltrue([
+      length(azurerm_container_app_job.migrar.secret) == 1,
+      one(azurerm_container_app_job.migrar.secret).name == var.ghcr_nombre_del_secreto,
+      one(azurerm_container_app_job.migrar.secret).name == "ghcr-lectura",
+      one(azurerm_container_app_job.migrar.secret).key_vault_secret_id == local.ghcr_secreto_en_key_vault,
+      one(azurerm_container_app_job.migrar.secret).key_vault_secret_id == "${azurerm_key_vault.secretos.vault_uri}secrets/ghcr-lectura",
+      one(azurerm_container_app_job.migrar.secret).identity == data.azurerm_user_assigned_identity.migrador.id,
+      one(azurerm_container_app_job.migrar.secret).identity != data.azurerm_user_assigned_identity.api.id,
+      one(azurerm_container_app_job.migrar.secret).value == null,
+    ])
+    error_message = "caj-migrar tiene un solo secreto: ghcr-lectura (var.ghcr_nombre_del_secreto), como referencia al Key Vault (local.ghcr_secreto_en_key_vault), con la identidad del migrador y sin valor en claro."
+  }
+
+  # La imagen es la del API (por digest), en el perfil de consumo, y el único registro es ghcr.io con ese secreto; la identidad del trabajo es solo la del migrador.
+  assert {
+    condition = alltrue([
+      azurerm_container_app_job.migrar.template[0].container[0].image == var.imagen_api,
+      azurerm_container_app_job.migrar.workload_profile_name == "Consumption",
+      length(azurerm_container_app_job.migrar.registry) == 1,
+      one(azurerm_container_app_job.migrar.registry).server == "ghcr.io",
+      one(azurerm_container_app_job.migrar.registry).password_secret_name == var.ghcr_nombre_del_secreto,
+      azurerm_container_app_job.migrar.identity[0].identity_ids == toset([data.azurerm_user_assigned_identity.migrador.id]),
+    ])
+    error_message = "caj-migrar usa var.imagen_api, el perfil Consumption, el registro ghcr.io con el secreto ghcr-lectura y solo la identidad del migrador."
+  }
+
+  # Nada del correo: ni una variable CORREO_*, ni una variable por referencia a un secreto, ni el secreto del correo (por nombre ni por URL del Key Vault).
+  assert {
+    condition = alltrue([
+      length([for e in azurerm_container_app_job.migrar.template[0].container[0].env : e if startswith(e.name, "CORREO_")]) == 0,
+      length([for e in azurerm_container_app_job.migrar.template[0].container[0].env : e if e.secret_name != null]) == 0,
+      length([for e in azurerm_container_app_job.migrar.template[0].container[0].env : e if e.secret_name == var.correo_nombre_del_secreto]) == 0,
+      length([for s in azurerm_container_app_job.migrar.secret : s if s.name == var.correo_nombre_del_secreto]) == 0,
+      length([for s in azurerm_container_app_job.migrar.secret : s if s.key_vault_secret_id == local.correo_secreto_en_key_vault]) == 0,
+      length([for s in azurerm_container_app_job.migrar.secret : s if strcontains(s.key_vault_secret_id, var.correo_nombre_del_secreto)]) == 0,
+      var.correo_nombre_del_secreto != var.ghcr_nombre_del_secreto,
+    ])
+    error_message = "caj-migrar no recibe nada del correo: ninguna variable CORREO_*, ninguna variable por secreto y ni rastro del secreto correo-contrasena."
+  }
+}
+
 run "el_pguser_de_ca_api_y_de_caj_tareas_es_su_rol_en_la_lista_del_migrador" {
   command = plan
 
