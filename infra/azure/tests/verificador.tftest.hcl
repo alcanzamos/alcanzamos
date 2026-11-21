@@ -12,7 +12,9 @@ mock_provider "azurerm" {
 
   mock_data "azurerm_user_assigned_identity" {
     defaults = {
-      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id"
+      id           = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id"
+      principal_id = "00000000-0000-0000-0000-000000000000"
+      client_id    = "00000000-0000-0000-0000-000000000000"
     }
   }
 
@@ -42,6 +44,25 @@ mock_provider "azurerm" {
     }
   }
 
+  # La red y la zona DNS privada: el proveedor valida la forma de sus ID cuando pasan a PostgreSQL y al entorno.
+  mock_resource "azurerm_virtual_network" {
+    defaults = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet"
+    }
+  }
+
+  mock_resource "azurerm_subnet" {
+    defaults = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet/subnets/snet"
+    }
+  }
+
+  mock_resource "azurerm_private_dns_zone" {
+    defaults = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Network/privateDnsZones/zona.postgres.database.azure.com"
+    }
+  }
+
   mock_resource "azurerm_monitor_action_group" {
     defaults = {
       id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Insights/actionGroups/ag"
@@ -50,11 +71,9 @@ mock_provider "azurerm" {
 }
 
 variables {
-  subscription_id          = "00000000-0000-0000-0000-000000000000"
-  admin_postgres_object_id = "00000000-0000-0000-0000-000000000000"
-  admin_postgres_nombre    = "andres@alcanzamos.co"
-  imagen_api               = "ghcr.io/alcanzamos/alcanzamos-api@sha256:0000000000000000000000000000000000000000000000000000000000000000"
-  ghcr_usuario             = "usuario-de-prueba"
+  subscription_id = "00000000-0000-0000-0000-000000000000"
+  imagen_api      = "ghcr.io/alcanzamos/alcanzamos-api@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  ghcr_usuario    = "usuario-de-prueba"
 }
 
 # Producción conserva los nombres aprobados (O-14, D-120) y los tamaños de ADR-006 §5.2.
@@ -78,7 +97,7 @@ run "produccion_conserva_seguridad_y_valores_fijos" {
       azurerm_postgresql_flexible_server.datos.authentication[0].active_directory_auth_enabled == true,
       azurerm_postgresql_flexible_server.datos.backup_retention_days == 7,
       azurerm_postgresql_flexible_server_configuration.tls.value == "on",
-      azurerm_postgresql_flexible_server_firewall_rule.servicios_azure.start_ip_address == "0.0.0.0",
+      azurerm_postgresql_flexible_server.datos.public_network_access_enabled == false,
       azurerm_log_analytics_workspace.registros.sku == "PerGB2018",
       [for r in azurerm_monitor_action_group.seguridad.email_receiver : r.email_address] == ["andres@alcanzamos.co"],
       azurerm_monitor_scheduled_query_rules_alert_v2.eventos_de_seguridad.criteria[0].threshold == 10,

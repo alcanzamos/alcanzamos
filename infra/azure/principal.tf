@@ -6,7 +6,9 @@ locals {
     uat        = "uat"
     produccion = "prod"
   }
-  sufijo = "alcanzamos-${local.abreviatura[var.ambiente]}-mxc"
+  # East US 2 (D-208): sufijo -eus2.
+  region = "eus2"
+  sufijo = "alcanzamos-${local.abreviatura[var.ambiente]}-${local.region}"
   etiquetas = {
     proyecto = "alcanzamos"
     ambiente = var.ambiente
@@ -32,9 +34,31 @@ resource "azurerm_log_analytics_workspace" "registros" {
   tags                = local.etiquetas
 }
 
-# La identidad del API y sus roles los crea el módulo bootstrap.
+# Las identidades de carga las crea el módulo bootstrap (id-alcanzamos-<rol>-<ambiente>-<región>, una por rol). Aquí solo se leen, y cada
+# pieza usa la suya. El API se conecta a PostgreSQL con su identidad, con un rol sin administración que le crea el migrador. Los
+# administradores de Entra del servidor son el migrador y caj-psql (datos.tf), nunca el API.
 data "azurerm_user_assigned_identity" "api" {
-  name                = "id-${local.sufijo}"
+  name                = "id-alcanzamos-api-${local.abreviatura[var.ambiente]}-${local.region}"
+  resource_group_name = data.azurerm_resource_group.principal.name
+}
+
+data "azurerm_user_assigned_identity" "web" {
+  name                = "id-alcanzamos-web-${local.abreviatura[var.ambiente]}-${local.region}"
+  resource_group_name = data.azurerm_resource_group.principal.name
+}
+
+data "azurerm_user_assigned_identity" "tareas" {
+  name                = "id-alcanzamos-tareas-${local.abreviatura[var.ambiente]}-${local.region}"
+  resource_group_name = data.azurerm_resource_group.principal.name
+}
+
+data "azurerm_user_assigned_identity" "migrador" {
+  name                = "id-alcanzamos-migrador-${local.abreviatura[var.ambiente]}-${local.region}"
+  resource_group_name = data.azurerm_resource_group.principal.name
+}
+
+data "azurerm_user_assigned_identity" "psql" {
+  name                = "id-alcanzamos-psql-${local.abreviatura[var.ambiente]}-${local.region}"
   resource_group_name = data.azurerm_resource_group.principal.name
 }
 
@@ -49,4 +73,13 @@ resource "azurerm_key_vault" "secretos" {
   purge_protection_enabled   = true
   soft_delete_retention_days = var.secretos_dias_de_retencion
   tags                       = local.etiquetas
+
+  # Firewall cerrado salvo la subred del entorno (P9, E11-INF 6.3): Container Apps llega por el punto de conexión de servicio de la
+  # subred. Sin bypass ni reglas de IP en el código: el dueño abre su IP solo mientras carga secretos (README de infra/secretos), y la
+  # siguiente aplicación de esta raíz la cierra.
+  network_acls {
+    default_action             = "Deny"
+    bypass                     = "None"
+    virtual_network_subnet_ids = [azurerm_subnet.entorno.id]
+  }
 }

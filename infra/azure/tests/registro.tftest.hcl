@@ -15,7 +15,9 @@ mock_provider "azurerm" {
 
   mock_data "azurerm_user_assigned_identity" {
     defaults = {
-      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id"
+      id           = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id"
+      principal_id = "00000000-0000-0000-0000-000000000000"
+      client_id    = "00000000-0000-0000-0000-000000000000"
     }
   }
 
@@ -44,6 +46,25 @@ mock_provider "azurerm" {
     }
   }
 
+  # La red y la zona DNS privada: el proveedor valida la forma de sus ID cuando pasan a PostgreSQL y al entorno.
+  mock_resource "azurerm_virtual_network" {
+    defaults = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet"
+    }
+  }
+
+  mock_resource "azurerm_subnet" {
+    defaults = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet/subnets/snet"
+    }
+  }
+
+  mock_resource "azurerm_private_dns_zone" {
+    defaults = {
+      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Network/privateDnsZones/zona.postgres.database.azure.com"
+    }
+  }
+
   mock_resource "azurerm_monitor_action_group" {
     defaults = {
       id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Insights/actionGroups/ag"
@@ -51,12 +72,29 @@ mock_provider "azurerm" {
   }
 }
 
+# El API y el trabajo programado tienen cada uno su identidad (E11-INF 2.4): con ID distintos, las pruebas distinguen una de otra.
+override_data {
+  target = data.azurerm_user_assigned_identity.api
+  values = {
+    id           = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-api"
+    principal_id = "11111111-1111-1111-1111-111111111111"
+    client_id    = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+  }
+}
+
+override_data {
+  target = data.azurerm_user_assigned_identity.tareas
+  values = {
+    id           = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-tareas"
+    principal_id = "44444444-4444-4444-4444-444444444444"
+    client_id    = "dddddddd-dddd-dddd-dddd-dddddddddddd"
+  }
+}
+
 variables {
-  subscription_id          = "00000000-0000-0000-0000-000000000000"
-  admin_postgres_object_id = "00000000-0000-0000-0000-000000000000"
-  admin_postgres_nombre    = "andres@alcanzamos.co"
-  imagen_api               = "ghcr.io/alcanzamos/alcanzamos-api@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-  ghcr_usuario             = "usuario-de-prueba"
+  subscription_id = "00000000-0000-0000-0000-000000000000"
+  imagen_api      = "ghcr.io/alcanzamos/alcanzamos-api@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  ghcr_usuario    = "usuario-de-prueba"
 }
 
 # El API y el trabajo programado: un registro ghcr.io con el usuario del token y la contraseña en un secreto que
@@ -81,21 +119,25 @@ run "uat_baja_la_imagen_con_el_token_del_key_vault" {
   }
 
   assert {
-    condition = alltrue(flatten([for secretos in [azurerm_container_app.api.secret, azurerm_container_app_job.tareas.secret] : [
-      length([for s in secretos : s if s.name == "ghcr-lectura"]) == 1,
-      [for s in secretos : s.key_vault_secret_id if s.name == "ghcr-lectura"] == ["https://kv.vault.azure.net/secrets/ghcr-lectura"],
-      [for s in secretos : s.identity if s.name == "ghcr-lectura"] == [data.azurerm_user_assigned_identity.api.id],
-      alltrue([for s in secretos : s.value == null if s.name == "ghcr-lectura"]),
+    condition = alltrue(flatten([for par in [
+      { secretos = azurerm_container_app.api.secret, identidad = data.azurerm_user_assigned_identity.api.id },
+      { secretos = azurerm_container_app_job.tareas.secret, identidad = data.azurerm_user_assigned_identity.tareas.id },
+      ] : [
+      length([for s in par.secretos : s if s.name == "ghcr-lectura"]) == 1,
+      [for s in par.secretos : s.key_vault_secret_id if s.name == "ghcr-lectura"] == ["https://kv.vault.azure.net/secrets/ghcr-lectura"],
+      [for s in par.secretos : s.identity if s.name == "ghcr-lectura"] == [par.identidad],
+      alltrue([for s in par.secretos : s.value == null if s.name == "ghcr-lectura"]),
     ]]))
-    error_message = "El secreto del registro debe leerse del Key Vault del ambiente con la identidad del API, sin valor en OpenTofu."
+    error_message = "El secreto del registro debe leerse del Key Vault del ambiente, sin valor en OpenTofu, con la identidad de cada uno: la del API en ca-api y la de tareas en caj-tareas."
   }
 
   assert {
     condition = alltrue([
       contains(azurerm_container_app.api.identity[0].identity_ids, data.azurerm_user_assigned_identity.api.id),
-      contains(azurerm_container_app_job.tareas.identity[0].identity_ids, data.azurerm_user_assigned_identity.api.id),
+      azurerm_container_app_job.tareas.identity[0].identity_ids == toset([data.azurerm_user_assigned_identity.tareas.id]),
+      !contains(azurerm_container_app_job.tareas.identity[0].identity_ids, data.azurerm_user_assigned_identity.api.id),
     ])
-    error_message = "La identidad que lee el secreto debe estar asignada a la app y al trabajo."
+    error_message = "La identidad que lee el secreto debe estar asignada a la app (la del API) y al trabajo (la de tareas, sin la del API)."
   }
 }
 
@@ -120,13 +162,16 @@ run "produccion_baja_la_imagen_con_el_token_del_key_vault" {
   }
 
   assert {
-    condition = alltrue(flatten([for secretos in [azurerm_container_app.api.secret, azurerm_container_app_job.tareas.secret] : [
-      [for s in secretos : s.key_vault_secret_id if s.name == "ghcr-otro"] == ["https://kv.vault.azure.net/secrets/ghcr-otro"],
-      [for s in secretos : s.identity if s.name == "ghcr-otro"] == [data.azurerm_user_assigned_identity.api.id],
-      length([for s in secretos : s if s.name == "ghcr-otro"]) == 1,
-      alltrue([for s in secretos : s.value == null if s.name == "ghcr-otro"]),
+    condition = alltrue(flatten([for par in [
+      { secretos = azurerm_container_app.api.secret, identidad = data.azurerm_user_assigned_identity.api.id },
+      { secretos = azurerm_container_app_job.tareas.secret, identidad = data.azurerm_user_assigned_identity.tareas.id },
+      ] : [
+      [for s in par.secretos : s.key_vault_secret_id if s.name == "ghcr-otro"] == ["https://kv.vault.azure.net/secrets/ghcr-otro"],
+      [for s in par.secretos : s.identity if s.name == "ghcr-otro"] == [par.identidad],
+      length([for s in par.secretos : s if s.name == "ghcr-otro"]) == 1,
+      alltrue([for s in par.secretos : s.value == null if s.name == "ghcr-otro"]),
     ]]))
-    error_message = "En producción, el secreto del registro debe leerse del Key Vault con la identidad del API."
+    error_message = "En producción, el secreto del registro debe leerse del Key Vault con la identidad de cada uno (API y tareas)."
   }
 }
 

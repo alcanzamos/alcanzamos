@@ -52,6 +52,23 @@ variable "secretos_dias_de_retencion" {
   }
 }
 
+# Una red por ambiente, sin emparejar (E11-INF 2.2, P1): las dos pueden usar el mismo rango porque nunca se conectan entre sí.
+# Se parte en una /27 para el entorno de Container Apps (el mínimo con perfiles de carga de trabajo) y una /28 delegada a PostgreSQL.
+variable "red_espacio_de_direcciones" {
+  description = "Espacio de direcciones de la red virtual del ambiente: una /24 privada (RFC 1918). De ahí salen la /27 del entorno de Container Apps y la /28 delegada a PostgreSQL."
+  type        = string
+  default     = "10.60.0.0/24"
+
+  validation {
+    condition = (
+      can(regex("^(10\\.[0-9]{1,3}|172\\.(1[6-9]|2[0-9]|3[01])|192\\.168)\\.[0-9]{1,3}\\.[0-9]{1,3}/24$", var.red_espacio_de_direcciones)) &&
+      can(cidrhost(var.red_espacio_de_direcciones, 0)) &&
+      try(cidrhost(var.red_espacio_de_direcciones, 0) == split("/", var.red_espacio_de_direcciones)[0], false)
+    )
+    error_message = "La red del ambiente es una /24 privada (10.x.x.0/24, 172.16-31.x.0/24 o 192.168.x.0/24) con la dirección de red, como 10.60.0.0/24."
+  }
+}
+
 variable "api_replicas_minimas" {
   description = "Réplicas mínimas del API. Con 0 se apaga sin tráfico y el primer pedido espera el arranque."
   type        = number

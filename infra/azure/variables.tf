@@ -16,7 +16,7 @@ variable "imagen_api" {
 }
 
 # El paquete de ghcr.io es privado (D-200 (9)(a)): Container Apps baja la imagen con un token clásico read:packages
-# guardado en el Key Vault del ambiente y leído con la identidad del API. El valor nunca pasa por OpenTofu.
+# guardado en el Key Vault del ambiente y leído con la identidad de cada pieza (API y tareas). El valor nunca pasa por OpenTofu.
 variable "ghcr_usuario" {
   description = "Usuario de GitHub dueño del token read:packages con el que Container Apps baja la imagen de ghcr.io."
   type        = string
@@ -77,16 +77,6 @@ variable "correo_nombre_del_secreto" {
     condition     = var.correo_nombre_del_secreto != var.ghcr_nombre_del_secreto
     error_message = "El secreto del correo no puede ser el mismo que el del registro de imágenes (ghcr_nombre_del_secreto)."
   }
-}
-
-variable "admin_postgres_object_id" {
-  description = "Object ID en Entra ID de quien administra PostgreSQL. Sin contraseñas."
-  type        = string
-}
-
-variable "admin_postgres_nombre" {
-  description = "Nombre en Entra ID de quien administra PostgreSQL."
-  type        = string
 }
 
 # O-5 (D-120): más de 10 eventos de un mismo tipo en 15 minutos, por correo.

@@ -15,18 +15,20 @@ El desarrollo sigue en local ([`infra/local/`](../local/README.md)).
 
 | Recurso | Producción (O-14) | UAT | Notas |
 |---|---|---|---|
-| Log Analytics | `log-alcanzamos-prod-mxc` | `log-alcanzamos-uat-mxc` | Registros de Container Apps y eventos de seguridad; 90 días en producción (RNF-025) y 30 en UAT (S11) |
-| Key Vault Standard | `kv-alcanzamos-prod-mxc` | `kv-alcanzamos-uat-mxc` | Permisos por RBAC; protección contra purga en los dos ambientes; se recupera 90 días después de eliminarlo en producción y 7 en UAT (S11). Nombre único en todo Azure, de 3 a 24 caracteres (21 y 20) |
-| PostgreSQL flexible 18 | `psql-alcanzamos-prod-mxc` | `psql-alcanzamos-uat-mxc` | B1ms, 32 GiB (ADR-006 §5.2). Solo Entra ID, sin contraseñas; TLS obligatorio. Nombre único en todo Azure |
-| Entorno de Container Apps | `cae-alcanzamos-prod-mxc` | `cae-alcanzamos-uat-mxc` | Consumo |
-| App del API | `ca-api-alcanzamos-prod-mxc` | `ca-api-alcanzamos-uat-mxc` | 0,25 vCPU, 0,5 GiB, réplica mínima 1 en producción y 0 en UAT (S11). Hasta 32 caracteres (26 y 25). Baja la imagen privada de ghcr.io con el token del Key Vault (ver «Acceso a la imagen privada») |
-| Trabajo programado | `caj-tareas-alcanzamos-prod-mxc` | `caj-tareas-alcanzamos-uat-mxc` | Misma imagen, comando `tareas`, cada 15 minutos (UTC). Hasta 32 caracteres (30 y 29). Mismo acceso a ghcr.io y mismo correo que el API |
+| Log Analytics | `log-alcanzamos-prod-eus2` | `log-alcanzamos-uat-eus2` | Registros de Container Apps y eventos de seguridad; 90 días en producción (RNF-025) y 30 en UAT (S11) |
+| Key Vault Standard | `kv-alcanzamos-prod-eus2` | `kv-alcanzamos-uat-eus2` | Permisos por RBAC; **firewall cerrado** (acceso denegado por defecto, sin reglas de IP en el código) salvo la subred del entorno, por el punto de conexión de servicio `Microsoft.KeyVault` (P9); protección contra purga en los dos ambientes; se recupera 90 días después de eliminarlo en producción y 7 en UAT (S11). Nombre único en todo Azure, de 3 a 24 caracteres (21 y 20) |
+| Red virtual | `vnet-alcanzamos-prod-eus2` | `vnet-alcanzamos-uat-eus2` | Una por ambiente, sin emparejar (D-205 (2)). `/24` privada (`red_espacio_de_direcciones`, por defecto `10.60.0.0/24`) con dos subredes: `snet-entorno-…` (`/27`, delegada a `Microsoft.App/environments`) y `snet-postgres-…` (`/28`, delegada a `Microsoft.DBforPostgreSQL/flexibleServers`) |
+| Zona DNS privada | `alcanzamos-prod-eus2.private.postgres.database.azure.com` | `alcanzamos-uat-eus2.private.postgres.database.azure.com` | Enlazada a la red del ambiente, sin registro automático. Resuelve el nombre del servidor de PostgreSQL solo desde esa red |
+| PostgreSQL flexible 18 | `psql-alcanzamos-prod-eus2` | `psql-alcanzamos-uat-eus2` | B1ms, 32 GiB (ADR-006 §5.2). **Acceso solo privado**: subred delegada y zona DNS privada, sin acceso público ni regla de firewall. Solo Entra ID, sin contraseñas; TLS obligatorio. **Respaldo georredundante solo en producción** (D-208). Administradores de Entra: el migrador y `caj-psql`. Nombre único en todo Azure |
+| Entorno de Container Apps | `cae-alcanzamos-prod-eus2` | `cae-alcanzamos-uat-eus2` | En la subred `/27`, con perfiles de carga de trabajo y solo el de consumo (`Consumption`); ningún perfil dedicado |
+| App del API | `ca-api-alcanzamos-prod-eus2` | `ca-api-alcanzamos-uat-eus2` | 0,25 vCPU, 0,5 GiB, réplica mínima 1 en producción y 0 en UAT (S11). Hasta 32 caracteres (26 y 25). Baja la imagen privada de ghcr.io con el token del Key Vault (ver «Acceso a la imagen privada») |
+| Trabajo programado | `caj-tareas-alcanzamos-prod-eus2` | `caj-tareas-alcanzamos-uat-eus2` | Misma imagen, comando `tareas`, cada 15 minutos (UTC). Hasta 32 caracteres (30 y 29). Mismo acceso a ghcr.io y mismo correo que el API |
 | Correo | Zoho CPaaS (SMTP), sin recursos de Azure | Igual | Azure Communication Services quedó descartado (D-205 (6)): este código ya no crea servicio de correo, dominio ni Communication Services. Cada ambiente tiene su agente de envío en CPaaS y su dominio: `avisos.alcanzamos.co` y `avisos-uat.alcanzamos.co`. Remitente `no-responder@<dominio>` (D-120). Ver «Correo por Zoho CPaaS» |
-| Grupo de acciones y alerta | `ag-seguridad-alcanzamos-prod-mxc`, `alrt-seguridad-alcanzamos-prod-mxc` | `ag-seguridad-alcanzamos-uat-mxc`, `alrt-seguridad-alcanzamos-uat-mxc` | RNF-025: más de 10 eventos de un mismo tipo en 15 minutos, aviso a `andres@alcanzamos.co` (O-5, D-120), el mismo correo en los dos ambientes (S11) |
+| Grupo de acciones y alerta | `ag-seguridad-alcanzamos-prod-eus2`, `alrt-seguridad-alcanzamos-prod-eus2` | `ag-seguridad-alcanzamos-uat-eus2`, `alrt-seguridad-alcanzamos-uat-eus2` | RNF-025: más de 10 eventos de un mismo tipo en 15 minutos, aviso a `andres@alcanzamos.co` (O-5, D-120), el mismo correo en los dos ambientes (S11) |
 
-El grupo (`rg-alcanzamos-<prod|uat>-mxc`), la identidad del API (`id-alcanzamos-<prod|uat>-mxc`) y sus roles los crea [`infra/bootstrap/`](../bootstrap/README.md), una vez por ambiente.
+El grupo (`rg-alcanzamos-<prod|uat>-eus2`), las identidades de carga (`id-alcanzamos-<api|web|tareas|migrador|psql>-<prod|uat>-eus2`) y sus roles los crea [`infra/bootstrap/`](../bootstrap/README.md), una vez por ambiente. Aquí se leen las cinco, por nombre.
 
-Los nombres siguen las abreviaturas de Microsoft Cloud Adoption Framework: tipo, proyecto, ambiente (`prod` o `uat`) y región (`mxc`, México Central). Los de producción están **aprobados por el dueño (O-14, D-120)** y no cambian. Los de UAT siguen la misma regla. Nunca se reutilizan los de la prueba R-9. Todos los recursos llevan las etiquetas `proyecto`, `ambiente` (`uat` o `produccion`) y `origen`.
+Los nombres siguen las abreviaturas de Microsoft Cloud Adoption Framework: tipo, proyecto, ambiente (`prod` o `uat`) y región (`eus2`, East US 2, D-208). Los de producción están **aprobados por el dueño (O-14, D-120)**. Los de UAT siguen la misma regla. Nunca se reutilizan los de la prueba R-9. Todos los recursos llevan las etiquetas `proyecto`, `ambiente` (`uat` o `produccion`) y `origen`.
 
 ## Parámetros
 
@@ -43,6 +45,7 @@ Se declaran en `ambiente.tf` (más `subscription_id`, `imagen_api`, las de ghcr.
 | `imagen_api` | El digest probado en UAT | El digest que construye el pipeline | Solo por digest: `ghcr.io/alcanzamos/alcanzamos-api@sha256:<64 hex>` (D-200 (8)(b)). La pasa el pipeline de despliegue; una etiqueta (`:1.0.0`, `:latest`, o etiqueta y digest juntos) se rechaza |
 | `ghcr_usuario` | Usuario de GitHub del token | Igual | Dueño del token `read:packages`. Sin valor por defecto; no puede ir vacío |
 | `ghcr_nombre_del_secreto` | `ghcr-lectura` | Igual | Secreto del Key Vault del ambiente con el token; nombra también el secreto en Container Apps |
+| `red_espacio_de_direcciones` | `10.60.0.0/24` | Igual | Una `/24` privada (RFC 1918) con la dirección de red. De ahí salen la `/27` del entorno (`.0` a `.31`) y la `/28` de PostgreSQL (`.32`). Las dos redes no se emparejan, así que pueden repetir el rango |
 | `postgres_sku`, `postgres_almacenamiento_mb` | `B_Standard_B1ms`, `32768` | Igual | Por defecto, los de producción (ADR-006 §5.2) |
 | `contenedor_cpu`, `contenedor_memoria` | `0.25`, `0.5Gi` | Igual | API y trabajo programado |
 | `api_replicas_minimas` | `1` | `0` | Con `0` el API se apaga sin tráfico y el primer pedido espera el arranque |
@@ -53,23 +56,23 @@ UAT usa los mismos tamaños que producción para que el paso a producción sea t
 
 ### PostgreSQL de UAT se puede detener cuando no se usa
 
-Para cuidar el crédito de Azure for Students, el servidor de UAT se detiene a mano cuando no se usa y se arranca antes de probar (S11). OpenTofu no lo detiene ni lo arranca:
+Para cuidar el costo, el servidor de UAT se detiene a mano cuando no se usa y se arranca antes de probar (S11). OpenTofu no lo detiene ni lo arranca:
 
 ```sh
-az postgres flexible-server stop --resource-group rg-alcanzamos-uat-mxc --name psql-alcanzamos-uat-mxc
-az postgres flexible-server start --resource-group rg-alcanzamos-uat-mxc --name psql-alcanzamos-uat-mxc
+az postgres flexible-server stop --resource-group rg-alcanzamos-uat-eus2 --name psql-alcanzamos-uat-eus2
+az postgres flexible-server start --resource-group rg-alcanzamos-uat-eus2 --name psql-alcanzamos-uat-eus2
 ```
 
 Azure arranca solo un servidor detenido a los 7 días (Microsoft Learn, «Limits in Azure Database for PostgreSQL flexible server», consultado el 2026-11-10): si UAT sigue sin usarse, hay que detenerlo de nuevo.
 
 ## Estado de cada ambiente
 
-Cada ambiente tiene su propio estado remoto, en su propia suscripción: el bootstrap de cada ambiente crea una cuenta de almacenamiento con el contenedor `tfstate`, y la clave del estado es `<ambiente>.tfstate`. El bloque `backend "azurerm" {}` de `versiones.tf` queda vacío y los valores se pasan con `-backend-config` al iniciar. No son secretos (nombres y el ID de la suscripción), pero no se guardan en archivos del repositorio. La salida `backend` del bootstrap da los nombres y la clave.
+Cada ambiente tiene su propio estado remoto. Los dos ambientes comparten la suscripción y se separan por grupo de recursos, red, identidad y Key Vault (D-205 (11), E11-INF 2.17): el bootstrap de cada ambiente crea una cuenta de almacenamiento con el contenedor `tfstate`, y la clave del estado es `<ambiente>.tfstate`. El bloque `backend "azurerm" {}` de `versiones.tf` queda vacío y los valores se pasan con `-backend-config` al iniciar. No son secretos (nombres y el ID de la suscripción), pero no se guardan en archivos del repositorio. La salida `backend` del bootstrap da los nombres y la clave.
 
 | Ambiente | `resource_group_name` | `storage_account_name` | `container_name` | `key` |
 |---|---|---|---|---|
-| `produccion` | `rg-alcanzamos-prod-mxc` | `stalcanzamostfmxc` | `tfstate` | `produccion.tfstate` |
-| `uat` | `rg-alcanzamos-uat-mxc` | `stalcanzamostfuatmxc` | `tfstate` | `uat.tfstate` |
+| `produccion` | `rg-alcanzamos-prod-eus2` | `stalcanzamostfeus2` | `tfstate` | `produccion.tfstate` |
+| `uat` | `rg-alcanzamos-uat-eus2` | `stalcanzamostfuateus2` | `tfstate` | `uat.tfstate` |
 
 Plan de un ambiente (ejemplo de UAT; para producción, cambian los valores de la tabla y el archivo de variables). Lo correrá el pipeline de despliegue de la US-79, con la conexión de servicio federada de cada ambiente:
 
@@ -78,8 +81,8 @@ cd infra/azure
 cp uat.tfvars.example uat.tfvars          # y completar; nunca se sube
 export TF_DATA_DIR=.terraform/uat         # una carpeta de trabajo por ambiente: los dos backends no se mezclan
 tofu init -reconfigure \
-  -backend-config="resource_group_name=rg-alcanzamos-uat-mxc" \
-  -backend-config="storage_account_name=stalcanzamostfuatmxc" \
+  -backend-config="resource_group_name=rg-alcanzamos-uat-eus2" \
+  -backend-config="storage_account_name=stalcanzamostfuateus2" \
   -backend-config="container_name=tfstate" \
   -backend-config="key=uat.tfstate" \
   -backend-config="use_azuread_auth=true" \
@@ -93,44 +96,56 @@ Con `-reconfigure`, OpenTofu toma el backend nuevo sin copiar el estado del ante
 
 - Sin secretos en el repositorio. El estado de OpenTofu va en Azure Storage, con Entra ID y sin claves compartidas.
 - El API entra a PostgreSQL y Key Vault con su identidad administrada, sin contraseñas ni claves. La única contraseña de la aplicación es la de SMTP de Zoho CPaaS, y vive en el Key Vault (ver «Correo por Zoho CPaaS»).
-- PostgreSQL admite conexiones solo desde servicios de Azure (regla `0.0.0.0`), porque Container Apps de consumo no tiene una IP de salida fija. Esa regla deja pasar servicios de otros clientes de Azure. Lo compensan la autenticación solo con Entra ID y TLS obligatorio. Si el riesgo no se acepta, la alternativa es una red virtual, que cuesta más (ADR-006).
+- **PostgreSQL no tiene acceso público** (D-205 (2)). El servidor vive en su subred delegada y se resuelve por la zona DNS privada; no hay regla de firewall (ni la de `0.0.0.0`, que dejaba pasar a servicios de otros clientes de Azure). Solo entran los recursos de la red del ambiente: el entorno de Container Apps, en su propia subred. Una prueba de `tofu test` falla si un `.tf` vuelve a declarar una regla de firewall.
+- **Los administradores de Entra de PostgreSQL son el migrador y `caj-psql`** (`ServicePrincipal`), no el dueño ni el API (E11-INF 2.3 bis). El API se conecta con un rol propio, **sin DDL ni administración**, que le crea el migrador (ver «Conexión del API y rol de PostgreSQL»).
+- **El API y los trabajos no reciben una URL de conexión ni una contraseña de PostgreSQL.** Llevan `PGHOST`, `PGDATABASE`, `PGUSER`, `PGSSLMODE = verify-full` y `AZURE_CLIENT_ID`. Con el cambio del API que va en el PR #144, el API se niega a arrancar en Azure si recibe además la variable de la URL. Una prueba de esta carpeta falla si algún `.tf` la nombra, si baja `PGSSLMODE` o si pasa `PGPASSWORD`.
+- **Respaldo georredundante** (D-208): `geo_redundant_backup_enabled` es verdadero solo en producción. Azure solo permite activarlo al crear el servidor; crear producción sin él obliga a recrearlo.
 - El API escucha en el puerto 8080 (`ENV PUERTO=8080` y `EXPOSE 8080` en `api/Dockerfile`).
 - OpenTofu no administra el DNS. Los registros del dominio de correo (DKIM, dominio de rebotes y DMARC) los entrega el agente de envío de CPaaS y los carga el dueño en Cloudflare, «DNS only» (E11-INF 2.7 y 2.9). Ya no hay una salida con registros de Azure Communication Services.
 - La alerta cuenta por tipo de evento (E11-DAR §7): la consulta agrupa por la dimensión `tipo`, y el umbral vale para cada tipo por separado.
 - La imagen del API no tiene valor por defecto. La pasa el pipeline de despliegue, solo por digest (D-200 (8)(b)): una etiqueta puede moverse a otra imagen, así que se rechaza en los dos ambientes.
-- El paquete de ghcr.io es privado (D-200 (9)(a)). Container Apps lo baja con un token clásico `read:packages` que está en el Key Vault del ambiente y que lee con la identidad del API. El valor del token nunca pasa por OpenTofu ni por el estado.
+- El paquete de ghcr.io es privado (D-200 (9)(a)). Container Apps lo baja con un token clásico `read:packages` que está en el Key Vault del ambiente y que lee con la identidad de cada pieza (la del API en `ca-api`, la de tareas en `caj-tareas`). El valor del token nunca pasa por OpenTofu ni por el estado.
 - Cada correo dice dónde escribir: `privacidad@alcanzamos.co` (RF-060). Es la condición del remitente (D-120) y los correos del API ya lo cumplen (ver «Correo» en [`api/README.md`](../../api/README.md)).
+
+## Conexión del API y rol de PostgreSQL (D-205 (2), E11-INF 2.3 bis)
+
+El API y `caj-tareas` entran a PostgreSQL cada uno con su propia identidad administrada: el API con `id-alcanzamos-api-<prod|uat>-eus2` y las tareas con `id-alcanzamos-tareas-<prod|uat>-eus2`. `PGUSER` es el nombre de esa identidad y la contraseña es un token de Entra ID de esa identidad. Ninguna de las dos es administradora del servidor. Los administradores son el migrador y `caj-psql`.
+
+Los roles de PostgreSQL de las piezas los crea el migrador, no OpenTofu: `api migrar` aplica las migraciones y después crea un rol por identidad y le da solo lo que el API necesita (lectura y escritura de las tablas, lectura del catálogo, ningún permiso de DDL ni de administración; ver [`api/README.md`](../../api/README.md), «Rol del API»). Cada pieza tiene el suyo y **nunca se comparte uno** entre el API y las tareas: el rol se llama como la identidad de Entra de la pieza. Esta carpeta pasa la lista al migrador (`ROLES_DE_APLICACION`) y la prueba la compara con el `PGUSER` de cada pieza; la creación de los roles y sus permisos van en el PR #144, del API.
+
+El trabajo `caj-migrar` (manual, la misma imagen con `/alcanzamos migrar`, con la identidad del migrador) recibe la lista de roles en `ROLES_DE_APLICACION`: pares `<nombre de la identidad de Entra>=<object id>` separados por comas, armados con los datos de las identidades (`name` y `principal_id`). Por ejemplo:
+
+```
+ROLES_DE_APLICACION=id-alcanzamos-api-uat-eus2=<object id del API>,id-alcanzamos-tareas-uat-eus2=<object id de tareas>
+```
+
+Reemplaza las dos variables que antes llevaban el rol y el object id del API. El `PGUSER` de `ca-api` y el de `caj-tareas` son exactamente el nombre de su identidad, es decir, el nombre de su rol en esa lista; una prueba de esta carpeta (`tests/red_privada.tftest.hcl`) compara `ca-api`, `caj-tareas` y `caj-migrar`: cada `PGUSER` aparece como rol en `ROLES_DE_APLICACION` con el object id de esa identidad, los dos son distintos y la lista tiene exactamente esas dos entradas. Si se agrega una pieza con identidad propia que entre a PostgreSQL, se suma a la lista y a esa prueba.
+
+La conexión real, el certificado `verify-full` contra el nombre privado del servidor y el rol del API solo se comprueban dentro de Azure, en UAT.
 
 ## Acceso a la imagen privada (D-200 (9)(a))
 
-El API y el trabajo programado tienen un bloque `registry` con `server = "ghcr.io"`, el usuario `ghcr_usuario` y la contraseña en el secreto `ghcr_nombre_del_secreto` de Container Apps. Ese secreto no tiene valor: apunta al secreto del mismo nombre en el Key Vault del ambiente (`<vault_uri>secrets/ghcr-lectura`, sin versión) y se lee con la identidad del API, que ya tiene «Key Vault Secrets User» sobre el grupo ([`infra/bootstrap/`](../bootstrap/README.md)). Sin versión, Container Apps toma la última: renovar el token es cargar una versión nueva con el mismo nombre.
+El API, el trabajo programado y el de migraciones tienen un bloque `registry` con `server = "ghcr.io"`, el usuario `ghcr_usuario` y la contraseña en el secreto `ghcr_nombre_del_secreto` de Container Apps. Ese secreto no tiene valor: apunta al secreto del mismo nombre en el Key Vault del ambiente (`<vault_uri>secrets/ghcr-lectura`, sin versión) y se lee con la identidad de cada pieza: la del API en `ca-api`, la de tareas en `caj-tareas` y la del migrador en `caj-migrar`. Esas identidades las crea [`infra/bootstrap/`](../bootstrap/README.md) sin permisos sobre el Key Vault; el rol «Key Vault Secrets User» **sobre cada secreto** lo asigna el dueño con la raíz [`infra/secretos`](../secretos/README.md), nunca esta raíz ni el pipeline. Sin versión, Container Apps toma la última: renovar el token es cargar una versión nueva con el mismo nombre.
 
 El token lo crea el dueño (US-79 T3): un token clásico con **solo** `read:packages`, con vencimiento, uno por ambiente. La fecha de renovación se anota como la del token de D-167.
 
-Primer despliegue de cada ambiente, en este orden. Container Apps necesita leer el token al crear la app y el trabajo, así que el token va en el Key Vault antes:
+Primer despliegue de cada ambiente, en este orden: el bootstrap del ambiente, solo el Key Vault de esta raíz (`-target`), la carga de los secretos y sus roles con [`infra/secretos/`](../secretos/README.md) y, por último, esta raíz completa. Container Apps necesita leer el token al crear la app y el trabajo, así que el token va en el Key Vault, y los roles que lo leen asignados, antes. **Los pasos 1 y 4 son una corrida manual del dueño**, con su cuenta y desde su equipo, no el despliegue por etiqueta del pipeline:
 
-1. Crear solo el Key Vault: `tofu apply -var-file=uat.tfvars -var="imagen_api=…@sha256:<digest>" -target=azurerm_key_vault.secretos`.
-2. El Key Vault usa RBAC: para cargar el secreto, el dueño se da «Key Vault Secrets Officer» solo sobre ese Key Vault, con su cuenta:
-
-   ```sh
-   az role assignment create --assignee "$(az ad signed-in-user show --query id -o tsv)" \
-     --role "Key Vault Secrets Officer" \
-     --scope "$(az keyvault show --name kv-alcanzamos-uat-mxc --query id -o tsv)"
-   ```
-
-3. Cargar el token. Se lee de la entrada estándar, para que no quede en la línea de comandos, en la lista de procesos ni en el historial. `--expires` lleva la fecha de vencimiento del token:
+1. Crear solo el Key Vault: `tofu apply -var-file=uat.tfvars -var="imagen_api=…@sha256:<digest>" -target=azurerm_key_vault.secretos`. Nace con el firewall cerrado: solo entra la subred del entorno, por su punto de conexión de servicio.
+2. Los roles sobre el Key Vault y sobre cada secreto los da `infra/secretos`, por código; esta raíz no asigna roles. Cómo se aplica, quién corre cada paso y el orden entre los roles y los secretos está en [`infra/secretos/README.md`](../secretos/README.md).
+3. Cargar el token. Se lee de la entrada estándar, para que no quede en la línea de comandos, en la lista de procesos ni en el historial. `--expires` lleva la fecha de vencimiento del token. Como el firewall del Key Vault está cerrado, el dueño abre su IP solo mientras carga y la quita al terminar; ese procedimiento (cargar y rotar) está en [`infra/secretos/README.md`](../secretos/README.md):
 
    ```sh
    read -rs GHCR_TOKEN    # pega el token read:packages y presiona Enter; no se muestra
-   printf '%s' "$GHCR_TOKEN" | az keyvault secret set --vault-name kv-alcanzamos-uat-mxc --name ghcr-lectura \
+   printf '%s' "$GHCR_TOKEN" | az keyvault secret set --vault-name kv-alcanzamos-uat-eus2 --name ghcr-lectura \
      --file /dev/stdin --encoding utf-8 --content-type "token clásico read:packages de ghcr.io" \
      --expires "<AAAA-MM-DD>T00:00:00Z" --output none
    unset GHCR_TOKEN
    ```
 
-4. Aplicar todo (`tofu apply` sin `-target`).
+4. Aplicar todo (`tofu apply` sin `-target`). Esta aplicación también cierra cualquier IP que el dueño haya dejado abierta en el firewall: el código no tiene reglas de IP.
 
-En producción, lo mismo con `kv-alcanzamos-prod-mxc`, `produccion.tfvars` y el token de producción. Para renovar, solo el paso 3; la app toma la versión nueva sin volver a aplicar.
+En producción, lo mismo con `kv-alcanzamos-prod-eus2`, `produccion.tfvars` y el token de producción. Para renovar, solo el paso 3; la app toma la versión nueva sin volver a aplicar.
 
 ## Correo por Zoho CPaaS (D-205 (6), US-80)
 
@@ -140,7 +155,7 @@ El API y el trabajo de tareas mandan el correo por SMTP autenticado contra Zoho 
 |---|---|---|
 | `CORREO_SMTP` | `smtp.zeptomail.com:587` | Fijo en `aplicacion.tf`; el API hace STARTTLS y después se autentica |
 | `CORREO_USUARIO` | `emailapikey` | Variable `correo_usuario` |
-| `CORREO_CONTRASENA` | Referencia al secreto `correo-contrasena` | `secret_name`, nunca un valor. El secreto de Container Apps tiene `key_vault_secret_id` (`<vault_uri>secrets/correo-contrasena`, sin versión) y se lee con la identidad que tiene asignada cada app |
+| `CORREO_CONTRASENA` | Referencia al secreto `correo-contrasena` | `secret_name`, nunca un valor. El secreto de Container Apps tiene `key_vault_secret_id` (`<vault_uri>secrets/correo-contrasena`, sin versión) y se lee con la identidad que tiene asignada cada una: la del API en `ca-api` y la de tareas en `caj-tareas` |
 | `CORREO_REMITENTE` | `no-responder@<dominio_de_correo>` | Variable `correo_remitente` (o el valor armado con `dominio_de_correo`) |
 
 Los nombres son los de la US-80 ([`api/README.md`](../../api/README.md), «Correo»). `CORREO_ENDPOINT` ya no existe.
@@ -149,44 +164,38 @@ Los nombres son los de la US-80 ([`api/README.md`](../../api/README.md), «Corre
 
 ```sh
 read -rs CPAAS_TOKEN    # pega el Send Mail Token del agente del ambiente y presiona Enter; no se muestra
-printf '%s' "$CPAAS_TOKEN" | az keyvault secret set --vault-name kv-alcanzamos-uat-mxc --name correo-contrasena \
+printf '%s' "$CPAAS_TOKEN" | az keyvault secret set --vault-name kv-alcanzamos-uat-eus2 --name correo-contrasena \
   --file /dev/stdin --encoding utf-8 --content-type "Send Mail Token de Zoho CPaaS" \
   --expires "<AAAA-MM-DD>T00:00:00Z" --output none
 unset CPAAS_TOKEN
 ```
 
-Va en el paso 3 de «Acceso a la imagen privada»: Container Apps lee el secreto al crear la app y el trabajo, así que tiene que estar en el Key Vault antes del `tofu apply` completo, igual que el token de ghcr.io. En producción, lo mismo con `kv-alcanzamos-prod-mxc` y el token del agente de producción. Para renovar, solo ese comando: la app toma la versión nueva. En un desastre no se cargan copias: se genera un token nuevo (E11-INF P12).
+Va con la carga de secretos de «Acceso a la imagen privada» (paso 3, con la IP del dueño abierta solo mientras carga): Container Apps lee el secreto al crear la app y el trabajo, así que tiene que estar en el Key Vault antes del `tofu apply` completo, igual que el token de ghcr.io. En producción, lo mismo con `kv-alcanzamos-prod-eus2` y el token del agente de producción. Para renovar, solo ese comando: la app toma la versión nueva. En un desastre no se cargan copias: se genera un token nuevo (E11-INF P12).
 
-**Quién la lee.** Hoy, la identidad de las apps con «Key Vault Secrets User» sobre el grupo ([`infra/bootstrap/`](../bootstrap/README.md)). El segundo paso del bootstrap (T6) lo cambia a un rol sobre cada secreto: `ghcr-lectura` y `correo-contrasena`, esta última solo para el API y las tareas. Ese rol no se asigna aquí.
+**Quién la lee.** La identidad del API (en `ca-api`) y la de tareas (en `caj-tareas`), cada una con «Key Vault Secrets User» **sobre el secreto `correo-contrasena`** y sobre `ghcr-lectura`; las demás identidades no leen la contraseña de CPaaS. Esos roles los asigna el dueño con la raíz [`infra/secretos`](../secretos/README.md), antes de aplicar esta raíz completa. Esta raíz no asigna roles (una prueba lo fija).
 
-## Región en Azure for Students (comprobado el 2026-11-11)
+## Región: East US 2 (D-208)
 
-D-200 pide anotar las diferencias de la suscripción de estudiante. Consultas de solo lectura con `az` 2.90.0 sobre la suscripción de UAT (oferta `AzureForStudents_2018-01-01`, límite de gasto activo); no se creó ni se registró nada.
+La región es `eastus2` (sufijo `eus2`), con el respaldo georredundante de producción en Central US (su región pareada). Nada de esto se ha comprobado en Azure: la pausa de D-204 sigue y estas consultas de solo lectura se hacen antes del primer despliegue, con la cuenta del dueño, en la suscripción de pago por uso:
 
-| Qué | Consulta | Resultado |
+| Qué | Consulta | Se espera |
 |---|---|---|
-| Oferta | `az rest --method get --url https://management.azure.com/subscriptions/<id>?api-version=2022-12-01 --query subscriptionPolicies` | `quotaId` `AzureForStudents_2018-01-01`, `spendingLimit` `On` |
-| Políticas | `az policy assignment list --subscription <id> --disable-scope-strict-match` | Una sola: `sys.regionrestriction`, «Allowed resource deployment regions» (definición integrada `b86dabb9-b578-4d7b-b842-3b45e95769a1`), efecto `deny`, sin exclusiones |
-| Regiones permitidas | Parámetro `listOfAllowedLocations` de esa asignación | `francecentral`, `spaincentral`, `chilecentral`, `switzerlandnorth` y **`mexicocentral`**. La política deja pasar `global` (Communication Services y su servicio de correo) |
-| Región | `az rest --method get --url https://management.azure.com/subscriptions/<id>/locations?api-version=2022-12-01` | `mexicocentral` existe para la suscripción, física, con zonas 1, 2 y 3 |
-| PostgreSQL flexible | `az postgres flexible-server list-skus --location mexicocentral --subscription <id>` | Burstable con `Standard_B1ms` y `Standard_B2s`; versiones 11 a **18**; `OfferRestricted` desactivado. **Ningún SKU informa zonas** (`supportedZones` vacío) y no hay alta disponibilidad entre zonas ni respaldo geográfico |
-| Container Apps | `az provider show -n Microsoft.App --subscription <id>` | `managedEnvironments`, `containerApps` y `jobs` se ofrecen en Mexico Central |
-| Otros servicios | `az provider show` de `Microsoft.DBforPostgreSQL`, `Microsoft.KeyVault`, `Microsoft.OperationalInsights` y `Microsoft.Communication` | `flexibleServers`, `vaults` y `workspaces` en Mexico Central; `CommunicationServices` y `EmailServices` en `global` |
-| Proveedores registrados | `az provider show -n <proveedor> --query registrationState` | Solo `Microsoft.ManagedIdentity`. Los demás los registra el bootstrap (paso 1) |
-| Cuota de Container Apps | `az rest --method get --url https://management.azure.com/subscriptions/<id>/providers/Microsoft.App/locations/mexicocentral/usages?api-version=2024-03-01` | `ManagedEnvironmentCount` con límite 0. No es concluyente: la suscripción de pago por uso, también sin `Microsoft.App` registrado, da lo mismo. Se repite después del bootstrap |
-
-Conclusión: la suscripción de estudiante permite `mexicocentral`, y ahí están PostgreSQL flexible `B_Standard_B1ms` (versión 18) y Container Apps. Los nombres siguen con `mxc`. Quedan dos cosas para el despliegue (T5 y T6): la zona `1` de PostgreSQL (`datos.tf`), porque `list-skus` no informa zonas para ningún SKU, y la cuota de entornos de Container Apps, cuando los proveedores estén registrados.
+| Región | `az rest --method get --url https://management.azure.com/subscriptions/<id>/locations?api-version=2022-12-01` | `eastus2` existe para la suscripción, con zonas 1, 2 y 3 |
+| PostgreSQL flexible | `az postgres flexible-server list-skus --location eastus2 --subscription <id>` | Burstable con `Standard_B1ms`; versión 18; zona 1 (`datos.tf`); respaldo georredundante disponible |
+| Container Apps | `az provider show -n Microsoft.App --subscription <id>` | `managedEnvironments`, `containerApps` y `jobs` en `eastus2`, con perfiles de carga de trabajo |
+| Cuota de Container Apps | `az rest --method get --url https://management.azure.com/subscriptions/<id>/providers/Microsoft.App/locations/eastus2/usages?api-version=2024-03-01` | Un entorno por ambiente. Se repite después de que `infra/suscripcion` registre los proveedores |
+| Política de la suscripción | `az policy assignment list --subscription <id> --disable-scope-strict-match` | La política P1 de `infra/suscripcion` deja `eastus2`, `centralus` (solo para restaurar el respaldo) y `global` |
 
 ## Antes del primer despliegue (D-120)
 
 No bloquean la US-44.
 
-1. **Red de PostgreSQL.** Llevar el riesgo de la regla `0.0.0.0` a E11-EIP y calcular, con fuente, el costo de la red virtual. Lo decide el dueño antes de crear el servidor: esa elección no se cambia después en el mismo servidor.
+1. **Red de PostgreSQL.** Decidida (D-205 (2)): red privada, sin regla `0.0.0.0` ni acceso público. Esa elección no se cambia después en el mismo servidor, y el respaldo georredundante de producción tampoco: los dos se fijan al crearlo.
 2. **Contraseña de CPaaS** en el Key Vault de cada ambiente, cargada por el dueño (ver «Correo por Zoho CPaaS»). Ya no hay rol de correo de Azure (D-205 (6)).
-3. **Comprobar con `list-skus`** que PostgreSQL 18 y la zona 1 existen en México Central, en cada suscripción: las cuotas y los servicios de la región se comparan al desplegar UAT (D-200 (8)). En la de UAT ya se comprobó la región, PostgreSQL 18 y B1ms (ver «Región en Azure for Students»); falta la zona. La zona de PostgreSQL y el tenant de Entra ID de la suscripción de UAT se comprueban al desplegar (S11; US-79 T5 y T6).
+3. **Comprobar con `list-skus`** que PostgreSQL 18 y la zona 1 existen en East US 2 (ver «Región: East US 2»). La zona de PostgreSQL y el tenant de Entra ID se comprueban al desplegar UAT (S11).
 4. **Costos en ADR-006:** la regla de alerta y la retención de 90 días.
 5. **Probar que el aviso de la alerta llega** a `andres@alcanzamos.co` (O-5).
-6. **Variables de la base (D-123, D-204).** La configuración pasa `PGHOST`, `PGDATABASE`, `PGUSER`, `PGSSLMODE` (`verify-full`) y `AZURE_CLIENT_ID`. Sin `BASE_DE_DATOS_URL`, el API se conecta con esas variables y un token de Entra ID de la identidad administrada (`api/README.md`, «Dos formas de conectar»). La conexión real solo se prueba dentro de Azure, después de la sesión de arquitectura de la infraestructura.
+6. **Variables de la base (D-123, D-204).** La configuración pasa `PGHOST`, `PGDATABASE`, `PGUSER`, `PGSSLMODE` (`verify-full`) y `AZURE_CLIENT_ID`, y nunca `BASE_DE_DATOS_URL`: con `AZURE_CLIENT_ID` presente, el API no arranca si la recibe. Ese rechazo lo agrega el PR #144 (`api/README.md`, «Dos formas de conectar»); hasta que entre, el API de `main` todavía acepta la URL. La conexión real solo se prueba dentro de Azure, en UAT.
 
 ## Registro de eventos de seguridad
 
@@ -203,7 +212,7 @@ Consultadas el 2026-10-22:
 
 ## Validación
 
-Sin credenciales y sin aplicar. `tofu test` hace solo plan, con el proveedor simulado (`tests/ambientes.tftest.hcl`): comprueba los nombres, las etiquetas, los tamaños y el remitente de cada ambiente, los valores de UAT (S11), que producción conserve sus nombres (`tests/proveedores.tftest.hcl` comprueba además que no hay recursos de registro de proveedores y que el proveedor lleva `resource_provider_registrations = "none"`) y que se rechacen un ambiente desconocido, un dominio de otro ambiente y una retención del Key Vault fuera de 7 a 90 días. `tests/registro.tftest.hcl` comprueba, en los dos ambientes, que el API y el trabajo programado bajen la imagen de ghcr.io con el token del Key Vault leído con la identidad del API, que la imagen se acepte solo por digest (se rechazan `:1.0.0`, `:v0.1.0`, `:latest`, etiqueta con digest, un digest corto, en mayúsculas o de otro algoritmo y otra imagen) y que el usuario de ghcr.io y el nombre del secreto sean válidos. `tests/correo.tftest.hcl` comprueba que no quede ningún recurso de Azure Communication Services, ni `CORREO_ENDPOINT`, ni la salida de sus registros DNS; que el API y el trabajo de tareas tengan `CORREO_SMTP`, `CORREO_USUARIO`, `CORREO_REMITENTE` y `CORREO_CONTRASENA`; que la contraseña vaya solo como `secret_name`, nunca como valor, y que su secreto apunte al Key Vault con la identidad de la app; y que se rechacen un remitente de otro dominio o sin arroba, un usuario vacío y un nombre de secreto inválido.
+Sin credenciales y sin aplicar. `tofu test` hace solo plan, con el proveedor simulado (`tests/ambientes.tftest.hcl`): comprueba los nombres, las etiquetas, los tamaños y el remitente de cada ambiente, los valores de UAT (S11), que producción conserve sus nombres (`tests/proveedores.tftest.hcl` comprueba además que no hay recursos de registro de proveedores y que el proveedor lleva `resource_provider_registrations = "none"`) y que se rechacen un ambiente desconocido, un dominio de otro ambiente y una retención del Key Vault fuera de 7 a 90 días. `tests/red_privada.tftest.hcl` comprueba la red (subred `/27` del entorno con solo el perfil de consumo, subred delegada y zona DNS privada de PostgreSQL), que PostgreSQL no tenga acceso público ni regla de firewall, el respaldo georredundante solo en producción, que los administradores de Entra sean el migrador y `caj-psql` (`ServicePrincipal`) y no el API, que ni el API ni los trabajos lleven la URL de conexión ni una contraseña de PostgreSQL, que el Key Vault niegue todo por defecto y solo deje pasar la subred del entorno (con su punto de conexión de servicio), que cada pieza lea su propia identidad y que no quede la región anterior en esta carpeta. `tests/registro.tftest.hcl` comprueba, en los dos ambientes, que el API y el trabajo programado bajen la imagen de ghcr.io con el token del Key Vault leído con la identidad de cada uno (la del API en `ca-api` y la de tareas en `caj-tareas`), que la imagen se acepte solo por digest (se rechazan `:1.0.0`, `:v0.1.0`, `:latest`, etiqueta con digest, un digest corto, en mayúsculas o de otro algoritmo y otra imagen) y que el usuario de ghcr.io y el nombre del secreto sean válidos. `tests/correo.tftest.hcl` comprueba que no quede ningún recurso de Azure Communication Services, ni `CORREO_ENDPOINT`, ni la salida de sus registros DNS; que el API y el trabajo de tareas tengan `CORREO_SMTP`, `CORREO_USUARIO`, `CORREO_REMITENTE` y `CORREO_CONTRASENA`; que la contraseña vaya solo como `secret_name`, nunca como valor, y que su secreto apunte al Key Vault con la identidad de la app; y que se rechacen un remitente de otro dominio o sin arroba, un usuario vacío y un nombre de secreto inválido.
 
 ```sh
 cd infra/azure

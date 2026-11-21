@@ -4,10 +4,21 @@ resource "azurerm_container_app_environment" "entorno" {
   location                   = data.azurerm_resource_group.principal.location
   resource_group_name        = data.azurerm_resource_group.principal.name
   log_analytics_workspace_id = azurerm_log_analytics_workspace.registros.id
+  infrastructure_subnet_id   = azurerm_subnet.entorno.id
   tags                       = local.etiquetas
+
+  # Solo consumo (D-205 (2)): ningún perfil dedicado, así que no se paga capacidad reservada.
+  workload_profile {
+    name                  = local.perfil_de_consumo
+    workload_profile_type = "Consumption"
+  }
 }
 
 locals {
+  perfil_de_consumo = "Consumption"
+
+  # La base se conecta solo con la identidad administrada: ni una URL de conexión ni una contraseña, y siempre con verify-full.
+  # El API se niega a arrancar en Azure si recibe la URL (src/bd); una prueba de infra/azure prohíbe que vuelva a estar aquí.
   variables_api = {
     PGHOST           = azurerm_postgresql_flexible_server.datos.fqdn
     PGDATABASE       = azurerm_postgresql_flexible_server_database.alcanzamos.name
@@ -17,6 +28,28 @@ locals {
     CORREO_SMTP      = "smtp.zeptomail.com:587"
     CORREO_USUARIO   = var.correo_usuario
     CORREO_REMITENTE = local.correo_remitente
+  }
+
+  # El trabajo de tareas se conecta con su propia identidad: cambian PGUSER y AZURE_CLIENT_ID; el resto es igual al del API.
+  variables_tareas = merge(local.variables_api, {
+    PGUSER          = data.azurerm_user_assigned_identity.tareas.name
+    AZURE_CLIENT_ID = data.azurerm_user_assigned_identity.tareas.client_id
+  })
+
+  # El migrador entra como administrador de Entra con su propia identidad y no necesita el correo: solo la conexión y la lista de roles.
+  # ROLES_DE_APLICACION es la lista de pares <nombre de la identidad>=<object id> para los que crea un rol de PostgreSQL: uno por identidad y
+  # con su nombre, que es el PGUSER de la pieza (api y tareas); nunca un rol compartido (E11-INF 2.4). Reemplaza las variables de un solo rol que tenía el migrador.
+  roles_de_aplicacion = join(",", [
+    for i in [data.azurerm_user_assigned_identity.api, data.azurerm_user_assigned_identity.tareas] : "${i.name}=${i.principal_id}"
+  ])
+
+  variables_migrar = {
+    PGHOST              = azurerm_postgresql_flexible_server.datos.fqdn
+    PGDATABASE          = azurerm_postgresql_flexible_server_database.alcanzamos.name
+    PGUSER              = data.azurerm_user_assigned_identity.migrador.name
+    PGSSLMODE           = "verify-full"
+    AZURE_CLIENT_ID     = data.azurerm_user_assigned_identity.migrador.client_id
+    ROLES_DE_APLICACION = local.roles_de_aplicacion
   }
 
   # Remitente aprobado (D-120): no-responder@<dominio de correo del ambiente>, salvo que se pase otro del mismo dominio.
@@ -36,6 +69,7 @@ resource "azurerm_container_app" "api" {
   container_app_environment_id = azurerm_container_app_environment.entorno.id
   resource_group_name          = data.azurerm_resource_group.principal.name
   revision_mode                = "Single"
+  workload_profile_name        = local.perfil_de_consumo
   tags                         = local.etiquetas
 
   identity {
@@ -43,7 +77,7 @@ resource "azurerm_container_app" "api" {
     identity_ids = [data.azurerm_user_assigned_identity.api.id]
   }
 
-  # Paquete privado: la identidad del API (Key Vault Secrets User, del bootstrap) lee el token del Key Vault.
+  # Paquete privado: la identidad del API lee el token del Key Vault (su rol sobre el secreto lo asigna el dueño con infra/secretos).
   secret {
     name                = var.ghcr_nombre_del_secreto
     key_vault_secret_id = local.ghcr_secreto_en_key_vault
@@ -108,23 +142,24 @@ resource "azurerm_container_app_job" "tareas" {
   container_app_environment_id = azurerm_container_app_environment.entorno.id
   replica_timeout_in_seconds   = 300
   replica_retry_limit          = 1
+  workload_profile_name        = local.perfil_de_consumo
   tags                         = local.etiquetas
 
   identity {
     type         = "UserAssigned"
-    identity_ids = [data.azurerm_user_assigned_identity.api.id]
+    identity_ids = [data.azurerm_user_assigned_identity.tareas.id]
   }
 
   secret {
     name                = var.ghcr_nombre_del_secreto
     key_vault_secret_id = local.ghcr_secreto_en_key_vault
-    identity            = data.azurerm_user_assigned_identity.api.id
+    identity            = data.azurerm_user_assigned_identity.tareas.id
   }
 
   secret {
     name                = var.correo_nombre_del_secreto
     key_vault_secret_id = local.correo_secreto_en_key_vault
-    identity            = data.azurerm_user_assigned_identity.api.id
+    identity            = data.azurerm_user_assigned_identity.tareas.id
   }
 
   registry {
@@ -146,7 +181,7 @@ resource "azurerm_container_app_job" "tareas" {
       memory  = var.contenedor_memoria
 
       dynamic "env" {
-        for_each = local.variables_api
+        for_each = local.variables_tareas
         content {
           name  = env.key
           value = env.value
@@ -157,6 +192,59 @@ resource "azurerm_container_app_job" "tareas" {
       env {
         name        = "CORREO_CONTRASENA"
         secret_name = var.correo_nombre_del_secreto
+      }
+    }
+  }
+}
+
+# Migraciones: la misma imagen con el comando «migrar», solo a mano. Se conecta con la identidad del migrador (administradora de Entra de
+# PostgreSQL) y, después de migrar, crea el rol de cada identidad de ROLES_DE_APLICACION con solo lo que el API necesita.
+resource "azurerm_container_app_job" "migrar" {
+  name                         = "caj-migrar-${local.sufijo}"
+  location                     = data.azurerm_resource_group.principal.location
+  resource_group_name          = data.azurerm_resource_group.principal.name
+  container_app_environment_id = azurerm_container_app_environment.entorno.id
+  replica_timeout_in_seconds   = 600
+  replica_retry_limit          = 0
+  workload_profile_name        = local.perfil_de_consumo
+  tags                         = local.etiquetas
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [data.azurerm_user_assigned_identity.migrador.id]
+  }
+
+  secret {
+    name                = var.ghcr_nombre_del_secreto
+    key_vault_secret_id = local.ghcr_secreto_en_key_vault
+    identity            = data.azurerm_user_assigned_identity.migrador.id
+  }
+
+  registry {
+    server               = "ghcr.io"
+    username             = var.ghcr_usuario
+    password_secret_name = var.ghcr_nombre_del_secreto
+  }
+
+  manual_trigger_config {
+    parallelism              = 1
+    replica_completion_count = 1
+  }
+
+  template {
+    container {
+      name    = "migrar"
+      image   = var.imagen_api
+      command = ["/alcanzamos", "migrar"]
+      cpu     = var.contenedor_cpu
+      memory  = var.contenedor_memoria
+
+      dynamic "env" {
+        for_each = local.variables_migrar
+        content {
+          name  = env.key
+          value = env.value
+        }
       }
     }
   }
