@@ -412,5 +412,24 @@ class RevisionDiariaD213(unittest.TestCase):
         self.assertIn("gitleaks debe llevar `workspace: clean: all`", fallas[0])
 
 
+
+class ComentariosContrato(unittest.TestCase):
+    """`sin_comentarios` existe una sola vez y devuelve una lista (la usa la revisión de Playwright); `texto_sin_comentarios`
+    une esa lista (la usa gitleaks). Si otra definición la tapara, la revisión de Playwright dejaría de ver sus líneas."""
+
+    def test_definicion_unica_y_contratos_lista_texto(self):
+        import ast
+
+        ruta = filtros.CARPETA / "pruebas" / "filtros.py"
+        arbol = ast.parse(ruta.read_text(encoding="utf-8"))
+        definiciones = [
+            n for n in ast.walk(arbol)
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == "sin_comentarios"
+        ]
+        self.assertEqual(len(definiciones), 1)
+        texto = "# comentario\n\nuno\n  # otro\n  dos\n"
+        self.assertEqual(filtros.sin_comentarios(texto), ["uno", "  dos"])
+        self.assertEqual(filtros.texto_sin_comentarios(texto), "uno\n  dos")
+
 if __name__ == "__main__":
     unittest.main()
