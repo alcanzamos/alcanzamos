@@ -706,6 +706,8 @@ func TestEnAzureSinLaColumnaDeLaListaDeEntraFallaCerrado(t *testing.T) {
 		{"sin rolename", `"principalType" text, "objectId" text, "tenantId" text`, `"principalType", "objectId", "tenantId"`, "rolename"},
 		{"objectId que no es texto", `rolename name, "principalType" text, "objectId" uuid`, `rolename, "principalType", "objectId"::uuid`, "objectId"},
 		{"objectId repetida", `rolename name, "principalType" text, "objectId" text, objectid text`, `rolename, "principalType", "objectId", "objectId"`, "objectId"},
+		// Dos columnas rolename que solo difieren en mayúsculas: ambiguas, se rechazan igual que objectId repetida.
+		{"rolename repetida", `rolename name, "ROLENAME" name, "principalType" text, "objectId" text`, `rolename, rolename, "principalType", "objectId"`, "rolename"},
 	}
 	for _, c := range casos {
 		reemplazarListaDeEntra(t, pool, c.columnas, c.seleccion)
