@@ -44,24 +44,6 @@ mock_provider "azurerm" {
     }
   }
 
-  mock_resource "azurerm_email_communication_service" {
-    defaults = {
-      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Communication/emailServices/ecs"
-    }
-  }
-
-  mock_resource "azurerm_email_communication_service_domain" {
-    defaults = {
-      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Communication/emailServices/ecs/domains/avisos"
-    }
-  }
-
-  mock_resource "azurerm_communication_service" {
-    defaults = {
-      id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Communication/communicationServices/acs"
-    }
-  }
-
   mock_resource "azurerm_monitor_action_group" {
     defaults = {
       id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Insights/actionGroups/ag"
