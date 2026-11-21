@@ -3,11 +3,17 @@
 # la imagen y las comprobaciones viven una sola vez, así que el PR y la revisión diaria buscan con lo mismo.
 #
 # Qué revisa lo decide quien lo usa, con `rango` (el valor de `--log-opts` de gitleaks, que se lo pasa a `git log`):
-# - PR (plantillas/comun.yml): `origin/main..HEAD`, solo los commits del PR. El PR se prueba sobre su commit de fusión con
-#   main (refs/pull/<n>/merge, primer padre = punta de main): el rango es lo que el PR suma, más el commit de fusión.
+# - PR (plantillas/comun.yml): `PR`, solo los commits del PR: `origin/<rama destino>..HEAD`, con la rama destino que da Azure
+#   (`System.PullRequest.TargetBranch`: `refs/heads/main` o `main`, `refs/heads/release/x` o `release/x`). Un PR hacia
+#   `release/x` revisa su rango contra `origin/release/x`, no contra `origin/main`. El PR se prueba sobre su commit de
+#   fusión con la rama destino (refs/pull/<n>/merge, primer padre = punta de esa rama): el rango es lo que el PR suma, más
+#   el commit de fusión. Si la corrida es de un PR (`Build.Reason` = `PullRequest`) y Azure no da la rama destino, o da un
+#   nombre que no es de rama, el paso falla; no adivina `main`. Una corrida que no es de un PR (manual) no tiene rama
+#   destino: revisa `origin/main..HEAD`.
 # - Revisión diaria (revision-diaria.yml): `HEAD`, todo el historial de main.
+# - Cualquier otro valor se pasa tal cual (un rango de git, como `origin/otra..HEAD`).
 # Antes se revisaba todo lo que bajaba el agente, incluidas las ramas de otros PR: un texto falso en la rama de otro PR
-# (L18 de odd/tasks/infra-d205.md, corridas 718 y 719) hacía fallar a todos los PR.
+# (corridas 718 y 719) hacía fallar a todos los PR.
 #
 # Necesita el repositorio en la carpeta de trabajo con `fetchDepth: 0` (un rango sobre un clon superficial da un resultado
 # falso). El agente baja todas las ramas a refs/remotes/origin/*, así que `origin/main` existe; no se hace `git fetch`
@@ -24,12 +30,21 @@
 # con v8.30.1: «origin/otra..HEAD» da «ERR … stderr is not empty», «0 commits scanned» y código 0) o si el rango está
 # vacío, y puede salir con 0 y contar commits después de un `ERR`; por eso el script falla por su cuenta si:
 # - el clon es superficial;
+# - la corrida es de un PR y falta la rama destino, o su nombre no es de rama;
 # - un extremo del rango no existe como commit;
 # - el rango no tiene ningún commit;
 # - la salida de gitleaks trae una línea `ERR` o `FTL`, aunque el código sea 0;
 # - gitleaks no informa cuántos commits revisó, o revisó 0 habiendo commits que no son de fusión (una fusión sin cambios
 #   contra su primer padre no cuenta como revisada).
-# Sin `|| true`, sin `condition` y sin `continueOnError`. Un secreto sale con código 1 de gitleaks y falla el paso.
+# Sin `|| true`, sin `condition` y sin `continueOnError` en el paso que revisa. Un secreto sale con código 1 de gitleaks y falla
+# el paso.
+#
+# El contenedor de gitleaks lleva su propio nombre, único por corrida (`gitleaks-$(Build.BuildId)`), y la etiqueta
+# `alcanzamos.ci=gitleaks`. `--rm` lo borra al terminar, pero una corrida cortada (el agente apagado o la máquina suspendida
+# a mitad del trabajo) lo deja: el segundo paso, con `condition: always()`, lo quita por su nombre exacto y nunca con `prune`
+# ni sobre todo Docker (AGENTS.md; D-213). Si el nombre ya existe al empezar (se vuelve a correr el mismo trabajo: conserva el
+# `Build.BuildId`), el primer paso lo quita antes de crear el suyo. La imagen fijada por digest no se quita: queda entre corridas
+# y la vieja se quita en el mantenimiento mensual (D-213).
 # Lee .gitleaks.toml (raíz) del repositorio revisado. `--redact` no imprime el valor del secreto.
 parameters:
   # Etiqueta v8.30.1 (imagen del 2026-03-21), digest del índice multiarquitectura resuelto el 2026-10-24 en ghcr.io.
@@ -38,7 +53,8 @@ parameters:
   - name: imagen
     type: string
     default: ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
-  # Obligatorio y sin valor por defecto: quien usa el paso elige qué revisa.
+  # Obligatorio y sin valor por defecto: quien usa el paso elige qué revisa. `PR` = los commits del PR contra su rama destino
+  # (ver arriba); cualquier otro valor es un rango de git tal cual (`HEAD`: todo el historial).
   - name: rango
     type: string
 
@@ -52,17 +68,38 @@ steps:
       }
       [ "$(git rev-parse --is-shallow-repository)" = false ] \
         || fallo "el clon es superficial: un rango sobre él da un resultado falso (el checkout necesita fetchDepth: 0)"
+      # `PR`: los commits del PR contra su rama destino. Azure da `refs/heads/<rama>` o `<rama>`; sin la rama destino de una
+      # corrida de PR no se adivina `main`, y el nombre no puede traer nada que git o gitleaks lean como una opción.
+      rango="$GITLEAKS_RANGO"
+      if [ "$rango" = PR ]; then
+        if [ "$GITLEAKS_MOTIVO" = PullRequest ]; then
+          destino="${GITLEAKS_DESTINO_PR#refs/heads/}"
+          case "$destino" in
+            ''|'$('*) fallo "la corrida es de un PR y Azure no dio la rama destino (System.PullRequest.TargetBranch)" ;;
+          esac
+          if ! [[ "$destino" =~ ^[A-Za-z0-9._/-]+$ ]] || [[ "$destino" == -* || "$destino" == *..* ]]; then
+            fallo "la rama destino del PR no tiene un nombre de rama válido: $destino"
+          fi
+          rango="origin/$destino..HEAD"
+        else
+          rango="origin/main..HEAD"
+        fi
+      fi
       # Cada extremo del rango («a..b» tiene dos, «HEAD» uno) debe existir como commit.
-      for ref in ${GITLEAKS_RANGO//../ }; do
+      for ref in ${rango//../ }; do
         git rev-parse --verify --quiet "$ref^{commit}" > /dev/null \
-          || fallo "la referencia $ref del rango $GITLEAKS_RANGO no existe en este clon"
+          || fallo "la referencia $ref del rango $rango no existe en este clon"
       done
-      total=$(git rev-list --count "$GITLEAKS_RANGO")
-      sin_fusiones=$(git rev-list --count --no-merges "$GITLEAKS_RANGO")
-      [ "$total" -ge 1 ] || fallo "el rango $GITLEAKS_RANGO no tiene ningún commit: no hay nada que revisar y no se acepta como correcto"
-      echo "gitleaks: rango $GITLEAKS_RANGO, $total commits ($sin_fusiones sin contar fusiones)"
+      total=$(git rev-list --count "$rango")
+      sin_fusiones=$(git rev-list --count --no-merges "$rango")
+      [ "$total" -ge 1 ] || fallo "el rango $rango no tiene ningún commit: no hay nada que revisar y no se acepta como correcto"
+      echo "gitleaks: rango $rango, $total commits ($sin_fusiones sin contar fusiones)"
       salida="$TEMPORAL/gitleaks.txt"
-      docker run --rm -v "$FUENTES":/repo:ro "$GITLEAKS_IMAGEN" git /repo --no-banner --redact --log-opts="--diff-merges=first-parent $GITLEAKS_RANGO" 2>&1 | tee "$salida"
+      # Si el nombre de esta corrida ya existe (se volvió a correr el trabajo con el mismo Build.BuildId), se quita por su nombre exacto.
+      if [ -n "$(docker ps --all --quiet --filter "name=^${GITLEAKS_CONTENEDOR}\$")" ]; then
+        docker rm --force "$GITLEAKS_CONTENEDOR"
+      fi
+      docker run --rm --name "$GITLEAKS_CONTENEDOR" --label alcanzamos.ci=gitleaks -v "$FUENTES":/repo:ro "$GITLEAKS_IMAGEN" git /repo --no-banner --redact --log-opts="--diff-merges=first-parent $rango" 2>&1 | tee "$salida"
       limpia=$(sed -e 's/\x1b\[[0-9;]*m//g' "$salida")
       # Un error de gitleaks (referencia que no existe, git que falla) sale con 0: se mira la salida, no solo el código.
       # Con <<< y no con un pipe: `grep -q` cierra antes y `pipefail` tomaría el cierre del pipe por un fallo.
@@ -73,12 +110,28 @@ steps:
       revisados=$(sed -n 's/.* \([0-9][0-9]*\) commits scanned.*/\1/p' <<< "$limpia" | tail -n 1)
       [ -n "$revisados" ] || fallo "gitleaks no informó cuántos commits revisó"
       if [ "$revisados" -eq 0 ] && [ "$sin_fusiones" -ge 1 ]; then
-        fallo "gitleaks revisó 0 commits y el rango $GITLEAKS_RANGO tiene $sin_fusiones: no revisó nada"
+        fallo "gitleaks revisó 0 commits y el rango $rango tiene $sin_fusiones: no revisó nada"
       fi
-      echo "gitleaks: revisó $revisados commits del rango $GITLEAKS_RANGO y no encontró secretos"
+      echo "gitleaks: revisó $revisados commits del rango $rango y no encontró secretos"
     env:
       FUENTES: $(Build.SourcesDirectory)
       TEMPORAL: $(Agent.TempDirectory)
       GITLEAKS_IMAGEN: ${{ parameters.imagen }}
       GITLEAKS_RANGO: ${{ parameters.rango }}
+      GITLEAKS_MOTIVO: $(Build.Reason)
+      GITLEAKS_DESTINO_PR: $(System.PullRequest.TargetBranch)
+      GITLEAKS_CONTENEDOR: gitleaks-$(Build.BuildId)
     displayName: Sin secretos en ${{ parameters.rango }} (gitleaks)
+
+  # Limpieza por nombre (AGENTS.md: nada de prune; se lista con un filtro y se quita solo lo listado). Siempre corre, también si un
+  # paso falló o se cortó la corrida, y no falla si el contenedor no existe (`--rm` ya lo borró, o el paso de arriba no llegó a crearlo).
+  - script: |
+      set -eu
+      docker ps --all --filter "name=^${GITLEAKS_CONTENEDOR}\$"
+      if [ -n "$(docker ps --all --quiet --filter "name=^${GITLEAKS_CONTENEDOR}\$")" ]; then
+        docker rm --force "$GITLEAKS_CONTENEDOR"
+      fi
+    env:
+      GITLEAKS_CONTENEDOR: gitleaks-$(Build.BuildId)
+    condition: always()
+    displayName: Quitar el contenedor de gitleaks si quedó de una corrida cortada (por nombre)

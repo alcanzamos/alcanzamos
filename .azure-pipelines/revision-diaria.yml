@@ -3,7 +3,7 @@
 # (plantillas/pasos/) y los mismos comandos que los PR. Una vulnerabilidad se publica aunque el código no cambie: el PR
 # solo la ve si alguien abre uno; esta corrida la ve al día siguiente.
 # También corre gitleaks sobre TODO el historial de main: el PR revisa solo sus commits
-# (`origin/main..HEAD`, plantillas/comun.yml) y esta corrida revisa el resto, con el mismo paso y la misma imagen fijada por
+# (`origin/<rama destino del PR>..HEAD`, plantillas/comun.yml) y esta corrida revisa el resto, con el mismo paso y la misma imagen fijada por
 # digest (plantillas/pasos/gitleaks.yml). Un secreto en el historial de main deja la corrida en Failed.
 #
 # Resultado de la corrida, que es lo que dispara el correo (README, «Revisión diaria»):
