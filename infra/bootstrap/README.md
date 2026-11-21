@@ -25,16 +25,19 @@ La cuenta de almacenamiento admite solo de 3 a 24 letras minúsculas y números,
    - Sujeto: `sc://alcanzamos/alcanzamos/sc-alcanzamos-<prod|uat>-eus2`, o el de la variable `credencial_federada_sujeto`. Si la conexión de servicio tiene otro nombre, `conexion_de_servicio`.
    - Permisos: solo dos. «Contributor» **solo sobre el grupo de su ambiente** y «Storage Blob Data Contributor» solo sobre la cuenta de su estado. **No puede asignar roles** (ni Owner, ni User Access Administrator, ni Role Based Access Control Administrator). La de UAT no tiene permiso alguno sobre el grupo de producción.
 5. **Cinco identidades de carga,** una por pieza: API, web (D-206 (7)), tareas (E11-INF 2.4), migrador (2.3) y `caj-psql` (2.3 bis). Se crean aquí para que el pipeline no pueda asignar roles. La salida `identidades_de_carga` da de cada una el nombre, el ID, el `client_id` y el `principal_id`, para `infra/azure`.
-   - Hoy solo el API tiene un rol: «Key Vault Secrets User» sobre el grupo, provisional. El segundo paso (T6) lo cambia por «Key Vault Secrets User» sobre cada secreto, para cada identidad que lo necesita.
+   - **El bootstrap no les asigna ningún rol.** El rol provisional del API («Key Vault Secrets User» sobre el grupo) se quitó. El segundo paso, [`infra/secretos`](../secretos/README.md), asigna «Key Vault Secrets User» **sobre cada secreto**: `ghcr-lectura` al API, la web, las tareas, el migrador y `caj-psql` (la imagen de PostgreSQL 18 se copia por digest a ghcr.io como paquete privado `alcanzamos-psql`), y la contraseña de CPaaS (`correo-contrasena`) al API y a las tareas. También da al dueño «Key Vault Secrets Officer» sobre el Key Vault de cada ambiente, para cargar y rotar los secretos: es la única asignación sobre el Key Vault completo. Va aparte porque necesita el Key Vault y los secretos, que existen solo después de `infra/azure`; y el pipeline no puede asignar roles.
+   - Las tareas (`caj-tareas`) tienen su propia identidad, `id-alcanzamos-tareas-<ambiente>-eus2`. Que `infra/azure` la use en vez de la del API es un cambio de `infra/azure`, no de este bootstrap.
 
 ## Primer despliegue de cada ambiente (orden)
 
 1. **Antes de cualquier bootstrap,** el dueño aplica `infra/suscripcion` una sola vez (proveedores, política P1 y presupuestos de la suscripción). Sin eso, Azure rechaza crear la cuenta de almacenamiento y las identidades.
 2. El dueño corre `tofu apply -var="ambiente=<uat|produccion>"` en `infra/bootstrap/` con su cuenta, en la suscripción de pago por uso (ver «Dónde queda su estado»). Necesita el ID de la organización de Azure DevOps.
 3. En Azure DevOps crea la conexión de servicio `sc-alcanzamos-<prod|uat>-eus2`: tipo Azure Resource Manager, identidad federada, con el `client_id` y el `tenant_id` de las salidas.
-4. Con la salida `backend`, el pipeline de despliegue aplica `infra/azure/` (ver «Estado de cada ambiente» en su [README](../azure/README.md)). La primera vez, primero solo el Key Vault; el dueño carga ahí el token `read:packages` de ghcr.io y después se aplica todo («Acceso a la imagen privada» en ese README).
-5. En PostgreSQL, el administrador de Entra ID crea el rol de la identidad del API, con los permisos mínimos.
-6. En la suscripción de Azure for Students, que ya no se usa, se borran los recursos de la prueba R-9 (`rg-alcanzamos-prueba-r9` y `sc-alcanzamos-prueba-r9`).
+4. **La primera vez, el dueño aplica a mano** `infra/azure/` con `-target`, solo el Key Vault, con la salida `backend` (ver «Estado de cada ambiente» en su [README](../azure/README.md)). No es el despliegue por etiqueta.
+5. **Segundo paso:** el dueño aplica [`infra/secretos`](../secretos/README.md). Primero solo su rol «Key Vault Secrets Officer» (`-target`). Después carga los dos secretos (el token `read:packages` de ghcr.io y la contraseña de CPaaS), con su IP habilitada en el Key Vault solo mientras carga. Por último aplica la raíz completa, que da a cada identidad el rol de lectura de cada secreto que necesita. El procedimiento está en el README de `infra/secretos`.
+6. **La primera vez, el dueño aplica a mano** todo `infra/azure`. Las siguientes, lo aplica el despliegue por etiqueta.
+7. En PostgreSQL, el administrador de Entra ID crea el rol de la identidad del API, con los permisos mínimos.
+8. En la suscripción de Azure for Students, que ya no se usa, se borran los recursos de la prueba R-9 (`rg-alcanzamos-prueba-r9` y `sc-alcanzamos-prueba-r9`).
 
 ## Dónde queda su estado y cómo se respalda
 
@@ -53,7 +56,7 @@ La cuenta de almacenamiento admite solo de 3 a 24 letras minúsculas y números,
 
 ## Validación
 
-Sin credenciales y sin aplicar. `tofu test` hace solo plan, con los proveedores simulados. Comprueba los nombres de cada ambiente, la región `eastus2`, que el pipeline tenga solo «Contributor» sobre su grupo y «Storage Blob Data Contributor» sobre su estado, la credencial federada, las cinco identidades de carga con sus salidas, que no haya `azuread`, ni `Microsoft.Communication`, ni el rol «Communication and Email Service Owner» (ningún `.tf` nombra Communication, y los únicos roles del plan son los tres conocidos), que no haya recursos de registro de proveedores y el proveedor lleve `resource_provider_registrations = "none"`, que el pipeline no tenga más roles que esos dos y que se rechace un ambiente desconocido (`tests/*.tftest.hcl`).
+Sin credenciales y sin aplicar. `tofu test` hace solo plan, con los proveedores simulados. Comprueba los nombres de cada ambiente, la región `eastus2`, que el pipeline tenga solo «Contributor» sobre su grupo y «Storage Blob Data Contributor» sobre su estado, la credencial federada, las cinco identidades de carga con sus salidas, que no haya `azuread`, ni `Microsoft.Communication`, ni el rol «Communication and Email Service Owner» (ningún `.tf` nombra Communication), que los únicos roles del plan sean los dos del pipeline y ninguna identidad de carga reciba un rol, ni «Key Vault Secrets User» sobre el grupo (ese rol está en `infra/secretos`), que no haya recursos de registro de proveedores y el proveedor lleve `resource_provider_registrations = "none"`, que el pipeline no tenga más roles que esos dos y que se rechace un ambiente desconocido (`tests/*.tftest.hcl`).
 
 ```sh
 cd infra/bootstrap

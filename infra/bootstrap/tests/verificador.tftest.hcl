@@ -71,7 +71,6 @@ run "produccion_conserva_seguridad_estado_y_roles" {
       azurerm_resource_group.principal.location == "eastus2",
       azurerm_role_assignment.pipeline["grupo"].role_definition_name == "Contributor",
       azurerm_role_assignment.pipeline["estado"].role_definition_name == "Storage Blob Data Contributor",
-      azurerm_role_assignment.api_lee_secretos.role_definition_name == "Key Vault Secrets User",
       azurerm_user_assigned_identity.carga["api"].tags == tomap({ proyecto = "alcanzamos", ambiente = "produccion", origen = "opentofu" }),
       azurerm_storage_account.estado.tags == tomap({ proyecto = "alcanzamos", ambiente = "produccion", origen = "opentofu" }),
       output.backend.container_name == "tfstate",

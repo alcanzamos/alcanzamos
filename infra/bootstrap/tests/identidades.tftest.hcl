@@ -68,10 +68,10 @@ run "pipeline_solo_contributor_y_estado" {
     error_message = "El pipeline no puede tener permiso para asignar roles."
   }
 
-  # El pipeline y el API son identidades distintas.
+  # El pipeline y las identidades de carga (API, web, tareas, migrador y caj-psql) son distintas.
   assert {
-    condition     = azurerm_role_assignment.api_lee_secretos.principal_id != azurerm_user_assigned_identity.pipeline.principal_id
-    error_message = "El pipeline no debe compartir identidad con el API."
+    condition     = alltrue([for i in values(azurerm_user_assigned_identity.carga) : i.principal_id != azurerm_user_assigned_identity.pipeline.principal_id])
+    error_message = "El pipeline no debe compartir identidad con ninguna identidad de carga."
   }
 }
 
@@ -203,11 +203,6 @@ run "sin_communication_services" {
     error_message = "Microsoft.Communication ya no aparece: el correo sale por Zoho CPaaS (D-205)."
   }
 
-  assert {
-    condition     = azurerm_role_assignment.api_lee_secretos.role_definition_name == "Key Vault Secrets User"
-    error_message = "El único rol del API en el bootstrap es Key Vault Secrets User: ya no hay rol de correo."
-  }
-
   # Ni el proveedor ni el rol de correo de ACS vuelven con otro nombre de recurso, de variable o de mayúsculas: ningún .tf nombra Communication.
   assert {
     condition = !anytrue([
@@ -217,13 +212,33 @@ run "sin_communication_services" {
     error_message = "Ningún .tf del bootstrap nombra Microsoft.Communication, azurerm_communication_* ni «Communication and Email Service Owner» (D-205 (5))."
   }
 
-  # Con el plan en la mano: los únicos roles que el bootstrap asigna son los tres conocidos.
+  # Con el plan en la mano: los únicos roles que el bootstrap asigna son los dos del pipeline.
   assert {
-    condition = toset(concat(
-      [for a in values(azurerm_role_assignment.pipeline) : a.role_definition_name],
-      [azurerm_role_assignment.api_lee_secretos.role_definition_name],
-    )) == toset(["Contributor", "Storage Blob Data Contributor", "Key Vault Secrets User"])
-    error_message = "Los roles del bootstrap son Contributor y Storage Blob Data Contributor (pipeline) y Key Vault Secrets User (API): ningún rol de correo."
+    condition     = toset([for a in values(azurerm_role_assignment.pipeline) : a.role_definition_name]) == toset(["Contributor", "Storage Blob Data Contributor"])
+    error_message = "Los roles del bootstrap son Contributor y Storage Blob Data Contributor, del pipeline: ningún rol de correo ni de Key Vault."
+  }
+}
+
+# D-205 (5), E11-INF 2.5, 2.14): el bootstrap no asigna ningún rol a las identidades de carga. El rol provisional del API
+# sobre el grupo (Key Vault Secrets User) se quitó: «Key Vault Secrets User» sobre cada secreto lo asigna infra/secretos.
+run "sin_roles_de_carga_en_el_bootstrap" {
+  command = plan
+  variables {
+    ambiente = "uat"
+  }
+
+  assert {
+    condition = alltrue([
+      toset(keys(azurerm_role_assignment.pipeline)) == toset(["grupo", "estado"]),
+      !anytrue([for f in fileset(path.module, "*.tf") : strcontains(lower(file("${path.module}/${f}")), "key vault secrets user")]),
+    ])
+    error_message = "El bootstrap no asigna roles a las identidades de carga: Key Vault Secrets User sobre cada secreto lo asigna infra/secretos."
+  }
+
+  # Ninguna identidad de carga recibe un rol: los principales de los roles son solo el del pipeline.
+  assert {
+    condition     = alltrue([for a in values(azurerm_role_assignment.pipeline) : a.principal_id == azurerm_user_assigned_identity.pipeline.principal_id])
+    error_message = "Los únicos roles del bootstrap son los del pipeline."
   }
 }
 
