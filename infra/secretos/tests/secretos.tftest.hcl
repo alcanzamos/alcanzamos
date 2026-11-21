@@ -327,6 +327,16 @@ run "rechaza_dueno_con_texto_de_mas" {
   expect_failures = [var.dueno_object_id]
 }
 
+# La longitud y los guiones son los de un GUID, pero la última letra no es hexadecimal.
+run "rechaza_dueno_con_caracter_no_hexadecimal" {
+  command = plan
+  variables {
+    ambiente        = "uat"
+    dueno_object_id = "12345678-1234-1234-1234-123456789abg"
+  }
+  expect_failures = [var.dueno_object_id]
+}
+
 run "rechaza_el_mismo_secreto_para_los_dos" {
   command = plan
   variables {
