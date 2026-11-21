@@ -271,3 +271,30 @@ run "correo_y_registro_no_comparten_secreto" {
 
   expect_failures = [var.correo_nombre_del_secreto]
 }
+
+# El correo no cambia el reparto de T3: esta raíz no registra proveedores (eso lo hace infra/suscripcion) ni asigna roles (eso lo
+# hace el bootstrap con la cuenta del dueño).
+run "correo_no_registra_proveedores_ni_asigna_roles" {
+  command = plan
+
+  variables {
+    ambiente          = "uat"
+    dominio_de_correo = "avisos-uat.alcanzamos.co"
+  }
+
+  assert {
+    condition = can(regex(
+      "resource_provider_registrations\\s*=\\s*\"none\"",
+      file("${path.module}/versiones.tf")
+    ))
+    error_message = "infra/azure conserva resource_provider_registrations = \"none\"."
+  }
+
+  assert {
+    condition = alltrue([
+      for f in fileset(path.module, "*.tf") :
+      !can(regex("resource\\s+\"azurerm_role_assignment\"", file("${path.module}/${f}")))
+    ])
+    error_message = "infra/azure no asigna roles: las autorizaciones las da el bootstrap."
+  }
+}
