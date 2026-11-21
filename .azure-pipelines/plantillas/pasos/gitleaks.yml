@@ -10,15 +10,21 @@
 #   el commit de fusión. Si la corrida es de un PR (`Build.Reason` = `PullRequest`) y Azure no da la rama destino, o da un
 #   nombre que no es de rama, el paso falla; no adivina `main`. Una corrida que no es de un PR (manual) no tiene rama
 #   destino: revisa `origin/main..HEAD`.
-# - Revisión diaria (revision-diaria.yml): `HEAD`, todo el historial de main.
+# - Revisión diaria (revision-diaria.yml): `RAMAS`, todo el historial de TODAS las ramas remotas: `HEAD` (la punta de main que
+#   baja Azure) y `--remotes=origin` (`refs/remotes/origin/*`). Con rangos por PR, un secreto en una rama que se subió y nunca llega
+#   a un PR hacia main no lo ve ningún pipeline (revisión del 2026-11-20); esta es la red que lo ve al día siguiente. `HEAD` va
+#   aparte para que main se revise aunque el agente no baje las ramas; si el clon no trae ninguna rama remota, el paso falla (ver
+#   abajo). Los PR no cambian: su rango sigue siendo `origin/<rama destino>..HEAD`.
 # - Cualquier otro valor se pasa tal cual (un rango de git, como `origin/otra..HEAD`).
 # Antes se revisaba todo lo que bajaba el agente, incluidas las ramas de otros PR: un texto falso en la rama de otro PR
 # (corridas 718 y 719) hacía fallar a todos los PR.
 #
 # Necesita el repositorio en la carpeta de trabajo con `fetchDepth: 0` (un rango sobre un clon superficial da un resultado
-# falso). El agente baja todas las ramas a refs/remotes/origin/*, así que `origin/main` existe; no se hace `git fetch`
+# falso). El agente baja todas las ramas a refs/remotes/origin/*, así que `origin/main` y las demás ramas existen (por eso, antes
+# de los rangos por PR, un texto falso en la rama de otro PR hacía fallar a todos); no se hace `git fetch`
 # porque Azure quita las credenciales después del checkout (`persistCredentials: false`) y no se deja el token en
-# `.git/config`, que el contenedor lee.
+# `.git/config`, que el contenedor lee. Como no hay un segundo intento, `RAMAS` falla con un mensaje claro si el clon no trae
+# ninguna rama remota, en lugar de revisar solo `HEAD` en silencio.
 #
 # Las fusiones: gitleaks pasa `--log-opts` a `git log -p`, que no muestra el diff de un commit de fusión si no se le pide.
 # Sin `--diff-merges=first-parent`, un secreto agregado solo al resolver un conflicto (una línea que no está en ningún commit
@@ -30,6 +36,7 @@
 # con v8.30.1: «origin/otra..HEAD» da «ERR … stderr is not empty», «0 commits scanned» y código 0) o si el rango está
 # vacío, y puede salir con 0 y contar commits después de un `ERR`; por eso el script falla por su cuenta si:
 # - el clon es superficial;
+# - `RAMAS` y el clon no trae ninguna rama remota (refs/remotes/origin/*, sin contar origin/HEAD);
 # - la corrida es de un PR y falta la rama destino, o su nombre no es de rama;
 # - un extremo del rango no existe como commit;
 # - el rango no tiene ningún commit;
@@ -54,7 +61,8 @@ parameters:
     type: string
     default: ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
   # Obligatorio y sin valor por defecto: quien usa el paso elige qué revisa. `PR` = los commits del PR contra su rama destino
-  # (ver arriba); cualquier otro valor es un rango de git tal cual (`HEAD`: todo el historial).
+  # (ver arriba); `RAMAS` = todo el historial de todas las ramas remotas (la revisión diaria); cualquier otro valor es un rango de git
+  # tal cual (`HEAD`: el historial de la rama del clon).
   - name: rango
     type: string
 
@@ -85,13 +93,25 @@ steps:
           rango="origin/main..HEAD"
         fi
       fi
+      # `revs` son los argumentos de git para contar y `extremos` lo que debe existir como commit. `RAMAS`: HEAD y todas las ramas
+      # remotas de origin; sin ninguna rama remota se falla (el checkout no las bajó) en vez de revisar solo HEAD.
+      revs=("$rango")
+      extremos="${rango//../ }"
+      if [ "$rango" = RAMAS ]; then
+        ramas=$(git for-each-ref --format='%(refname:strip=3)' refs/remotes/origin | sed '/^HEAD$/d')
+        [ -n "$ramas" ] || fallo "no hay ramas remotas en este clon (refs/remotes/origin/*): el checkout debe bajar todas las ramas, con fetchDepth: 0"
+        echo "gitleaks: $(wc -l <<< "$ramas") ramas remotas en origin"
+        revs=(HEAD --remotes=origin)
+        rango="${revs[*]}"
+        extremos=HEAD
+      fi
       # Cada extremo del rango («a..b» tiene dos, «HEAD» uno) debe existir como commit.
-      for ref in ${rango//../ }; do
+      for ref in $extremos; do
         git rev-parse --verify --quiet "$ref^{commit}" > /dev/null \
           || fallo "la referencia $ref del rango $rango no existe en este clon"
       done
-      total=$(git rev-list --count "$rango")
-      sin_fusiones=$(git rev-list --count --no-merges "$rango")
+      total=$(git rev-list --count "${revs[@]}")
+      sin_fusiones=$(git rev-list --count --no-merges "${revs[@]}")
       [ "$total" -ge 1 ] || fallo "el rango $rango no tiene ningún commit: no hay nada que revisar y no se acepta como correcto"
       echo "gitleaks: rango $rango, $total commits ($sin_fusiones sin contar fusiones)"
       salida="$TEMPORAL/gitleaks.txt"

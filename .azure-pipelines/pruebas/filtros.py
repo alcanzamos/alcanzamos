@@ -23,7 +23,7 @@ propia regla: `trigger: none`, `pr: none` y una sola programación diaria sobre 
 no la corre si `main` no cambió). No entra en la simulación de los filtros: no corre en ningún PR.
 
 gitleaks por PR y por día: el PR revisa solo sus commits (`origin/<rama destino del PR>..HEAD`, con la rama de `System.PullRequest.TargetBranch`) y la revisión diaria revisa el historial
-completo de `main` (`HEAD`), con el mismo paso (`plantillas/pasos/gitleaks.yml`) y la misma imagen fijada por digest, definida
+completo de todas las ramas remotas (`RAMAS`: `HEAD` y `--remotes=origin`), con el mismo paso (`plantillas/pasos/gitleaks.yml`) y la misma imagen fijada por digest, definida
 una sola vez. Ninguna de las dos puede pasar en silencio: la prueba comprueba la forma de los YAML (sin `|| true`, sin `condition`,
 sin `continueOnError`, `set -euo pipefail`) y corre el script del paso con un `docker` falso sobre repositorios de ejemplo
 (sin la referencia, con el rango vacío, con un clon superficial, con gitleaks que revisa 0 commits, que encuentra algo o que
@@ -1097,7 +1097,10 @@ def revisar_gitleaks(textos):
         ("docker run --rm", "el contenedor se borra solo"),
         ("is-shallow-repository", "un clon superficial no sirve para un rango"),
         ("rev-parse --verify", "cada extremo del rango debe existir (gitleaks sale con 0 si no existe)"),
-        ('total=$(git rev-list --count "$rango")', "un rango vacío debe fallar (gitleaks sale con 0 sin revisar nada)"),
+        ('total=$(git rev-list --count "${revs[@]}")', "un rango vacío debe fallar (gitleaks sale con 0 sin revisar nada)"),
+        ("revs=(HEAD --remotes=origin)", "la revisión diaria (`RAMAS`) revisa HEAD y todas las ramas remotas de origin, no solo main (revisión del 2026-11-20)"),
+        ("for-each-ref", "la revisión diaria falla si el clon no trae ninguna rama remota (refs/remotes/origin/*)"),
+        ("no hay ramas remotas", "el motivo de ese fallo se imprime"),
         ("rev-list --count --no-merges", "gitleaks no mira el diff de las fusiones: se cuentan aparte"),
         (r"\) commits scanned", "si gitleaks revisó 0 commits habiendo commits, debe fallar"),
     ):
@@ -1118,15 +1121,15 @@ def revisar_gitleaks(textos):
         fallas.append("plantillas/comun.yml: el checkout necesita `fetchDepth: 0` (un rango sin la historia da un resultado falso)")
     if "gitleaks" in limpio_comun.replace("pasos/gitleaks.yml", "").replace("displayName", ""):
         fallas.append("plantillas/comun.yml: gitleaks no va en línea ni con su propia imagen; solo el paso compartido")
-    # La revisión diaria: el historial completo de main con el mismo paso.
+    # La revisión diaria: el historial completo de todas las ramas remotas (`RAMAS`) con el mismo paso.
     diaria = textos.get("../revision-diaria.yml", "")
     job = trabajo(diaria, "gitleaks")
     if job is None:
         fallas.append("revision-diaria.yml: falta el trabajo `gitleaks` (el historial completo se revisa cada día)")
     else:
         limpio_job = texto_sin_comentarios(job)
-        if "      - template: plantillas/pasos/gitleaks.yml\n        parameters:\n          rango: HEAD\n" not in limpio_job + "\n":
-            fallas.append("revision-diaria.yml: el trabajo gitleaks debe usar plantillas/pasos/gitleaks.yml con `rango: HEAD` (todo el historial de main)")
+        if "      - template: plantillas/pasos/gitleaks.yml\n        parameters:\n          rango: RAMAS\n" not in limpio_job + "\n":
+            fallas.append("revision-diaria.yml: el trabajo gitleaks debe usar plantillas/pasos/gitleaks.yml con `rango: RAMAS` (todo el historial de todas las ramas remotas, no solo main)")
         if "checkout: self\n        fetchDepth: 0\n" not in limpio_job:
             fallas.append("revision-diaria.yml: el trabajo gitleaks necesita `fetchDepth: 0` (el historial completo)")
         for malo in SILENCIOSOS:
@@ -1162,7 +1165,7 @@ MUTACIONES_GITLEAKS = (
     (PASO_GITLEAKS, "    displayName:", "    condition: false\n    displayName:"),
     (PASO_GITLEAKS, "    displayName:", "    continueOnError: true\n    displayName:"),
     (PASO_GITLEAKS, "is-shallow-repository", "rev-parse"),
-    (PASO_GITLEAKS, 'total=$(git rev-list --count "$rango")', 'total=$(git rev-list "$rango" | wc -l)'),
+    (PASO_GITLEAKS, 'total=$(git rev-list --count "${revs[@]}")', 'total=$(git rev-list "${revs[@]}" | wc -l)'),
     (PASO_GITLEAKS, "rev-list --count --no-merges", "rev-list --count"),
     (PASO_GITLEAKS, r"\) commits scanned", r"\) commits"),
     (PASO_GITLEAKS, "@sha256:", "@sha257:"),
@@ -1187,7 +1190,16 @@ MUTACIONES_GITLEAKS = (
 
     ("plantillas/comun.yml", "        fetchDepth: 0\n", "        fetchDepth: 50\n"),
     ("plantillas/comun.yml", "      - template: pasos/gitleaks.yml\n", "      - script: docker run ghcr.io/gitleaks/gitleaks:latest git /repo\n      - template: pasos/gitleaks.yml\n"),
-    ("../revision-diaria.yml", "rango: HEAD", "rango: HEAD~1..HEAD"),
+    # La revisión diaria recorre todas las ramas remotas: ni solo HEAD (main), ni un rango, ni el del PR.
+    ("../revision-diaria.yml", "rango: RAMAS", "rango: HEAD"),
+    ("../revision-diaria.yml", "rango: RAMAS", "rango: HEAD~1..HEAD"),
+    ("../revision-diaria.yml", "rango: RAMAS", "rango: origin/main"),
+    ("../revision-diaria.yml", "rango: RAMAS", "rango: PR"),
+    ("../revision-diaria.yml", "        fetchDepth: 0\n", "        fetchDepth: 1\n"),
+    (PASO_GITLEAKS, "revs=(HEAD --remotes=origin)", "revs=(HEAD)"),
+    (PASO_GITLEAKS, "revs=(HEAD --remotes=origin)", "revs=(HEAD --branches)"),
+    (PASO_GITLEAKS, "revs=(HEAD --remotes=origin)", "revs=(--remotes=origin)"),
+    (PASO_GITLEAKS, 'total=$(git rev-list --count "${revs[@]}")', 'total=$(git rev-list --count "$rango")'),
     ("../revision-diaria.yml", "  - job: gitleaks\n", "  - job: gitleaks\n    condition: false\n"),
     ("../revision-diaria.yml", "  - job: gitleaks\n", "  - job: gitleaks\n    enabled: false\n"),
     ("../revision-diaria.yml", "  - job: gitleaks\n", "  - job: gitleaks2\n"),
@@ -1267,6 +1279,28 @@ def repo_de_ejemplo(destino, origin_main=True, commits_del_pr=2):
 
 
 MARCA_DE_LA_FUSION = "valor-solo-en-la-fusion"
+MARCA_DE_LA_RAMA = "valor-solo-en-una-rama-remota"
+
+
+def repo_con_rama_remota(destino):
+    """Lo que baja Azure en la revisión diaria: HEAD suelto en la punta de main, `refs/remotes/origin/main` y una rama remota
+    (`refs/remotes/origin/otra`) con un commit que no está en main y que suma MARCA_DE_LA_RAMA (el secreto). Esa rama existe solo como
+    rama remota (la local se borra): el único camino hasta su commit es `refs/remotes/origin/*`."""
+    git(destino, "init", "-q", "-b", "main")
+    for n in (1, 2):
+        (destino / "a.txt").write_text(f"base {n}\n")
+        git(destino, "add", "-A")
+        git(destino, "commit", "-q", "-m", f"base {n}")
+    git(destino, "checkout", "-q", "-b", "otra")
+    (destino / "secreto.txt").write_text(f"{MARCA_DE_LA_RAMA}\n")
+    git(destino, "add", "-A")
+    git(destino, "commit", "-q", "-m", "rama que nunca llega a un PR")
+    git(destino, "update-ref", "refs/remotes/origin/otra", "otra")
+    git(destino, "update-ref", "refs/remotes/origin/main", "main")
+    git(destino, "checkout", "-q", "--detach", "main")
+    git(destino, "branch", "-q", "-D", "otra")
+    assert "otra" not in git(destino, "branch", "--format=%(refname:short)").split(), "la rama debe existir solo como rama remota"
+    assert git(destino, "rev-parse", "--verify", "refs/remotes/origin/otra")
 
 
 def repo_con_conflicto(destino):
@@ -1382,6 +1416,24 @@ def probar_script_gitleaks(script, limpieza, callar=False):
         def con_conflicto(c):
             repo_con_conflicto(c)
 
+        def con_rama_remota(c):
+            repo_con_rama_remota(c)
+
+        def pr_con_otra_rama_remota(c):
+            """Un PR (HEAD es una fusión) en un clon que además tiene otra rama remota con un secreto que el PR no trae."""
+            repo_de_ejemplo(c)
+            git(c, "checkout", "-q", "-b", "otra", "main~1")
+            (c / "secreto.txt").write_text(f"{MARCA_DE_LA_RAMA}\n")
+            git(c, "add", "-A")
+            git(c, "commit", "-q", "-m", "otra rama")
+            git(c, "update-ref", "refs/remotes/origin/otra", "otra")
+            git(c, "checkout", "-q", "pr")
+            git(c, "branch", "-q", "-D", "otra")
+
+        def sin_ramas_remotas(c):
+            repo_de_ejemplo(c, origin_main=False)
+            git(c, "checkout", "-q", "main")
+
         def head_es_fusion(c):
             repo_de_ejemplo(c)
 
@@ -1405,7 +1457,24 @@ def probar_script_gitleaks(script, limpieza, callar=False):
                 return f"`git log -p -U0 {opts}` no muestra la línea que solo agregó la fusión resuelta"
             return ""
 
+        def rama_remota_en_el_diff(repo, recibido, _llamadas):
+            """Lo que gitleaks lee es `git log -p -U0 <log-opts>`: la línea que solo existe en una rama remota (que no es main ni HEAD) debe
+            aparecer con las opciones que el paso le pasa; con `HEAD` solo (la revisión anterior) no aparece, y por eso un secreto en una
+            rama que nunca llega a un PR no lo veía ningún pipeline (revisión del 2026-11-20)."""
+            opts = next((a.split("=", 1)[1] for a in recibido if a.startswith("--log-opts=")), None)
+            if opts is None:
+                return "docker no recibió --log-opts"
+            entorno = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull}
+            con = subprocess.run(["git", "log", "-p", "-U0", *opts.split(" ")], cwd=repo, env=entorno, capture_output=True, text=True).stdout
+            sin = subprocess.run(["git", "log", "-p", "-U0", "HEAD"], cwd=repo, env=entorno, capture_output=True, text=True).stdout
+            if MARCA_DE_LA_RAMA in sin:
+                return "la prueba no distingue: HEAD solo ya llega al commit de la rama remota"
+            if MARCA_DE_LA_RAMA not in con:
+                return f"`git log -p -U0 {opts}` no llega al commit de la rama remota"
+            return ""
+
         rango_pr = "origin/main..HEAD"
+        rango_ramas = "--log-opts=--diff-merges=first-parent HEAD --remotes=origin"
         caso("PR con 2 commits: gitleaks recibe solo el rango", normal, rango_pr, ok, 0, True, True,
              (f"--log-opts=--diff-merges=first-parent {rango_pr}", "git", "/repo", "--redact", "--no-banner"))
 
@@ -1433,8 +1502,8 @@ def probar_script_gitleaks(script, limpieza, callar=False):
                  entorno={"GITLEAKS_DESTINO_PR": malo}, mensaje="no tiene un nombre de rama válido")
         caso("corrida sin PR (manual): no hay rama destino y revisa origin/main..HEAD", normal, "PR", ok, 0, True, True, (rango_de("origin/main"),),
              entorno={"GITLEAKS_MOTIVO": "Manual", "GITLEAKS_DESTINO_PR": "$(System.PullRequest.TargetBranch)"})
-        caso("la revisión diaria (HEAD) no depende de la rama destino", completo, "HEAD", "INF 2 commits scanned.", 0, True, True,
-             ("--log-opts=--diff-merges=first-parent HEAD",), entorno={"GITLEAKS_MOTIVO": "Schedule", "GITLEAKS_DESTINO_PR": "$(System.PullRequest.TargetBranch)"})
+        caso("la revisión diaria (RAMAS) no depende de la rama destino", completo, "RAMAS", "INF 2 commits scanned.", 0, True, True,
+             (rango_ramas,), entorno={"GITLEAKS_MOTIVO": "Schedule", "GITLEAKS_DESTINO_PR": "$(System.PullRequest.TargetBranch)"})
         # Contenedor propio: nombre único por corrida y etiqueta, para quitarlo por nombre si la corrida se corta.
         caso("el contenedor lleva el nombre de la corrida y la etiqueta propia", normal, rango_pr, ok, 0, True, True,
              ("--rm", "--name", "gitleaks-4242", "--label", "alcanzamos.ci=gitleaks"))
@@ -1480,10 +1549,30 @@ def probar_script_gitleaks(script, limpieza, callar=False):
              mensaje="gitleaks informó un error")
         caso("una advertencia WRN o la palabra ERRORES dentro de otra línea no falla el paso", normal, rango_pr,
              "WRN algo menor\nINF carpeta ERRORES sin hallazgos\nINF 2 commits scanned.\nINF no leaks found", 0, True, True)
-        caso("revisión diaria: HEAD revisa todo el historial de main", completo, "HEAD", "INF 2 commits scanned.", 0, True, True,
-             ("--log-opts=--diff-merges=first-parent HEAD",))
-        caso("revisión diaria con un secreto (código 1): el paso falla", completo, "HEAD", "INF 2 commits scanned.\nWRN leaks found: 1", 1, False, True,
+        caso("revisión diaria: RAMAS revisa HEAD y todas las ramas remotas de origin", completo, "RAMAS", "INF 2 commits scanned.", 0, True, True,
+             (rango_ramas,), mensaje="rango HEAD --remotes=origin")
+        caso("revisión diaria con un secreto (código 1): el paso falla", completo, "RAMAS", "INF 2 commits scanned.\nWRN leaks found: 1", 1, False, True,
              mensaje="leaks found: 1")
+        # R1 (revisión del 2026-11-20): un secreto en una rama remota que nunca llega a un PR hacia main no lo ve ningún PR.
+        caso("revisión diaria: un secreto que solo está en una rama remota que no es main llega a gitleaks", con_rama_remota, "RAMAS",
+             "INF 3 commits scanned.", 0, True, True, (rango_ramas,), comprobar=rama_remota_en_el_diff)
+        caso("revisión diaria: el secreto de una rama remota que gitleaks encuentra (código 1) falla el paso", con_rama_remota, "RAMAS",
+             "INF 3 commits scanned.\nWRN leaks found: 1", 1, False, True, (rango_ramas,), mensaje="leaks found: 1",
+             comprobar=rama_remota_en_el_diff)
+        caso("revisión diaria sin ramas remotas en el clon (el checkout no las bajó): falla sin llamar a gitleaks", sin_ramas_remotas, "RAMAS",
+             ok, 0, False, False, mensaje="no hay ramas remotas")
+        def pr_sin_otra_rama(repo, recibido, _llamadas):
+            opts = next((a.split("=", 1)[1] for a in recibido if a.startswith("--log-opts=")), None)
+            if opts is None:
+                return "docker no recibió --log-opts"
+            entorno = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull}
+            diff = subprocess.run(["git", "log", "-p", "-U0", *opts.split(" ")], cwd=repo, env=entorno, capture_output=True, text=True).stdout
+            return "el rango del PR llegó al commit de otra rama remota" if MARCA_DE_LA_RAMA in diff else ""
+
+        # El PR no cambia: sigue revisando solo su rango, aunque en el clon haya otras ramas remotas (corridas 718 y 719).
+        caso("PR: el rango sigue siendo el de su rama destino y no entra el commit de otra rama remota", pr_con_otra_rama_remota, "PR", ok, 0, True, True,
+             (rango_de("origin/main"),), ausente_en_args=(rango_ramas,),
+             comprobar=pr_sin_otra_rama)
     return fallas
 
 
@@ -1498,6 +1587,13 @@ MUTACIONES_SCRIPT_GITLEAKS = (
     # El secreto que entra al resolver un conflicto de una fusión: sin el diff de la fusión contra su primer padre nadie lo ve.
     (0, "--diff-merges=first-parent ", ""),
     (0, 'rango="origin/$destino..HEAD"', 'rango="origin/main..HEAD"'),
+    # La revisión diaria: todas las ramas remotas y no solo HEAD; sin ramas remotas en el clon, falla.
+    (0, "revs=(HEAD --remotes=origin)", "revs=(HEAD)"),
+    (0, "revs=(HEAD --remotes=origin)", "revs=(HEAD --branches)"),
+    (0, "revs=(HEAD --remotes=origin)", "revs=(HEAD --remotes=upstream)"),
+    (0, 'if [ "$rango" = RAMAS ]; then', "if false; then"),
+    (0, '[ -n "$ramas" ] || fallo "no hay ramas remotas', 'true || fallo "no hay ramas remotas'),
+    (0, "refs/remotes/origin | sed", "refs/remotes/upstream | sed"),
     (0, 'destino="${GITLEAKS_DESTINO_PR#refs/heads/}"', 'destino="$GITLEAKS_DESTINO_PR"'),
     (0, '[ "$GITLEAKS_MOTIVO" = PullRequest ]', "true"),
     (0, '[ "$GITLEAKS_MOTIVO" = PullRequest ]', "false"),
@@ -1587,7 +1683,7 @@ def main():
         probar_script_gitleaks(script_g, limpieza_g) + revisar_mutaciones_script_gitleaks(paso_g) if paso_g is not None else [])
     for falla in gitleaks:
         print(f"FALLA {falla}")
-    print(f"{'ok' if not gitleaks else 'FALLA':5} gitleaks: el PR revisa solo sus commits, la revisión diaria todo el historial, "
+    print(f"{'ok' if not gitleaks else 'FALLA':5} gitleaks: el PR revisa solo sus commits, la revisión diaria todo el historial de todas las ramas remotas, "
           "con el mismo paso y la misma imagen por digest, y ninguna de las dos pasa en silencio")
     fallas += gitleaks
     plantillas = revisar_plantillas()
