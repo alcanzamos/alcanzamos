@@ -471,6 +471,103 @@ run "caj_tareas_usa_la_identidad_de_tareas_tambien_para_postgres" {
   }
 }
 
+# --- Roles de aplicación de PostgreSQL: el migrador los crea y cada pieza se conecta con el suyo ------------------------------------
+#
+# Contrato con el migrador (api migrar): ROLES_DE_APLICACION es una lista separada por comas de pares <nombre de la identidad de Entra>=<object
+# id>. Un rol por identidad y con el nombre de su identidad, nunca un rol compartido entre el API y las tareas (E11-INF 2.4). Reemplaza a
+# ROL_API y ROL_API_OBJECT_ID. El PGUSER de cada pieza tiene que ser uno de esos nombres, y el object id de la lista, el principal_id de esa identidad.
+run "el_migrador_recibe_los_roles_de_aplicacion_con_los_nombres_y_object_id_de_las_identidades" {
+  command = plan
+
+  variables {
+    ambiente          = "uat"
+    dominio_de_correo = "avisos-uat.alcanzamos.co"
+  }
+
+  assert {
+    condition = alltrue([
+      length([for e in azurerm_container_app_job.migrar.template[0].container[0].env : e if e.name == "ROLES_DE_APLICACION"]) == 1,
+      [for e in azurerm_container_app_job.migrar.template[0].container[0].env : e.value if e.name == "ROLES_DE_APLICACION"] == [
+        "id-alcanzamos-api-uat-eus2=11111111-1111-1111-1111-111111111111,id-alcanzamos-tareas-uat-eus2=44444444-4444-4444-4444-444444444444"
+      ],
+    ])
+    error_message = "caj-migrar lleva ROLES_DE_APLICACION = <identidad del API>=<su principal_id>,<identidad de tareas>=<su principal_id>, en ese orden."
+  }
+
+  assert {
+    condition = alltrue([
+      length([for e in azurerm_container_app_job.migrar.template[0].container[0].env : e if e.name == "ROL_API" || e.name == "ROL_API_OBJECT_ID"]) == 0,
+      alltrue([for f in fileset(path.module, "*.tf") : !can(regex("ROL_API", file("${path.module}/${f}")))]),
+    ])
+    error_message = "ROLES_DE_APLICACION reemplaza las variables de un solo rol (ROL_API y su object id): ningún .tf las nombra."
+  }
+
+  # El migrador se conecta como administrador de Entra con su identidad, igual que el API y las tareas: sin URL ni contraseña.
+  assert {
+    condition = alltrue([
+      azurerm_container_app_job.migrar.identity[0].identity_ids == toset([data.azurerm_user_assigned_identity.migrador.id]),
+      [for e in azurerm_container_app_job.migrar.template[0].container[0].env : e.value if e.name == "PGUSER"] == ["id-alcanzamos-migrador-uat-eus2"],
+      [for e in azurerm_container_app_job.migrar.template[0].container[0].env : e.value if e.name == "AZURE_CLIENT_ID"] == ["bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"],
+      [for e in azurerm_container_app_job.migrar.template[0].container[0].env : e.value if e.name == "PGSSLMODE"] == ["verify-full"],
+      join(" ", azurerm_container_app_job.migrar.template[0].container[0].command) == "/alcanzamos migrar",
+      length(azurerm_container_app_job.migrar.manual_trigger_config) == 1,
+      length(azurerm_container_app_job.migrar.schedule_trigger_config) == 0,
+    ])
+    error_message = "caj-migrar es manual, corre «/alcanzamos migrar» y se conecta con la identidad del migrador (PGUSER y AZURE_CLIENT_ID) y PGSSLMODE = verify-full."
+  }
+}
+
+run "el_pguser_de_ca_api_y_de_caj_tareas_es_su_rol_en_la_lista_del_migrador" {
+  command = plan
+
+  variables {
+    ambiente          = "produccion"
+    dominio_de_correo = "avisos.alcanzamos.co"
+  }
+
+  # PGUSER es exactamente el nombre de la identidad de cada pieza.
+  assert {
+    condition = alltrue([
+      [for e in azurerm_container_app.api.template[0].container[0].env : e.value if e.name == "PGUSER"] == [data.azurerm_user_assigned_identity.api.name],
+      [for e in azurerm_container_app_job.tareas.template[0].container[0].env : e.value if e.name == "PGUSER"] == [data.azurerm_user_assigned_identity.tareas.name],
+      data.azurerm_user_assigned_identity.api.name == "id-alcanzamos-api-prod-eus2",
+      data.azurerm_user_assigned_identity.tareas.name == "id-alcanzamos-tareas-prod-eus2",
+    ])
+    error_message = "PGUSER de ca-api es el nombre de la identidad del API y el de caj-tareas, el de la identidad de tareas."
+  }
+
+  # Compara infra/azure con el migrador: para cada pieza, su PGUSER es un rol de la lista y el object id emparejado es el principal_id de su identidad.
+  assert {
+    condition = alltrue([
+      for pieza in [
+        { pgusers = [for e in azurerm_container_app.api.template[0].container[0].env : e.value if e.name == "PGUSER"], identidad = data.azurerm_user_assigned_identity.api },
+        { pgusers = [for e in azurerm_container_app_job.tareas.template[0].container[0].env : e.value if e.name == "PGUSER"], identidad = data.azurerm_user_assigned_identity.tareas },
+      ] :
+      alltrue([
+        length(pieza.pgusers) == 1,
+        length([for par in split(",", one([for e in azurerm_container_app_job.migrar.template[0].container[0].env : e.value if e.name == "ROLES_DE_APLICACION"])) : par if split("=", par)[0] == pieza.pgusers[0]]) == 1,
+        [for par in split(",", one([for e in azurerm_container_app_job.migrar.template[0].container[0].env : e.value if e.name == "ROLES_DE_APLICACION"])) : split("=", par)[1] if split("=", par)[0] == pieza.pgusers[0]] == [pieza.identidad.principal_id],
+      ])
+    ])
+    error_message = "El PGUSER de ca-api y el de caj-tareas aparecen como rol en ROLES_DE_APLICACION del migrador, cada uno emparejado con el principal_id de su identidad."
+  }
+
+  # Nunca un rol compartido: los dos PGUSER son distintos y la lista tiene exactamente esos dos roles, con dos object id distintos.
+  assert {
+    condition = alltrue([
+      one([for e in azurerm_container_app.api.template[0].container[0].env : e.value if e.name == "PGUSER"]) != one([for e in azurerm_container_app_job.tareas.template[0].container[0].env : e.value if e.name == "PGUSER"]),
+      length(split(",", one([for e in azurerm_container_app_job.migrar.template[0].container[0].env : e.value if e.name == "ROLES_DE_APLICACION"]))) == 2,
+      toset([for par in split(",", one([for e in azurerm_container_app_job.migrar.template[0].container[0].env : e.value if e.name == "ROLES_DE_APLICACION"])) : split("=", par)[0]]) == toset([
+        one([for e in azurerm_container_app.api.template[0].container[0].env : e.value if e.name == "PGUSER"]),
+        one([for e in azurerm_container_app_job.tareas.template[0].container[0].env : e.value if e.name == "PGUSER"]),
+      ]),
+      length(distinct([for par in split(",", one([for e in azurerm_container_app_job.migrar.template[0].container[0].env : e.value if e.name == "ROLES_DE_APLICACION"])) : split("=", par)[1]])) == 2,
+      alltrue([for par in split(",", one([for e in azurerm_container_app_job.migrar.template[0].container[0].env : e.value if e.name == "ROLES_DE_APLICACION"])) : length(split("=", par)) == 2]),
+    ])
+    error_message = "ROLES_DE_APLICACION tiene exactamente dos roles (el del API y el de tareas), distintos y cada uno con su object id: nunca un rol compartido (E11-INF 2.4)."
+  }
+}
+
 # --- L24 (a): el API y los trabajos no reciben una URL de conexión ni una contraseña ------------------------------------------------
 
 run "ni_el_api_ni_los_trabajos_reciben_url_ni_contrasena_de_base" {
@@ -483,7 +580,7 @@ run "ni_el_api_ni_los_trabajos_reciben_url_ni_contrasena_de_base" {
 
   assert {
     condition = alltrue([
-      for envs in [azurerm_container_app.api.template[0].container[0].env, azurerm_container_app_job.tareas.template[0].container[0].env] :
+      for envs in [azurerm_container_app.api.template[0].container[0].env, azurerm_container_app_job.tareas.template[0].container[0].env, azurerm_container_app_job.migrar.template[0].container[0].env] :
       alltrue([
         length([for e in envs : e if e.name == "BASE_DE_DATOS_URL"]) == 0,
         length([for e in envs : e if can(regex("^PG(PASSWORD|PASSFILE|SERVICE|SSLROOTCERT)$", e.name))]) == 0,

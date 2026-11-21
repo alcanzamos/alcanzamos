@@ -111,13 +111,21 @@ Con `-reconfigure`, OpenTofu toma el backend nuevo sin copiar el estado del ante
 
 El API y `caj-tareas` entran a PostgreSQL con su identidad administrada (`id-alcanzamos-api-<prod|uat>-eus2`): `PGUSER` es el nombre de la identidad y la contraseña es un token de Entra ID de esa identidad. Esa identidad **no** es administradora del servidor. Los administradores son el migrador y `caj-psql`.
 
-El rol de PostgreSQL del API lo crea el migrador, no OpenTofu: `api migrar` aplica las migraciones y después crea el rol y le da solo lo que el API necesita (lectura y escritura de las tablas, lectura del catálogo, ningún permiso de DDL ni de administración; ver [`api/README.md`](../../api/README.md), «Rol del API»). `caj-tareas` se conecta con su propia identidad (`id-alcanzamos-tareas-<prod|uat>-eus2`: `PGUSER` y `AZURE_CLIENT_ID` son los suyos), así que necesita también su rol de PostgreSQL, y hoy `migrar` solo crea el del API: queda pendiente antes del primer despliegue. El trabajo `caj-migrar` lo recibe con `ROL_API` (el nombre de la identidad del API) y `ROL_API_OBJECT_ID` (su `principal_id` de Entra); el trabajo mismo es de una tarea posterior.
+Los roles de PostgreSQL de las piezas los crea el migrador, no OpenTofu: `api migrar` aplica las migraciones y después crea un rol por identidad y le da solo lo que el API necesita (lectura y escritura de las tablas, lectura del catálogo, ningún permiso de DDL ni de administración; ver [`api/README.md`](../../api/README.md), «Rol del API»). Cada pieza tiene el suyo y **nunca se comparte uno** entre el API y las tareas: el rol se llama como la identidad de Entra de la pieza.
+
+El trabajo `caj-migrar` (manual, la misma imagen con `/alcanzamos migrar`, con la identidad del migrador) recibe la lista de roles en `ROLES_DE_APLICACION`: pares `<nombre de la identidad de Entra>=<object id>` separados por comas, armados con los datos de las identidades (`name` y `principal_id`). Por ejemplo:
+
+```
+ROLES_DE_APLICACION=id-alcanzamos-api-uat-eus2=<object id del API>,id-alcanzamos-tareas-uat-eus2=<object id de tareas>
+```
+
+Reemplaza las dos variables que antes llevaban el rol y el object id del API. El `PGUSER` de `ca-api` y el de `caj-tareas` son exactamente el nombre de su identidad, es decir, el nombre de su rol en esa lista; una prueba de esta carpeta (`tests/red_privada.tftest.hcl`) compara `ca-api`, `caj-tareas` y `caj-migrar`: cada `PGUSER` aparece como rol en `ROLES_DE_APLICACION` con el object id de esa identidad, los dos son distintos y la lista tiene exactamente esas dos entradas. Si se agrega una pieza con identidad propia que entre a PostgreSQL, se suma a la lista y a esa prueba.
 
 La conexión real, el certificado `verify-full` contra el nombre privado del servidor y el rol del API solo se comprueban dentro de Azure, en UAT.
 
 ## Acceso a la imagen privada (D-200 (9)(a))
 
-El API y el trabajo programado tienen un bloque `registry` con `server = "ghcr.io"`, el usuario `ghcr_usuario` y la contraseña en el secreto `ghcr_nombre_del_secreto` de Container Apps. Ese secreto no tiene valor: apunta al secreto del mismo nombre en el Key Vault del ambiente (`<vault_uri>secrets/ghcr-lectura`, sin versión) y se lee con la identidad de cada pieza: la del API en `ca-api` y la de tareas en `caj-tareas`. Esas identidades las crea [`infra/bootstrap/`](../bootstrap/README.md) sin permisos sobre el Key Vault; el rol «Key Vault Secrets User» **sobre cada secreto** lo asigna el dueño con la raíz [`infra/secretos`](../secretos/README.md), nunca esta raíz ni el pipeline. Sin versión, Container Apps toma la última: renovar el token es cargar una versión nueva con el mismo nombre.
+El API, el trabajo programado y el de migraciones tienen un bloque `registry` con `server = "ghcr.io"`, el usuario `ghcr_usuario` y la contraseña en el secreto `ghcr_nombre_del_secreto` de Container Apps. Ese secreto no tiene valor: apunta al secreto del mismo nombre en el Key Vault del ambiente (`<vault_uri>secrets/ghcr-lectura`, sin versión) y se lee con la identidad de cada pieza: la del API en `ca-api`, la de tareas en `caj-tareas` y la del migrador en `caj-migrar`. Esas identidades las crea [`infra/bootstrap/`](../bootstrap/README.md) sin permisos sobre el Key Vault; el rol «Key Vault Secrets User» **sobre cada secreto** lo asigna el dueño con la raíz [`infra/secretos`](../secretos/README.md), nunca esta raíz ni el pipeline. Sin versión, Container Apps toma la última: renovar el token es cargar una versión nueva con el mismo nombre.
 
 El token lo crea el dueño (US-79 T3): un token clásico con **solo** `read:packages`, con vencimiento, uno por ambiente. La fecha de renovación se anota como la del token de D-167.
 
