@@ -58,6 +58,14 @@ jobs:
           tofu init -backend=false -input=false
           tofu validate
           tofu test
+        workingDirectory: infra/secretos
+        displayName: infra/secretos es válido y sus pruebas pasan
+
+      - script: |
+          set -eu
+          tofu init -backend=false -input=false
+          tofu validate
+          tofu test
         workingDirectory: infra/azure
         displayName: infra/azure es válido y sus pruebas pasan
 

@@ -10,6 +10,7 @@ Infraestructura como código con OpenTofu (MPL 2.0), sin secretos (ADR-001, ADR-
 | [`local/`](local/README.md) | Ambiente de desarrollo en Docker: PostgreSQL 18 y Mailpit | En el equipo del dueño |
 | [`suscripcion/`](suscripcion/README.md) | Lo de toda la suscripción: registro de proveedores, política P1 (regiones y etiquetas) y presupuestos | **Una sola vez, el dueño, primero** (D-205 (11)); estado local del dueño |
 | [`bootstrap/`](bootstrap/README.md) | Grupo, estado remoto, identidades del pipeline y de carga, por ambiente (sin registrar proveedores) | Una vez por ambiente, con la cuenta del dueño, después de `suscripcion/` y antes de su primer despliegue |
+| [`secretos/`](secretos/README.md) | «Key Vault Secrets User» sobre cada secreto, para cada identidad que lo lee (E11-INF 2.14, segundo paso del bootstrap). No lee valores | Una vez por ambiente, el dueño, después de crear el Key Vault con `azure/` y de cargar los secretos, y antes del `apply` completo de `azure/` |
 | [`azure/`](azure/README.md) | Recursos de UAT y de producción: el mismo código con los parámetros de cada ambiente | En el primer despliegue de cada ambiente, desde el pipeline |
 
 ## Ambientes (D-200 (8))
@@ -35,6 +36,8 @@ UAT y producción usan el mismo código de `azure/`, sin copiar la carpeta: solo
 
 1. [`suscripcion/`](suscripcion/README.md): una sola vez, el dueño. Registra los proveedores (con la configuración del proveedor `azurerm`, no como recursos y nunca a mano), pone la política P1 y los presupuestos de la suscripción.
 2. [`bootstrap/`](bootstrap/README.md): una vez por ambiente (`uat`, `produccion`), el dueño. Lleva `resource_provider_registrations = "none"`.
-3. [`azure/`](azure/README.md): una vez por ambiente, desde el pipeline. También con `resource_provider_registrations = "none"`.
+3. [`azure/`](azure/README.md) con `-target`, solo el Key Vault de cada ambiente. Después el dueño carga los secretos.
+4. [`secretos/`](secretos/README.md): una vez por ambiente, el dueño. Asigna «Key Vault Secrets User» sobre cada secreto. Container Apps resuelve las referencias al Key Vault al crear la app y el trabajo, así que este paso va antes del `apply` completo.
+5. [`azure/`](azure/README.md) completo: una vez por ambiente, desde el pipeline. También con `resource_provider_registrations = "none"`.
 
 Hasta el primer despliegue de cada ambiente, nada de esto se aplica en Azure (D-119, pausa de D-204). El pipeline `infra` solo valida.
