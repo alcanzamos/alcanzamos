@@ -26,7 +26,7 @@ El desarrollo sigue en local ([`infra/local/`](../local/README.md)).
 | Correo | Zoho CPaaS (SMTP), sin recursos de Azure | Igual | Azure Communication Services quedó descartado (D-205 (6)): este código ya no crea servicio de correo, dominio ni Communication Services. Cada ambiente tiene su agente de envío en CPaaS y su dominio: `avisos.alcanzamos.co` y `avisos-uat.alcanzamos.co`. Remitente `no-responder@<dominio>` (D-120). Ver «Correo por Zoho CPaaS» |
 | Grupo de acciones y alerta | `ag-seguridad-alcanzamos-prod-eus2`, `alrt-seguridad-alcanzamos-prod-eus2` | `ag-seguridad-alcanzamos-uat-eus2`, `alrt-seguridad-alcanzamos-uat-eus2` | RNF-025: más de 10 eventos de un mismo tipo en 15 minutos, aviso a `andres@alcanzamos.co` (O-5, D-120), el mismo correo en los dos ambientes (S11) |
 
-El grupo (`rg-alcanzamos-<prod|uat>-eus2`), las identidades de carga (`id-alcanzamos-<api|web|tareas|migrador|psql>-<prod|uat>-eus2`) y sus roles los crea [`infra/bootstrap/`](../bootstrap/README.md), una vez por ambiente. Aquí solo se leen las del API, el migrador y `caj-psql`.
+El grupo (`rg-alcanzamos-<prod|uat>-eus2`), las identidades de carga (`id-alcanzamos-<api|web|tareas|migrador|psql>-<prod|uat>-eus2`) y sus roles los crea [`infra/bootstrap/`](../bootstrap/README.md), una vez por ambiente. Aquí se leen las cinco, por nombre.
 
 Los nombres siguen las abreviaturas de Microsoft Cloud Adoption Framework: tipo, proyecto, ambiente (`prod` o `uat`) y región (`eus2`, East US 2, D-208). Los de producción están **aprobados por el dueño (O-14, D-120)**. Los de UAT siguen la misma regla. Nunca se reutilizan los de la prueba R-9. Todos los recursos llevan las etiquetas `proyecto`, `ambiente` (`uat` o `produccion`) y `origen`.
 
@@ -98,7 +98,7 @@ Con `-reconfigure`, OpenTofu toma el backend nuevo sin copiar el estado del ante
 - El API entra a PostgreSQL y Key Vault con su identidad administrada, sin contraseñas ni claves. La única contraseña de la aplicación es la de SMTP de Zoho CPaaS, y vive en el Key Vault (ver «Correo por Zoho CPaaS»).
 - **PostgreSQL no tiene acceso público** (D-205 (2)). El servidor vive en su subred delegada y se resuelve por la zona DNS privada; no hay regla de firewall (ni la de `0.0.0.0`, que dejaba pasar a servicios de otros clientes de Azure). Solo entran los recursos de la red del ambiente: el entorno de Container Apps, en su propia subred. Una prueba de `tofu test` falla si un `.tf` vuelve a declarar una regla de firewall.
 - **Los administradores de Entra de PostgreSQL son el migrador y `caj-psql`** (`ServicePrincipal`), no el dueño ni el API (E11-INF 2.3 bis). El API se conecta con un rol propio, **sin DDL ni administración**, que le crea el migrador (ver «Conexión del API y rol de PostgreSQL»).
-- **El API y los trabajos no reciben una URL de conexión ni una contraseña de PostgreSQL.** Llevan `PGHOST`, `PGDATABASE`, `PGUSER`, `PGSSLMODE = verify-full` y `AZURE_CLIENT_ID`. El API se niega a arrancar en Azure si recibe además la variable de la URL, y una prueba de esta carpeta falla si algún `.tf` la nombra, si baja `PGSSLMODE` o si pasa `PGPASSWORD`.
+- **El API y los trabajos no reciben una URL de conexión ni una contraseña de PostgreSQL.** Llevan `PGHOST`, `PGDATABASE`, `PGUSER`, `PGSSLMODE = verify-full` y `AZURE_CLIENT_ID`. Con el cambio del API que va en el PR #144, el API se niega a arrancar en Azure si recibe además la variable de la URL. Una prueba de esta carpeta falla si algún `.tf` la nombra, si baja `PGSSLMODE` o si pasa `PGPASSWORD`.
 - **Respaldo georredundante** (D-208): `geo_redundant_backup_enabled` es verdadero solo en producción. Azure solo permite activarlo al crear el servidor; crear producción sin él obliga a recrearlo.
 - El API escucha en el puerto 8080 (`ENV PUERTO=8080` y `EXPOSE 8080` en `api/Dockerfile`).
 - OpenTofu no administra el DNS. Los registros del dominio de correo (DKIM, dominio de rebotes y DMARC) los entrega el agente de envío de CPaaS y los carga el dueño en Cloudflare, «DNS only» (E11-INF 2.7 y 2.9). Ya no hay una salida con registros de Azure Communication Services.
@@ -109,9 +109,9 @@ Con `-reconfigure`, OpenTofu toma el backend nuevo sin copiar el estado del ante
 
 ## Conexión del API y rol de PostgreSQL (D-205 (2), E11-INF 2.3 bis)
 
-El API y `caj-tareas` entran a PostgreSQL con su identidad administrada (`id-alcanzamos-api-<prod|uat>-eus2`): `PGUSER` es el nombre de la identidad y la contraseña es un token de Entra ID de esa identidad. Esa identidad **no** es administradora del servidor. Los administradores son el migrador y `caj-psql`.
+El API y `caj-tareas` entran a PostgreSQL cada uno con su propia identidad administrada: el API con `id-alcanzamos-api-<prod|uat>-eus2` y las tareas con `id-alcanzamos-tareas-<prod|uat>-eus2`. `PGUSER` es el nombre de esa identidad y la contraseña es un token de Entra ID de esa identidad. Ninguna de las dos es administradora del servidor. Los administradores son el migrador y `caj-psql`.
 
-Los roles de PostgreSQL de las piezas los crea el migrador, no OpenTofu: `api migrar` aplica las migraciones y después crea un rol por identidad y le da solo lo que el API necesita (lectura y escritura de las tablas, lectura del catálogo, ningún permiso de DDL ni de administración; ver [`api/README.md`](../../api/README.md), «Rol del API»). Cada pieza tiene el suyo y **nunca se comparte uno** entre el API y las tareas: el rol se llama como la identidad de Entra de la pieza.
+Los roles de PostgreSQL de las piezas los crea el migrador, no OpenTofu: `api migrar` aplica las migraciones y después crea un rol por identidad y le da solo lo que el API necesita (lectura y escritura de las tablas, lectura del catálogo, ningún permiso de DDL ni de administración; ver [`api/README.md`](../../api/README.md), «Rol del API»). Cada pieza tiene el suyo y **nunca se comparte uno** entre el API y las tareas: el rol se llama como la identidad de Entra de la pieza. Esta carpeta pasa la lista al migrador (`ROLES_DE_APLICACION`) y la prueba la compara con el `PGUSER` de cada pieza; la creación de los roles y sus permisos van en el PR #144, del API.
 
 El trabajo `caj-migrar` (manual, la misma imagen con `/alcanzamos migrar`, con la identidad del migrador) recibe la lista de roles en `ROLES_DE_APLICACION`: pares `<nombre de la identidad de Entra>=<object id>` separados por comas, armados con los datos de las identidades (`name` y `principal_id`). Por ejemplo:
 
@@ -195,7 +195,7 @@ No bloquean la US-44.
 3. **Comprobar con `list-skus`** que PostgreSQL 18 y la zona 1 existen en East US 2 (ver «Región: East US 2»). La zona de PostgreSQL y el tenant de Entra ID se comprueban al desplegar UAT (S11).
 4. **Costos en ADR-006:** la regla de alerta y la retención de 90 días.
 5. **Probar que el aviso de la alerta llega** a `andres@alcanzamos.co` (O-5).
-6. **Variables de la base (D-123, D-204).** La configuración pasa `PGHOST`, `PGDATABASE`, `PGUSER`, `PGSSLMODE` (`verify-full`) y `AZURE_CLIENT_ID`, y nunca `BASE_DE_DATOS_URL`: con `AZURE_CLIENT_ID` presente, el API no arranca si la recibe (`api/README.md`, «Dos formas de conectar»). La conexión real solo se prueba dentro de Azure, en UAT.
+6. **Variables de la base (D-123, D-204).** La configuración pasa `PGHOST`, `PGDATABASE`, `PGUSER`, `PGSSLMODE` (`verify-full`) y `AZURE_CLIENT_ID`, y nunca `BASE_DE_DATOS_URL`: con `AZURE_CLIENT_ID` presente, el API no arranca si la recibe. Ese rechazo lo agrega el PR #144 (`api/README.md`, «Dos formas de conectar»); hasta que entre, el API de `main` todavía acepta la URL. La conexión real solo se prueba dentro de Azure, en UAT.
 
 ## Registro de eventos de seguridad
 
