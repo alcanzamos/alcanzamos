@@ -67,6 +67,11 @@ func TestMigracion0007AgregaLaColumnaReemplazadaYElIndiceDeLasVigentes(t *testin
 		t.Fatalf("la columna debe tener comentario (%q, %v)", comentario, err)
 	}
 
+	// La 0008 va después: se baja antes para quedar sobre la base de la 0007.
+	if r, err := p.Down(ctx); err != nil || r.Source.Path != "0008_integridad_e_indices.sql" {
+		t.Fatalf("Down de la 0008: %+v, %v", r, err)
+	}
+
 	// Sobre la base de la 0006, con datos: una vigente de la 1.1, una retirada y una vigente de la 1.2 de otra persona.
 	if r, err := p.Down(ctx); err != nil || r.Source.Path != "0007_autorizacion_reemplazada.sql" {
 		t.Fatalf("Down: %+v, %v", r, err)

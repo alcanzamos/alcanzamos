@@ -38,7 +38,7 @@ func TestMigracion0005SiembraYQuitaLaTransmisionAEncargados(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, despues := range []string{"0007_autorizacion_reemplazada.sql", "0006_aviso_de_purga.sql"} { // las que van después
+	for _, despues := range []string{"0008_integridad_e_indices.sql", "0007_autorizacion_reemplazada.sql", "0006_aviso_de_purga.sql"} { // las que van después
 		if r, err := p.Down(ctx); err != nil || r.Source.Path != despues {
 			t.Fatalf("Down: %+v, %v; se esperaba %s", r, err, despues)
 		}
