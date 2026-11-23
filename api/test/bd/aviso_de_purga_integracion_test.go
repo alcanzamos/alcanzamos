@@ -68,8 +68,10 @@ func TestMigracion0006AgregaYQuitaElAvisoDePurga(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r, err := p.Down(ctx); err != nil || r.Source.Path != "0007_autorizacion_reemplazada.sql" { // la que va después
-		t.Fatalf("Down: %+v, %v", r, err)
+	for _, despues := range []string{"0008_integridad_e_indices.sql", "0007_autorizacion_reemplazada.sql"} { // las que van después
+		if r, err := p.Down(ctx); err != nil || r.Source.Path != despues {
+			t.Fatalf("Down: %+v, %v; se esperaba %s", r, err, despues)
+		}
 	}
 	r, err := p.Down(ctx) // revierte solo la 0006
 	if err != nil || r.Source.Path != "0006_aviso_de_purga.sql" {
