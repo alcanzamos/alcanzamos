@@ -87,7 +87,7 @@ describe('PN-08 · Ingresos del periodo, Android (E14-PPA 4.3, US-77)', () => {
     expect(screen.getAllByText('Transferencia')).toHaveLength(2);
     expect(screen.getByRole('button', { name: 'Registrar un ingreso' })).toBeOnTheScreen();
     expect(screen.queryByText('Confirmar todos')).not.toBeOnTheScreen();
-    // Sin el botón a PN-04 (L3 de la US-77, punto 4) ni «Registrar» fijo.
+    // Sin el botón a PN-04 (E14-PPA 1.6) ni «Registrar» fijo.
     expect(screen.queryByText('Prima, cesantías o intereses')).not.toBeOnTheScreen();
     expect(screen.queryByRole('button', { name: 'Registrar' })).not.toBeOnTheScreen();
   });

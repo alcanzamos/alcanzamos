@@ -105,7 +105,7 @@ const CifraGrande = ({
 
 // La tarjeta «Tu presupuesto este mes»: la de PN-06 con `normal` y la de PN-07 con un ingreso bajo o nulo (D-094, P-3).
 // Describe sin calificar: sin Atención, sin rojo y sin signo menos (RNF-017). «Llega después» y «Por confirmar» son dos
-// líneas, cada una solo con su total mayor que cero (L14 de la US-77).
+// líneas, cada una solo con su total mayor que cero (E14-PPA 1.7).
 function Resumen({ datos }: { datos: PresupuestoDelPeriodo }) {
   const r = datos.resumen;
   const asignado = BigInt(r.asignado_centavos);
@@ -187,7 +187,7 @@ function Resumen({ datos }: { datos: PresupuestoDelPeriodo }) {
 // el destino «Presupuesto», que cambia la tarjeta de resumen según el modo del API. Siempre el mes en curso (D-094).
 // Variante web: dos columnas, el resumen (5/12) y «Por categoría» (7/12); por debajo de 768 px, la columna de Android.
 // Desde 768 px, «Registrar» es el de la Navegación lateral (E14-SDD 5.13), con «Presupuesto» activo (E14-PPA 4.1,
-// variante web); por debajo, el botón de arriba del resumen. Sin «Para mirar con calma» (L3 de la US-77, punto 1).
+// variante web); por debajo, el botón de arriba del resumen. Sin «Para mirar con calma» (E14-PPA 1.6).
 export function Presupuesto() {
   const [estado, setEstado] = useState<Estado>({ fase: "cargando" });
   const [intento, setIntento] = useState(0);

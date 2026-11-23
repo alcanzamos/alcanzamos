@@ -375,7 +375,7 @@ test.describe("PN-62 · Elegir la contraseña nueva", () => {
 
 test.describe("PN-71 · Seguridad de la cuenta", () => {
   // E14-PCP 4.14, nota del 2026-11-08 (bug 260) y 4.16 T2 ter: la entrada provisional a PN-63 va arriba de «Cerrar
-  // sesión» y «Borrar mi cuenta» queda última, como en PN-66. «Presupuesto» (L3 de la US-77, punto 3) va justo después
+  // sesión» y «Borrar mi cuenta» queda última, como en PN-66. «Presupuesto» (E14-SDD 2.4) va justo después
   // de «Movimientos», también provisional. La entrada a PN-68 (D-195, US-67) va justo después de la de PN-63.
   test("«Cómo cuidamos tus datos» y «Política de tratamiento y consultas» arriba de «Cerrar sesión» y «Borrar mi cuenta» última, sin violaciones", async ({
     page,

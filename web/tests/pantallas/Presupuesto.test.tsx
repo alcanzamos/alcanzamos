@@ -230,7 +230,7 @@ describe("PN-06 · Presupuesto del periodo por categorías (E14-PPA 4.1)", () =>
     expect(screen.queryByText("Dejar el presupuesto en cero")).toBeNull();
   });
 
-  it("lleva la Navegación lateral (bug 233), con «Registrar» primario y «Presupuesto» activo (E14-PPA 4.1, variante web; L17 de la US-77, punto 2)", async () => {
+  it("lleva la Navegación lateral (bug 233), con «Registrar» primario y «Presupuesto» activo (E14-PPA 4.1, variante web; E14-SDD 2.4)", async () => {
     api([laura]);
     await abrir();
     const barra = within(screen.getByRole("navigation"));
@@ -320,7 +320,7 @@ describe("PN-06 · Presupuesto del periodo por categorías (E14-PPA 4.1)", () =>
     expect(screen.queryByText(/se suma cuando llegue/)).toBeNull();
   });
 
-  // L14 de la US-77, puntos 2 y 3: «Llega después» separa lo esperado de lo por confirmar; cada línea sale solo si su
+  // E14-PPA 1.7: «Llega después» separa lo esperado de lo por confirmar; cada línea sale solo si su
   // total es mayor que cero, y la frase de una sola fecha va por cada marca.
   const resumenCon = (
     llega: number,
@@ -519,7 +519,7 @@ describe("PN-07 · Presupuesto con ingreso bajo o nulo (E14-PPA 4.2)", () => {
     sinReproche();
   });
 
-  it("con ingreso nulo y el salario por confirmar: la línea «Por confirmar» y, debajo, la frase de la fecha (L14 y L17 de la US-77)", async () => {
+  it("con ingreso nulo y el salario por confirmar: la línea «Por confirmar» y, debajo, la frase de la fecha (E14-PPA 1.7 y L17 de la US-77)", async () => {
     api([
       {
         ...nulo(),

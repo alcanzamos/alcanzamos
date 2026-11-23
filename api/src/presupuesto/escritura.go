@@ -32,7 +32,7 @@ var ErrPeriodoConIngresoOPresupuesto = errors.New("el periodo tiene ingreso regi
 
 // ErrPresupuestoCompartido es el 409 `presupuesto_compartido`: la categoría ya tiene en el periodo un presupuesto
 // compartido con el hogar de la persona. La clave única de E13 (persona, periodo, categoría) no lleva `hogar_id`, así que
-// el propio chocaría con esa fila; «Poner» nunca la toca (D-201, opción A de L16 de la US-77).
+// el propio chocaría con esa fila; «Poner» nunca la toca (D-201 (4), opción A).
 var ErrPresupuestoCompartido = errors.New("la categoría tiene un presupuesto compartido con el hogar en el periodo")
 
 var idDePresupuesto = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)

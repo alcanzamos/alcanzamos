@@ -74,7 +74,7 @@ describe('PN-06 y PN-07 · Presupuesto, Android (E14-PPA 4.1 y 4.2, US-77)', () 
   });
   afterEach(() => jest.useRealTimers());
 
-  describe('la entrada desde PN-71 (L3 de la US-77, punto 3)', () => {
+  describe('la entrada desde PN-71 (E14-SDD 2.4)', () => {
     it('«Presupuesto» va justo después de «Movimientos» y abre PN-06 con la barra «Presupuesto de noviembre»', async () => {
       const pedidos = apiDelPresupuesto(respuestaJson);
       await render(<Navegacion />);
@@ -120,7 +120,7 @@ describe('PN-06 y PN-07 · Presupuesto, Android (E14-PPA 4.1 y 4.2, US-77)', () 
       ).toBeOnTheScreen();
       expect(screen.queryByText('Registrar un ingreso')).not.toBeOnTheScreen();
       expect(screen.queryByText('Dejar el presupuesto en cero')).not.toBeOnTheScreen();
-      // Sin «Para mirar con calma» ni la aclaración de la simulación (L3 de la US-77, puntos 1 y 2).
+      // Sin «Para mirar con calma» ni la aclaración de la simulación (E14-PPA 1.6).
       expect(screen.queryByText('Para mirar con calma')).not.toBeOnTheScreen();
     });
 
@@ -142,7 +142,7 @@ describe('PN-06 y PN-07 · Presupuesto, Android (E14-PPA 4.1 y 4.2, US-77)', () 
       expect(screen.getByText('Sin asignar cuenta lo que ya registraste.')).toBeOnTheScreen();
     });
 
-    // L14 de la US-77, puntos 2 y 3: «Llega después» separa lo esperado de lo por confirmar; cada línea sale solo si su
+    // E14-PPA 1.7: «Llega después» separa lo esperado de lo por confirmar; cada línea sale solo si su
     // total es mayor que cero, se lee en pesos (D-187) y la frase de una sola fecha va por cada marca.
     const conLoQueLlega = (llega: string, porConfirmar: string, fechas: PresupuestoDelPeriodo['llega_despues']) => ({
       ...laura,
@@ -481,7 +481,7 @@ describe('PN-06 y PN-07 · Presupuesto, Android (E14-PPA 4.1 y 4.2, US-77)', () 
       expect(screen.getByRole('button', { name: 'Dejar el presupuesto en cero' })).toBeOnTheScreen();
     });
 
-    it('ingreso nulo con el salario por confirmar: la línea «Por confirmar» lo muestra y lo lee en pesos (L14 de la US-77)', async () => {
+    it('ingreso nulo con el salario por confirmar: la línea «Por confirmar» lo muestra y lo lee en pesos (E14-PPA 1.7)', async () => {
       const conSalario = nulo();
       apiDelPresupuesto(respuestaJson, {
         presupuesto: {

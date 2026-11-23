@@ -55,7 +55,7 @@ type HojaAbierta = {
   periodo: string;
   categoriaId: number;
   presupuesto: CategoriaDelPresupuesto['presupuesto'];
-  /** El botón que la abrió: ahí vuelve el foco de TalkBack al cerrarla (L17 de la US-77, punto 3). */
+  /** El botón que la abrió: ahí vuelve el foco de TalkBack al cerrarla (E14-SDD 5.12). */
   abridor: RefObject<HostInstance | null>;
 };
 
@@ -94,7 +94,7 @@ export function FilaConValor({ etiqueta, centavos, grande = false }: { etiqueta:
 
 // La tarjeta «Tu presupuesto este mes»: la de PN-06 con `normal` y la de PN-07 con un ingreso bajo o nulo (D-094, P-3).
 // Describe sin calificar: sin Atención, sin rojo y sin signo menos (RNF-017). «Llega después» y «Por confirmar» son dos
-// líneas, cada una solo con su total mayor que cero y leída en pesos (L14 de la US-77, D-187). `refDelTitulo` es para
+// líneas, cada una solo con su total mayor que cero y leída en pesos (E14-PPA 1.7, D-187). `refDelTitulo` es para
 // llevar el foco de TalkBack a su título después de guardar (L17 de la US-77, punto 3).
 function Resumen({
   datos,
@@ -149,7 +149,7 @@ function Resumen({
 }
 
 // PN-06 · Presupuesto del periodo por categorías y PN-07 con un ingreso bajo o nulo (E14-PPA 4.1 y 4.2), variante
-// Android: una sola pantalla de la pila, apilada sobre PN-71 (su entrada provisional, L3 de la US-77, punto 3, hasta la
+// Android: una sola pantalla de la pila, apilada sobre PN-71 (su entrada provisional, E14-SDD 2.4, hasta la
 // navegación del ítem 290), que cambia la tarjeta de resumen según el modo del API. Siempre el mes en curso (D-094). La
 // barra dice «Presupuesto de noviembre» y su Atrás vuelve a PN-71. Con «Registrar» fijo abajo, como PN-01. Sin «Para
 // mirar con calma» (L3, punto 1). Al volver del formulario se pide el presupuesto otra vez.
@@ -399,7 +399,7 @@ function PorCategoria({ datos, alAbrir }: { datos: PresupuestoDelPeriodo; alAbri
 
 // Una fila de «Por categoría»: lo que dice es un solo elemento para TalkBack, con los montos en pesos, y sus botones de
 // texto de 48 dp van aparte, con el nombre de la categoría en su nombre accesible (D-094, SC-E21-13). Cada botón guarda su
-// referencia: la hoja que abre le devuelve el foco al cerrarse (L17 de la US-77, punto 3).
+// referencia: la hoja que abre le devuelve el foco al cerrarse (E14-SDD 5.12).
 function FilaDeCategoria({
   categoria: c,
   editable,

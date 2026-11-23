@@ -5,7 +5,7 @@ import { hoyEs14DeDiciembre, pantallas, type Pantalla } from "./pantallas";
 // Bug 233 (USA-008, S2): las pantallas web con sesión llevan la Navegación lateral web de E14-SDD 5.13, con
 // «Registrar» como acción principal arriba de los destinos (E14-MCO 4.2, punto 5). Desde 768 px; por debajo, el
 // diseño de Android, sin la barra. Solo los destinos que ya existen: hoy, Movimientos y Presupuesto (nota del 2026-11-10
-// de E14-SDD 5.13; L17 de la US-77, punto 2).
+// de E14-SDD 5.13, versión 2.4).
 const barra = (page: Page) => page.getByRole("navigation");
 const enlace = (page: Page, nombre: string) =>
   barra(page).getByRole("link", { name: nombre, exact: true });
