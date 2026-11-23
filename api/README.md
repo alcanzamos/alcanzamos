@@ -1062,7 +1062,7 @@ Pruebas: `test/bd/rol_test.go` (la lectura de `ROLES_DE_APLICACION`, sin Postgre
 | `migraciones/0005_transmision_a_encargados.sql` | `26428c5541ae9d2de12400101280c7e9acb271b73e3529387f1b2682befa3259` |
 | `migraciones/0006_aviso_de_purga.sql` | `7b4b52251afd2092a86b5eb47af459665db5d00103dc7bae9ba697d62b7094f0` |
 | `migraciones/0007_autorizacion_reemplazada.sql` | `18251cdf29dc42f7336517998e076666a2ee6d0b3f2072c7083adb2d6bdfde78` |
-| `migraciones/0008_integridad_e_indices.sql` | `f3a4869f12d2006cda1779aa9d7cbfbca6b102b5631ce0ec7a873d41eebaa698` |
+| `migraciones/0008_integridad_e_indices.sql` | `6ec4e2d134146667752af4a35b06bada14cf6af7355d7b30ea4340dc5085b328` |
 
 `test/migraciones/migraciones_test.go` compara el SHA-256 de cada archivo embebido con el de esta tabla. `TestMigracion0003AgregaYQuitaIngresoAnterior` comprueba que la columna (`timestamptz`) existe tras subir y no existe tras bajar solo esa migración (baja antes la `0007`, la `0006`, la `0005` y la `0004`, que van después). `TestMigracion0004CreaYQuitaPresupuestoEnCero` comprueba las columnas y las restricciones de `presupuesto_en_cero` (día 1, una por persona y mes, solo con perfil de adulta y el `CASCADE` al borrar la cuenta), que bajar solo esa migración la quita sin tocar `presupuesto` ni el catálogo, y que vuelve a subir.
 

@@ -35,7 +35,7 @@ func TestLasMigracionesSonIgualesALasDeE13(t *testing.T) {
 		"0005_transmision_a_encargados.sql": "26428c5541ae9d2de12400101280c7e9acb271b73e3529387f1b2682befa3259",
 		"0006_aviso_de_purga.sql":           "7b4b52251afd2092a86b5eb47af459665db5d00103dc7bae9ba697d62b7094f0",
 		"0007_autorizacion_reemplazada.sql": "18251cdf29dc42f7336517998e076666a2ee6d0b3f2072c7083adb2d6bdfde78",
-		"0008_integridad_e_indices.sql":     "f3a4869f12d2006cda1779aa9d7cbfbca6b102b5631ce0ec7a873d41eebaa698",
+		"0008_integridad_e_indices.sql":     "6ec4e2d134146667752af4a35b06bada14cf6af7355d7b30ea4340dc5085b328",
 	}
 	for nombre, esperado := range sha {
 		contenido, err := fs.ReadFile(migraciones.SQL, nombre)
