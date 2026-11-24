@@ -123,6 +123,20 @@ LEGITIMAS = [
 
 
 class FormasProhibidas(unittest.TestCase):
+    def test_nombres_con_s14_a_s99_tambien_fallan(self):
+        for texto, ruta in [
+            ("func TestS14Algo(t *testing.T) {}", "api/test/x_test.go"),
+            ("func TestS99Algo(t *testing.T) {}", "api/test/x_test.go"),
+            ("type fuenteS14 struct{}", "api/test/x_test.go"),
+        ]:
+            with self.subTest(texto=texto):
+                self.assertEqual(len(citas.revisar_texto(ruta, texto)), 1)
+
+    def test_archivos_s14_y_s99_tambien_fallan(self):
+        for ruta in ["api/test/bd/s14_algo_test.go", "web/tests/s99_algo.test.ts"]:
+            with self.subTest(ruta=ruta):
+                self.assertTrue(citas.revisar_nombre(ruta))
+
     def test_rechaza_todo_el_rango_suelto(self):
         for numero in range(1, 100):
             with self.subTest(numero=numero):

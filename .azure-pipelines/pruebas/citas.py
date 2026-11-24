@@ -49,7 +49,7 @@ PROPIOS = {".azure-pipelines/pruebas/citas.py", ".azure-pipelines/pruebas/citas_
 _L = r"(?<![\w./-])L\d{1,2}(?:\.\d{1,2})?(?![\w/-])(?!\.\d)(?!\s*,?\s*-?\d)"
 # Una spec «S<n>»: una «S» seguida de 1 o 2 cifras (de S1 a S99, nunca S0), suelta: sin otro carácter de palabra pegado a ningún
 # lado (`S256`, `TLS12`, `US60`, `Standard_S2` no cuentan). Una sola regla, sin mirar el contexto.
-_NUM = r"(?:1[0-3]|[1-9])"   # solo para los nombres de pruebas y de archivos de abajo
+_NUM = r"[1-9]\d?"   # S1 a S99, como la regla de S suelta; para los nombres de pruebas y de archivos de abajo
 _S = r"(?<!\w)S[1-9]\d?(?!\w)"
 
 # Usos legítimos de una `S<n>` suelta: (ruta, texto exacto de la línea sin espacios en los extremos, razón). Una línea que cumple
