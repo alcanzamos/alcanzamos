@@ -123,6 +123,13 @@ LEGITIMAS = [
 
 
 class FormasProhibidas(unittest.TestCase):
+    def test_rechaza_todo_el_rango_suelto(self):
+        for numero in range(1, 100):
+            with self.subTest(numero=numero):
+                self.assertEqual(
+                    len(citas.revisar_texto("web/x.md", f"(S{numero})")), 1
+                )
+
     def test_cada_forma_prohibida_se_rechaza_con_su_nombre(self):
         for prefijo, textos in PROHIBIDAS.items():
             for texto in textos:
