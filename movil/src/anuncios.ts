@@ -4,7 +4,7 @@ import type { ControlDePantalla } from './componentes/Pantalla';
 import { cuandoNoHayHojas, hayHojaVisible } from './estadoDeHojas';
 
 // Lo que TalkBack dice sin que la persona mueva el foco (ACC-004, bugs 225 y 226), sin funciones obsoletas de Android
-// (L2 y L6 del dueño, sesión 4 del celular):
+// (bitácora de I06 de E18 v0.1, 5, sesión 4 del celular):
 // - Los avisos de estado pasan por la región viva de la pantalla o de la hoja (`RegionDeAnuncios`, en una vista que
 //   React Native no aplana). En el celular se oyeron después de lo que TalkBack dice al llegar a la pantalla.
 // - Los errores de un formulario no se anuncian: los dice el campo, que los lleva en su nombre, cuando el foco llega a

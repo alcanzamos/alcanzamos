@@ -1349,7 +1349,7 @@ func TestLaBaseRechazaUnEnlaceOUnaContrasenaMalFormados(t *testing.T) {
 	}
 }
 
-// «Descargar mis datos», presupuestos.csv (D-180; E13 v1.18): los presupuestos propios de la persona (sin
+// «Descargar mis datos», presupuestos.csv (D-180; E13 v1.18, 4.2 y 8): los presupuestos propios de la persona (sin
 // hogar) con el nombre de la categoría y los meses que dejó en cero (categoría vacía, monto 0), por periodo y, en cada mes,
 // la marca primero y las categorías en el orden del catálogo. Nada de otra persona ni lo compartido con el hogar; sin ids.
 // Una cuenta que ya no existe es ErrNoExiste.

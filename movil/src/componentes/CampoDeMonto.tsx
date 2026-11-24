@@ -6,7 +6,7 @@ import { textos } from '../textos/es.generated';
 import { CampoDeTexto } from './CampoDeTexto';
 
 // El campo «Monto» de Registrar, «Corregir» y «Cambiar el monto» (E14-PPN 3.1), con la opción A del dueño (ACC-004,
-// L6): TalkBack leía «$15.000» como «15 dólares cero cero cero» y «15.000» como «15, cero cero cero»; «15000» lo lee
+// bitácora de I06 de E18 v0.1, 5): TalkBack leía «$15.000» como «15 dólares cero cero cero» y «15.000» como «15, cero cero cero»; «15000» lo lee
 // «quince mil».
 // - Mientras se edita, el campo muestra el número sin «$» ni puntos («15000», «15000,50»); al salir, con puntos
 //   («15.000»). Lo que se escribe se muestra tal cual mientras se edita.

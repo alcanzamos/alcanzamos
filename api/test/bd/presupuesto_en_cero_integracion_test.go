@@ -40,7 +40,7 @@ func violacion(err error) string {
 	return "ninguna"
 }
 
-// 0004 (E13 v1.18): la marca «en cero» por persona adulta y mes. Tras subir, la tabla tiene sus columnas y sus
+// 0004 (E13 v1.18, 4.2): la marca «en cero» por persona adulta y mes. Tras subir, la tabla tiene sus columnas y sus
 // restricciones (día 1, solo adultos, una por persona y mes, y se va con la cuenta); bajar solo esa migración la quita sin
 // tocar `presupuesto` ni el catálogo, y vuelve a subir.
 func TestMigracion0004CreaYQuitaPresupuestoEnCero(t *testing.T) {

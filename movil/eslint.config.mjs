@@ -71,7 +71,7 @@ const textoSueltoEnJsx = [
   `${propiedadDeTexto} > JSXExpressionContainer > ${conCondicion} > ${cadenaOPlantilla}`,
 ].map((selector) => ({ selector, message: textoSuelto }));
 
-// ACC-004 (L2 y L6 del dueño): sin funciones obsoletas de accesibilidad. `announceForAccessibility` arma un
+// ACC-004 (bitácora de I06 de E18 v0.1, 5): sin funciones obsoletas de accesibilidad. `announceForAccessibility` arma un
 // `TYPE_ANNOUNCEMENT` con `AccessibilityEvent.obtain`, obsoleto desde la API 33, y `setAccessibilityFocus` está obsoleto
 // en Fabric. Los avisos van por la región viva (`src/anuncios.ts`) y el foco con `sendAccessibilityEvent`.
 const obsoleta = "Función obsoleta de Android (ACC-004): los avisos van por la región viva de src/anuncios.ts y el foco con sendAccessibilityEvent.";
