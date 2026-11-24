@@ -216,7 +216,7 @@ describe("PN-74 · Elige tu contraseña (/verificar?t=)", () => {
     });
   });
 
-  // D-192 (c) y S7: un enlace vencido, ya usado o reemplazado dice cómo pedir otro, no un error genérico.
+  // D-192 (c): un enlace vencido, ya usado o reemplazado dice cómo pedir otro, no un error genérico.
   describe("enlace vencido o ya usado (D-192)", () => {
     it.each([
       ["vencido (pasaron 24 horas)"],

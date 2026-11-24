@@ -24,7 +24,7 @@ type MovimientoExportado struct {
 }
 
 // PresupuestoExportado es una fila de presupuestos.csv: un presupuesto propio de una categoría en un mes o, con la categoría
-// vacía y el monto en cero, un mes que la persona dejó en cero («Dejar el presupuesto en cero», PN-07; L6 (5) de la US-77).
+// vacía y el monto en cero, un mes que la persona dejó en cero («Dejar el presupuesto en cero», PN-07, E14-PPA 4.2; E13 v1.18, 4.2 y 8).
 type PresupuestoExportado struct {
 	Periodo       string // AAAA-MM
 	Categoria     string // vacía en un mes dejado en cero

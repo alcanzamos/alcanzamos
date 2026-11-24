@@ -384,7 +384,7 @@ describe("PN-01 · Formulario de registro (E14-PPN 3.1, D-164)", () => {
       );
     });
 
-    // L3: el gasto de Navidad del 20 de diciembre, registrado el 2 de noviembre, se guarda con su fecha.
+    // E14-PPN v1.16, 3.1: el gasto de Navidad del 20 de diciembre, registrado el 2 de noviembre, se guarda con su fecha.
     it("una fecha futura sin repetición se acepta y se manda con su fecha", async () => {
       const pedidos = api();
       await abrir();

@@ -11,7 +11,7 @@ import {
   comparar,
 } from "../../../diseno/textos/usos.mjs";
 
-// S2 (D-160, E17-ECO 4.13): una clave usada que no existe falla (`tsc` ya lo hace; esta prueba lo repite sobre el
+// D-160, E17-ECO 4.13: una clave usada que no existe falla (`tsc` ya lo hace; esta prueba lo repite sobre el
 // código fuente) y una clave de comun o solo_web que nadie usa también falla. Como las hojas de la web son comun +
 // solo_web, una clave de comun que la web no usa falla aquí y una que móvil no usa falla en movil/tests/textos/claves:
 // comun exige uso en las dos apps; solo_web, en la web (diseno/textos/README.md).
@@ -30,7 +30,7 @@ const hojasWeb = hojasDeLaPlataforma(
 const analizar = (nombre: string, codigo: string, hojas: string[][]) =>
   analizarCon(ts, nombre, codigo, hojas);
 
-describe("claves de textos usadas en web/src (S2)", () => {
+describe("claves de textos usadas en web/src (D-160)", () => {
   const analisis = archivosDe(join(raiz, "src"))
     .filter((a) => a !== generado)
     .map((a) => analizar(relative(raiz, a), readFileSync(a, "utf8"), hojasWeb));

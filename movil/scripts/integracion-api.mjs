@@ -166,7 +166,7 @@ paso(
 );
 
 // 7. PN-64 con el API de verdad: el catálogo, los errores de «Autorizar» y la autorización, todo en la MISMA sesión
-// (S2, dueño 2026-10-24): autorizar no vuelve a iniciar sesión ni cambia el token.
+// (registro de iteraciones v0.28, Ejecución de I05, cierre de la US-49, dueño 2026-10-24): autorizar no vuelve a iniciar sesión ni cambia el token.
 const catalogo = await autorizaciones.obtenerCatalogo();
 paso(
   'catálogo: 200, versión 1.2 del 2026-11-17, modo completo y las cinco finalidades de una persona adulta, ninguna otorgada',
@@ -206,10 +206,10 @@ paso(
     otorgadas.cuerpo.finalidades.filter((f) => f.otorgada).map((f) => f.codigo).join() ===
       'cuenta_y_acceso,funciones_financieras,transmision_a_encargados,avisos',
 );
-// S2: la misma sesión, sin volver a entrar, ya ve PN-71 y es su primer ingreso.
+// La misma sesión, sin volver a entrar, ya ve PN-71 y es su primer ingreso.
 const seguridad = await acceso.ingresoAnterior();
 paso(
-  'S2: seguridad en la misma sesión: 200 y primer ingreso (ingreso_anterior null)',
+  'seguridad en la misma sesión: 200 y primer ingreso (ingreso_anterior null)',
   seguridad.ok && seguridad.cuerpo.ingreso_anterior === null,
   JSON.stringify(seguridad),
 );
@@ -406,7 +406,7 @@ paso(
   JSON.stringify(periodoMalo),
 );
 
-// S4: el arriendo del 15 de agosto, mensual, escrito hoy. Registra el 15 de agosto; las fechas de en medio son historia
+// D-164 (3): el arriendo del 15 de agosto, mensual, escrito hoy. Registra el 15 de agosto; las fechas de en medio son historia
 // (E15 5.2) y la próxima es el siguiente día 15. Solo un día 15 de hoy que no es la fecha escrita queda pendiente.
 const arriendo = await registro.guardarMovimiento({
   ...base,
@@ -434,7 +434,7 @@ paso(
   JSON.stringify(arriendo.cuerpo),
 );
 
-// L3: un regalo de diciembre sin repetición se guarda con su fecha futura y no queda pendiente.
+// E14-PPN v1.16, 3.1: un regalo de diciembre sin repetición se guarda con su fecha futura y no queda pendiente.
 const anioDeDiciembre = hoy < `${hoy.slice(0, 4)}-12-20` ? hoy.slice(0, 4) : String(Number(hoy.slice(0, 4)) + 1);
 const regalo = await registro.guardarMovimiento({
   ...base,
@@ -443,7 +443,7 @@ const regalo = await registro.guardarMovimiento({
   descripcion: 'Regalos de Navidad',
 });
 paso(
-  `un regalo del 20 de diciembre de ${anioDeDiciembre} sin repetición (L3): 201, se guarda con su fecha futura y no queda pendiente`,
+  `un regalo del 20 de diciembre de ${anioDeDiciembre} sin repetición (E14-PPN v1.16, 3.1): 201, se guarda con su fecha futura y no queda pendiente`,
   regalo.ok &&
     regalo.estado === 201 &&
     typeof regalo.cuerpo.movimiento_id === 'string' &&

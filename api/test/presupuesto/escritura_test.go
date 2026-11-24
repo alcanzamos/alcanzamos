@@ -171,7 +171,7 @@ func TestPonerValidaTodosLosCamposALaVez(t *testing.T) {
 }
 
 // Un campo fuera del contrato (`persona_id`, `hogar_id`) es `400`: la dueña es siempre la persona de la sesión y el
-// presupuesto es propio (L3: el hogar llega en I08).
+// presupuesto es propio (E12-DOO v1.26, 5.4: el hogar llega en I08).
 func TestPonerConUnCampoFueraDelContratoEs400(t *testing.T) {
 	for _, extra := range []string{`,"persona_id":"` + idAjeno + `"`, `,"hogar_id":"` + idAjeno + `"`} {
 		repo := nuevoRepoDeEscritura()
@@ -318,7 +318,7 @@ func TestElMesEnCursoEsElDeColombia(t *testing.T) {
 	}
 }
 
-// «Dejar el presupuesto en cero» (PN-07, E14-PPA 4.2, CU-10 2a; L6 (5) de la US-77): `204` sin cuerpo y la marca del
+// «Dejar el presupuesto en cero» (PN-07, E14-PPA 4.2, CU-10 2a): `204` sin cuerpo y la marca del
 // mes en curso de la persona de la sesión. Otra vez, también `204`: es idempotente y la marca es una sola.
 func TestDejarEnCeroElMesEnCurso(t *testing.T) {
 	repo := nuevoRepoDeEscritura()

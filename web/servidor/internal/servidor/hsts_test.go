@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-// hstsEsperada es el valor exacto de Strict-Transport-Security, igual al del API (infra-d205 T20).
+// hstsEsperada es el valor exacto de Strict-Transport-Security, igual al del API (E11-INF v0.20, 2.16).
 const hstsEsperada = "max-age=31536000; includeSubDomains"
 
 // Todas las comprobaciones leen rr.Result().Header: las cabeceras ya confirmadas con el código de estado, no las que

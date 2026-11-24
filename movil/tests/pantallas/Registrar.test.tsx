@@ -197,7 +197,7 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
       expect([fecha.getFullYear(), fecha.getMonth(), fecha.getDate()]).toEqual([2026, 9, 26]);
     });
 
-    it('una fecha elegida se muestra en palabras y se manda tal cual; una futura sin repetición se acepta (L3)', async () => {
+    it('una fecha elegida se muestra en palabras y se manda tal cual; una futura sin repetición se acepta (E14-PPN v1.16, 3.1)', async () => {
       const pedidos = api();
       await abrir();
       await fireEvent.press(screen.getByRole('button', { name: 'Fecha, Hoy' }));
@@ -515,7 +515,7 @@ describe('PN-01 · Formulario de registro, Android (E14-PPN 3.1, D-164)', () => 
       expect(avisoDeVuelta(navegacion).titulo).toBe('Listo, registramos tu gasto de $1.200.000.');
     });
 
-    // S4 (D-164, D-165): el arriendo del 15 de agosto, mensual, escrito el 26 de octubre.
+    // D-164 (3), D-165: el arriendo del 15 de agosto, mensual, escrito el 26 de octubre.
     it('el arriendo del 15 de agosto, mensual: el POST lleva la fecha 2026-08-15 y la repetición', async () => {
       const pedidos = api(() =>
         respuestaJson(201, { movimiento_id: 'm1', recurrente_id: 'r1', proximas: ['2026-11-15'], pendientes: [] }),

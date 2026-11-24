@@ -310,7 +310,7 @@ func TestElModoSigueDP3(t *testing.T) {
 	}
 }
 
-// «Dejar el presupuesto en cero» (E14-PPA 4.2, CU-10 2a; L6 (5) de la US-77): `en_cero` es true solo si la persona dejó
+// «Dejar el presupuesto en cero» (E14-PPA 4.2, CU-10 2a): `en_cero` es true solo si la persona dejó
 // el periodo en cero y sigue en cero, sin ingreso registrado ni nada asignado. Cuando llega un ingreso o asigna algo, la
 // marca sigue guardada pero `en_cero` es false y la pantalla vuelve a su modo («Cuando llegue un ingreso, puedes
 // repartirlo.»); si el periodo vuelve a quedar en cero, vuelve a ser true. Sin la marca, false.
@@ -396,7 +396,7 @@ func idsDeLasFilas(t *testing.T, cuerpo string) []int {
 	return ids
 }
 
-// E14-PPA 4.1, PN-06 fila 4, y L6 (6) de la US-77: con el mismo gasto, por nombre y no por id. Con presupuesto y sin
+// E14-PPA v1.10, 4.1, PN-06 fila 4: con el mismo gasto, por nombre y no por id. Con presupuesto y sin
 // gasto, Educación (12) va antes que Transporte (8); sin presupuesto y con el mismo gasto, Hogar y mantenimiento (6) va
 // antes que Servicios públicos (5). Las que tienen presupuesto siguen primero.
 func TestPN06ConElMismoGastoOrdenaPorNombre(t *testing.T) {
@@ -427,7 +427,7 @@ func TestPN06ElNombreSeComparaComoEnEspanol(t *testing.T) {
 }
 
 // Un mes pasado no se edita (D-094) y su fecha pendiente que ya llegó está por confirmar: va en `llega_despues` con su
-// marca y suma en `por_confirmar_centavos`, no en `llega_despues_centavos` (L14 (1) de la US-77). Una fecha omitida («No
+// marca y suma en `por_confirmar_centavos`, no en `llega_despues_centavos` (E14-PPA v1.7, 4.1). Una fecha omitida («No
 // pasó», D-092) y una repetición detenida no llegan después; un gasto recurrente tampoco.
 func TestPN06MesPasadoNoEditableConLoPorConfirmarYSinLoOmitido(t *testing.T) {
 	detenida := dia("2026-10-20")
@@ -459,7 +459,7 @@ func tresIngresosMensuales() []registro.Recurrente {
 		mensual(recAyudas, ayudas, 25000000, "2026-10-25")}
 }
 
-// L14 (1) de la US-77: «Llega después» trae lo esperado y lo por confirmar, cada fecha con su marca, y un total para cada
+// E14-PPA v1.7, 4.1: «Llega después» trae lo esperado y lo por confirmar, cada fecha con su marca, y un total para cada
 // uno. El 16 de noviembre: el 5 ya pasó y el 16 es hoy (por confirmar, $1.230.000) y el 25 todavía no llega (esperado,
 // $250.000). Ninguno cuenta en «Sin asignar», y el modo sigue siendo el de lo registrado (D-094, P-1 y P-3): sin ingreso
 // registrado es PN-07 «ingreso nulo», aunque el salario esté por confirmar.

@@ -14,7 +14,7 @@ const BASE = 'http://api.prueba:18090';
 const RUTA = '/api/v1/repeticiones/proximas';
 const SIN_CONEXION = 'Sin conexión. Intenta de nuevo cuando vuelvas a tener internet.';
 
-// Cada prueba dice qué contesta el endpoint de L6 para cada pedido (las fechas las calcula el API, D-165) y recibe la
+// Cada prueba dice qué contesta el endpoint de las próximas fechas (D-165 (1)) para cada pedido (las fechas las calcula el API, D-165) y recibe la
 // lista de rutas que se pidieron. `fetch` se reemplaza por una función que decide por pedido, para poder dejar uno en el aire.
 type Contestar = (ruta: string) => Response | Promise<Response>;
 function simularApi(contestar: Contestar) {
@@ -43,7 +43,7 @@ function Borrador() {
 
 describe('PN-03 · Se repite (E14-PRR 4.3)', () => {
   beforeEach(() => {
-    // Hoy es el 26 de octubre de 2026 (el día de la prueba del dueño, S4).
+    // Hoy es el 26 de octubre de 2026 (el día del caso del arriendo, D-164 (3)).
     fijarHoy(new Date('2026-10-26T15:00:00Z'));
     process.env.EXPO_PUBLIC_URL_API = BASE;
     almacen.guardado.clear();
@@ -115,7 +115,7 @@ describe('PN-03 · Se repite (E14-PRR 4.3)', () => {
     expect(rutas).toEqual([`${RUTA}?periodicidad=quincenal&inicio=2026-10-01`]);
   });
 
-  // S4 (D-164, D-165): el arriendo del 15 de agosto escrito el 26 de octubre; septiembre y octubre son historia.
+  // D-164 (3), D-165: el arriendo del 15 de agosto escrito el 26 de octubre; septiembre y octubre son historia.
   it('el arriendo del 15 de agosto, mensual, escrito el 26 de octubre: muestra lo que manda el API, el 15 de noviembre, el 15 de diciembre y el 15 de enero', async () => {
     cambiarBorrador({ fecha: '2026-08-15' });
     const rutas = responderCon(['2026-11-15', '2026-12-15', '2027-01-15']);

@@ -272,7 +272,7 @@ func TestBorrarConHogarYMenoresDePuntaAPunta(t *testing.T) {
 				t.Errorf("movimientos.csv: %d líneas, se esperaban el encabezado y 2 movimientos de Laura:\n%s", n, crudo)
 			}
 		}
-		// El presupuesto de Laura y el mes que dejó en cero (L6 (5) de la US-77); nada de Camilo.
+		// El presupuesto de Laura y el mes que dejó en cero (E14-PPA 4.2); nada de Camilo.
 		if quiere := "\xEF\xBB\xBFperiodo,categoria,monto_asignado_en_pesos\n2026-09,,0.00\n2026-10,Transporte,40000.00\n"; f.Name == "presupuestos.csv" && string(crudo) != quiere {
 			t.Errorf("presupuestos.csv:\n%q\nse esperaba\n%q", crudo, quiere)
 		}

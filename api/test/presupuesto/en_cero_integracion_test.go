@@ -24,7 +24,7 @@ func (s *servidorDePrueba) fotoDeEnCero() string {
 	return foto
 }
 
-// «Dejar el presupuesto en cero» de punta a punta (PN-07, E14-PPA 4.2, CU-10 2a; L6 (5) de la US-77). Laura no tiene
+// «Dejar el presupuesto en cero» de punta a punta (PN-07, E14-PPA 4.2, CU-10 2a). Laura no tiene
 // ingresos en noviembre y nada asignado (un gasto no cuenta): deja el mes en cero (`204`) y al recargar `en_cero` es true,
 // así que el botón no vuelve. Otra vez es `204` y la marca sigue siendo una. La marca de Laura no es de Ana. Cuando llega un
 // ingreso, la marca queda guardada pero `en_cero` es false (modo normal: «Cuando llegue un ingreso, puedes repartirlo.») y
@@ -113,7 +113,7 @@ func TestIntegracionDejarEnCeroConAlgoAsignadoYEnOtroMes(t *testing.T) {
 	}
 }
 
-// L14 (cambio 2) de la US-77: lo asignado de «Dejar el presupuesto en cero» es solo lo propio (`hogar_id` nulo), la misma
+// E12-DOO v1.26, 5.4: lo asignado de «Dejar el presupuesto en cero» es solo lo propio (`hogar_id` nulo), la misma
 // suma de `resumen.asignado_centavos`. Con solo presupuestos compartidos con el hogar el mes sigue en cero: `204`, la marca
 // se guarda y `en_cero` es true. Los compartidos no cambian.
 func TestIntegracionDejarEnCeroConSoloPresupuestosCompartidos(t *testing.T) {

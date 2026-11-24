@@ -599,7 +599,7 @@ func TestBorrarCuentasSinConfirmarPideLosPlazos(t *testing.T) {
 	}
 }
 
-// B1 (L6): «Reenviar el correo» solo actúa sobre cuentas que existen: con un correo sin cuenta no crea nada ni envía nada.
+// D-172 (4): «Reenviar el correo» solo actúa sobre cuentas que existen: con un correo sin cuenta no crea nada ni envía nada.
 func TestReenviarVerificacionNoCreaCuentas(t *testing.T) {
 	e := nuevoEntorno()
 	if err := e.svc.ReenviarVerificacion(context.Background(), "nadie@ejemplo.test", "203.0.113.7"); err != nil {
@@ -616,7 +616,7 @@ func TestReenviarVerificacionNoCreaCuentas(t *testing.T) {
 	}
 }
 
-// A1 (L6): el límite de 3 correos por hora a la dirección se mira ANTES de revocar el enlace: el cuarto pedido no deja a
+// E12-DOO v1.27, 5.8 (D-224): el límite de 3 correos por hora a la dirección se mira ANTES de revocar el enlace: el cuarto pedido no deja a
 // la persona sin un enlace que sirva.
 func TestElCuartoPedidoDeLaHoraNoRevocaElEnlaceVigente(t *testing.T) {
 	e := nuevoEntorno()
@@ -636,7 +636,7 @@ func TestElCuartoPedidoDeLaHoraNoRevocaElEnlaceVigente(t *testing.T) {
 	}
 }
 
-// A2 (L6): tope global del trabajo en segundo plano. Con el cupo lleno, el pedido responde igual, el trabajo se descarta y
+// E12-DOO v1.27, 5.8 (D-224): tope global del trabajo en segundo plano. Con el cupo lleno, el pedido responde igual, el trabajo se descarta y
 // se registra sin correo ni token; al liberarse, vuelve a aceptar.
 func TestElTrabajoEnSegundoPlanoTieneUnTopeGlobal(t *testing.T) {
 	e := nuevoEntorno()

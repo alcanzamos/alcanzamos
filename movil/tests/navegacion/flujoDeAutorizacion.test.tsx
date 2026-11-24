@@ -49,9 +49,9 @@ describe('flujo de autorizar los datos en Android (PN-60 → PN-63 → PN-64 →
     almacen.guardado.clear();
   });
 
-  // S2 (dueño, 2026-10-24): «una persona nueva que entra, autoriza en PN-64 y llega a PN-71 en la misma sesión debe ver
+  // Registro de iteraciones v0.28, Ejecución de I05, cierre de la US-49 (dueño, 2026-10-24): «una persona nueva que entra, autoriza en PN-64 y llega a PN-71 en la misma sesión debe ver
   // «Este es tu primer ingreso.».»
-  it('S2: una persona nueva que entra, autoriza en PN-64 y llega a PN-71 en la misma sesión ve «Este es tu primer ingreso.»', async () => {
+  it('una persona nueva que entra, autoriza en PN-64 y llega a PN-71 en la misma sesión ve «Este es tu primer ingreso.»', async () => {
     const { pedidos } = instalarFetchFalso(
       respuestaJson(200, { estado: 'ok', token: 'tk-unico' }),
       respuestaJson(403, { error: 'autorizacion_pendiente' }),

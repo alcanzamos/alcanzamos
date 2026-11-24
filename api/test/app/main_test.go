@@ -115,7 +115,7 @@ func TestTareasSinConfiguracionDeCorreoFalla(t *testing.T) {
 	}
 }
 
-// L24 (a): en Azure ni el API ni los trabajos (`tareas`, `migrar`) aceptan BASE_DE_DATOS_URL. Fallan antes de abrir ninguna
+// E11-INF v0.20, 2.2: en Azure ni el API ni los trabajos (`tareas`, `migrar`) aceptan BASE_DE_DATOS_URL. Fallan antes de abrir ninguna
 // conexión (el puerto 1 no tiene a nadie) y sin repetir la URL, que lleva la contraseña.
 func TestEnAzureNingunSubcomandoAceptaLaURLDeLaBase(t *testing.T) {
 	for _, subcomando := range []string{"api", "tareas", "migrar"} {

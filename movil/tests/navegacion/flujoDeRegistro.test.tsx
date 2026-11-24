@@ -37,7 +37,7 @@ const PN71 = 'Este es tu primer ingreso.';
 const PN01 = 'Todavía no hay movimientos';
 
 type Pedido = { metodo: string; ruta: string; cuerpo?: string };
-// El API de mentira con las cuatro rutas del flujo; `proximas` es lo que contesta el endpoint de L6.
+// El API de mentira con las cuatro rutas del flujo; `proximas` es lo que contesta el endpoint de las próximas fechas (D-165 (1)).
 function api(proximas: string[] = []) {
   const pedidos: Pedido[] = [];
   global.fetch = jest.fn(async (url: string, init: RequestInit) => {
@@ -135,7 +135,7 @@ describe('flujo de registrar un movimiento en Android (PN-71 → PN-01 → Regis
     expect(screen.getByText(PN01)).toBeOnTheScreen();
     expect(guardados(pedidos)).toEqual([]);
     expect(screen.queryByText(/Listo, registramos/)).not.toBeOnTheScreen();
-    // Al volver a entrar, el formulario empieza vacío (D-164, L10).
+    // Al volver a entrar, el formulario empieza vacío (D-164; E14-PPN v1.16, 3.1).
     await fireEvent.press(screen.getByRole('button', { name: 'Registrar' }));
     expect((await buscarCampo('Monto en pesos')).props.value).toBe('');
   });
@@ -181,7 +181,7 @@ describe('flujo de registrar un movimiento en Android (PN-71 → PN-01 → Regis
     expect(campo('Monto en pesos').props.value).toBe('45.000');
   });
 
-  // S4 (D-164, D-165): el arriendo del 15 de agosto escrito el 26 de octubre, de punta a punta con la pila de verdad.
+  // D-164 (3), D-165: el arriendo del 15 de agosto escrito el 26 de octubre, de punta a punta con la pila de verdad.
   it('el arriendo del 15 de agosto, mensual: PN-03 muestra lo que manda el API y se guarda con la fecha y la repetición', async () => {
     const pedidos = api(['2026-11-15', '2026-12-15', '2027-01-15']);
     await abrirElFormulario();

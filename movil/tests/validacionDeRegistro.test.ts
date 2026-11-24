@@ -38,7 +38,7 @@ describe('validación del formulario (E14-PPN 3.1, errores de campo)', () => {
     });
   });
 
-  it('una fecha futura sin repetición es válida (L3)', () => {
+  it('una fecha futura sin repetición es válida (E14-PPN v1.16, 3.1)', () => {
     const r = validarRegistro({ ...lleno, fecha: '2026-12-20' }, 16, hoy);
     expect(r).toMatchObject({ solicitud: { fecha: '2026-12-20' } });
   });

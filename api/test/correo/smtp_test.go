@@ -483,7 +483,7 @@ func TestLosCuatroCorreosSonPalabraPorPalabraLosDeE14(t *testing.T) {
 // 18 de noviembre de 2026, 14:30 UTC = 9:30 a. m. en Colombia.
 var momentoDelBorradoDePrueba = time.Date(2026, time.November, 18, 14, 30, 0, 0, time.UTC)
 
-// El aviso de antes de la purga (ítem 294, S5): el asunto y el cuerpo del dueño, palabra por palabra; la fecha es el momento
+// El aviso de antes de la purga (ítem 294, D-203 (8)): el asunto y el cuerpo del dueño, palabra por palabra; la fecha es el momento
 // del borrado en palabras y en hora de Colombia (D-090); el enlace es URL_PUBLICA + /entrar; y después va el pie de siempre.
 func TestMensajeDelAvisoDePurga(t *testing.T) {
 	crudo := mensajeEnviado(t, func(s *correo.SMTP) error {
@@ -543,7 +543,7 @@ func TestEnviarAvisoDePurgaPorSMTP(t *testing.T) {
 }
 
 // Un servidor que acepta la conexión y no dice nada: con un contexto corto, el envío falla en ese plazo y no antes de
-// tiempo (S4: la tarea manda el aviso con las filas bloqueadas y no puede quedarse esperando).
+// tiempo (D-203 (7): la tarea manda el aviso con las filas bloqueadas y no puede quedarse esperando).
 func TestEnviarAvisoDePurgaConUnServidorQueNoResponde(t *testing.T) {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

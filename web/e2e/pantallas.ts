@@ -4,7 +4,7 @@ import { catalogoCompleto, catalogoLimitado } from "./datosDeAutorizacion";
 import { apiDeIngresos, apiDePresupuesto, casos } from "./datosDePresupuesto";
 
 // Todas las pantallas de la web, cada una con su API simulado: las recorren la prueba sin desplazamiento horizontal
-// (S13) y la de la Navegación lateral (bug 233).
+// (E14-MCO 4.2, punto 5) y la de la Navegación lateral (bug 233).
 
 // Hoy es el 14 de diciembre de 2026: las fechas de «Por confirmar» ya llegaron (E14-PRR 2.8).
 export async function hoyEs14DeDiciembre(page: Page) {

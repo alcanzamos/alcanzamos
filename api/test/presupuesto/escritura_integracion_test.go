@@ -40,7 +40,7 @@ func presupuestoDe(t *testing.T, r respuesta) presupuesto.Presupuesto {
 
 // CU-09 de punta a punta: poner (201), poner otra vez la misma categoría (200, la misma fila, E13), corregir el error de
 // tecleo de E14-PPA 2.2 ($400.000 por $40.000) y quitar (204), que no toca ningún gasto. El presupuesto es propio: con
-// `persona_id` y sin `hogar_id` (L3), de tipo gasto y del día 1 del mes.
+// `persona_id` y sin `hogar_id` (E12-DOO v1.26, 5.4), de tipo gasto y del día 1 del mes.
 func TestIntegracionPonerCorregirYQuitar(t *testing.T) {
 	formas(t, func(t *testing.T, android bool) {
 		s := nuevoServidor(t)
@@ -159,7 +159,7 @@ func TestIntegracionOtroMesYLoAjeno(t *testing.T) {
 	}
 }
 
-// L14 (cambio 2) de la US-77: la escritura, como la lectura, solo toca los presupuestos propios (`hogar_id` nulo). Uno
+// E12-DOO v1.26, 5.4: la escritura, como la lectura, solo toca los presupuestos propios (`hogar_id` nulo). Uno
 // compartido con el hogar, aunque lo haya puesto la misma persona y sea del mes en curso, no se corrige ni se quita
 // (`404 no_encontrado`, el mismo de uno ajeno) y el repositorio no lo lee (Obtener), ni lo corrige ni lo quita aunque el
 // servicio no lo hubiera comprobado antes. Una categoría oculta que solo tiene un presupuesto compartido no vale para
@@ -250,7 +250,7 @@ func TestIntegracionPonerConUnPresupuestoCompartidoEs409(t *testing.T) {
 	}
 }
 
-// S7: la comprobación va dentro de la misma escritura, sin carrera entre comprobar y escribir. Una transacción siembra el
+// La comprobación va dentro de la misma escritura, sin carrera entre comprobar y escribir. Una transacción siembra el
 // presupuesto compartido y no confirma; «Poner» de la misma categoría y mes queda esperando en el índice único; la
 // transacción confirma y «Poner» responde ErrPresupuestoCompartido sin tocar la fila. Un «comprobar y después escribir»
 // no habría visto la fila sin confirmar y la habría pisado al chocar.

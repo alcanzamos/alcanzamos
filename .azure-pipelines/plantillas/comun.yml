@@ -1,4 +1,4 @@
-# Trabajo de `comun`: secretos (gitleaks, solo los commits del PR), título del PR (commitlint) y prueba de los filtros y del control único.
+# Trabajo de `comun`: secretos (gitleaks, solo los commits del PR), título del PR (commitlint) y prueba de los filtros y del control único (y de que el código no cite notas internas, pruebas/citas.py).
 # Lo usan comun.yml y la etapa comun del control único (control.yml, D-177): los pasos
 # viven una sola vez. Qué hace cada paso y cuándo corre el pipeline: en comun.yml y en el README de esta carpeta.
 jobs:
@@ -99,7 +99,7 @@ jobs:
         displayName: El título del PR sigue Conventional Commits (commitlint)
 
       - script: python3 -I -B .azure-pipelines/pruebas/filtros.py
-        displayName: Cada carpeta dispara solo sus pipelines y sus etapas del control único
+        displayName: Cada carpeta dispara solo sus pipelines y sus etapas del control único, y el código no cita notas internas ni ids de tarea
 
       # La imagen de gitleaks, fijada por digest ($(GITLEAKS_IMAGEN)), no se quita en cada corrida: no guarda nada de la corrida
       # y la vieja se quita en el mantenimiento mensual (M3, D-213). El contenedor de `docker run --rm` se borra solo al terminar.

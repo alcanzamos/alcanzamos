@@ -8,7 +8,7 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/src/servidor"
 )
 
-// HSTS y la CSP llegan en las cabeceras ya enviadas, también en un 204, una redirección y http.Error (T20).
+// HSTS y la CSP llegan en las cabeceras ya enviadas, también en un 204, una redirección y http.Error (E11-INF v0.20, 2.16).
 func TestHSTSEnCabecerasConfirmadas(t *testing.T) {
 	casos := []struct {
 		nombre string

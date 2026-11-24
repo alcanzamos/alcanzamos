@@ -315,7 +315,7 @@ describe('PN-01 · Movimientos, Android (E14-PRR 4.1)', () => {
   });
 
   describe('«Registrar» y el Atrás', () => {
-    it('«Registrar» está siempre a la vista, abre el formulario vacío (D-164, L10) y su Atrás vuelve con el filtro', async () => {
+    it('«Registrar» está siempre a la vista, abre el formulario vacío (D-164; E14-PPN v1.16, 3.1) y su Atrás vuelve con el filtro', async () => {
       const pedidos = conLista(listado({ movimientos: [gastoDeAyer], categorias: [] }));
       cambiarBorrador({ monto: '45.000', periodicidad: 'mensual' });
       let monto = '';

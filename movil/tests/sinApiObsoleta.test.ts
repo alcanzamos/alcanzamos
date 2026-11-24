@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-// ACC-004 (L2 y L6 del dueño, 2026-11-08): sin funciones obsoletas de Android. `announceForAccessibility` (y su variante
+// ACC-004 (bitácora de I06 de E18 v0.1, 5, 2026-11-08): sin funciones obsoletas de Android. `announceForAccessibility` (y su variante
 // con opciones) arma un `TYPE_ANNOUNCEMENT` con `AccessibilityEvent.obtain`, obsoleto desde la API 33;
 // `setAccessibilityFocus` está obsoleto en Fabric. Los avisos van por la región viva y el foco con
 // `sendAccessibilityEvent`. ESLint también lo revisa (`no-restricted-properties`); esta prueba cubre cualquier forma de

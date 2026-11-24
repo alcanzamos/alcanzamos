@@ -2,7 +2,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-// E17-ECO 4.5 y S4 sobre las hojas CSS (ESLint solo mira TypeScript). tokens.css se excluye: es la fuente de las medidas.
+// E17-ECO 4.5 y D-123 sobre las hojas CSS (ESLint solo mira TypeScript). tokens.css se excluye: es la fuente de las medidas.
 const aqui = new URL("../../src/estilos/", import.meta.url);
 const hojas = readdirSync(aqui)
   .filter((nombre) => nombre.endsWith(".css") && nombre !== "tokens.css")

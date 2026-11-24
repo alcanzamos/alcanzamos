@@ -134,8 +134,8 @@ func cuerpo(extra string) string {
 	return `{"tipo":"gasto","monto_centavos":65000000,"fecha":"2026-10-26","categoria_id":4,"medio":"efectivo"` + extra + `}`
 }
 
-// S4 (dueño, D-164): el arriendo del 15 de agosto, mensual, escrito el 26 de octubre.
-func TestS4ElArriendoDelQuinceDeAgostoRegistraAgostoYLasIntermediasSonHistoria(t *testing.T) {
+// D-164 (3): el arriendo del 15 de agosto, mensual, escrito el 26 de octubre.
+func TestElArriendoDelQuinceDeAgostoRegistraAgostoYLasIntermediasSonHistoria(t *testing.T) {
 	repo := &repoFalso{}
 	codigo, resp, _ := llamar(api(t, repo, hoy), "POST", "/api/v1/movimientos",
 		`{"tipo":"gasto","monto_centavos":65000000,"fecha":"2026-08-15","categoria_id":4,"medio":"transferencia","descripcion":"Arriendo","repeticion":{"periodicidad":"mensual"}}`)
@@ -390,7 +390,7 @@ func proximas(t *testing.T, ahora, periodicidad, inicio string) (int, string, ht
 	return llamar(api(t, &repoFalso{}, ahora), "GET", rutaProximas+"?periodicidad="+periodicidad+"&inicio="+inicio, "")
 }
 
-// L6 (US-51): las tres próximas fechas de PN-03 salen del API (D-165), con `fechas.Proximas`, y no guardan nada.
+// Las tres próximas fechas de PN-03 salen del API (D-165 (1)), con `fechas.Proximas`, y no guardan nada.
 func TestProximasDelArriendoDelQuinceDeAgosto(t *testing.T) {
 	repo := &repoFalso{}
 	codigo, resp, cab := llamar(api(t, repo, hoy), "GET", rutaProximas+"?periodicidad=mensual&inicio=2026-08-15", "")

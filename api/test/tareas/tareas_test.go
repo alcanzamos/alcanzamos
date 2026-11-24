@@ -114,7 +114,7 @@ func TestEjecutar(t *testing.T) {
 	}
 }
 
-// Ítem 294, L14 (4): el orden es la purga, la limpieza de sesiones y enlaces y, al final, los avisos. La limpieza nunca
+// Ítem 294, D-203 (17): el orden es la purga, la limpieza de sesiones y enlaces y, al final, los avisos. La limpieza nunca
 // espera al correo: cuando el primer envío empieza (y se queda esperando al servidor), la purga y la limpieza ya terminaron.
 func TestLaLimpiezaTerminaAntesDeQueEmpieceCualquierEnvio(t *testing.T) {
 	f := &tareasFalsas{}
@@ -153,7 +153,7 @@ func TestLaLimpiezaTerminaAntesDeQueEmpieceCualquierEnvio(t *testing.T) {
 	}
 }
 
-// Ítem 294, L10 y L14: un pánico de una tarea (un nil sin armar, por ejemplo) no tira el proceso ni salta las demás: queda
+// Ítem 294, E12-DOO v1.25, 5.11 y D-203 (17): un pánico de una tarea (un nil sin armar, por ejemplo) no tira el proceso ni salta las demás: queda
 // como error de esa tarea, con su nombre y una línea ERROR, y las otras corren.
 func TestUnPanicoDeUnaTareaNoSaltaLasDemas(t *testing.T) {
 	reloj := &relojtest.Fijo{T: time.Date(2026, 10, 22, 6, 0, 0, 0, time.UTC)}

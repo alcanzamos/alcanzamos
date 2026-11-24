@@ -5,7 +5,7 @@ import { CampoDeMonto } from '../../src/componentes/CampoDeMonto';
 import { leerMonto } from '../../src/dinero';
 import { campo } from '../ayudas/campos';
 
-// El campo de monto de Registrar, «Corregir» y «Cambiar el monto» (ACC-004, opción A del dueño, L6): TalkBack leía
+// El campo de monto de Registrar, «Corregir» y «Cambiar el monto» (ACC-004, opción A del dueño, bitácora de I06 de E18 v0.1, 5): TalkBack leía
 // «$15.000» como «15 dólares cero cero cero» y «15000» como «quince mil».
 function ConEstado({ inicial, error, avisar }: { inicial: string; error?: string; avisar?: (valor: string) => void }) {
   const [valor, setValor] = useState(inicial);

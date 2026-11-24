@@ -1,4 +1,4 @@
-// Conversión de tokens para la web (US-57, S1). Se ejecuta con `npm run tokens` desde web/.
+// Conversión de tokens para la web (US-57, D-130). Se ejecuta con `npm run tokens` desde web/.
 // Reutiliza la lectura y el aplanado de conjuntos de la configuración de React Native, que queda intacta.
 // Genera variables CSS con los tokens semánticos y de componente; la paleta primitiva (`paleta.*`) no se emite,
 // así que las hojas de estilo no pueden usarla (E17-ECO 4.5).

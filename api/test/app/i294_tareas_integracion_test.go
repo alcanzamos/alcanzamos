@@ -11,7 +11,7 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/test/pgtest"
 )
 
-// S1/S2: exercise the production task compositor, not a separately wired service.
+// E12-DOO v1.25, 5.11: exercise the production task compositor, not a separately wired service.
 func TestI294TareasEnviaYRegistraElAviso(t *testing.T) {
 	pool := pgtest.Nueva(t)
 	ctx := context.Background()

@@ -70,7 +70,7 @@ func (p *Presupuestos) Presupuesto(ctx context.Context, persona string, mes time
 	adulta, categorias, err := p.leer(ctx, persona, func(tx pgx.Tx) error {
 		var err error
 		// Solo los propios (`hogar_id` nulo), como la escritura y la descarga: los compartidos con el hogar no se mezclan
-		// (L12 (2) de la US-77).
+		// (E12-DOO v1.26, 5.4).
 		if d.Presupuestos, err = filasDe(ctx, tx, "los presupuestos", func(f pgx.CollectableRow) (presupuesto.Guardado, error) {
 			g := presupuesto.Guardado{Periodo: mes}
 			return g, f.Scan(&g.ID, &g.CategoriaID, &g.Monto)

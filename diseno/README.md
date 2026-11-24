@@ -12,7 +12,7 @@ Tokens de diseño (JSON en formato W3C) y textos de la interfaz, compartidos por
 - SHA-256 (E14 y esta copia, idénticos, verificados el 2026-10-22): `2fd6eb16f89cf789c62f3c041afffd1981ea3b0f74f8446e323d8ea445bbbc39`.
 - Formato: conjuntos de Tokens Studio en la raíz (`base/color`, `base/tipografia`, `base/dimension`, `modo/claro`), más `$themes` y `$metadata`.
 
-## Conversión para React Native (US-45, S1)
+## Conversión para React Native (US-45)
 
 [`style-dictionary.config.mjs`](style-dictionary.config.mjs) con Style Dictionary 5.7.1 (fijado en `movil/package.json`). Desde `movil/`:
 
@@ -28,7 +28,7 @@ Genera `movil/src/tokens/tokens.generated.ts` (no se edita a mano) con un solo o
 - Tipos sin conversión: **ninguno** en este archivo. Si aparece uno nuevo, el generador lo omite y lo lista en la segunda línea del archivo generado.
 - Solo hay modo claro; el modo oscuro, cuando exista, es un conjunto más en `$metadata.tokenSetOrder`.
 
-## Conversión para la web (US-57, S1)
+## Conversión para la web (US-57, D-130)
 
 [`style-dictionary.web.config.mjs`](style-dictionary.web.config.mjs) con el mismo Style Dictionary 5.7.1 (fijado en `web/package.json`). Desde `web/`:
 

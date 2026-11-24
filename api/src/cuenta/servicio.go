@@ -30,14 +30,14 @@ const (
 	// LimiteSinAviso: si a los 14 días de creada el aviso todavía no salió, la cuenta del caso 2 se borra igual y la tarea
 	// deja un error en el registro (D-203).
 	LimiteSinAviso = 14 * 24 * time.Hour
-	// PlazoDeEnvioConFilasBloqueadas es el tiempo de espera del envío del aviso (D-203, S4). El aviso se manda con la fila
+	// PlazoDeEnvioConFilasBloqueadas es el tiempo de espera del envío del aviso (D-203 (7)). El aviso se manda con la fila
 	// de la persona y la de su perfil bloqueadas (`FOR UPDATE`), para que dos pasadas de la tarea no lo manden dos veces ni
 	// se mande a quien está autorizando; un servidor de correo que no responde las dejaría bloqueadas, y con ellas a esa
 	// persona (iniciar sesión, autorizar, borrar la cuenta). Son 10 segundos: de sobra para el diálogo SMTP de un servidor
 	// sano (conectar, STARTTLS, un mensaje de texto plano) y mucho menos que los 30 s del adaptador, que son para un envío
 	// que no tiene nada bloqueado. Si se cumple, el envío falla, no se registra y se reintenta en la pasada siguiente.
 	PlazoDeEnvioConFilasBloqueadas = 10 * time.Second
-	// PresupuestoDeLosAvisos es el tiempo total de la tarea de los avisos (ítem 294, L14). El trabajo programado corre en
+	// PresupuestoDeLosAvisos es el tiempo total de la tarea de los avisos (ítem 294, D-203 (18)). El trabajo programado corre en
 	// el trabajo `caj-tareas` de Azure (infra/azure/aplicacion.tf), que con `replica_timeout_in_seconds = 300` mata el
 	// proceso a los 5 minutos. Con el servidor de correo caído, cada aviso gasta sus 10 s (PlazoDeEnvioConFilasBloqueadas):
 	// unas 30 cuentas pendientes llegan a ese tope y Azure mataría el proceso a mitad de un envío, con la corrida en
@@ -235,7 +235,7 @@ var ErrDependenciaFaltante = errors.New("cuenta: falta una dependencia")
 
 // NuevoServicio arma el servicio con sus puertos. Todos son obligatorios, también para quien solo usa una parte (las
 // tareas usan la purga y el aviso, no el hash ni los límites): una dependencia que falta se descubre aquí, al armar, y no
-// a mitad de una corrida con un nil pointer (ítem 294, L10). El error es ErrDependenciaFaltante y nombra todas las que faltan.
+// a mitad de una corrida con un nil pointer (ítem 294, E12-DOO v1.25, 5.11). El error es ErrDependenciaFaltante y nombra todas las que faltan.
 func NuevoServicio(d Dependencias) (*Servicio, error) {
 	var faltan []string
 	for _, p := range []struct {
@@ -418,7 +418,7 @@ func (s *Servicio) VerificarYElegirContrasena(ctx context.Context, token, contra
 //
 // No manda ningún correo: el aviso es otra tarea (AvisarAntesDeLaPurga) que el ejecutor corre después de la purga y de la
 // limpieza de sesiones y enlaces, para que una cuenta que ya pasó el límite de 14 días se borre sin que un aviso de última
-// hora la deje 48 horas más y para que la limpieza nunca espere al correo (E12 EjecutorDeTareas, L14).
+// hora la deje 48 horas más y para que la limpieza nunca espere al correo (E12-DOO v1.25, 5.11; D-203 (17)).
 //
 // Es idempotente: una cuenta ya borrada no vuelve a aparecer.
 func (s *Servicio) BorrarCuentasSinConfirmar(ctx context.Context, ahora time.Time) (int, error) {
@@ -438,20 +438,20 @@ func (s *Servicio) BorrarCuentasSinConfirmar(ctx context.Context, ahora time.Tim
 	return res.Borradas, nil
 }
 
-// AvisarAntesDeLaPurga es la tarea que manda el aviso a las cuentas del caso 2 que llevan 5 días o más sin aviso (D-203,
-// S5). Devuelve cuántas quedaron avisadas. El correo dice el momento real del borrado, el que llegue más tarde entre
+// AvisarAntesDeLaPurga es la tarea que manda el aviso a las cuentas del caso 2 que llevan 5 días o más sin aviso (D-203 (8)).
+// Devuelve cuántas quedaron avisadas. El correo dice el momento real del borrado, el que llegue más tarde entre
 // creada_en + 7 días y el aviso + 48 horas, y el aviso que se registra es la hora leída justo antes de enviar ese correo,
 // por cada cuenta (no la del inicio de la corrida, que la purga o unos envíos lentos dejan atrás): así la purga siempre
 // espera 48 horas o más desde el correo real. El envío lleva un plazo corto (PlazoDeEnvioConFilasBloqueadas) porque se
 // hace con las filas bloqueadas. Si falla, no se registra nada y queda un aviso en el registro, con el id de la cuenta y no
 // con el correo: la corrida siguiente lo reintenta.
 //
-// **Tiene un tiempo total** (PresupuestoDeLosAvisos, 2 minutos; L14): al cumplirse deja de enviar, no registra nada de lo
+// **Tiene un tiempo total** (PresupuestoDeLosAvisos, 2 minutos; D-203 (18)): al cumplirse deja de enviar, no registra nada de lo
 // que no salió, y las cuentas que faltan quedan para la corrida siguiente con un WARN que dice cuántas son (sin correos).
 // Agotar el tiempo no es una falla de la tarea; una cancelación del proceso, sí.
 //
 // **No pasa por el límite de 3 correos por hora a la dirección** (D-140 (2), D-172 (7)) y tampoco suma a su contador
-// (L5 del dueño, D-203): el aviso lo manda la tarea, no la persona, y es la única advertencia antes de borrar la cuenta. Por
+// (D-203 (12)): el aviso lo manda la tarea, no la persona, y es la única advertencia antes de borrar la cuenta. Por
 // eso este camino no llama a `Limitador.PermitirCorreo`, ni antes ni después de enviar.
 func (s *Servicio) AvisarAntesDeLaPurga(ctx context.Context, ahora time.Time) (int, error) {
 	plazo := s.d.PlazoDeEnvioConFilasBloqueadas

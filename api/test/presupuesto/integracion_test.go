@@ -314,7 +314,7 @@ func llegaDespuesLeido(v vistaLeida) string {
 	return strings.Join(partes, " ")
 }
 
-// L14 (1) de la US-77 de punta a punta: «Llega después» trae lo esperado y lo por confirmar, cada fecha con su marca, y un
+// E14-PPA v1.7, 4.1, de punta a punta: «Llega después» trae lo esperado y lo por confirmar, cada fecha con su marca, y un
 // total para cada uno. El 2 de noviembre Laura registra tres ingresos de octubre con repetición mensual: Ventas el 5
 // ($30.000), Salario el 16 ($1.200.000) y Ayudas el 25 ($250.000). En noviembre no registra ninguno: es PN-07 «ingreso
 // nulo», también con el salario vencido sin confirmar, que se ve en `por_confirmar_centavos`. El 16: el 5 y el 16 por
@@ -455,7 +455,7 @@ func (s *servidorDePrueba) nuevoHogar(persona string) string {
 	return hogarID
 }
 
-// L12 (2) de la US-77: PN-06 lee solo los presupuestos propios (`hogar_id` nulo), como la escritura y la descarga. Los
+// E12-DOO v1.26, 5.4: PN-06 lee solo los presupuestos propios (`hogar_id` nulo), como la escritura y la descarga. Los
 // compartidos con el hogar, aunque los haya puesto la misma persona, no son filas ni suman en lo asignado: Alimentación
 // sale sin presupuesto (con su gasto) y Educación, sin gasto, no sale.
 func TestIntegracionPN06SoloLosPresupuestosPropios(t *testing.T) {
@@ -479,7 +479,7 @@ func TestIntegracionPN06SoloLosPresupuestosPropios(t *testing.T) {
 	}
 }
 
-// E14-PPA 4.1, PN-06 fila 4 (L6 (6) de la US-77), con los nombres del catálogo de la base: con el mismo gasto, por nombre
+// E14-PPA v1.10, 4.1, PN-06 fila 4, con los nombres del catálogo de la base: con el mismo gasto, por nombre
 // y no por id. Educación (12) antes que Transporte (8), con presupuesto y sin gasto; Hogar y mantenimiento (6) antes que
 // Servicios públicos (5), sin presupuesto y con el mismo gasto.
 func TestIntegracionConElMismoGastoPorNombre(t *testing.T) {

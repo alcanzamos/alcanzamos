@@ -61,8 +61,8 @@ export type Rutas = {
    */
   ConfirmarTodos: { pendientes: { pendientes: FechaPorConfirmar[] }; periodoDeIngresos?: string };
   /**
-   * PN-06 y PN-07 · Presupuesto (E14-PPA 4.1 y 4.2), destino de la entrada provisional «Presupuesto» de PN-71 (L3 de la
-   * US-77, punto 3). `aviso` es el mensaje de estado de después de guardar: solo vive en la memoria, nunca se guarda.
+   * PN-06 y PN-07 · Presupuesto (E14-PPA 4.1 y 4.2), destino de la entrada provisional «Presupuesto» de PN-71 (E14-SDD v2.4).
+   * `aviso` es el mensaje de estado de después de guardar: solo vive en la memoria, nunca se guarda.
    */
   PresupuestoDelMes: { aviso?: DatosDeAviso } | undefined;
   /**

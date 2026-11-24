@@ -39,7 +39,7 @@ type entornoDeAviso struct {
 	// limitadorDeTareas es el de los servicios de las pruebas de la tarea: aparte del que usa `svc` al sembrar, que ya
 	// gastó un correo de la dirección con el enlace de verificación.
 	limitadorDeTareas *seguridad.LimitadorDeIntentos
-	// relojDeTareas es la hora de la tarea: la que lee el servicio justo antes de enviar cada aviso (ítem 294, L10). `corrida`
+	// relojDeTareas es la hora de la tarea: la que lee el servicio justo antes de enviar cada aviso (ítem 294, E12-DOO v1.25, 5.11). `corrida`
 	// la pone en la hora de la pasada; quien llama a la tarea directamente la pone antes, o queda en `ahora`.
 	relojDeTareas *relojtest.Fijo
 }
@@ -63,7 +63,7 @@ func (a *entornoDeAviso) servicioDeTareas(t *testing.T, c correo.Correo, plazo t
 }
 
 // corrida es una corrida del trabajo programado con `hoy` como la hora: la purga y después los avisos, en el orden del
-// ejecutor (L14 (4), la limpieza de sesiones y enlaces va en medio y no toca estas tablas). Devuelve cuántas cuentas borró.
+// ejecutor (D-203 (17), la limpieza de sesiones y enlaces va en medio y no toca estas tablas). Devuelve cuántas cuentas borró.
 func (a *entornoDeAviso) corrida(t *testing.T, hoy time.Time) int {
 	t.Helper()
 	a.relojDeTareas.T = hoy
@@ -121,7 +121,7 @@ func (a *entornoDeAviso) numeroDeAvisos() int {
 	return n
 }
 
-// S7 (1) y S3: sin aviso, la cuenta del caso 2 no se borra antes del día 14 y desde el día 14 sí, y queda un ERROR con el
+// D-203 (3): sin aviso, la cuenta del caso 2 no se borra antes del día 14 y desde el día 14 sí, y queda un ERROR con el
 // id de la cuenta y sin el correo. Con el servidor de correo caído el aviso nunca sale.
 func TestElCaso2SinAvisoNoSeBorraAntesDelDia14YDesdeElDia14Si(t *testing.T) {
 	a := nuevoEntornoDeAviso(t)
@@ -170,7 +170,7 @@ func TestElCaso2SinAvisoNoSeBorraAntesDelDia14YDesdeElDia14Si(t *testing.T) {
 	}
 }
 
-// S3 en un despliegue: una cuenta del caso 2 que ya pasó el día 14 al primer intento y sin aviso se borra, con el error,
+// D-203 (3) en un despliegue: una cuenta del caso 2 que ya pasó el día 14 al primer intento y sin aviso se borra, con el error,
 // aunque el servidor de correo esté sano: la purga va antes que el aviso, que ya no tiene a quién avisar.
 func TestUnaCuentaDelCaso2DeMasDe14DiasSinAvisoSeBorraConElError(t *testing.T) {
 	a := nuevoEntornoDeAviso(t)
@@ -227,7 +227,7 @@ func TestLaPurgaDelCaso2EsperaLasDosCondiciones(t *testing.T) {
 	}
 }
 
-// S7 (2): una cuenta que autoriza después del aviso deja de ser del caso 2 y no se borra, ni se le avisa otra vez. Cualquier
+// D-203 (5): una cuenta que autoriza después del aviso deja de ser del caso 2 y no se borra, ni se le avisa otra vez. Cualquier
 // autorización como titular, vigente o retirada, la saca del caso 2.
 func TestUnaCuentaQueAutorizaDespuesDelAvisoNoSeBorra(t *testing.T) {
 	for nombre, autorizar := range map[string]func(*testing.T, *entornoDeAviso, string){
@@ -271,7 +271,7 @@ func TestUnaCuentaQueAutorizaDespuesDelAvisoNoSeBorra(t *testing.T) {
 	}
 }
 
-// S7 (3): el caso 1 (el correo sin confirmar) nunca recibe el aviso y se borra a los 7 días, como hoy. Tampoco la que ya
+// D-203 (1): el caso 1 (el correo sin confirmar) nunca recibe el aviso y se borra a los 7 días, como hoy. Tampoco la que ya
 // autorizó algo, ni la que pasó de menor a adulta.
 func TestElCaso1NuncaRecibeElAviso(t *testing.T) {
 	ctx := context.Background()
@@ -329,7 +329,7 @@ func TestElAvisoNoSaleAntesDelDia5(t *testing.T) {
 	}
 }
 
-// S7 (4): sin autorizar, el aviso sale una sola vez aunque la tarea corra muchas veces: seguidas (cada 15 minutos) y a la vez.
+// D-203 (1): sin autorizar, el aviso sale una sola vez aunque la tarea corra muchas veces: seguidas (cada 15 minutos) y a la vez.
 func TestSinAutorizarElAvisoSaleUnaSolaVezAunqueLaTareaCorraMuchasVeces(t *testing.T) {
 	a := nuevoEntornoDeAviso(t)
 	id := a.sembrar(t, "una-vez@ejemplo.test", ahora, true)
@@ -380,7 +380,7 @@ func TestSinAutorizarElAvisoSaleUnaSolaVezAunqueLaTareaCorraMuchasVeces(t *testi
 	}
 }
 
-// S7 (5): la fecha del correo es la del borrado real: el aviso + 48 horas (que nunca es antes de creada_en + 7 días, porque
+// D-203 (8): la fecha del correo es la del borrado real: el aviso + 48 horas (que nunca es antes de creada_en + 7 días, porque
 // el aviso sale desde el día 5). La cuenta sigue 1 segundo antes y se borra en ese momento.
 func TestLaFechaDelCorreoEsLaDelBorradoReal(t *testing.T) {
 	for nombre, c := range map[string]struct{ edad, pasada time.Duration }{
@@ -417,7 +417,7 @@ func TestLaFechaDelCorreoEsLaDelBorradoReal(t *testing.T) {
 	}
 }
 
-// S2 (5): las cuentas que ya pasaron el día 5 al desplegar reciben el aviso en la primera pasada y se borran 48 horas
+// D-203 (6): las cuentas que ya pasaron el día 5 al desplegar reciben el aviso en la primera pasada y se borran 48 horas
 // después, no antes.
 func TestLasCuentasQueYaPasaronElDia5AlDesplegarReciebenElAvisoYSeBorran48HorasDespues(t *testing.T) {
 	a := nuevoEntornoDeAviso(t)
@@ -463,7 +463,7 @@ func TestLasCuentasQueYaPasaronElDia5AlDesplegarReciebenElAvisoYSeBorran48HorasD
 	}
 }
 
-// S2 (2): si el envío falla, no se registra nada, la tarea sigue, queda un aviso en el registro (sin el correo) y la pasada
+// D-203 (4): si el envío falla, no se registra nada, la tarea sigue, queda un aviso en el registro (sin el correo) y la pasada
 // siguiente lo reintenta; el envío de una cuenta que falla no impide el de las otras.
 func TestSiElEnvioFallaNoSeRegistraYSeReintentaEnLaPasadaSiguiente(t *testing.T) {
 	a := nuevoEntornoDeAviso(t)
@@ -499,7 +499,7 @@ func TestSiElEnvioFallaNoSeRegistraYSeReintentaEnLaPasadaSiguiente(t *testing.T)
 	}
 }
 
-// L5 (el dueño): el límite de 3 correos por hora a una dirección (D-172 (7)) no mira el aviso de la purga, ni este suma al
+// D-203 (12): el límite de 3 correos por hora a una dirección (D-172 (7)) no mira el aviso de la purga, ni este suma al
 // contador de la dirección (D-203). Con una cuenta de verdad: los pedidos de la persona son «Crear la cuenta» con su correo
 // ya verificado, que le manda el aviso de «alguien intentó crear una cuenta» (cuenta en el límite).
 func TestElAvisoDePurgaNoPasaPorElLimiteDeCorreosPorHoraNiSumaAlContador(t *testing.T) {
@@ -584,7 +584,7 @@ func (m *matoLaConexion) EnviarAvisoDePurga(ctx context.Context, destino string,
 	return nil
 }
 
-// S2 (6): si el correo sale y la escritura falla, no queda ningún aviso registrado y la pasada siguiente lo manda otra vez.
+// D-203 (4): si el correo sale y la escritura falla, no queda ningún aviso registrado y la pasada siguiente lo manda otra vez.
 func TestSiElCorreoSaleYLaEscrituraFallaLaPasadaSiguienteLoManda(t *testing.T) {
 	a := nuevoEntornoDeAviso(t)
 	id := a.sembrar(t, "escritura@ejemplo.test", ahora.Add(-6*dia), true)
@@ -745,7 +745,7 @@ func lineaDelPresupuesto(registro string) string {
 	return ""
 }
 
-// L14 (3): con el servidor de correo colgado y muchas cuentas pendientes, la tarea de los avisos se detiene al agotar su
+// D-203 (18): con el servidor de correo colgado y muchas cuentas pendientes, la tarea de los avisos se detiene al agotar su
 // tiempo total (aquí acortado: el presupuesto es una dependencia del servicio) y no con el plazo de cada envío ni con todas
 // las cuentas: no registra nada de lo que no salió, deja las filas libres, avisa con un WARN (con la cuenta de las que
 // faltan y sin ningún correo) y no es una falla. La corrida siguiente, con el servidor sano, sigue con todas.
@@ -813,7 +813,7 @@ func TestElPresupuestoDeLosAvisosCortaConElServidorColgado(t *testing.T) {
 	}
 }
 
-// L14 (3): lo que salió antes de agotarse el tiempo queda registrado y no se repite; el resto, y solo el resto, sigue en la
+// D-203 (18): lo que salió antes de agotarse el tiempo queda registrado y no se repite; el resto, y solo el resto, sigue en la
 // corrida siguiente.
 func TestElPresupuestoDeLosAvisosConservaLoYaEnviadoYSigueConElResto(t *testing.T) {
 	ctx := context.Background()
@@ -850,7 +850,7 @@ func TestElPresupuestoDeLosAvisosConservaLoYaEnviadoYSigueConElResto(t *testing.
 	}
 }
 
-// S4: el envío con las filas bloqueadas tiene un tiempo de espera corto. Un servidor de correo que acepta la conexión y
+// D-203 (7): el envío con las filas bloqueadas tiene un tiempo de espera corto. Un servidor de correo que acepta la conexión y
 // no responde hace fallar el envío dentro del plazo, no registra nada y deja las filas libres: otra transacción las puede
 // bloquear después. Mientras el envío espera, las filas sí están bloqueadas (la prueba no vale si no lo estuvieran).
 func TestUnServidorDeCorreoQueNoResponde(t *testing.T) {
@@ -943,7 +943,7 @@ func TestUnServidorDeCorreoQueNoResponde(t *testing.T) {
 	}
 }
 
-// S2 (4): la condición del caso 2 se vuelve a evaluar con la fila bloqueada, antes de enviar. Un otorgamiento en curso tiene
+// D-203 (5): la condición del caso 2 se vuelve a evaluar con la fila bloqueada, antes de enviar. Un otorgamiento en curso tiene
 // la fila de la persona y escribe en `autorizacion` (que no tiene llave a persona): la pasada elige a la cuenta, espera el
 // bloqueo y, al confirmarse el otorgamiento, ya no la avisa ni la marca.
 func TestElAvisoVuelveAEvaluarElCasoConLaFilaBloqueada(t *testing.T) {

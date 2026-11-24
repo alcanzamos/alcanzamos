@@ -312,7 +312,7 @@ func TestLaTareaBorraLaCuentaPendienteALosSieteDias(t *testing.T) {
 	}
 }
 
-// B1 (L6): «Reenviar el correo» no crea cuentas (se saltaría `mayor_de_edad`): con un correo sin cuenta responde 202 con el
+// D-172 (4): «Reenviar el correo» no crea cuentas (se saltaría `mayor_de_edad`): con un correo sin cuenta responde 202 con el
 // mismo cuerpo que con cuenta, no guarda ninguna fila y no manda ningún enlace.
 func TestReenviarConUnCorreoSinCuentaNoCreaNada(t *testing.T) {
 	e := nuevoEntornoDeAcceso(t)
@@ -336,7 +336,7 @@ func TestReenviarConUnCorreoSinCuentaNoCreaNada(t *testing.T) {
 	}
 }
 
-// A1 (L6): el cuarto pedido de la hora no revoca el enlace vigente (el límite se mira antes de tocar la base).
+// E12-DOO v1.27, 5.8 (D-224): el cuarto pedido de la hora no revoca el enlace vigente (el límite se mira antes de tocar la base).
 func TestElCuartoPedidoNoDejaSinEnlaceQueSirva(t *testing.T) {
 	e := nuevoEntornoDeAcceso(t)
 	for range 3 {
@@ -355,7 +355,7 @@ func TestElCuartoPedidoNoDejaSinEnlaceQueSirva(t *testing.T) {
 	}
 }
 
-// A3 (L6): completar la cuenta borra las sesiones previas de la persona, en la misma transacción.
+// E12-DOO v1.27, 5.8 (D-224): completar la cuenta borra las sesiones previas de la persona, en la misma transacción.
 func TestCompletarLaCuentaBorraLasSesionesPrevias(t *testing.T) {
 	e := nuevoEntornoDeAcceso(t)
 	e.crearPorAPI(t, "laura@ejemplo.test")

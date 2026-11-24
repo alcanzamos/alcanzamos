@@ -100,7 +100,7 @@ describe('Boton (E14-SDD 5.2)', () => {
     expect(screen.getByRole('button').props.accessibilityState).toEqual({ disabled: false, busy: true });
   });
 
-  // L8.2 (bug 303): `BotonDeTexto` tiene el mismo `ocupado` que `Boton` («Cerrar sesión» lo usa mientras manda el DELETE).
+  // E14-SDD v2.6, 5.2 (bug 303): `BotonDeTexto` tiene el mismo `ocupado` que `Boton` («Cerrar sesión» lo usa mientras manda el DELETE).
   it('BotonDeTexto ocupado: marcado como ocupado y habilitado para TalkBack, y se ve igual que deshabilitado', async () => {
     await render(
       <>

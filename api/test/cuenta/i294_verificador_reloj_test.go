@@ -20,7 +20,7 @@ func (c *correoQueAvanzaI294) EnviarAvisoDePurga(ctx context.Context, destino st
 	return err
 }
 
-// S1, S2, S5 y L9: se lee la hora por cuenta, no una vez al comenzar los avisos.
+// D-203 (1), (2), (8) y (19): se lee la hora por cuenta, no una vez al comenzar los avisos.
 func TestI294VerificadorHoraPorCadaEnvio(t *testing.T) {
 	e := nuevoEntorno()
 	e.repo.porAvisar = []cuenta.CuentaPorAvisar{

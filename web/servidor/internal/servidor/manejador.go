@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// politicaHSTS es el Strict-Transport-Security de todas las respuestas (infra-d205 T20): Cloudflare va «DNS only» y la
+// politicaHSTS es el Strict-Transport-Security de todas las respuestas (E11-INF v0.20, 2.16): Cloudflare va «DNS only» y la
 // entrada de Container Apps no la agrega, así que si ca-web no la manda, nadie la manda. Un año e includeSubDomains
 // (en app.alcanzamos.co cubre los nombres bajo .app.alcanzamos.co; no el dominio raíz ni api.alcanzamos.co). Sin
 // preload, a propósito: entrar en la lista de precarga casi no se deshace y es una decisión del dueño. Sale también
