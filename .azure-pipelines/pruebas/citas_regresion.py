@@ -14,6 +14,7 @@ citas = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(citas)
 
 # Formas que salieron del repositorio (la lista de citas del #147 y la tabla del #146), con su prefijo del nombre de la forma.
+S_SUELTA = "spec S: «S<n>» suelta"
 PROHIBIDAS = {
     "nota L: «L<n> de la US": [
         "Es el mismo cálculo que L3 de la US-77.",
@@ -41,7 +42,8 @@ PROHIBIDAS = {
         "(opción A, L6)",
         "// Ya era así antes de L17: sin hoja",
     ],
-    "spec S: «(S<n>)": [
+    # Toda S1 a S99 suelta, con las formas que salieron del repositorio y las que el dueño pidió rechazar (L22).
+    S_SUELTA: [
         "- **Claves de textos (S2).** `tests/textos/claves.test.ts`",
         "mismo token, sin volver a iniciar sesión (S2).",
         "Por pedido del dueño (S2), tampoco el chip «Tarjeta»",
@@ -56,8 +58,6 @@ PROHIBIDAS = {
         "(S2 de la US-67); hasta entonces",
         "(S2; lo prueba `e2e/autorizacion.spec.ts`",
         "(S3: marcadores {nombre})",
-    ],
-    "spec S: al empezar un comentario": [
         "// S4 (D-164): el arriendo del 15 de agosto",
         "// S5: {fecha} es el momento real del borrado",
         "// S1/S2: exercise the production task compositor",
@@ -66,18 +66,28 @@ PROHIBIDAS = {
         "    # S2 (dueño, 2026-10-24): una persona nueva",
         "// S5). Devuelve cuántas quedaron avisadas.",
         "// S1/S2/S5: a slow purge cannot shorten the 48 hours",
-    ],
-    "spec S: al empezar un título": [
         "«S2: una persona nueva que entra, autoriza en PN-64»",
         "it('S2: una persona nueva que entra', async () => {",
         "test(\"S2: una persona nueva\", async () => {",
+        "los criterios S1/S2 del plan",
+        "cubre S3 y S4 (D-160) en Android",
+        "// D-192 (c) y S7: un enlace vencido",
+        "E17-ECO 4.5 y S4 sobre las hojas CSS",
+        "la regla de S4 de la US-51",
+        "protege S11 de D-161: `comun` usa",
+        "hereda S2 de la US-67",
+        "cubre S1–S7 del plan", "(S1–S7)", "S1-S7", "la prueba S2–S13", "(S1-S13)",
+        ", S3)", "// D-203, S3).", "texto, S5) y más", "(D-203, S3)", "(S1.1)",
+        "- **Prueba de S2** (dueño, 2026-10-24)",
+        "Estos casos protegen S11: si alguien le agrega `paths`",
+        "Jest nombra las pruebas que fallan, US-59 S6, también con --silent",
+        "test(\"USA-003 S2: una persona nueva\")",
+        # El pedido del dueño (L22): sin mirar el contexto, tampoco el de un plan ni el de un producto.
+        "// Regla del plan: S4 de la US-51",
+        "El plan (S2) de la US-51 dice otra cosa",
+        "SKU S1", "// SKU (S1)", "nivel S1 de Azure", "Los planes S1/S2 están disponibles.", "Standard S1", "tiers S1 y S2",
+        "S99", "(S10)", "const nivel = \"S1: básico\"",
     ],
-    "spec S: «S<n>/S<n>»": ["los criterios S1/S2 del plan", "cubre S3 y S4 (D-160) en Android"],
-    "spec S: «… y S<n>»": ["// D-192 (c) y S7: un enlace vencido", "E17-ECO 4.5 y S4 sobre las hojas CSS"],
-    "spec S: «S<n> de la US": ["la regla de S4 de la US-51", "protege S11 de D-161: `comun` usa", "hereda S2 de la US-67"],
-    "spec S: rango": ["cubre S1–S7 del plan", "(S1–S7)", "S1-S7", "la prueba S2–S13", "(S1-S13)"],
-    "spec S: «, S<n>)»": [", S3)", "// D-203, S3).", "texto, S5) y más"],
-    "spec S: «(S<n>)»": ["(D-203, S3)", "(S1.1)"],
     "spec S en un identificador": [
         "func TestS13Algo(t *testing.T) {",
         "func TestS2LaPersonaNuevaAutorizaYVeSuPrimerIngreso(t *testing.T) {",
@@ -86,8 +96,6 @@ PROHIBIDAS = {
         "\t\t\treturn fuenteS13(func(context.Context) (string, error) {",
         "// del API, TestS2LaPersonaNueva, prueba el lado del servidor",
     ],
-    "spec S: «Prueba de S<n>": ["- **Prueba de S2** (dueño, 2026-10-24)", "Estos casos protegen S11: si alguien le agrega `paths`"],
-    "spec S: «US-<n> S<n>": ["Jest nombra las pruebas que fallan, US-59 S6, también con --silent", "test(\"USA-003 S2: una persona nueva\")"],
     "id de tarea: «(T<n>, web)": [
         "Propuesto en la US-77 (T3, web) y aprobado por el dueño",
         "Propuesto en la US-77 (T4, Android) y aprobado por el dueño",
@@ -99,25 +107,18 @@ PROHIBIDAS = {
     "plan de trabajo: «infra-d205»": ["# Imagen de ca-web (infra-d205 T13, E11-INF 2.16): el servidor", "(infra-d205 T20)."],
 }
 
-# Usos que no son citas y deben pasar.
+# Usos que no son citas y deben pasar. Una S suelta de S1 a S99 nunca pasa aquí: solo por una excepción (ExcepcionesDeS).
 LEGITIMAS = [
-    "SKU S0", "// SKU S1 de la base de datos", "sku: S256", "(SKU S0)", "El plan Standard usa el SKU S0 y no el S1.",
-    "sha256: S256 y S512", "min_version = TLS12", "tls.VersionTLS12", "TLS1.2", "var rutasDeUS60 = map[string]bool{}", "func TestIntegracionConUS60(t *testing.T) {",
-    "func TestSEG002ElAporteLlegaCompartido(t *testing.T) {", "func TestIntegracionConUS60(t *testing.T) {", "type fuenteDeTokensFalsa func(context.Context) (string, error)",
+    "SKU S0", "(SKU S0)", "// S0: básico", "S0", "(S0)", "sku: S256", "sha256: S256 y S512", "S256", "const nivel = \"S0: básico\"",
+    "min_version = TLS12", "tls.VersionTLS12", "TLS1.2", "var rutasDeUS60 = map[string]bool{}", "func TestIntegracionConUS60(t *testing.T) {", "US60",
+    "Standard_S2", "sku_name = \"Standard_S2\"", "Standard_S2 y Standard_S3", "TestSEG002ElAporteLlegaCompartido", "RS256 y ES256", "IS2 es otra cosa",
+    "type fuenteDeTokensFalsa func(context.Context) (string, error)", "Tests S 12 S", "S3bucket", "mS1", "S1a", "S_1", "S100",
     "M12 3 L12 12", 'd="M12 3 L12 12 L20.5 15"', '<path d="M0 0L12 12"/>', "d='M12,3 L12,12 L20.5,15'", "L12,12",
     "// E14-PCP 4.16 (T6, T11), palabra por palabra.", "Textos de avisos de E14-PCP 4.1, 4.2 y 4.16 (T6, T11)", "describe(\"MensajeDeEstado (E14-PCP 4.16 T11)\")",
     "429 dice T1", "errores de campo, 429 (T1), sin conexión (T10) y 5xx (T7)", "PN-59 sin la dirección (T3 y T4)", "los textos (T1 a T11)", "la otra entrada provisional de T2 ter",
     "{nombre: \"T1 dec\", f: rDec(e)}", "Hoy es el 26 de octubre de 2026 (D-164 (3))", "E14-PPA v1.9, 4.1; E14-SDD v2.5, 5.12", "D-203 (17) y (18)", "bug 303, E14-SDD v2.6, 5.2",
-    "Tests S 12 S", "versión 2.5, sección 5.12", "RS256 y ES256", "IS2 es otra cosa", "T12Z y 2026-11-24T12:00:00Z", "const x = `${hoy}T12:00:00Z`;",
-    "Intl.NumberFormat('es-CO') y L'Oréal", "CU-10 2a y 3", "S3 bucket", "la T",
-    # Un SKU o un nivel de producto no es una spec (verificador independiente): S0 nunca lo fue; S1 y siguientes, solo en su contexto.
-    "// SKU (S0)", "// SKU S0/S1", "// El SKU S0 y S1 son niveles de Azure.", 'const nivel = "S0: básico"',
-    "// SKU S1", "// SKU (S1)", "SKU (S1)", "SKU: S2 (Standard)", "// nivel S1 de Azure", "Los niveles S1 y S2 de Azure",
-    "El tier S3 es el más caro",
-    "SKU: (S1)", "sku (S1)", "nivel (S2)", "plan (S1)", "tiers S1 y S2", "Los planes S1/S2 están disponibles.",
-    "Sku S1", "SKU:S1", "Planes (S1/S2)", "PLAN S1", "// Tier: S2", "Standard S1", "SKU (S1, S2)", "Los niveles (S1, S2 y S3)",
-    "Standard_S2", "SKU S1–S3", "SKU S1-S3", "El SKU S1 y S2 son de pago", "sku_name = \"Standard_S2\"", "S0", "(S0)", "// S0: básico", "// S14 y S15 no existen en esta app",
-    'const nivel = "S1: básico"', "Los planes S1 y S2 son niveles de Azure",
+    "versión 2.5, sección 5.12", "T12Z y 2026-11-24T12:00:00Z", "const x = `${hoy}T12:00:00Z`;",
+    "Intl.NumberFormat('es-CO') y L'Oréal", "CU-10 2a y 3", "la T",
 ]
 
 
@@ -164,6 +165,61 @@ class UsosLegitimos(unittest.TestCase):
     def test_una_nota_L_partida_en_dos_lineas_se_rechaza_por_su_L(self):
         fallas = citas.revisar_texto("a.go", "// (L3 de\n// la US-77)")
         self.assertEqual([f.split(": ")[0] for f in fallas], ["a.go:1"])
+
+
+class ExcepcionesDeS(unittest.TestCase):
+    """Un uso legítimo de una `S<n>` suelta va en EXCEPCIONES (ruta, texto exacto de la línea, razón); una excepción que ya no se usa
+    hace fallar la revisión."""
+    LINEA = "El SKU S1 de la base de datos es de pago."
+    EXCEPCION = ("web/nota.md", LINEA, "S1 es el nivel de un producto, no una spec")
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.raiz = pathlib.Path(self.tmp.name)
+
+    def escribir(self, ruta, texto):
+        destino = self.raiz / ruta
+        destino.parent.mkdir(parents=True, exist_ok=True)
+        destino.write_text(texto, encoding="utf-8")
+
+    def test_sku_s1_falla_sin_excepcion_y_pasa_con_ella(self):
+        self.assertEqual(len(citas.revisar_texto("web/nota.md", self.LINEA, ())), 1)
+        usadas = set()
+        self.assertEqual(citas.revisar_texto("web/nota.md", self.LINEA + "\n", (self.EXCEPCION,), usadas), [])
+        self.assertEqual(usadas, {("web/nota.md", self.LINEA)})
+
+    def test_la_excepcion_vale_solo_para_su_ruta_y_su_texto_exacto(self):
+        for ruta, texto in [("api/nota.md", self.LINEA), ("web/nota.md", self.LINEA + " Más."), ("web/nota.md", "El sku S1 de la base de datos es de pago.")]:
+            with self.subTest(ruta=ruta, texto=texto):
+                self.assertEqual(len(citas.revisar_texto(ruta, texto, (self.EXCEPCION,))), 1)
+
+    def test_la_excepcion_no_tapa_otras_formas_de_la_misma_linea(self):
+        linea = "El SKU S1 de la base de datos es de pago (L3)."
+        fallas = citas.revisar_texto("web/nota.md", linea, (("web/nota.md", linea, "razón"),))
+        self.assertEqual(len(fallas), 1)
+        self.assertIn("nota L", fallas[0])
+
+    def test_una_excepcion_que_se_usa_deja_pasar_la_revision(self):
+        self.escribir("web/nota.md", f"uno\n  {self.LINEA}  \ndos\n")
+        self.assertEqual(citas.revisar(self.raiz, ["web/nota.md"], (self.EXCEPCION,)), [])
+
+    def test_una_excepcion_sin_uso_hace_fallar_la_revision(self):
+        self.escribir("web/nota.md", "una línea limpia\n")
+        fallas = citas.revisar(self.raiz, ["web/nota.md"], (self.EXCEPCION,))
+        self.assertEqual(len(fallas), 1)
+        self.assertIn("excepción sin uso", fallas[0])
+        self.assertIn(self.LINEA, fallas[0])
+
+    def test_una_excepcion_cuya_linea_ya_no_cumple_la_regla_esta_sin_uso(self):
+        # La línea sigue en el archivo, pero ya no trae una S de S1 a S99: la excepción sobra.
+        self.escribir("web/nota.md", "El SKU S0 de la base de datos es de pago.\n")
+        fallas = citas.revisar(self.raiz, ["web/nota.md"], (("web/nota.md", "El SKU S0 de la base de datos es de pago.", "razón"),))
+        self.assertEqual(len(fallas), 1)
+        self.assertIn("excepción sin uso", fallas[0])
+
+    def test_la_lista_del_arbol_esta_vacia(self):
+        self.assertEqual(citas.EXCEPCIONES, ())
 
 
 class QueArchivosSeRevisan(unittest.TestCase):
