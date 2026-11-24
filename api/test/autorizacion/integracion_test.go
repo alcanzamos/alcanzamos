@@ -208,9 +208,9 @@ func formas(t *testing.T, f func(t *testing.T, android bool)) {
 	t.Run("Android con token en el cuerpo", func(t *testing.T) { f(t, true) })
 }
 
-// Registro de iteraciones v0.28 (dueño, 2026-10-24): una persona nueva que entra, autoriza en PN-64 y llega a PN-71 en la misma sesión ve «Este es
+// Registro de iteraciones v0.28, Ejecución de I05, cierre de la US-49 (dueño, 2026-10-24): una persona nueva que entra, autoriza en PN-64 y llega a PN-71 en la misma sesión ve «Este es
 // tu primer ingreso.»: `ingreso_anterior` es null. Autorizar no reautentica, no rota el token y no toca la credencial.
-func TestS2LaPersonaNuevaAutorizaYVeSuPrimerIngresoEnLaMismaSesion(t *testing.T) {
+func TestLaPersonaNuevaAutorizaYVeSuPrimerIngresoEnLaMismaSesion(t *testing.T) {
 	formas(t, func(t *testing.T, android bool) {
 		s := nuevoServidor(t)
 		c, persona := s.nuevaCuentaVerificada("laura@ejemplo.test", android)

@@ -135,7 +135,7 @@ func cuerpo(extra string) string {
 }
 
 // D-164 (3): el arriendo del 15 de agosto, mensual, escrito el 26 de octubre.
-func TestS4ElArriendoDelQuinceDeAgostoRegistraAgostoYLasIntermediasSonHistoria(t *testing.T) {
+func TestElArriendoDelQuinceDeAgostoRegistraAgostoYLasIntermediasSonHistoria(t *testing.T) {
 	repo := &repoFalso{}
 	codigo, resp, _ := llamar(api(t, repo, hoy), "POST", "/api/v1/movimientos",
 		`{"tipo":"gasto","monto_centavos":65000000,"fecha":"2026-08-15","categoria_id":4,"medio":"transferencia","descripcion":"Arriendo","repeticion":{"periodicidad":"mensual"}}`)

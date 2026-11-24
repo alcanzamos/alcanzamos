@@ -244,7 +244,7 @@ const arriendo = `,"descripcion":"Arriendo","repeticion":{"periodicidad":"mensua
 // D-164 (3), «E15 como está»: hoy es el 26 de octubre de 2026 y la persona escribe el arriendo del 15 de agosto, mensual.
 // Se registra el 15 de agosto, enlazado a la repetición; el 15 de septiembre y el 15 de octubre son historia y no quedan
 // pendientes; las próximas son noviembre, diciembre y enero.
-func TestS4ElArriendoDelQuinceDeAgosto(t *testing.T) {
+func TestElArriendoDelQuinceDeAgostoDePuntaAPunta(t *testing.T) {
 	formas(t, func(t *testing.T, android bool) {
 		s := nuevoServidor(t)
 		c, persona := s.nuevaCuenta("laura@ejemplo.test", android, true)

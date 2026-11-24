@@ -166,7 +166,7 @@ paso(
 );
 
 // 7. PN-64 con el API de verdad: el catálogo, los errores de «Autorizar» y la autorización, todo en la MISMA sesión
-// (registro de iteraciones v0.28, dueño 2026-10-24): autorizar no vuelve a iniciar sesión ni cambia el token.
+// (registro de iteraciones v0.28, Ejecución de I05, cierre de la US-49, dueño 2026-10-24): autorizar no vuelve a iniciar sesión ni cambia el token.
 const catalogo = await autorizaciones.obtenerCatalogo();
 paso(
   'catálogo: 200, versión 1.2 del 2026-11-17, modo completo y las cinco finalidades de una persona adulta, ninguna otorgada',

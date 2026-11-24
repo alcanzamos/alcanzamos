@@ -13,13 +13,13 @@ import (
 
 // Pruebas de regresión de la verificación independiente del 2026-11-17 (US-79, D-204).
 
-type fuenteS13 func(context.Context) (string, error)
+type fuenteDeTokensFalsa func(context.Context) (string, error)
 
-func (f fuenteS13) Token(ctx context.Context) (string, error) {
+func (f fuenteDeTokensFalsa) Token(ctx context.Context) (string, error) {
 	return f(ctx)
 }
 
-func TestS13EntornoPGNoRebajaTLSNiConservaPassword(t *testing.T) {
+func TestEntornoPGNoRebajaTLSNiConservaPassword(t *testing.T) {
 	t.Setenv("PGPASSWORD", "password-ambiental")
 	t.Setenv("PGSSLMODE", "disable")
 	t.Setenv("PGPORT", "6543")
@@ -32,7 +32,7 @@ func TestS13EntornoPGNoRebajaTLSNiConservaPassword(t *testing.T) {
 	cfg, err := bd.ConfigurarPool(
 		entorno(entornoCompleto()),
 		func(string) (bd.FuenteDeTokens, error) {
-			return fuenteS13(func(context.Context) (string, error) {
+			return fuenteDeTokensFalsa(func(context.Context) (string, error) {
 				pedidos++
 				return tokenDePrueba, nil
 			}), nil
@@ -55,7 +55,7 @@ func TestS13EntornoPGNoRebajaTLSNiConservaPassword(t *testing.T) {
 	}
 }
 
-func TestS13CancelarConexionTerminaLaFuente(t *testing.T) {
+func TestCancelarLaConexionTerminaLaFuenteDeTokens(t *testing.T) {
 	iniciada := make(chan struct{})
 	terminada := make(chan error, 1)
 	liberar := make(chan struct{})
@@ -69,7 +69,7 @@ func TestS13CancelarConexionTerminaLaFuente(t *testing.T) {
 			ctx,
 			entorno(entornoCompleto()),
 			func(string) (bd.FuenteDeTokens, error) {
-				return fuenteS13(func(ctx context.Context) (string, error) {
+				return fuenteDeTokensFalsa(func(ctx context.Context) (string, error) {
 					close(iniciada)
 					select {
 					case <-ctx.Done():
@@ -111,12 +111,12 @@ func TestS13CancelarConexionTerminaLaFuente(t *testing.T) {
 	}
 }
 
-func TestS13ErrorDeFuenteNoExponePayloadRemoto(t *testing.T) {
+func TestErrorDeFuenteNoExponePayloadRemoto(t *testing.T) {
 	const secreto = "texto remoto que no debe salir"
 	cfg, err := bd.ConfigurarPool(
 		entorno(entornoCompleto()),
 		func(string) (bd.FuenteDeTokens, error) {
-			return fuenteS13(func(context.Context) (string, error) {
+			return fuenteDeTokensFalsa(func(context.Context) (string, error) {
 				return "", errors.New("respuesta del servidor: " + secreto)
 			}), nil
 		},

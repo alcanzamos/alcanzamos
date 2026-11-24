@@ -18,6 +18,11 @@ filtros de cada pipeline por carpeta, que cada caso de ESPERADO dé las mismas e
 la forma de `control.yml`: sin `paths`, cada etapa con su condición de cambio (salvo `comun`, que corre siempre, y
 la etapa final `control`, que corre solo si todas quedaron bien; si alguna falla o se cancela, la corrida queda en rojo).
 
+Sin citas a notas internas (D-223, D-224): `pruebas/citas.py` recorre los archivos de git de `api/`, `web/`, `movil/`, `diseno/` y
+`.azure-pipelines/` y falla si alguno cita una nota de un plan de trabajo (una nota `L<n>`, una spec `S<n>` en posición de cita) o un id
+de tarea (`la T<n>`, `(T<n>, web)`); las formas exactas, en `citas.py`; `pruebas/citas_regresion.py` prueba cada forma y los usos que no son citas (un SKU `S0`, `S256`,
+`TLS12`). Corre aquí, en `comun`, porque `comun` corre en todo PR sin filtro de ruta.
+
 Un pipeline programado (con `schedules:`) se acepta solo si está en PROGRAMADOS, y entonces no sigue D-183 sino su
 propia regla: `trigger: none`, `pr: none` y una sola programación diaria sobre `main` con `always: true` (sin eso Azure
 no la corre si `main` no cambió). No entra en la simulación de los filtros: no corre en ningún PR.
@@ -103,7 +108,7 @@ ESPERADO = {
     "web/servidor/internal/servidor/manejador_test.go": {"comun", "web", "api"},
     ".azure-pipelines/web.yml": {"comun", "web"},
     ".azure-pipelines/plantillas/web.yml": {"comun", "web"},
-    # Estos casos protegen D-161 (1): `comun` usa web/scripts/antiguedad*.mjs para commitlint y no filtra por ruta (corre con
+    # Estos casos protegen lo siguiente: `comun` usa web/scripts/antiguedad*.mjs para commitlint y no filtra por ruta (corre con
     # cualquier cambio), así que un cambio solo en esos scripts, hecho desde un PR de web, también lo corre. Si alguien le agrega
     # `paths` a `comun` sin esas rutas, estos casos fallan.
     "web/scripts/antiguedad.mjs": {"comun", "web"},
@@ -115,6 +120,8 @@ ESPERADO = {
     ".azure-pipelines/control.yml": {"comun"},
     ".azure-pipelines/pruebas/cambios.py": {"comun"},
     ".azure-pipelines/pruebas/filtros.py": {"comun"},
+    ".azure-pipelines/pruebas/citas.py": {"comun"},
+    ".azure-pipelines/pruebas/citas_regresion.py": {"comun"},
     ".azure-pipelines/pruebas/filtros_regresion.py": {"comun"},
     ".azure-pipelines/README.md": {"comun"},
     ".azure-pipelines/commitlint/package.json": {"comun"},
@@ -770,6 +777,26 @@ def revisar_regresion():
         return []
     print(salida.getvalue())
     return [f"filtros_regresion.py: {len(resultado.failures) + len(resultado.errors)} pruebas fallan"]
+
+
+def revisar_citas():
+    """Sin citas a notas internas ni ids de tarea (pruebas/citas.py) y las pruebas de esa revisión (pruebas/citas_regresion.py).
+    Devuelve la lista de fallas; muestra lo que fallan."""
+    ruta = CARPETA / "pruebas" / "citas_regresion.py"
+    if not (CARPETA / "pruebas" / "citas.py").is_file() or not ruta.is_file():
+        return ["faltan pruebas/citas.py o pruebas/citas_regresion.py"]
+    spec = importlib.util.spec_from_file_location("citas_regresion", ruta)
+    modulo = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(modulo)
+    fallas = modulo.citas.revisar(RAIZ)
+    salida = io.StringIO()
+    resultado = unittest.TextTestRunner(stream=salida).run(unittest.defaultTestLoader.loadTestsFromModule(modulo))
+    if not resultado.wasSuccessful():
+        print(salida.getvalue())
+        fallas.append(f"citas_regresion.py: {len(resultado.failures) + len(resultado.errors)} pruebas fallan")
+    else:
+        print(f"ok    citas_regresion.py: {resultado.testsRun} pruebas")
+    return fallas
 
 
 def cargar_cambios():
@@ -1728,6 +1755,11 @@ def main():
     for falla in regresion:
         print(f"FALLA {falla}")
     fallas += regresion
+    citas = revisar_citas()
+    for falla in citas:
+        print(f"FALLA {falla}")
+    print(f"{'ok' if not citas else 'FALLA':5} sin citas a notas internas ni ids de tarea en api, web, movil, diseno y .azure-pipelines (D-223, D-224)")
+    fallas += citas
     sin_caso = set(por_carpeta) - set().union(*ESPERADO.values())
     if sin_caso:
         fallas.append(f"pipelines sin caso en ESPERADO: {sorted(sin_caso)}")
