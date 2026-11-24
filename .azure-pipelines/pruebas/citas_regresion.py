@@ -75,6 +75,9 @@ PROHIBIDAS = {
     "spec S: «S<n>/S<n>»": ["los criterios S1/S2 del plan", "cubre S3 y S4 (D-160) en Android"],
     "spec S: «… y S<n>»": ["// D-192 (c) y S7: un enlace vencido", "E17-ECO 4.5 y S4 sobre las hojas CSS"],
     "spec S: «S<n> de la US": ["la regla de S4 de la US-51", "protege S11 de D-161: `comun` usa", "hereda S2 de la US-67"],
+    "spec S: rango": ["cubre S1–S7 del plan", "(S1–S7)", "S1-S7", "la prueba S2–S13", "(S1-S13)"],
+    "spec S: «, S<n>)»": [", S3)", "// D-203, S3).", "texto, S5) y más"],
+    "spec S: «(S<n>)»": ["(D-203, S3)", "(S1.1)"],
     "spec S en un identificador": [
         "func TestS13Algo(t *testing.T) {",
         "func TestS2LaPersonaNuevaAutorizaYVeSuPrimerIngreso(t *testing.T) {",
@@ -110,7 +113,10 @@ LEGITIMAS = [
     # Un SKU o un nivel de producto no es una spec (verificador independiente): S0 nunca lo fue; S1 y siguientes, solo en su contexto.
     "// SKU (S0)", "// SKU S0/S1", "// El SKU S0 y S1 son niveles de Azure.", 'const nivel = "S0: básico"',
     "// SKU S1", "// SKU (S1)", "SKU (S1)", "SKU: S2 (Standard)", "// nivel S1 de Azure", "Los niveles S1 y S2 de Azure",
-    "El tier S3 es el más caro", "El SKU S1 y S2 son de pago", "sku_name = \"Standard_S2\"", "S0", "(S0)", "// S0: básico", "// S14 y S15 no existen en esta app",
+    "El tier S3 es el más caro",
+    "SKU: (S1)", "sku (S1)", "nivel (S2)", "plan (S1)", "tiers S1 y S2", "Los planes S1/S2 están disponibles.",
+    "Sku S1", "SKU:S1", "Planes (S1/S2)", "PLAN S1", "// Tier: S2", "Standard S1", "SKU (S1, S2)", "Los niveles (S1, S2 y S3)",
+    "Standard_S2", "SKU S1–S3", "SKU S1-S3", "El SKU S1 y S2 son de pago", "sku_name = \"Standard_S2\"", "S0", "(S0)", "// S0: básico", "// S14 y S15 no existen en esta app",
     'const nivel = "S1: básico"', "Los planes S1 y S2 son niveles de Azure",
 ]
 

@@ -43,17 +43,40 @@ PROPIOS = {".azure-pipelines/pruebas/citas.py", ".azure-pipelines/pruebas/citas_
 # (`L12 12`, `L12,3`): lo que sigue a una cita nunca es un número.
 _L = r"(?<![\w./-])L\d{1,2}(?:\.\d{1,2})?(?![\w/-])(?!\.\d)(?!\s*,?\s*-?\d)"
 # Una spec «S<n>» como la de las citas que salieron de este repositorio: S1 a S13, con «.n» opcional (nunca S0 ni S14 en
-# adelante), sin pegarse a otra palabra (`TLS12`, `US60`, `Standard_S2`) y fuera de un SKU o un nivel de producto: no si
-# lo anteceden «SKU», «nivel», «niveles», «tier» o «plan» (`SKU S1`, `nivel S1 de Azure`), ni si la sigue una palabra de producto
-# («S1 de Azure», «S1 son niveles», «S1 tier»).
+# adelante), sin pegarse a otra palabra (`TLS12`, `US60`, `Standard_S2`).
 _NUM = r"(?:1[0-3]|[1-9])"
-_S = (r"(?<!\w)(?<!SKU )(?<!SKU: )(?<!nivel )(?<!niveles )(?<!tier )(?<!plan )S" + _NUM + r"(?:\.\d)?(?!\d)"
-      r"(?!\s+(?:(?:son|es|y) )?(?:niveles?|SKUs?|tiers?|planes?|de Azure)\b)")
+_S = r"(?<!\w)S" + _NUM + r"(?:\.\d)?(?!\d)"
+TOKEN_S = re.compile(_S)
+
+# Contexto de producto (SKU, niveles, planes de Azure): un `S<n>` que está en él no es una spec. Una sola regla para todas las
+# formas de S, aparte de las regex de cada forma: se mira una ventana corta de la misma línea antes del `S<n>` (hasta
+# VENTANA caracteres) y una palabra de producto justo después, sin distinguir mayúsculas.
+#   antes:   sku, nivel(es), tier(s), plan(es) o standard, seguidos solo de puntuación, espacios, paréntesis y otros `S<n>` de la
+#            misma lista («SKU S1», «Sku: (S1)», «SKU:S1», «Planes (S1/S2)», «tiers S1 y S2», «SKU (S1, S2)», «Standard_S2»)
+#   después: «de Azure», o nivel(es), SKU(s), tier(s), plan(es) con «son», «es» o «y» opcional («S1 de Azure», «S1 son niveles»)
+# Si algún `S<n>` de la coincidencia (de «S<n>/S<n>» o «S<n> y S<n>» basta uno) está en ese contexto, la coincidencia no cuenta.
+VENTANA = 15
+PRODUCTO_ANTES = re.compile(r"\b(?:sku|niveles|nivel|tiers|tier|planes|plan|standard)(?:[\s:;,.()_/-]|S\d{1,2}(?:\.\d)?|\by\b)*$",
+                            re.IGNORECASE)
+PRODUCTO_DESPUES = re.compile(r"\s+(?:(?:son|es|y)\s+)?(?:niveles?|skus?|tiers?|planes?|de\s+azure)\b", re.IGNORECASE)
+
+
+def es_de_producto(linea, coincidencia):
+    """Si algún `S<n>` de la coincidencia está en un contexto de producto (SKU, nivel, tier, plan, standard)."""
+    for token in TOKEN_S.finditer(coincidencia.group(0)):
+        inicio = coincidencia.start() + token.start()
+        fin = coincidencia.start() + token.end()
+        if PRODUCTO_ANTES.search(linea[max(0, inicio - VENTANA):inicio]) or PRODUCTO_DESPUES.match(linea, fin, fin + 25):
+            return True
+    return False
+
 
 FORMAS = (
     ("nota L: «L<n> de la US-<n>» o «de la tarea»", re.compile(r"\bL\d{1,2}(?:\.\d+)?(?: \([^)]{1,12}\))? de la (?:US-\d+|tarea)")),
     ("nota L: «L<n>» suelta («(L<n>)», «, L<n>)», «ítem 294, L<n>», «// L<n>:»)", re.compile(_L)),
-    ("spec S: «(S<n>)» o «(…, S<n>…)» (no «SKU (S<n>)»)", re.compile(r"(?<!SKU )\((?:[^()]*, )?" + _S + r"(?=[,:;)/ ])")),
+    ("spec S: «(S<n>)» o «(…, S<n>…)»", re.compile(r"\((?:[^()]*, )?" + _S + r"(?=[,:;)/ ])")),
+    ("spec S: «, S<n>)» (el final de una cita)", re.compile(r",\s*" + _S + r"\)")),
+    ("spec S: rango «S<n>–S<n>» (guion o raya)", re.compile(_S + r"[–-]S?" + _NUM + r"(?!\d)")),
     ("spec S: al empezar un comentario («// S<n> …», «// S<n>:», «// S1/S2:»)",
      re.compile(r"(?:^|[\s(])(?://|#|\*|/\*)\s*" + _S + r"(?=[:/,)\s])")),
     ("spec S: al empezar un título o un texto citado («S<n>: …» tras ««», «it('», «test(\"», o al empezar la línea)",
@@ -88,7 +111,7 @@ def revisar_texto(ruta, texto):
     fallas = []
     for numero, linea in enumerate(texto.splitlines(), 1):
         for nombre, forma in FORMAS:
-            encontrada = forma.search(linea)
+            encontrada = next((c for c in forma.finditer(linea) if not es_de_producto(linea, c)), None)
             if encontrada:
                 fallas.append(f"{ruta}:{numero}: {nombre}: «{encontrada.group(0).strip()}»")
                 break
