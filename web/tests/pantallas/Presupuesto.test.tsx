@@ -519,7 +519,7 @@ describe("PN-07 · Presupuesto con ingreso bajo o nulo (E14-PPA 4.2)", () => {
     sinReproche();
   });
 
-  it("con ingreso nulo y el salario por confirmar: la línea «Por confirmar» y, debajo, la frase de la fecha (E14-PPA 1.7 y L17 de la US-77)", async () => {
+  it("con ingreso nulo y el salario por confirmar: la línea «Por confirmar» y, debajo, la frase de la fecha (E14-PPA 1.7; E14-PPA 1.9, 4.2)", async () => {
     api([
       {
         ...nulo(),
@@ -535,7 +535,7 @@ describe("PN-07 · Presupuesto con ingreso bajo o nulo (E14-PPA 4.2)", () => {
     sinReproche();
   });
 
-  // L17 de la US-77, punto 4: la frase de una sola fecha también en PN-07, bajo «Llega después» o «Por confirmar».
+  // E14-PPA 1.9 (4.2): la frase de una sola fecha también en PN-07, bajo «Llega después» o «Por confirmar».
   it("con ingreso bajo y una fecha esperada: «Llega después» y, debajo, «… se suma cuando llegue.»", async () => {
     api([
       {
@@ -953,10 +953,10 @@ describe("Hojas «Poner presupuesto», «Corregir» y «Quitar» (E14-PPA 4.1)",
   });
 });
 
-// L17 de la US-77, punto 1: un 404 o un 409 dice que la hoja tenía datos viejos (el presupuesto ya no existe, el mes
+// E14-PPA 1.9 (4.1) y E14-SDD 2.5 (5.12): un 404 o un 409 dice que la hoja tenía datos viejos (el presupuesto ya no existe, el mes
 // cambió o la categoría tiene uno compartido). La hoja se cierra, la pantalla se vuelve a pedir y el aviso de E14 queda
 // en la pantalla, con el foco, como el de «Más» de la US-60. Repetir el intento exige volver a abrir la hoja.
-describe("Hoja con datos viejos: un 404 o un 409 al poner, corregir o quitar (L17 de la US-77, punto 1)", () => {
+describe("Hoja con datos viejos: un 404 o un 409 al poner, corregir o quitar (E14-PPA 1.9, 4.1; E14-SDD 2.5, 5.12)", () => {
   const acciones = {
     poner: {
       abridor: "Poner presupuesto a Arriendo o cuota de vivienda",

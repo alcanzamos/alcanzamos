@@ -9,7 +9,7 @@ import {
 } from "../src/politica";
 
 // La política (PN-68) es texto de la web y su versión es un dato del API (`autorizacion.VersionActual`, RF-063): web y
-// API se fusionan juntos (L3 de la US-67). Esta prueba lee el archivo de Go del mismo árbol y falla si se separan.
+// API se fusionan juntos (E11-INF 2.15 y SC-E21-26). Esta prueba lee el archivo de Go del mismo árbol y falla si se separan.
 const servicio = fileURLToPath(
   new URL("../../api/src/autorizacion/servicio.go", import.meta.url),
 );

@@ -432,7 +432,7 @@ describe("PN-64 · Autorización de datos", () => {
       expect(pedidos).toHaveLength(1);
     });
 
-    // SC-E21-25 3.8, criterio 2 (L3 de la US-67): la versión es la del catálogo y se mandan las tres necesarias.
+    // SC-E21-25 3.8, criterio 2: la versión es la del catálogo y se mandan las tres necesarias.
     it("con las dos casillas manda las tres necesarias y la versión, sin accesorias, y va a PN-71", async () => {
       const pedidos = api();
       await cargada();

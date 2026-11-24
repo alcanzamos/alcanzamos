@@ -287,7 +287,7 @@ test.describe("PN-06 · Presupuesto del periodo por categorías", () => {
     ).toHaveAttribute("aria-current", "page");
   });
 
-  // L17 de la US-77, punto 1: otro dispositivo quitó el presupuesto de Transporte mientras esta pantalla lo mostraba.
+  // E14-PPA 1.9 (4.1) y E14-SDD 2.5 (5.12): otro dispositivo quitó el presupuesto de Transporte mientras esta pantalla lo mostraba.
   test("hoja con datos viejos: un 404 al corregir cierra la hoja, vuelve a pedir la pantalla y deja el aviso en ella", async ({
     page,
   }) => {

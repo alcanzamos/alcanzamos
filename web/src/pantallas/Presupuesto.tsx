@@ -49,7 +49,7 @@ type Estado =
 /** La hoja abierta: la de una fila de «Por categoría» o la de una categoría de «Agregar otra categoría». */
 type HojaAbierta = {
   tipo: "monto" | "quitar";
-  /** El mes que se veía al abrirla: «Guardar» pone ahí, nunca en un mes que llegó después (L17 de la US-77, punto 1). */
+  /** El mes que se veía al abrirla: «Guardar» pone ahí, nunca en un mes que llegó después (E14-PPA 1.9, 4.1). */
   periodo: string;
   categoriaId: number;
   presupuesto: CategoriaDelPresupuesto["presupuesto"];
@@ -158,7 +158,7 @@ function Resumen({ datos }: { datos: PresupuestoDelPeriodo }) {
           )}
         </p>
       )}
-      {/* En PN-07 la frase va sola, bajo «Llega después» o «Por confirmar» (L17 de la US-77, punto 4). */}
+      {/* En PN-07 la frase va sola, bajo «Llega después» o «Por confirmar» (E14-PPA 1.9, 4.2). */}
       {r.modo !== "normal" && frase && <p className="ayuda">{cifras(frase)}</p>}
       {r.modo === "normal" && (
         <p className="ayuda">
@@ -265,7 +265,7 @@ export function Presupuesto() {
     setEnviando(true);
   };
   // Un 404 o un 409 dice que la hoja tenía datos viejos: el presupuesto ya no existe, el mes cambió o la categoría tiene
-  // uno compartido (L17 de la US-77, punto 1). La hoja se cierra, la pantalla se vuelve a pedir y el aviso queda en ella,
+  // uno compartido (E14-PPA 1.9, 4.1; E14-SDD 2.5, 5.12). La hoja se cierra, la pantalla se vuelve a pedir y el aviso queda en ella,
   // con el foco, como el de «Más» de la US-60: repetir exige abrir la hoja otra vez, con lo que entonces se ve. Otro
   // fallo (500, sin conexión) deja la hoja abierta con lo escrito y el aviso dentro.
   const fallarEnLaHoja = (respuesta: Fallo) => {

@@ -47,7 +47,7 @@ const leido = (texto: string | RegExp) => screen.getByLabelText(texto);
 
 const AVISO_ENFOCADO = { rol: 'alert', nombre: 'No pudimos guardar el presupuesto.Tus datos están a salvo. Intenta de nuevo.' };
 
-/** El aviso de error que queda en la pantalla, con la hoja ya cerrada (L17 de la US-77, punto 1). */
+/** El aviso de error que queda en la pantalla, con la hoja ya cerrada (E14-PPA 1.9, 4.1; E14-SDD 2.5, 5.12). */
 const avisoEnLaPantalla = () => {
   expect(screen.queryByRole('button', { name: 'Ahora no' })).not.toBeOnTheScreen();
   return screen.getByRole('alert', { name: /^No pudimos guardar el presupuesto\./ });
@@ -497,7 +497,7 @@ describe('PN-06 y PN-07 · Presupuesto, Android (E14-PPA 4.1 y 4.2, US-77)', () 
       expect(screen.queryByText(/Llega después/)).not.toBeOnTheScreen();
     });
 
-    // L17 de la US-77, punto 4: la frase de una sola fecha también en PN-07, sola, bajo «Llega después» o «Por confirmar».
+    // E14-PPA 1.9 (4.2): la frase de una sola fecha también en PN-07, sola, bajo «Llega después» o «Por confirmar».
     it('ingreso nulo con el salario por confirmar: debajo de «Por confirmar», «… se suma cuando lo confirmes.»', async () => {
       const conSalario = nulo();
       apiDelPresupuesto(respuestaJson, {
@@ -583,7 +583,7 @@ describe('PN-06 y PN-07 · Presupuesto, Android (E14-PPA 4.1 y 4.2, US-77)', () 
       expect(pedidos.filter((p) => p.ruta === '/api/v1/presupuestos/en-cero')).toHaveLength(1);
     });
 
-    it('con el mes ya en cero (`en_cero: true`) no ofrece el botón y la tarjeta sigue igual (L17 de la US-77, punto 5)', async () => {
+    it('con el mes ya en cero (`en_cero: true`) no ofrece el botón y la tarjeta sigue igual', async () => {
       const pedidos = apiDelPresupuesto(respuestaJson, { presupuesto: nulo(true) });
       await abrirPresupuesto();
       expect(screen.getByText(NULO)).toBeOnTheScreen();
@@ -654,9 +654,9 @@ describe('PN-06 y PN-07 · Presupuesto, Android (E14-PPA 4.1 y 4.2, US-77)', () 
     });
   });
 
-  // L17 de la US-77, punto 3: el foco de TalkBack al cerrar una hoja, como en la web. Al cancelar vuelve al botón que la
+  // E14-SDD 2.5 (5.12): el foco de TalkBack al cerrar una hoja, como en la web. Al cancelar vuelve al botón que la
   // abrió; después de guardar, al título; con datos viejos, al aviso de la pantalla (abajo).
-  describe('el foco de TalkBack al cerrar una hoja (L17 de la US-77, punto 3)', () => {
+  describe('el foco de TalkBack al cerrar una hoja (E14-SDD 2.5, 5.12)', () => {
     it.each([
       ['Poner presupuesto a Arriendo o cuota de vivienda', 'Ahora no'],
       ['Poner presupuesto a Arriendo o cuota de vivienda', 'Cerrar'],
@@ -735,10 +735,10 @@ describe('PN-06 y PN-07 · Presupuesto, Android (E14-PPA 4.1 y 4.2, US-77)', () 
     });
   });
 
-  // L17 de la US-77, punto 1: un 404 o un 409 dice que la hoja tenía datos viejos (el presupuesto ya no existe, el mes
+  // E14-PPA 1.9 (4.1) y E14-SDD 2.5 (5.12): un 404 o un 409 dice que la hoja tenía datos viejos (el presupuesto ya no existe, el mes
   // cambió o la categoría tiene uno compartido). La hoja se cierra, la pantalla se vuelve a pedir y el aviso de E14 queda
   // en la pantalla, arriba de «Por categoría», con el foco de TalkBack, como en la web. Repetir exige volver a abrir la hoja.
-  describe('hoja con datos viejos: un 404 o un 409 al poner, corregir o quitar (L17 de la US-77, punto 1)', () => {
+  describe('hoja con datos viejos: un 404 o un 409 al poner, corregir o quitar (E14-PPA 1.9, 4.1; E14-SDD 2.5, 5.12)', () => {
     const acciones = {
       poner: {
         abridor: 'Poner presupuesto a Arriendo o cuota de vivienda',

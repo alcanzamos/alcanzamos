@@ -38,7 +38,7 @@ describe("NavegacionLateral (E14-SDD 5.13, bug 233)", () => {
       expect(barra().queryByText(destino)).not.toBeInTheDocument();
   });
 
-  // «Ícono/Presupuesto» de Penpot (E14-SDD 5.1; L18 de la US-77): caja de 24, trazo de 2 redondeado, un gráfico de torta.
+  // «Ícono/Presupuesto» de Penpot (E14-SDD 2.5, 5.1): caja de 24, trazo de 2 redondeado, un gráfico de torta.
   it("«Presupuesto» lleva el ícono Presupuesto de Penpot, que no se lee", () => {
     render(<NavegacionLateral />);
     const icono = barra()
