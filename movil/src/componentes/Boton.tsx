@@ -9,7 +9,7 @@ type Variante = 'primario' | 'secundario' | 'texto' | 'destructivo';
 // Deshabilitado sigue siendo tocable para el lector de pantalla (`accessibilityState.disabled`) y no hace nada.
 // `pista` es la `accessibilityHint`: qué pasa al tocarlo, solo cuando E14 lo dice. `nombre` es el nombre accesible
 // cuando E14 da uno distinto del texto («Confirmar Salario de 1200000 pesos del 16 de noviembre de 2026»). `ref` es para
-// devolverle el foco de TalkBack cuando se cierra la hoja que abrió (`useLlevarFoco`, L17 de la US-77, punto 3).
+// devolverle el foco de TalkBack cuando se cierra la hoja que abrió (`useLlevarFoco`, E14-SDD 5.12).
 // `ocupado` es para el botón que manda algo al API y espera la respuesta (bug 303, ACC-004): se ve igual que
 // deshabilitado y un segundo toque no hace nada, pero para TalkBack sigue habilitado y dice «ocupado»
 // (`accessibilityState.busy`). Un botón que se deshabilita mientras tiene el foco hace que Android se lo quite a TalkBack,

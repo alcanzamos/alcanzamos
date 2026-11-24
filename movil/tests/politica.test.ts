@@ -3,7 +3,7 @@ import * as path from 'path';
 import { VERSION_DE_LA_POLITICA } from '../src/politica';
 
 // La política (PN-68) es texto de Android y su versión es un dato del API (`autorizacion.VersionActual`, RF-063): el API,
-// la web y Android se fusionan juntos (L3 de la US-67). Esta prueba lee el archivo de Go del mismo árbol y falla si se
+// la web y Android se fusionan juntos (E11-INF 2.15 y SC-E21-26). Esta prueba lee el archivo de Go del mismo árbol y falla si se
 // separan, como la de la web.
 const servicio = path.resolve(__dirname, '../../api/src/autorizacion/servicio.go');
 

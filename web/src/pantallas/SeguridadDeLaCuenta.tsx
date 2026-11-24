@@ -23,7 +23,7 @@ type Estado =
 // PN-71 · Seguridad de la cuenta: el ingreso anterior, nunca el de ahora (E14-PCP 4.14, RF-062).
 // Es la pantalla de inicio provisional de quien entra con autorización, hasta que haya un Inicio. «Movimientos» es su
 // entrada a PN-01 (E14-SDD 5.9), que ya trae «Registrar» (D-164): aquí no hay botón para registrar. «Presupuesto» es la
-// entrada provisional a PN-06, justo después (L3 de la US-77, punto 3), hasta que llegue la navegación (ítem 290).
+// entrada provisional a PN-06, justo después (E14-SDD v2.4), hasta que llegue la navegación (ítem 290).
 // «Cerrar sesión» y «Borrar mi cuenta» (filas 7 y 8 de PN-66, que todavía no existe) viven aquí hasta que haya un
 // Perfil: el borrado abre PN-69.
 // Arriba de «Cerrar sesión», la entrada provisional «Cómo cuidamos tus datos» abre PN-63 desde el menú (4.14, nota del

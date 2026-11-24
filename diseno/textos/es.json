@@ -1779,7 +1779,7 @@
     "presupuesto": {
       "destino": {
         "texto": "Presupuesto",
-        "e14": "E14-SDD 5.9 (destino «Presupuesto» de la navegación); E14-PPA 4.1 (PN-06), fila 8; entrada provisional en PN-71 (L3 de la US-77, punto 3)"
+        "e14": "E14-SDD 5.9 (destino «Presupuesto» de la navegación); E14-PPA 4.1 (PN-06), fila 8; entrada provisional en PN-71 (E14-SDD v2.4)"
       },
       "titulo": {
         "texto": "Presupuesto de {mes}",
@@ -1808,7 +1808,7 @@
         },
         "porConfirmar": {
           "texto": "Por confirmar: {monto}",
-          "e14": "Aprobado por el dueño (L14 de la US-77, punto 4, 2026-11-11): E14-PPA 4.1 (PN-06), fila 3, nota fechada del 2026-11-11, «Llega después» separa lo esperado de lo por confirmar; línea aparte, solo si lo por confirmar es mayor que cero; también en PN-07"
+          "e14": "Aprobado por el dueño (E14-PPA v1.7, 2026-11-11): E14-PPA 4.1 (PN-06), fila 3, nota fechada del 2026-11-11, «Llega después» separa lo esperado de lo por confirmar; línea aparte, solo si lo por confirmar es mayor que cero; también en PN-07"
         },
         "cuentaLoRegistrado": {
           "texto": "Sin asignar cuenta lo que ya registraste.",
@@ -1816,11 +1816,11 @@
         },
         "seSumaCuandoLlegue": {
           "texto": "{nombre} del {fecha} se suma cuando llegue.",
-          "e14": "Propuesto en la US-77 (T3, web) y aprobado por el dueño (L14 de la US-77, punto 3, 2026-11-11): E14 no tiene el texto. Sale de E14-PPA 4.1 (PN-06), fila 3 («El salario del 16 de noviembre de 2026 se suma cuando llegue.»), con el nombre de la categoría tal cual; solo con una fecha esperada"
+          "e14": "Propuesto en la US-77 (T3, web) y aprobado por el dueño (E14-PPA v1.7, 2026-11-11). Sale de E14-PPA 4.1 (PN-06), fila 3 («El salario del 16 de noviembre de 2026 se suma cuando llegue.»), con el nombre de la categoría tal cual; solo con una fecha esperada"
         },
         "seSumaCuandoLoConfirmes": {
           "texto": "{nombre} del {fecha} se suma cuando lo confirmes.",
-          "e14": "Aprobado por el dueño (L14 de la US-77, punto 4, 2026-11-11): E14-PPA 4.1 (PN-06), fila 3, nota fechada del 2026-11-11; solo con una fecha por confirmar"
+          "e14": "Aprobado por el dueño (E14-PPA v1.7, 2026-11-11): E14-PPA 4.1 (PN-06), fila 3, nota fechada del 2026-11-11; solo con una fecha por confirmar"
         },
         "verMisIngresos": {
           "texto": "Ver mis ingresos",
@@ -1894,11 +1894,11 @@
         },
         "nombreDePoner": {
           "texto": "Poner presupuesto a {categoria}",
-          "e14": "Propuesto en la US-77 (T3, web) y aprobado por el dueño (L17 de la US-77, 2026-11-11): E14 no tiene el texto. E14-PPA 4.1 (PN-06) pide el nombre de la categoría en el nombre accesible de «Poner presupuesto» (RNF-019, criterio 6)"
+          "e14": "Propuesto en la US-77 (T3, web) y aprobado por el dueño (E14-PPA v1.8, 2026-11-11). E14-PPA 4.1 (PN-06) pide el nombre de la categoría en el nombre accesible de «Poner presupuesto» (RNF-019, criterio 6)"
         },
         "nombreDeQuitar": {
           "texto": "Quitar el presupuesto de {categoria}",
-          "e14": "Propuesto en la US-77 (T3, web) y aprobado por el dueño (L17 de la US-77, 2026-11-11): E14 no tiene el texto. E14-PPA 4.1 (PN-06) pide el nombre de la categoría en el nombre accesible de «Quitar» (SC-E21-13); sale del título de la hoja «¿Quitar el presupuesto de Transporte?»"
+          "e14": "Propuesto en la US-77 (T3, web) y aprobado por el dueño (E14-PPA v1.8, 2026-11-11). E14-PPA 4.1 (PN-06) pide el nombre de la categoría en el nombre accesible de «Quitar» (SC-E21-13); sale del título de la hoja «¿Quitar el presupuesto de Transporte?»"
         },
         "agregarOtra": {
           "texto": "Agregar otra categoría",
@@ -2438,7 +2438,7 @@
       "hoja": {
         "montoNombreAccesible": {
           "texto": "Monto para {mes} en pesos",
-          "e14": "Propuesto en la US-77 (T4, Android) y aprobado por el dueño (L17 de la US-77, 2026-11-11): E14 no tiene el texto. Nombre accesible del campo de la hoja «Poner presupuesto» (E14-PPA 4.1, hoja, fila 2: «Monto para noviembre»), con la moneda, como «Monto en pesos» del registro (aprobado por el dueño el 2026-11-08, US-63, ACC-004); el rótulo visible sigue siendo «Monto para noviembre»"
+          "e14": "Propuesto en la US-77 (T4, Android) y aprobado por el dueño (E14-PPA v1.8, 2026-11-11). Nombre accesible del campo de la hoja «Poner presupuesto» (E14-PPA 4.1, hoja, fila 2: «Monto para noviembre»), con la moneda, como «Monto en pesos» del registro (aprobado por el dueño el 2026-11-08, US-63, ACC-004); el rótulo visible sigue siendo «Monto para noviembre»"
         }
       }
     },

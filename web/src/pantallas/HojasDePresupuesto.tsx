@@ -16,7 +16,7 @@ export const ID_DEL_AVISO_DE_LA_HOJA = "aviso-de-la-hoja";
 // monto escrito, los errores y el envío los lleva la pantalla, que manda al API y devuelve el foco al cerrar.
 
 /** «Poner presupuesto» y «Corregir»: la misma hoja; «Corregir» trae el monto actual escrito. Sin la aclaración de la
- * simulación ni «De quién es» (L3 de la US-77, puntos 2: vuelven con la simulación y con el hogar, en I08). */
+ * simulación ni «De quién es» (E14-PPA v1.6 y 4.1: vuelven con la simulación y con el hogar, en I08). */
 export function HojaDeMontoDelPresupuesto({
   titulo,
   mes,

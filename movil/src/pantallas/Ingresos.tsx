@@ -42,7 +42,7 @@ const i = textos.ingresos;
 // «Ingresos», apilada sobre PN-06 («Ver mis ingresos»), y su Atrás vuelve ahí. El periodo, el total, una tarjeta por
 // fuente y «Registrar un ingreso». Lo esperado y lo por confirmar son los de la US-60, con sus rutas: «Confirmar», «Más»
 // y, con dos o más fechas, «Confirmar todos» (D-093). El periodo vive en la ruta, como los filtros de PN-01. Sin «Prima,
-// cesantías o intereses» (L3 de la US-77, punto 4).
+// cesantías o intereses» (E14-PPA v1.6).
 export function Ingresos({ navigation, route }: NativeStackScreenProps<Rutas, 'IngresosDelPeriodo'>) {
   const periodo = route.params?.periodo ?? null;
   const [estado, setEstado] = useState<Estado>({ fase: 'cargando' });

@@ -32,14 +32,14 @@ var ErrPeriodoConIngresoOPresupuesto = errors.New("el periodo tiene ingreso regi
 
 // ErrPresupuestoCompartido es el 409 `presupuesto_compartido`: la categoría ya tiene en el periodo un presupuesto
 // compartido con el hogar de la persona. La clave única de E13 (persona, periodo, categoría) no lleva `hogar_id`, así que
-// el propio chocaría con esa fila; «Poner» nunca la toca (D-201, opción A de L16 de la US-77).
+// el propio chocaría con esa fila; «Poner» nunca la toca (D-201 (4), opción A).
 var ErrPresupuestoCompartido = errors.New("la categoría tiene un presupuesto compartido con el hogar en el periodo")
 
 var idDePresupuesto = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
 // Escritura es la persistencia de poner, corregir y quitar. Todo es de lo propio: `persona_id` de la sesión y `hogar_id`
 // nulo (el hogar llega en I08 y la tabla ya tiene su campo). Uno compartido con el hogar no se lee, ni se corrige, ni se
-// quita, ni cuenta como presupuesto que ya tiene la categoría ni en lo asignado (L14 de la US-77), ni se pisa al poner
+// quita, ni cuenta como presupuesto que ya tiene la categoría ni en lo asignado (E12-DOO v1.26, 5.4), ni se pisa al poner
 // (ErrPresupuestoCompartido, D-201).
 type Escritura interface {
 	// Poner guarda el presupuesto de la categoría en el periodo, o corrige el que ya tiene (E13: único por persona,

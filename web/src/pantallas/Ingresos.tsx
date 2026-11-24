@@ -204,7 +204,7 @@ export function Ingresos() {
 }
 
 // «Periodo» (fila 2): el mes anterior, el actual y el siguiente siempre; «Otro mes», con los meses con ingresos
-// registrados (L6 de la US-77, punto 7, como en PN-01). Un mes elegido que no está entre los chips sale como chip.
+// registrados (E14-PPA v1.9, 4.3, como en PN-01). Un mes elegido que no está entre los chips sale como chip.
 function Periodo({
   datos,
   elegido,

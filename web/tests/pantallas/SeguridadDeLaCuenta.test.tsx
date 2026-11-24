@@ -105,7 +105,7 @@ describe("PN-71 · Seguridad de la cuenta", () => {
     expect(window.location.pathname).toBe("/cuenta/privacidad");
   });
 
-  // L3 de la US-77 (punto 3): «Presupuesto» es una entrada provisional, como «Movimientos», justo después de ella.
+  // E14-SDD v2.4: «Presupuesto» es una entrada provisional, como «Movimientos», justo después de ella.
   it("orden: «Movimientos», «Presupuesto», las dos entradas de privacidad, «Cerrar sesión» y, última, «Borrar mi cuenta»", async () => {
     simularApi(() => json(200, { ingreso_anterior: null }));
     render(<SeguridadDeLaCuenta />);

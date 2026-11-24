@@ -20,7 +20,7 @@ const ahoraNo = textos.movimientos.detalle.ahoraNo;
 
 /**
  * «Poner presupuesto» y «Corregir»: la misma hoja; «Corregir» trae el monto actual escrito. Sin la aclaración de la
- * simulación ni «De quién es» (L3 de la US-77, punto 2: vuelven con la simulación y con el hogar, en I08). `alGuardar`
+ * simulación ni «De quién es» (E14-PPA v1.6 y 4.1: vuelven con la simulación y con el hogar, en I08). `alGuardar`
  * devuelve el error del campo que mandó el API, si lo hay: el campo lo muestra y recibe el foco (US-63).
  */
 export function HojaDeMontoDelPresupuesto({

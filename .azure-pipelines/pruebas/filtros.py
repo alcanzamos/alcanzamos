@@ -725,7 +725,7 @@ def revisar_agente(textos):
     return fallas
 
 
-# Lo que cada plantilla crea en Docker y debe quitar por nombre al terminar (L8 de la tarea del agente propio, D-213): sus
+# Lo que cada plantilla crea en Docker y debe quitar por nombre al terminar (D-213 (3)): sus
 # contenedores con nombre y las imágenes que construye con la etiqueta de la corrida.
 CREA_EN_DOCKER = {
     "plantillas/api.yml": ("docker rm --force pg-cobertura", 'imagen="alcanzamos-api:$(Build.BuildId)"'),
