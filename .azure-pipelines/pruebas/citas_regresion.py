@@ -107,6 +107,11 @@ LEGITIMAS = [
     "{nombre: \"T1 dec\", f: rDec(e)}", "Hoy es el 26 de octubre de 2026 (D-164 (3))", "E14-PPA v1.9, 4.1; E14-SDD v2.5, 5.12", "D-203 (17) y (18)", "bug 303, E14-SDD v2.6, 5.2",
     "Tests S 12 S", "versión 2.5, sección 5.12", "RS256 y ES256", "IS2 es otra cosa", "T12Z y 2026-11-24T12:00:00Z", "const x = `${hoy}T12:00:00Z`;",
     "Intl.NumberFormat('es-CO') y L'Oréal", "CU-10 2a y 3", "S3 bucket", "la T",
+    # Un SKU o un nivel de producto no es una spec (verificador independiente): S0 nunca lo fue; S1 y siguientes, solo en su contexto.
+    "// SKU (S0)", "// SKU S0/S1", "// El SKU S0 y S1 son niveles de Azure.", 'const nivel = "S0: básico"',
+    "// SKU S1", "// SKU (S1)", "SKU (S1)", "SKU: S2 (Standard)", "// nivel S1 de Azure", "Los niveles S1 y S2 de Azure",
+    "El tier S3 es el más caro", "El SKU S1 y S2 son de pago", "sku_name = \"Standard_S2\"", "S0", "(S0)", "// S0: básico", "// S14 y S15 no existen en esta app",
+    'const nivel = "S1: básico"', "Los planes S1 y S2 son niveles de Azure",
 ]
 
 

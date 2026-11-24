@@ -9,7 +9,7 @@ y sola:
     python3 -I -B .azure-pipelines/pruebas/citas.py
 
 Rechaza solo las formas de cita que salieron de este repositorio, no cualquier letra con un número: un SKU `S0`, `S256`,
-`TLS12`, `US60`, los datos de un trazado SVG (`M12 3 L12 12`) y las filas
+`TLS12`, `US60`, un SKU o un nivel de producto (`SKU (S1)`, `nivel S1 de Azure`, `Standard_S2`), los datos de un trazado SVG (`M12 3 L12 12`) y las filas
 de E14 (`4.16 (T6, T11)`) pasan. `pruebas/citas_regresion.py` prueba cada forma prohibida y cada uso legítimo.
 
 Las formas (cada una con un ejemplo de lo que rechaza):
@@ -42,21 +42,28 @@ PROPIOS = {".azure-pipelines/pruebas/citas.py", ".azure-pipelines/pruebas/citas_
 # Una nota «L<n>» suelta, sin que sea un trazado SVG: ni pegada a otra palabra, ruta o guion, ni seguida de otro número
 # (`L12 12`, `L12,3`): lo que sigue a una cita nunca es un número.
 _L = r"(?<![\w./-])L\d{1,2}(?:\.\d{1,2})?(?![\w/-])(?!\.\d)(?!\s*,?\s*-?\d)"
-_S = r"S\d{1,2}(?:\.\d)?"
+# Una spec «S<n>» como la de las citas que salieron de este repositorio: S1 a S13, con «.n» opcional (nunca S0 ni S14 en
+# adelante), sin pegarse a otra palabra (`TLS12`, `US60`, `Standard_S2`) y fuera de un SKU o un nivel de producto: no si
+# lo anteceden «SKU», «nivel», «niveles», «tier» o «plan» (`SKU S1`, `nivel S1 de Azure`), ni si la sigue una palabra de producto
+# («S1 de Azure», «S1 son niveles», «S1 tier»).
+_NUM = r"(?:1[0-3]|[1-9])"
+_S = (r"(?<!\w)(?<!SKU )(?<!SKU: )(?<!nivel )(?<!niveles )(?<!tier )(?<!plan )S" + _NUM + r"(?:\.\d)?(?!\d)"
+      r"(?!\s+(?:(?:son|es|y) )?(?:niveles?|SKUs?|tiers?|planes?|de Azure)\b)")
 
 FORMAS = (
     ("nota L: «L<n> de la US-<n>» o «de la tarea»", re.compile(r"\bL\d{1,2}(?:\.\d+)?(?: \([^)]{1,12}\))? de la (?:US-\d+|tarea)")),
     ("nota L: «L<n>» suelta («(L<n>)», «, L<n>)», «ítem 294, L<n>», «// L<n>:»)", re.compile(_L)),
-    ("spec S: «(S<n>)» o «(…, S<n>…)»", re.compile(r"\((?:[^()]*, )?" + _S + r"(?=[,:;)/ ])")),
+    ("spec S: «(S<n>)» o «(…, S<n>…)» (no «SKU (S<n>)»)", re.compile(r"(?<!SKU )\((?:[^()]*, )?" + _S + r"(?=[,:;)/ ])")),
     ("spec S: al empezar un comentario («// S<n> …», «// S<n>:», «// S1/S2:»)",
      re.compile(r"(?:^|[\s(])(?://|#|\*|/\*)\s*" + _S + r"(?=[:/,)\s])")),
-    ("spec S: al empezar un título o un texto citado («S<n>: …»)", re.compile(r"[«\"']" + _S + r": ")),
-    ("spec S: «S<n>/S<n>» o «S<n> y S<n>»", re.compile(r"\b" + _S + r"(?:/S\d{1,2})+\b|\b" + _S + r" y S\d{1,2}\b")),
-    ("spec S: «… y S<n>» detrás de una cita", re.compile(r"[\d)] y " + _S + r"\b")),
-    ("spec S: «S<n> de la US-<n>» o «S<n> de D-<n>»", re.compile(r"\b" + _S + r" de (?:la US-\d+|D-\d+)")),
-    ("spec S: «Prueba de S<n>», «protegen S<n>»", re.compile(r"\b(?:Prueba de|protegen) " + _S + r"\b")),
-    ("spec S: «US-<n> S<n>» o «USA-<n> S<n>»", re.compile(r"\b(?:US|USA)-\d+,? " + _S + r"\b")),
-    ("spec S en un identificador: «TestS<n>…», «fuenteS<n>…»", re.compile(r"\b(?:Test|fuente)S\d{1,2}(?![0-9a-z])")),
+    ("spec S: al empezar un título o un texto citado («S<n>: …» tras ««», «it('», «test(\"», o al empezar la línea)",
+     re.compile(r"(?:«|\b(?:it|test|describe|paso)\(\s*[\"']|^\s*[\"'])" + _S + r": ")),
+    ("spec S: «S<n>/S<n>» o «S<n> y S<n>»", re.compile(_S + r"(?:/" + _S + r")+|" + _S + r" y " + _S)),
+    ("spec S: «… y S<n>» detrás de una sección o un paréntesis", re.compile(r"(?:(?<!\w)\d+(?:\.\d+)*|\)) y " + _S)),
+    ("spec S: «S<n> de la US-<n>» o «S<n> de D-<n>»", re.compile(_S + r" de (?:la US-\d+|D-\d+)")),
+    ("spec S: «Prueba de S<n>», «protegen S<n>»", re.compile(r"\b(?:Prueba de|protegen) " + _S)),
+    ("spec S: «US-<n> S<n>» o «USA-<n> S<n>»", re.compile(r"\b(?:US|USA)-\d+,? " + _S)),
+    ("spec S en un identificador: «TestS<n>…», «fuenteS<n>…»", re.compile(r"\b(?:Test|fuente)S" + _NUM + r"(?![0-9a-z])")),
     ("id de tarea: «(T<n>, web)», «(T<n>, Android)» (una fila de E14 como «(T6, T11)» no)", re.compile(r"\(T\d{1,2}, (?!T\d)[^)]+\)")),
     ("id de tarea: «(T<n>)» desde la T12 (las filas de E14-PCP 4.16 son T1 a T11)", re.compile(r"\(T(?:1[2-9]|[2-9]\d)\)")),
     ("id de tarea: «la T<n>»", re.compile(r"\bla T\d{1,2}\b")),
@@ -66,7 +73,7 @@ FORMAS = (
 
 
 # Un archivo cuyo nombre empieza con su spec («s13_verificador_test.go»).
-NOMBRE_CON_SPEC = re.compile(r"(?:^|/)s\d{1,2}_[^/]*$")
+NOMBRE_CON_SPEC = re.compile(r"(?:^|/)s" + _NUM + r"_[^/]*$")
 
 
 def revisar_nombre(ruta):
