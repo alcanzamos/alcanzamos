@@ -1,7 +1,7 @@
 import { execFileSync } from 'child_process';
 import * as path from 'path';
 
-// D-162 (US-59, S2): la regla de movil/eslint.config.mjs que impide textos sueltos en JSX hace lo mismo que
+// D-162 (US-59): la regla de movil/eslint.config.mjs que impide textos sueltos en JSX hace lo mismo que
 // `react/jsx-no-literals` con `noStrings: true` (sin instalar el complemento) y es la misma de web, con las propiedades
 // de texto de React Native. Esta prueba corre ESLint de verdad con la configuración del proyecto: lo que DEBE reportar,
 // lo que NO debe reportar, y que el código real pasa. ESLint corre en un proceso aparte (tests/ayudas/eslint-nodo.mjs).

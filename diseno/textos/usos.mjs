@@ -1,4 +1,4 @@
-// Análisis de los usos de `textos` en el código de una app (US-59, S2). Lo comparten las pruebas de claves de web
+// Análisis de los usos de `textos` en el código de una app (US-59, D-160). Lo comparten las pruebas de claves de web
 // (Vitest) y de móvil (Jest): una sola copia. No importa `typescript`: lo recibe, para usar el de la app que lo prueba.
 //
 // Cómo se cuentan los usos: se leen con el compilador de TypeScript los archivos de la app menos el generado, y en

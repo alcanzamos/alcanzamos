@@ -165,7 +165,7 @@ func TestFueraDeAzureLaURLGanaSobreLasVariablesDeLaIdentidad(t *testing.T) {
 	}
 }
 
-// L24 (a): en Azure no se conecta con una URL (contraseña fija, o una conexión sin verify-full). Basta una señal de que
+// E11-INF v0.20, 2.2: en Azure no se conecta con una URL (contraseña fija, o una conexión sin verify-full). Basta una señal de que
 // corre en Azure: AZURE_CLIENT_ID (que pone infra/azure en el API y en los trabajos) o las que pone Container Apps.
 func TestEnAzureLaURLSeRechazaConCualquierSenal(t *testing.T) {
 	const url = "postgres://alguien:CLAVE-FIJA-DE-PRUEBA@127.0.0.1:55432/local?sslmode=disable"

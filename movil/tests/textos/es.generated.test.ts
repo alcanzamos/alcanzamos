@@ -3,7 +3,7 @@ import * as path from 'path';
 import { generarDesdeArchivos, hojasDeLaPlataforma, marcadoresDe } from '../../../diseno/generar-textos.mjs';
 import { formatear, plural, textos, type Datos, type Marcadores } from '../../src/textos/es.generated';
 
-// S3 y S4 (D-160) en Android: los marcadores `{nombre}` se pasan exactos y los plurales usan `one` y `other`. El código
+// D-160 en Android (textos con datos y plurales): los marcadores `{nombre}` se pasan exactos y los plurales usan `one` y `other`. El código
 // de `formatear` y `plural` es el mismo de la web (diseno/textos/ayudas.plantilla.ts); la web prueba además el
 // generador y el escaneo de es.json (web/tests/textos). `tsc --noEmit` (npm run typecheck) revisa esta carpeta: cada
 // `@ts-expect-error` falla si el compilador deja de ver el error que se espera.
@@ -24,7 +24,7 @@ describe('src/textos/es.generated.ts', () => {
   });
 });
 
-describe('formatear (S3: marcadores {nombre})', () => {
+describe('formatear (D-160, textos con datos: marcadores {nombre})', () => {
   const ingresoAnterior = textos.seguridadDeLaCuenta.ingresoAnterior;
 
   it('pone cada dato en su marcador', () => {
@@ -102,7 +102,7 @@ function expectTypeOfIgual<A, B>(..._: [A] extends [B] ? ([B] extends [A] ? [] :
   return _;
 }
 
-describe('plural (S4, D-163: one y other con la regla manual del español)', () => {
+describe('plural (D-160, D-163: one y other con la regla manual del español)', () => {
   const ingresos = textos.porConfirmar.ingresos;
 
   it.each([

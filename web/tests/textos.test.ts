@@ -182,7 +182,7 @@ describe("textos de E14", () => {
   });
 });
 
-describe("recuento de PN-72 (US-59, S4, D-093, D-163)", () => {
+describe("recuento de PN-72 (US-59, D-160, D-093, D-163)", () => {
   it("con los dos tipos: «13 por confirmar: 2 ingresos y 11 gastos»", () => {
     expect(resumenPorConfirmar(2, 11)).toBe(
       "13 por confirmar: 2 ingresos y 11 gastos",

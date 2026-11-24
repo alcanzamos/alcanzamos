@@ -134,7 +134,7 @@ func cuerpo(extra string) string {
 	return `{"tipo":"gasto","monto_centavos":65000000,"fecha":"2026-10-26","categoria_id":4,"medio":"efectivo"` + extra + `}`
 }
 
-// S4 (dueño, D-164): el arriendo del 15 de agosto, mensual, escrito el 26 de octubre.
+// D-164 (3): el arriendo del 15 de agosto, mensual, escrito el 26 de octubre.
 func TestS4ElArriendoDelQuinceDeAgostoRegistraAgostoYLasIntermediasSonHistoria(t *testing.T) {
 	repo := &repoFalso{}
 	codigo, resp, _ := llamar(api(t, repo, hoy), "POST", "/api/v1/movimientos",

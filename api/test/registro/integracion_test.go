@@ -241,7 +241,7 @@ func cuerpoDe(tipo, monto, fecha, categoria, extra string) string {
 
 const arriendo = `,"descripcion":"Arriendo","repeticion":{"periodicidad":"mensual"}`
 
-// S4 (dueño, D-164, «E15 como está»): hoy es el 26 de octubre de 2026 y la persona escribe el arriendo del 15 de agosto, mensual.
+// D-164 (3), «E15 como está»: hoy es el 26 de octubre de 2026 y la persona escribe el arriendo del 15 de agosto, mensual.
 // Se registra el 15 de agosto, enlazado a la repetición; el 15 de septiembre y el 15 de octubre son historia y no quedan
 // pendientes; las próximas son noviembre, diciembre y enero.
 func TestS4ElArriendoDelQuinceDeAgosto(t *testing.T) {

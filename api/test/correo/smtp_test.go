@@ -543,7 +543,7 @@ func TestEnviarAvisoDePurgaPorSMTP(t *testing.T) {
 }
 
 // Un servidor que acepta la conexión y no dice nada: con un contexto corto, el envío falla en ese plazo y no antes de
-// tiempo (S4: la tarea manda el aviso con las filas bloqueadas y no puede quedarse esperando).
+// tiempo (D-203 (7): la tarea manda el aviso con las filas bloqueadas y no puede quedarse esperando).
 func TestEnviarAvisoDePurgaConUnServidorQueNoResponde(t *testing.T) {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

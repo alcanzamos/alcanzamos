@@ -194,7 +194,7 @@ describe('PN-71 · Seguridad de la cuenta (E14-PCP 4.14)', () => {
     });
   });
 
-  // Bug 303 (ACC-004, L8.2): «Cerrar sesión» manda un DELETE; mientras espera queda ocupado (se ve como deshabilitado, sigue
+  // Bug 303 (ACC-004, E14-SDD v2.6, 5.2): «Cerrar sesión» manda un DELETE; mientras espera queda ocupado (se ve como deshabilitado, sigue
   // habilitado para TalkBack con `busy`) y un segundo toque no manda otro pedido.
   describe('«Cerrar sesión» mientras envía (bug 303)', () => {
     function fetchConDeleteEnEspera() {

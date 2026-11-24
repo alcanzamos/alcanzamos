@@ -183,7 +183,7 @@ func TestProximasDesdeHoy(t *testing.T) {
 	}
 }
 
-// El caso del dueño (S4, D-164) sin base de datos: lo pendiente que ya llegó es solo lo que cae desde el día de creación.
+// El caso del dueño (D-164 (3)) sin base de datos: lo pendiente que ya llegó es solo lo que cae desde el día de creación.
 func TestPorConfirmar(t *testing.T) {
 	hoy := d(2026, 10, 26)
 	casos := []struct {

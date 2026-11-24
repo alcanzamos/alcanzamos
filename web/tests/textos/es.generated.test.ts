@@ -9,7 +9,7 @@ import {
 
 // Tipos: `tsc --noEmit` (npm run typecheck) revisa esta carpeta, así que cada `@ts-expect-error` falla si el
 // compilador deja de ver el error que se espera.
-describe("formatear (S3: marcadores {nombre})", () => {
+describe("formatear (D-160, textos con datos: marcadores {nombre})", () => {
   it("pone cada dato en su marcador, también si el marcador se repite", () => {
     expect(
       formatear("Te enviamos un enlace a {correo}.", {
@@ -74,7 +74,7 @@ describe("formatear (S3: marcadores {nombre})", () => {
   });
 });
 
-describe("plural (S4, D-163: one y other con la regla manual del español)", () => {
+describe("plural (D-160, D-163: one y other con la regla manual del español)", () => {
   const ingresos = textos.porConfirmar.ingresos;
 
   it.each([

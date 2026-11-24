@@ -4,7 +4,7 @@ import ts from 'typescript';
 import { hojasDe, hojasDeLaPlataforma } from '../../../diseno/generar-textos.mjs';
 import { analizar, archivosDe, comparar, RESERVADOS } from '../../../diseno/textos/usos.mjs';
 
-// S2 (D-160, E17-ECO 4.13, paso 51): `diseno/textos/es.json` es la única fuente de los textos de Android. Esta prueba
+// D-160, E17-ECO 4.13, paso 51: `diseno/textos/es.json` es la única fuente de los textos de Android. Esta prueba
 // reemplaza a la de paridad con `movil/src/textos.ts`:
 //  - toda clave que el código usa existe en `comun` o `solo_android`, y toda clave de `comun` y `solo_android` la usa
 //    alguien. Como las hojas de Android son comun + solo_android, una clave de comun que móvil no usa falla aquí y una
@@ -22,7 +22,7 @@ const analisis = archivos.map((archivo) =>
   analizar(ts, path.relative(raiz, archivo), fs.readFileSync(archivo, 'utf8'), hojas),
 );
 
-describe('claves de textos usadas en movil/src (S2)', () => {
+describe('claves de textos usadas en movil/src (D-160)', () => {
   it('el código solo usa textos que el análisis puede seguir', () => {
     expect(analisis.flatMap((a) => a.problemas)).toEqual([]);
   });
@@ -52,7 +52,7 @@ describe('claves de textos usadas en movil/src (S2)', () => {
   });
 
   // Los textos de PN-36 (`solo_android.crearCuentaDelMenor`, aprobados el 2026-11-11) esperan a su pantalla de I11 y no
-  // cuentan como «sin uso» (S2 de la US-67); sus claves siguen existiendo.
+  // cuentan como «sin uso» (SC-E21-25, 4); sus claves siguen existiendo.
   it('los grupos reservados de una pantalla futura no cuentan como sin uso, pero sus claves siguen existiendo', () => {
     expect(reservadas.length).toBeGreaterThan(0);
     expect(reservadas.every((h) => h[0] === 'crearCuentaDelMenor')).toBe(true);

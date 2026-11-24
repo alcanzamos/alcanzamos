@@ -208,14 +208,14 @@ func formas(t *testing.T, f func(t *testing.T, android bool)) {
 	t.Run("Android con token en el cuerpo", func(t *testing.T) { f(t, true) })
 }
 
-// S2 (dueño, 2026-10-24): una persona nueva que entra, autoriza en PN-64 y llega a PN-71 en la misma sesión ve «Este es
+// Registro de iteraciones v0.28 (dueño, 2026-10-24): una persona nueva que entra, autoriza en PN-64 y llega a PN-71 en la misma sesión ve «Este es
 // tu primer ingreso.»: `ingreso_anterior` es null. Autorizar no reautentica, no rota el token y no toca la credencial.
 func TestS2LaPersonaNuevaAutorizaYVeSuPrimerIngresoEnLaMismaSesion(t *testing.T) {
 	formas(t, func(t *testing.T, android bool) {
 		s := nuevoServidor(t)
 		c, persona := s.nuevaCuentaVerificada("laura@ejemplo.test", android)
 
-		// Sin autorizar, PN-71 está cerrado (S1).
+		// Sin autorizar, PN-71 está cerrado (RF-031).
 		if r := c.llamar("GET", rutaSeguridad, ""); r.Codigo != 403 || r.Cuerpo != `{"error":"autorizacion_pendiente"}` {
 			t.Fatalf("PN-71 sin autorizar: %d %s", r.Codigo, r.Cuerpo)
 		}
@@ -259,7 +259,7 @@ func TestS2LaPersonaNuevaAutorizaYVeSuPrimerIngresoEnLaMismaSesion(t *testing.T)
 	})
 }
 
-// S1 («nada se guarda antes de autorizar»): la sesión sin autorizar recibe 403 autorizacion_pendiente en las rutas
+// RF-031 («nada se guarda antes de autorizar»): la sesión sin autorizar recibe 403 autorizacion_pendiente en las rutas
 // protegidas y, al autorizar en la misma sesión, pasa.
 func TestSinAutorizarLasRutasProtegidasDan403YAutorizandoPasan(t *testing.T) {
 	formas(t, func(t *testing.T, android bool) {

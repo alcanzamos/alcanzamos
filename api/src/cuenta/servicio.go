@@ -30,7 +30,7 @@ const (
 	// LimiteSinAviso: si a los 14 días de creada el aviso todavía no salió, la cuenta del caso 2 se borra igual y la tarea
 	// deja un error en el registro (D-203).
 	LimiteSinAviso = 14 * 24 * time.Hour
-	// PlazoDeEnvioConFilasBloqueadas es el tiempo de espera del envío del aviso (D-203, S4). El aviso se manda con la fila
+	// PlazoDeEnvioConFilasBloqueadas es el tiempo de espera del envío del aviso (D-203 (7)). El aviso se manda con la fila
 	// de la persona y la de su perfil bloqueadas (`FOR UPDATE`), para que dos pasadas de la tarea no lo manden dos veces ni
 	// se mande a quien está autorizando; un servidor de correo que no responde las dejaría bloqueadas, y con ellas a esa
 	// persona (iniciar sesión, autorizar, borrar la cuenta). Son 10 segundos: de sobra para el diálogo SMTP de un servidor
@@ -438,8 +438,8 @@ func (s *Servicio) BorrarCuentasSinConfirmar(ctx context.Context, ahora time.Tim
 	return res.Borradas, nil
 }
 
-// AvisarAntesDeLaPurga es la tarea que manda el aviso a las cuentas del caso 2 que llevan 5 días o más sin aviso (D-203,
-// S5). Devuelve cuántas quedaron avisadas. El correo dice el momento real del borrado, el que llegue más tarde entre
+// AvisarAntesDeLaPurga es la tarea que manda el aviso a las cuentas del caso 2 que llevan 5 días o más sin aviso (D-203 (8)).
+// Devuelve cuántas quedaron avisadas. El correo dice el momento real del borrado, el que llegue más tarde entre
 // creada_en + 7 días y el aviso + 48 horas, y el aviso que se registra es la hora leída justo antes de enviar ese correo,
 // por cada cuenta (no la del inicio de la corrida, que la purga o unos envíos lentos dejan atrás): así la purga siempre
 // espera 48 horas o más desde el correo real. El envío lleva un plazo corto (PlazoDeEnvioConFilasBloqueadas) porque se

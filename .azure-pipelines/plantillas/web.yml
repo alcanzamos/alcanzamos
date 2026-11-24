@@ -99,7 +99,7 @@ jobs:
       # - --rm: el contenedor se borra al terminar.
       # Se monta el espacio de trabajo en la misma ruta y se trabaja desde web/ (ahí están playwright.config.ts y node_modules,
       # instalados antes con `npm ci`). El e2e usa el Node y el npm de plantillas/pasos/node.yml, montados de solo lectura y
-      # primeros en el PATH, y NO el Node de la imagen (L5): el contenedor corre `npm run e2e` con las mismas versiones que el
+      # primeros en el PATH, y NO el Node de la imagen: el contenedor corre `npm run e2e` con las mismas versiones que el
       # resto del trabajo. La versión de la carpeta de Node debe ser la de plantillas/pasos/node.yml (pruebas/filtros.py lo
       # comprueba). `webServer` de playwright.config.ts levanta `vite preview` en 127.0.0.1:4173, dentro del propio contenedor.
       - script: |

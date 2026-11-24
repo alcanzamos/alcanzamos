@@ -11,7 +11,7 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/src/bd"
 )
 
-// Pruebas de regresión de la verificación independiente del 2026-11-17 (US-79, S13).
+// Pruebas de regresión de la verificación independiente del 2026-11-17 (US-79, D-204).
 
 type fuenteS13 func(context.Context) (string, error)
 

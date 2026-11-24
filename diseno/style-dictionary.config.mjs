@@ -1,4 +1,4 @@
-// Conversión de tokens para React Native (S1, US-45). Se ejecuta con `npm run tokens` desde movil/.
+// Conversión de tokens para React Native (US-45). Se ejecuta con `npm run tokens` desde movil/.
 // El JSON usa la forma de Tokens Studio: conjuntos en la raíz (base/*, modo/*) más $themes y $metadata.
 // Sin imports: la configuración vive fuera de movil/ y no ve su node_modules.
 const aqui = new URL('.', import.meta.url).pathname;

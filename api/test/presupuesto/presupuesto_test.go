@@ -396,7 +396,7 @@ func idsDeLasFilas(t *testing.T, cuerpo string) []int {
 	return ids
 }
 
-// E14-PPA 4.1, PN-06 fila 4, y L6 (6) de la US-77: con el mismo gasto, por nombre y no por id. Con presupuesto y sin
+// E14-PPA v1.10, 4.1, PN-06 fila 4: con el mismo gasto, por nombre y no por id. Con presupuesto y sin
 // gasto, Educación (12) va antes que Transporte (8); sin presupuesto y con el mismo gasto, Hogar y mantenimiento (6) va
 // antes que Servicios públicos (5). Las que tienen presupuesto siguen primero.
 func TestPN06ConElMismoGastoOrdenaPorNombre(t *testing.T) {

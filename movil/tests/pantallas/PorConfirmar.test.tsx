@@ -464,7 +464,7 @@ describe('PN-01 · «Por confirmar», Android (E14-PRR 4.1, US-60)', () => {
       expect(pedidos.filter((p) => p.metodo === 'POST')).toHaveLength(1);
     });
 
-    // Bug 303 (S1.1): con la hoja saliendo, Android todavía tiene su ventana encima y el foco se perdía.
+    // Bug 303 (E14-SDD v2.5, 5.12): con la hoja saliendo, Android todavía tiene su ventana encima y el foco se perdía.
     it('ACC-004 (bug 303): «Cambiar el monto» → «Confirmar»: el foco no se pide mientras la hoja se cierra, y llega al título cuando termina', async () => {
       animacionesAMano();
       let confirmada = false;

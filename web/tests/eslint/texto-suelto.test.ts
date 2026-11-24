@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { ESLint } from "eslint";
 import { describe, expect, it } from "vitest";
 
-// D-162 (US-59, S2): la regla de web/eslint.config.js que impide textos sueltos en JSX hace lo mismo que
+// D-162 (US-59): la regla de web/eslint.config.js que impide textos sueltos en JSX hace lo mismo que
 // `react/jsx-no-literals` con `noStrings: true` (sin instalar el complemento). Esta prueba corre ESLint de verdad con
 // la configuración del proyecto: lo que DEBE reportar, lo que NO debe reportar, y que el código real pasa.
 const raiz = fileURLToPath(new URL("../../", import.meta.url));

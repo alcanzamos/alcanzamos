@@ -103,7 +103,7 @@ ESPERADO = {
     "web/servidor/internal/servidor/manejador_test.go": {"comun", "web", "api"},
     ".azure-pipelines/web.yml": {"comun", "web"},
     ".azure-pipelines/plantillas/web.yml": {"comun", "web"},
-    # Estos casos protegen S11 (D-161): `comun` usa web/scripts/antiguedad*.mjs para commitlint y no filtra por ruta (corre con
+    # Estos casos protegen D-161 (1): `comun` usa web/scripts/antiguedad*.mjs para commitlint y no filtra por ruta (corre con
     # cualquier cambio), así que un cambio solo en esos scripts, hecho desde un PR de web, también lo corre. Si alguien le agrega
     # `paths` a `comun` sin esas rutas, estos casos fallan.
     "web/scripts/antiguedad.mjs": {"comun", "web"},

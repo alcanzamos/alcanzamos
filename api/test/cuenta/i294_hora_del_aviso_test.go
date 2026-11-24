@@ -18,7 +18,7 @@ func (r *purgaLentaI294) BorrarSinConfirmar(ctx context.Context, p cuenta.Plazos
 	return r.repoFalso.BorrarSinConfirmar(ctx, p)
 }
 
-// S1/S2/S5: a slow purge cannot shorten the 48 hours following the notice.
+// D-203 (2) y (19): a slow purge cannot shorten the 48 hours following the notice.
 func TestI294AvisoDespuesDeUnaPurgaLenta(t *testing.T) {
 	e := nuevoEntorno()
 	e.repo.porAvisar = []cuenta.CuentaPorAvisar{{ID: "p1", Correo: "laura@ejemplo.test", CreadaEn: ahoraDePrueba.Add(-6 * 24 * time.Hour)}}

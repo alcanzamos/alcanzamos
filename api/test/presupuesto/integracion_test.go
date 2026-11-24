@@ -479,7 +479,7 @@ func TestIntegracionPN06SoloLosPresupuestosPropios(t *testing.T) {
 	}
 }
 
-// E14-PPA 4.1, PN-06 fila 4 (L6 (6) de la US-77), con los nombres del catálogo de la base: con el mismo gasto, por nombre
+// E14-PPA v1.10, 4.1, PN-06 fila 4, con los nombres del catálogo de la base: con el mismo gasto, por nombre
 // y no por id. Educación (12) antes que Transporte (8), con presupuesto y sin gasto; Hogar y mantenimiento (6) antes que
 // Servicios públicos (5), sin presupuesto y con el mismo gasto.
 func TestIntegracionConElMismoGastoPorNombre(t *testing.T) {

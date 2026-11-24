@@ -10,7 +10,7 @@ import { App } from "../src/App";
 import { navegar } from "../src/enrutador";
 import { json, simularApi } from "./ayudas";
 
-// L10: el borrador del formulario solo se conserva en el viaje a PN-03 y de vuelta; en cualquier otra pantalla se vacía.
+// E14-PPN v1.16, 3.1: el borrador del formulario solo se conserva en el viaje a PN-03 y de vuelta; en cualquier otra pantalla se vacía.
 // D-164: el formulario se abre desde «Registrar» de PN-01 y vuelve a PN-01.
 const sinMovimientos = {
   periodo_actual: "2026-10",
@@ -60,7 +60,7 @@ const abrirDesdePN01 = async () => {
   await monto();
 };
 
-describe("Borrador del registro · cuándo se conserva y cuándo se vacía (L10)", () => {
+describe("Borrador del registro · cuándo se conserva y cuándo se vacía (E14-PPN v1.16, 3.1)", () => {
   it("abrir el formulario desde PN-01 empieza vacío aunque la persona haya escrito y vuelto", async () => {
     window.history.replaceState(null, "", "/movimientos");
     render(<App />);

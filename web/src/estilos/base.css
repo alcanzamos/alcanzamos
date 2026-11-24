@@ -1,5 +1,5 @@
 /* Solo tokens semánticos (--color-*, --espacio-*, --tipografia-*): nada de colores ni medidas sueltas (E17-ECO 4.5).
-   Las cifras van en Figtree con cifras tabulares y sin ss02 (S4, D-123). */
+   Las cifras van en Figtree con cifras tabulares y sin ss02 (D-123). */
 body {
   margin: 0;
   background: var(--color-fondo-pagina);

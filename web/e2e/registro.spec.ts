@@ -20,7 +20,7 @@ const creado = {
   pendientes: [],
 };
 
-// Hoy es el 26 de octubre de 2026 (el día del caso del arriendo, S4 y D-164), a las 10:00 en Colombia.
+// Hoy es el 26 de octubre de 2026 (el día del caso del arriendo, D-164 (3)), a las 10:00 en Colombia.
 async function hoyEs26DeOctubre(page: Page) {
   await page.clock.setFixedTime(new Date("2026-10-26T15:00:00Z"));
 }
@@ -192,7 +192,7 @@ test.describe("PN-01 · Formulario de registro (US-51)", () => {
     ]);
   });
 
-  test("una fecha futura sin repetición se guarda con su fecha (L3)", async ({
+  test("una fecha futura sin repetición se guarda con su fecha (E14-PPN v1.16, 3.1)", async ({
     page,
   }) => {
     await hoyEs26DeOctubre(page);
@@ -410,7 +410,7 @@ test.describe("PN-03 · Se repite (US-51)", () => {
   });
 });
 
-test.describe("Borrador del registro (L10)", () => {
+test.describe("Borrador del registro (E14-PPN v1.16, 3.1)", () => {
   test("escribir un monto, volver a PN-01 y a PN-71, cerrar sesión y entrar con otra cuenta: el formulario abre vacío", async ({
     page,
   }) => {

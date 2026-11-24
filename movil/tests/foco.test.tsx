@@ -46,7 +46,7 @@ function Escena({ conSalida = false }: { conSalida?: boolean }) {
   );
 }
 
-describe('el foco de TalkBack espera a que la hoja termine de cerrarse (bug 303, S1.1)', () => {
+describe('el foco de TalkBack espera a que la hoja termine de cerrarse (bug 303, E14-SDD v2.5, 5.12)', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     animacionesAMano();
@@ -141,7 +141,7 @@ describe('el foco de TalkBack espera a que la hoja termine de cerrarse (bug 303,
   });
 });
 
-describe('mientras una hoja está abierta, TalkBack no lee lo de atrás (bug 304, 67.6 y 67.7, S1.3)', () => {
+describe('mientras una hoja está abierta, TalkBack no lee lo de atrás (bug 304, 67.6 y 67.7)', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     animacionesAMano();

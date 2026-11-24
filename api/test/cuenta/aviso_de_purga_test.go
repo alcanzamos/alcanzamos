@@ -27,7 +27,7 @@ func TestElAvisoSaleDesdeElDia5(t *testing.T) {
 	}
 }
 
-// S5: {fecha} es el momento real del borrado: lo que llegue más tarde entre creada_en + 7 días y el aviso + 48 horas. El
+// D-203 (8): {fecha} es el momento real del borrado: lo que llegue más tarde entre creada_en + 7 días y el aviso + 48 horas. El
 // aviso que se registra es el de la corrida (el mismo con que se calculó la fecha).
 func TestLaFechaDelAvisoEsLaDelBorradoReal(t *testing.T) {
 	casos := []struct {
@@ -61,7 +61,7 @@ func TestLaFechaDelAvisoEsLaDelBorradoReal(t *testing.T) {
 	}
 }
 
-// S2 (2): si el envío falla, no se registra, la tarea no falla y queda un aviso en el registro, sin el correo; la corrida
+// D-203 (4): si el envío falla, no se registra, la tarea no falla y queda un aviso en el registro, sin el correo; la corrida
 // siguiente lo reintenta.
 func TestSiElEnvioDelAvisoFallaNoSeRegistraYQuedaUnAvisoEnElRegistro(t *testing.T) {
 	e := nuevoEntorno()
@@ -104,7 +104,7 @@ func TestUnaFallaDeLaBaseAlAvisarEsUnaFallaDeLaTarea(t *testing.T) {
 	}
 }
 
-// S3: la cuenta del caso 2 que se borra porque el aviso no salió en 14 días deja un ERROR con el id de la cuenta, nunca
+// D-203 (3): la cuenta del caso 2 que se borra porque el aviso no salió en 14 días deja un ERROR con el id de la cuenta, nunca
 // con el correo.
 func TestLaCuentaBorradaSinAvisoDejaUnErrorConSuIdYSinCorreo(t *testing.T) {
 	e := nuevoEntorno()
@@ -153,7 +153,7 @@ func (c *correoQueMira) EnviarAvisoDePurga(ctx context.Context, destino string, 
 	return c.Falso.EnviarAvisoDePurga(ctx, destino, borradoEn)
 }
 
-// S4: el envío con las filas bloqueadas tiene un tiempo de espera corto. Sin configurar nada, son 10 segundos: más que
+// D-203 (7): el envío con las filas bloqueadas tiene un tiempo de espera corto. Sin configurar nada, son 10 segundos: más que
 // el diálogo de un servidor sano y mucho menos que el plazo de 30 s del adaptador SMTP, para no tener filas bloqueadas
 // mientras el servidor de correo no contesta.
 func TestElEnvioDelAvisoTieneUnTiempoDeEsperaCorto(t *testing.T) {

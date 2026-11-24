@@ -160,11 +160,11 @@ test.describe("PN-64 · Autorización de datos", () => {
     ]);
   });
 
-  // S2 (dueño, 2026-10-24): «una persona nueva que entra, autoriza en PN-64 y llega a PN-71 en la misma sesión debe ver
+  // Registro de iteraciones v0.28 (dueño, 2026-10-24): «una persona nueva que entra, autoriza en PN-64 y llega a PN-71 en la misma sesión debe ver
   // «Este es tu primer ingreso.»». El API está simulado: igual que el real, autorizar no reautentica ni toca el ingreso
   // anterior, y PN-71 contesta `ingreso_anterior: null` solo porque nada vuelve a iniciar sesión (la prueba de integración
   // del API, TestS2LaPersonaNuevaAutorizaYVeSuPrimerIngresoEnLaMismaSesion, prueba el lado del servidor).
-  test("USA-003 S2: una persona nueva que entra, autoriza en PN-64 y llega a PN-71 en la misma sesión ve «Este es tu primer ingreso.»", async ({
+  test("USA-003: una persona nueva que entra, autoriza en PN-64 y llega a PN-71 en la misma sesión ve «Este es tu primer ingreso.»", async ({
     page,
   }) => {
     let autorizada = false;

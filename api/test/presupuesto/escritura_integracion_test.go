@@ -250,7 +250,7 @@ func TestIntegracionPonerConUnPresupuestoCompartidoEs409(t *testing.T) {
 	}
 }
 
-// S7: la comprobación va dentro de la misma escritura, sin carrera entre comprobar y escribir. Una transacción siembra el
+// La comprobación va dentro de la misma escritura, sin carrera entre comprobar y escribir. Una transacción siembra el
 // presupuesto compartido y no confirma; «Poner» de la misma categoría y mes queda esperando en el índice único; la
 // transacción confirma y «Poner» responde ErrPresupuestoCompartido sin tocar la fila. Un «comprobar y después escribir»
 // no habría visto la fila sin confirmar y la habría pisado al chocar.
