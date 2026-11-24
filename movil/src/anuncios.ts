@@ -91,7 +91,7 @@ export function useAvisarErrores(pantalla?: RefObject<ControlDePantalla | null>)
 }
 
 /**
- * El foco de TalkBack después de una acción que cambia la pantalla (E14-SDD 2.5, 5.12; bugs 303 y 304): devuelve
+ * El foco de TalkBack después de una acción que cambia la pantalla (E14-SDD v2.5, 5.12; bugs 303 y 304): devuelve
  * `llevarFoco(vista)`, que lo lleva a esa vista con `sendAccessibilityEvent(vista, 'focus')`. Al cancelar una hoja, al
  * botón que la abrió; después de guardar o confirmar, a un título que sigue ahí; con un aviso que la persona tiene que
  * leer, al aviso. Si la vista ya no está (el botón se fue al recargar), el foco no se mueve.

@@ -68,7 +68,7 @@ export const casos = {
 
 function respuestaDe(caso: Caso, enCero: boolean) {
   const asignado = Object.values(caso.presupuestos).reduce((a, b) => a + b, 0);
-  // Un total por marca: «Llega después» solo lo esperado y «Por confirmar» lo demás (E14-PPA 1.7).
+  // Un total por marca: «Llega después» solo lo esperado y «Por confirmar» lo demás (E14-PPA v1.7).
   const totalDe = (marca: "esperado" | "por_confirmar") =>
     caso.esperados
       .filter((e) => (e.marca ?? "esperado") === marca)

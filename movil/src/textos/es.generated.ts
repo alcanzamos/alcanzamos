@@ -1000,7 +1000,7 @@ export const textos = {
     preparando: "Preparando tu archivo…",
   },
   presupuesto: {
-    // E14-SDD 5.9 (destino «Presupuesto» de la navegación); E14-PPA 4.1 (PN-06), fila 8; entrada provisional en PN-71 (E14-SDD 2.4)
+    // E14-SDD 5.9 (destino «Presupuesto» de la navegación); E14-PPA 4.1 (PN-06), fila 8; entrada provisional en PN-71 (E14-SDD v2.4)
     destino: "Presupuesto",
     // E14-PPA 4.1 (PN-06), fila 2: «Presupuesto de noviembre» (plantilla sacada del ejemplo); E14-PPA 4.2 (PN-07), fila 2
     titulo: "Presupuesto de {mes}",
@@ -1015,13 +1015,13 @@ export const textos = {
       sinAsignar: "Sin asignar",
       // E14-PPA 4.1 (PN-06), fila 3: «Llega después: $1.200.000 (esperado)» (D-094); E14-PPA 4.2 (PN-07), reglas
       llegaDespues: "Llega después: {monto} (esperado)",
-      // Aprobado por el dueño (E14-PPA 1.7, 2026-11-11): E14-PPA 4.1 (PN-06), fila 3, nota fechada del 2026-11-11, «Llega después» separa lo esperado de lo por confirmar; línea aparte, solo si lo por confirmar es mayor que cero; también en PN-07
+      // Aprobado por el dueño (E14-PPA v1.7, 2026-11-11): E14-PPA 4.1 (PN-06), fila 3, nota fechada del 2026-11-11, «Llega después» separa lo esperado de lo por confirmar; línea aparte, solo si lo por confirmar es mayor que cero; también en PN-07
       porConfirmar: "Por confirmar: {monto}",
       // E14-PPA 4.1 (PN-06), fila 3, texto `tipografia.pequeno` (primera frase)
       cuentaLoRegistrado: "Sin asignar cuenta lo que ya registraste.",
-      // Propuesto en la US-77 (T3, web) y aprobado por el dueño (E14-PPA 1.7, 2026-11-11): E14 no tiene el texto. Sale de E14-PPA 4.1 (PN-06), fila 3 («El salario del 16 de noviembre de 2026 se suma cuando llegue.»), con el nombre de la categoría tal cual; solo con una fecha esperada
+      // Propuesto en la US-77 (T3, web) y aprobado por el dueño (E14-PPA v1.7, 2026-11-11). Sale de E14-PPA 4.1 (PN-06), fila 3 («El salario del 16 de noviembre de 2026 se suma cuando llegue.»), con el nombre de la categoría tal cual; solo con una fecha esperada
       seSumaCuandoLlegue: "{nombre} del {fecha} se suma cuando llegue.",
-      // Aprobado por el dueño (E14-PPA 1.7, 2026-11-11): E14-PPA 4.1 (PN-06), fila 3, nota fechada del 2026-11-11; solo con una fecha por confirmar
+      // Aprobado por el dueño (E14-PPA v1.7, 2026-11-11): E14-PPA 4.1 (PN-06), fila 3, nota fechada del 2026-11-11; solo con una fecha por confirmar
       seSumaCuandoLoConfirmes: "{nombre} del {fecha} se suma cuando lo confirmes.",
       // E14-PPA 4.1 (PN-06), fila 3 (abre PN-08); E14-PPA 3 (PN-07 → PN-08)
       verMisIngresos: "Ver mis ingresos",
@@ -1059,9 +1059,9 @@ export const textos = {
       corregir: "Corregir",
       // E14-PPA 4.1 (PN-06), «Cómo se arma cada fila», Acción con presupuesto (D-094)
       quitar: "Quitar",
-      // Propuesto en la US-77 (T3, web) y aprobado por el dueño (E14-PPA 1.8, 2026-11-11): E14 no tiene el texto. E14-PPA 4.1 (PN-06) pide el nombre de la categoría en el nombre accesible de «Poner presupuesto» (RNF-019, criterio 6)
+      // Propuesto en la US-77 (T3, web) y aprobado por el dueño (E14-PPA v1.8, 2026-11-11). E14-PPA 4.1 (PN-06) pide el nombre de la categoría en el nombre accesible de «Poner presupuesto» (RNF-019, criterio 6)
       nombreDePoner: "Poner presupuesto a {categoria}",
-      // Propuesto en la US-77 (T3, web) y aprobado por el dueño (E14-PPA 1.8, 2026-11-11): E14 no tiene el texto. E14-PPA 4.1 (PN-06) pide el nombre de la categoría en el nombre accesible de «Quitar» (SC-E21-13); sale del título de la hoja «¿Quitar el presupuesto de Transporte?»
+      // Propuesto en la US-77 (T3, web) y aprobado por el dueño (E14-PPA v1.8, 2026-11-11). E14-PPA 4.1 (PN-06) pide el nombre de la categoría en el nombre accesible de «Quitar» (SC-E21-13); sale del título de la hoja «¿Quitar el presupuesto de Transporte?»
       nombreDeQuitar: "Quitar el presupuesto de {categoria}",
       // E14-PPA 4.1 (PN-06), fila 5 (abre «Ver todas» de E14-PPN 3.1)
       agregarOtra: "Agregar otra categoría",
@@ -1075,7 +1075,7 @@ export const textos = {
       monto: "Monto para {mes}",
       // E14-PPA 4.1 (PN-06), hoja «Poner presupuesto», fila 5
       guardar: "Guardar",
-      // Propuesto en la US-77 (T4, Android) y aprobado por el dueño (E14-PPA 1.8, 2026-11-11): E14 no tiene el texto. Nombre accesible del campo de la hoja «Poner presupuesto» (E14-PPA 4.1, hoja, fila 2: «Monto para noviembre»), con la moneda, como «Monto en pesos» del registro (aprobado por el dueño el 2026-11-08, US-63, ACC-004); el rótulo visible sigue siendo «Monto para noviembre»
+      // Propuesto en la US-77 (T4, Android) y aprobado por el dueño (E14-PPA v1.8, 2026-11-11). Nombre accesible del campo de la hoja «Poner presupuesto» (E14-PPA 4.1, hoja, fila 2: «Monto para noviembre»), con la moneda, como «Monto en pesos» del registro (aprobado por el dueño el 2026-11-08, US-63, ACC-004); el rótulo visible sigue siendo «Monto para noviembre»
       montoNombreAccesible: "Monto para {mes} en pesos",
     },
     quitar: {

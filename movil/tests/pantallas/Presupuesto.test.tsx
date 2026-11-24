@@ -47,7 +47,7 @@ const leido = (texto: string | RegExp) => screen.getByLabelText(texto);
 
 const AVISO_ENFOCADO = { rol: 'alert', nombre: 'No pudimos guardar el presupuesto.Tus datos están a salvo. Intenta de nuevo.' };
 
-/** El aviso de error que queda en la pantalla, con la hoja ya cerrada (E14-PPA 1.9, 4.1; E14-SDD 2.5, 5.12). */
+/** El aviso de error que queda en la pantalla, con la hoja ya cerrada (E14-PPA v1.9, 4.1; E14-SDD v2.5, 5.12). */
 const avisoEnLaPantalla = () => {
   expect(screen.queryByRole('button', { name: 'Ahora no' })).not.toBeOnTheScreen();
   return screen.getByRole('alert', { name: /^No pudimos guardar el presupuesto\./ });
@@ -74,7 +74,7 @@ describe('PN-06 y PN-07 · Presupuesto, Android (E14-PPA 4.1 y 4.2, US-77)', () 
   });
   afterEach(() => jest.useRealTimers());
 
-  describe('la entrada desde PN-71 (E14-SDD 2.4)', () => {
+  describe('la entrada desde PN-71 (E14-SDD v2.4)', () => {
     it('«Presupuesto» va justo después de «Movimientos» y abre PN-06 con la barra «Presupuesto de noviembre»', async () => {
       const pedidos = apiDelPresupuesto(respuestaJson);
       await render(<Navegacion />);
@@ -120,7 +120,7 @@ describe('PN-06 y PN-07 · Presupuesto, Android (E14-PPA 4.1 y 4.2, US-77)', () 
       ).toBeOnTheScreen();
       expect(screen.queryByText('Registrar un ingreso')).not.toBeOnTheScreen();
       expect(screen.queryByText('Dejar el presupuesto en cero')).not.toBeOnTheScreen();
-      // Sin «Para mirar con calma» ni la aclaración de la simulación (E14-PPA 1.6).
+      // Sin «Para mirar con calma» ni la aclaración de la simulación (E14-PPA v1.6).
       expect(screen.queryByText('Para mirar con calma')).not.toBeOnTheScreen();
     });
 
@@ -142,7 +142,7 @@ describe('PN-06 y PN-07 · Presupuesto, Android (E14-PPA 4.1 y 4.2, US-77)', () 
       expect(screen.getByText('Sin asignar cuenta lo que ya registraste.')).toBeOnTheScreen();
     });
 
-    // E14-PPA 1.7: «Llega después» separa lo esperado de lo por confirmar; cada línea sale solo si su
+    // E14-PPA v1.7: «Llega después» separa lo esperado de lo por confirmar; cada línea sale solo si su
     // total es mayor que cero, se lee en pesos (D-187) y la frase de una sola fecha va por cada marca.
     const conLoQueLlega = (llega: string, porConfirmar: string, fechas: PresupuestoDelPeriodo['llega_despues']) => ({
       ...laura,
@@ -481,7 +481,7 @@ describe('PN-06 y PN-07 · Presupuesto, Android (E14-PPA 4.1 y 4.2, US-77)', () 
       expect(screen.getByRole('button', { name: 'Dejar el presupuesto en cero' })).toBeOnTheScreen();
     });
 
-    it('ingreso nulo con el salario por confirmar: la línea «Por confirmar» lo muestra y lo lee en pesos (E14-PPA 1.7)', async () => {
+    it('ingreso nulo con el salario por confirmar: la línea «Por confirmar» lo muestra y lo lee en pesos (E14-PPA v1.7)', async () => {
       const conSalario = nulo();
       apiDelPresupuesto(respuestaJson, {
         presupuesto: {
@@ -497,7 +497,7 @@ describe('PN-06 y PN-07 · Presupuesto, Android (E14-PPA 4.1 y 4.2, US-77)', () 
       expect(screen.queryByText(/Llega después/)).not.toBeOnTheScreen();
     });
 
-    // E14-PPA 1.9 (4.2): la frase de una sola fecha también en PN-07, sola, bajo «Llega después» o «Por confirmar».
+    // E14-PPA v1.9 (4.2): la frase de una sola fecha también en PN-07, sola, bajo «Llega después» o «Por confirmar».
     it('ingreso nulo con el salario por confirmar: debajo de «Por confirmar», «… se suma cuando lo confirmes.»', async () => {
       const conSalario = nulo();
       apiDelPresupuesto(respuestaJson, {
@@ -654,9 +654,9 @@ describe('PN-06 y PN-07 · Presupuesto, Android (E14-PPA 4.1 y 4.2, US-77)', () 
     });
   });
 
-  // E14-SDD 2.5 (5.12): el foco de TalkBack al cerrar una hoja, como en la web. Al cancelar vuelve al botón que la
+  // E14-SDD v2.5 (5.12): el foco de TalkBack al cerrar una hoja, como en la web. Al cancelar vuelve al botón que la
   // abrió; después de guardar, al título; con datos viejos, al aviso de la pantalla (abajo).
-  describe('el foco de TalkBack al cerrar una hoja (E14-SDD 2.5, 5.12)', () => {
+  describe('el foco de TalkBack al cerrar una hoja (E14-SDD v2.5, 5.12)', () => {
     it.each([
       ['Poner presupuesto a Arriendo o cuota de vivienda', 'Ahora no'],
       ['Poner presupuesto a Arriendo o cuota de vivienda', 'Cerrar'],
@@ -735,10 +735,10 @@ describe('PN-06 y PN-07 · Presupuesto, Android (E14-PPA 4.1 y 4.2, US-77)', () 
     });
   });
 
-  // E14-PPA 1.9 (4.1) y E14-SDD 2.5 (5.12): un 404 o un 409 dice que la hoja tenía datos viejos (el presupuesto ya no existe, el mes
+  // E14-PPA v1.9 (4.1) y E14-SDD v2.5 (5.12): un 404 o un 409 dice que la hoja tenía datos viejos (el presupuesto ya no existe, el mes
   // cambió o la categoría tiene uno compartido). La hoja se cierra, la pantalla se vuelve a pedir y el aviso de E14 queda
   // en la pantalla, arriba de «Por categoría», con el foco de TalkBack, como en la web. Repetir exige volver a abrir la hoja.
-  describe('hoja con datos viejos: un 404 o un 409 al poner, corregir o quitar (E14-PPA 1.9, 4.1; E14-SDD 2.5, 5.12)', () => {
+  describe('hoja con datos viejos: un 404 o un 409 al poner, corregir o quitar (E14-PPA v1.9, 4.1; E14-SDD v2.5, 5.12)', () => {
     const acciones = {
       poner: {
         abridor: 'Poner presupuesto a Arriendo o cuota de vivienda',

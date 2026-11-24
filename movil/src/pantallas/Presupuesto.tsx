@@ -51,7 +51,7 @@ type Estado =
 /** La hoja abierta: la de una fila de «Por categoría» o la de una categoría de «Agregar otra categoría». */
 type HojaAbierta = {
   tipo: 'monto' | 'quitar';
-  /** El mes que se veía al abrirla: «Guardar» pone ahí, nunca en un mes que llegó después (E14-PPA 1.9, 4.1). */
+  /** El mes que se veía al abrirla: «Guardar» pone ahí, nunca en un mes que llegó después (E14-PPA v1.9, 4.1). */
   periodo: string;
   categoriaId: number;
   presupuesto: CategoriaDelPresupuesto['presupuesto'];
@@ -94,8 +94,8 @@ export function FilaConValor({ etiqueta, centavos, grande = false }: { etiqueta:
 
 // La tarjeta «Tu presupuesto este mes»: la de PN-06 con `normal` y la de PN-07 con un ingreso bajo o nulo (D-094, P-3).
 // Describe sin calificar: sin Atención, sin rojo y sin signo menos (RNF-017). «Llega después» y «Por confirmar» son dos
-// líneas, cada una solo con su total mayor que cero y leída en pesos (E14-PPA 1.7, D-187). `refDelTitulo` es para
-// llevar el foco de TalkBack a su título después de guardar (E14-SDD 2.5, 5.12).
+// líneas, cada una solo con su total mayor que cero y leída en pesos (E14-PPA v1.7, D-187). `refDelTitulo` es para
+// llevar el foco de TalkBack a su título después de guardar (E14-SDD v2.5, 5.12).
 function Resumen({
   datos,
   refDelTitulo,
@@ -134,7 +134,7 @@ function Resumen({
           {formatear(t.resumen.porConfirmar, { monto: pesos(r.por_confirmar_centavos) })}
         </Texto>
       )}
-      {/* En PN-07 la frase va sola, bajo «Llega después» o «Por confirmar» (E14-PPA 1.9, 4.2). */}
+      {/* En PN-07 la frase va sola, bajo «Llega después» o «Por confirmar» (E14-PPA v1.9, 4.2). */}
       {r.modo !== 'normal' && frase && <Texto variante="ayuda">{frase}</Texto>}
       {r.modo === 'normal' && <Texto variante="ayuda">{cuenta}</Texto>}
       {r.modo === 'ingreso_bajo' && supera && (
@@ -149,7 +149,7 @@ function Resumen({
 }
 
 // PN-06 · Presupuesto del periodo por categorías y PN-07 con un ingreso bajo o nulo (E14-PPA 4.1 y 4.2), variante
-// Android: una sola pantalla de la pila, apilada sobre PN-71 (su entrada provisional, E14-SDD 2.4, hasta la
+// Android: una sola pantalla de la pila, apilada sobre PN-71 (su entrada provisional, E14-SDD v2.4, hasta la
 // navegación del ítem 290), que cambia la tarjeta de resumen según el modo del API. Siempre el mes en curso (D-094). La
 // barra dice «Presupuesto de noviembre» y su Atrás vuelve a PN-71. Con «Registrar» fijo abajo, como PN-01. Sin «Para
 // mirar con calma» (L3, punto 1). Al volver del formulario se pide el presupuesto otra vez.
@@ -162,7 +162,7 @@ export function Presupuesto({ navigation, route }: NativeStackScreenProps<Rutas,
   const [enviando, setEnviando] = useState(false);
   const [verOtras, setVerOtras] = useState(false);
   const margenes = useSafeAreaInsets();
-  // A dónde vuelve el foco de TalkBack al cerrar una hoja (E14-SDD 2.5, 5.12).
+  // A dónde vuelve el foco de TalkBack al cerrar una hoja (E14-SDD v2.5, 5.12).
   const llevarFoco = useLlevarFoco();
   const tituloDelResumen = useRef<HostInstance>(null);
   const agregarOtra = useRef<HostInstance>(null);
@@ -213,7 +213,7 @@ export function Presupuesto({ navigation, route }: NativeStackScreenProps<Rutas,
     llevarFoco(tituloDelResumen);
   };
   // Un 404 o un 409 dice que la hoja tenía datos viejos: el presupuesto ya no existe, el mes cambió o la categoría tiene
-  // uno compartido (E14-PPA 1.9, 4.1; E14-SDD 2.5, 5.12). La hoja se cierra, la pantalla se vuelve a pedir y el aviso queda en ella,
+  // uno compartido (E14-PPA v1.9, 4.1; E14-SDD v2.5, 5.12). La hoja se cierra, la pantalla se vuelve a pedir y el aviso queda en ella,
   // arriba de «Por categoría», con el foco de TalkBack, como en la web: repetir exige abrir la hoja otra vez, con lo que
   // entonces se ve. Además lo dice la región viva de la pantalla (bug 303, 6.9): el foco puede no llegar (Android lo
   // mandaba a «Navegar hacia arriba») y el error no debe quedar sin leerse. Otro fallo (500, sin conexión) deja la hoja abierta con lo escrito y el aviso dentro, que

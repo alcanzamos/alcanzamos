@@ -39,7 +39,7 @@ var idDePresupuesto = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{
 
 // Escritura es la persistencia de poner, corregir y quitar. Todo es de lo propio: `persona_id` de la sesión y `hogar_id`
 // nulo (el hogar llega en I08 y la tabla ya tiene su campo). Uno compartido con el hogar no se lee, ni se corrige, ni se
-// quita, ni cuenta como presupuesto que ya tiene la categoría ni en lo asignado (E12-DOO 1.26, 5.4), ni se pisa al poner
+// quita, ni cuenta como presupuesto que ya tiene la categoría ni en lo asignado (E12-DOO v1.26, 5.4), ni se pisa al poner
 // (ErrPresupuestoCompartido, D-201).
 type Escritura interface {
 	// Poner guarda el presupuesto de la categoría en el periodo, o corrige el que ya tiene (E13: único por persona,

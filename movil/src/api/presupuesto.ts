@@ -47,7 +47,7 @@ export type PresupuestoDelPeriodo = {
     asignado_supera_por_centavos: string | null;
     /** Solo lo esperado: «Llega después: $X (esperado)». */
     llega_despues_centavos: string;
-    /** Solo lo por confirmar: la línea aparte «Por confirmar: $Y» (E14-PPA 1.7). */
+    /** Solo lo por confirmar: la línea aparte «Por confirmar: $Y» (E14-PPA v1.7). */
     por_confirmar_centavos: string;
   };
   llega_despues: FechaQueLlegaDespues[];

@@ -13,11 +13,11 @@ import (
 	"github.com/alcanzamos/alcanzamos/api/src/registro"
 )
 
-// Poner inserta el presupuesto propio (`persona_id` de la persona y `hogar_id` nulo, E12-DOO 1.26, 5.4) o, si la categoría ya
+// Poner inserta el presupuesto propio (`persona_id` de la persona y `hogar_id` nulo, E12-DOO v1.26, 5.4) o, si la categoría ya
 // tiene uno en el periodo, le cambia el monto: `uq_presupuesto_persona_periodo_categoria` de E13 hace que dos «Guardar» a
 // la vez dejen una sola fila. Solo inserta si la persona tiene perfil de adulta (la llave de E13 apunta a `perfil_adulto`)
 // y si la categoría es de gasto y la persona la ve (regla `visible`), salvo que ya tenga presupuesto propio en el periodo
-// (una oculta con presupuesto se sigue corrigiendo, RN-011; uno compartido con el hogar no cuenta, E12-DOO 1.26, 5.4). Si no
+// (una oculta con presupuesto se sigue corrigiendo, RN-011; uno compartido con el hogar no cuenta, E12-DOO v1.26, 5.4). Si no
 // inserta, averigua por qué.
 //
 // Esa clave no lleva `hogar_id`: la fila con la que choca puede ser un presupuesto compartido con el hogar de la misma
@@ -81,7 +81,7 @@ func (p *Presupuestos) porQueNoSePuso(ctx context.Context, persona string) error
 	return registro.ErrCategoriaInvalida
 }
 
-// Obtener lee un presupuesto propio de la persona (`hogar_id` nulo, como la lectura y la descarga; E12-DOO 1.26, 5.4); el de
+// Obtener lee un presupuesto propio de la persona (`hogar_id` nulo, como la lectura y la descarga; E12-DOO v1.26, 5.4); el de
 // otra persona o uno compartido con el hogar es ErrNoEncontrado, igual que el que no existe.
 func (p *Presupuestos) Obtener(ctx context.Context, persona, id string) (presupuesto.Guardado, error) {
 	var g presupuesto.Guardado
@@ -124,7 +124,7 @@ func (p *Presupuestos) Quitar(ctx context.Context, persona, id string, periodo t
 }
 
 // DejarEnCero guarda la marca «en cero» de la persona en el periodo (`presupuesto_en_cero`, 0004) si el periodo sigue en
-// cero: la suma de sus ingresos registrados y la de lo asignado propio (`hogar_id` nulo, E12-DOO 1.26, 5.4), las mismas de
+// cero: la suma de sus ingresos registrados y la de lo asignado propio (`hogar_id` nulo, E12-DOO v1.26, 5.4), las mismas de
 // la lectura, son cero. Si ya la tiene, no cambia nada (ON CONFLICT DO NOTHING): es idempotente. No bloquea: si a la vez
 // llega un ingreso o un presupuesto, la marca puede quedar, y no importa, porque la lectura solo la muestra mientras el
 // mes siga en cero. La llave de 0004 apunta a `perfil_adulto` y se borra con la cuenta.

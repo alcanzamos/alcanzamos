@@ -50,7 +50,7 @@ const fraseDeUnaFecha = {
 };
 
 /**
- * La frase de una sola fecha, por cada marca (E14-PPA 1.7): «Salario del 16 de noviembre de 2026 se suma
+ * La frase de una sola fecha, por cada marca (E14-PPA v1.7): «Salario del 16 de noviembre de 2026 se suma
  * cuando llegue.» si hay una sola fecha esperada y «… se suma cuando lo confirmes.» si hay una sola por confirmar; con
  * más fechas de una marca, su línea («Llega después» o «Por confirmar») basta. Primero la esperada; sin ninguna, `null`.
  */
