@@ -14,7 +14,7 @@ const BASE = 'http://api.prueba:18090';
 const RUTA = '/api/v1/repeticiones/proximas';
 const SIN_CONEXION = 'Sin conexión. Intenta de nuevo cuando vuelvas a tener internet.';
 
-// Cada prueba dice qué contesta el endpoint de L6 para cada pedido (las fechas las calcula el API, D-165) y recibe la
+// Cada prueba dice qué contesta el endpoint de las próximas fechas (D-165 (1)) para cada pedido (las fechas las calcula el API, D-165) y recibe la
 // lista de rutas que se pidieron. `fetch` se reemplaza por una función que decide por pedido, para poder dejar uno en el aire.
 type Contestar = (ruta: string) => Response | Promise<Response>;
 function simularApi(contestar: Contestar) {

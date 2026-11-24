@@ -601,7 +601,7 @@ def revisar_mutaciones_imagenes(plantillas):
     return fallas
 
 
-# Imagen de Playwright (D3, L3): plantillas/web.yml corre `npm run e2e` dentro de la imagen oficial, fijada por digest y con la
+# Imagen de Playwright (D-213 (3)): plantillas/web.yml corre `npm run e2e` dentro de la imagen oficial, fijada por digest y con la
 # misma versión que `@playwright/test`. Fuente: https://playwright.dev/docs/docker («If the Playwright version in your Docker
 # image does not match the version in your project/tests, Playwright will be unable to locate browser executables»).
 IMAGEN_PLAYWRIGHT = re.compile(r"mcr\.microsoft\.com/playwright:v(\d+\.\d+\.\d+)-[a-z]+@sha256:[0-9a-f]{64}")
@@ -734,7 +734,7 @@ CREA_EN_DOCKER = {
 
 
 def revisar_limpieza_docker(textos):
-    """Limpieza de Docker al terminar (D-213, L8): se quita solo lo que la corrida crea (sus contenedores con nombre y las
+    """Limpieza de Docker al terminar (D-213 (3)): se quita solo lo que la corrida crea (sus contenedores con nombre y las
     imágenes `alcanzamos-api` y `alcanzamos-web` con la etiqueta $(Build.BuildId)), en un paso con `condition: always()`.
     Las imágenes fijadas por digest (las variables `*_IMAGEN`: PostgreSQL, gitleaks, Playwright) no guardan nada de la
     corrida y no se quitan en cada corrida: las viejas se quitan en el mantenimiento mensual (M3). Nunca `prune`.

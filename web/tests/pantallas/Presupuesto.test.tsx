@@ -673,7 +673,7 @@ describe("PN-07 · Presupuesto con ingreso bajo o nulo (E14-PPA 4.2)", () => {
     sinReproche();
   });
 
-  // Ya era así antes de L17: sin hoja, el aviso queda en la pantalla, con el foco, y un 409 vuelve a pedir la pantalla.
+  // Ya era así antes de la hoja con datos viejos (E14-PPA v1.9, 4.1): sin hoja, el aviso queda en la pantalla, con el foco, y un 409 vuelve a pedir la pantalla.
   it("con un 409 al dejar en cero vuelve a pedir la pantalla y avisa en la pantalla, con el foco en el aviso", async () => {
     const pedidos = api([nulo(), bajo], () =>
       json(409, { error: "periodo_con_ingreso_o_presupuesto" }),

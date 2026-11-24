@@ -21,8 +21,8 @@ func (*correoPanicoI294) EnviarAvisoDePurga(context.Context, string, time.Time) 
 	panic("SMTP sintetico")
 }
 
-// S2, S4, L10.3: el panic real del envio revierte la transaccion, libera ambas filas y no salta la limpieza (que ahora corre
-// antes de los avisos, L14, y la purga tampoco falla: terminan bien dos de las tres tareas).
+// D-203 (7), (17) y (19): el panic real del envio revierte la transaccion, libera ambas filas y no salta la limpieza (que ahora corre
+// antes de los avisos, D-203 (17), y la purga tampoco falla: terminan bien dos de las tres tareas).
 func TestI294VerificadorPanicoSMTPRevierteYLimpia(t *testing.T) {
 	ctx := context.Background()
 	a := nuevoEntornoDeAviso(t)

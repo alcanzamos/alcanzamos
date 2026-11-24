@@ -278,7 +278,7 @@ func TestSEG_006LosEventosDeSeguridadNoLlevanContrasenasTokensMontosNiTextos(t *
 	secretos = append(secretos, puesto.ID)
 	debe("corregir presupuesto", pedir("PUT", "/api/v1/presupuestos/"+puesto.ID, `{"monto_centavos":`+presupuestoMas+`}`, "2", conCookie(sesion)), 200)
 	debe("quitar presupuesto", pedir("DELETE", "/api/v1/presupuestos/"+puesto.ID, "", "2", conCookie(sesion)), 204)
-	// Sin ingresos y sin nada asignado, el mes se deja en cero (L6 (5) de la US-77).
+	// Sin ingresos y sin nada asignado, el mes se deja en cero (E14-PPA 4.2).
 	debe("dejar en cero", pedir("POST", "/api/v1/presupuestos/en-cero", `{"periodo":"`+vHoy().Format("2006-01")+`"}`, "2", conCookie(sesion)), 204)
 
 	// Rechazos de CSRF (E17 3.15) con el monto y el texto en el cuerpo: ni pasan ni quedan en el registro.

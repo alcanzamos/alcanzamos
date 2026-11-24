@@ -60,7 +60,7 @@ test.describe("PN-06 · Presupuesto del periodo por categorías", () => {
     await sinViolaciones(page);
   });
 
-  test("a 1280 px: el resumen a la izquierda (5/12) y a la derecha solo «Por categoría» y «Agregar otra categoría» (L3, punto 1)", async ({
+  test("a 1280 px: el resumen a la izquierda (5/12) y a la derecha solo «Por categoría» y «Agregar otra categoría» (E14-PPA v1.6, 4.1)", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1280, height: 900 });

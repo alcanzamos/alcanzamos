@@ -21,7 +21,7 @@ func (l *limpiezaQueCuenta) LimpiarSesionesYEnlaces(context.Context, time.Time) 
 	return 0, 0, nil
 }
 
-// Ítem 294, L10 y L14: con el servicio real de la cuenta, si la purga o el aviso fallan, la limpieza de sesiones y enlaces
+// Ítem 294, E12-DOO v1.25, 5.11 y D-203 (17): con el servicio real de la cuenta, si la purga o el aviso fallan, la limpieza de sesiones y enlaces
 // corre igual y la tarea sigue informando la falla (error, y con él el código de salida 1 de `api tareas`), y la falla de
 // la purga tampoco salta los avisos.
 func TestSiLaPurgaOElAvisoFallanLaLimpiezaCorreIgual(t *testing.T) {

@@ -17,7 +17,7 @@ func dependenciasCompletas() cuenta.Dependencias {
 	}
 }
 
-// Ítem 294, L10: una dependencia que falta se descubre al armar el servicio y no a mitad de la tarea, cuando el aviso
+// Ítem 294, E12-DOO v1.25, 5.11: una dependencia que falta se descubre al armar el servicio y no a mitad de la tarea, cuando el aviso
 // llama a un correo que no existe.
 func TestNuevoServicioFallaSiFaltaUnaDependencia(t *testing.T) {
 	quitar := map[string]func(*cuenta.Dependencias){

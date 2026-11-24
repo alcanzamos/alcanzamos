@@ -65,8 +65,8 @@ const porConfirmarDe = (fuente: FuenteDeIngreso, ingreso: IngresoDelPeriodo) =>
 // «Registrar un ingreso». Lo esperado y lo por confirmar son los de la US-60, con sus rutas («Confirmar», «Más» y
 // «Confirmar todos»). Variante web: el periodo y el total a la izquierda (5/12) y las fuentes a la derecha (7/12);
 // «Confirmar todos» ocupa la columna derecha, como en PN-01. Lleva la Navegación lateral (E14-SDD 5.13) sin destino
-// activo: PN-08 no es un destino, tiene Barra superior con Atrás (E14-PPA 1). Sin «Prima, cesantías o intereses» (L3 de
-// la US-77, punto 4).
+// activo: PN-08 no es un destino, tiene Barra superior con Atrás (E14-PPA 1). Sin «Prima, cesantías o intereses»
+// (E14-PPA v1.6, 4.3).
 export function Ingresos() {
   const { parametros } = useUbicacion();
   const periodo = parametros.get("periodo");

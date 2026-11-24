@@ -1,4 +1,4 @@
-# Imagen de ca-web, la web separada del API (infra-d205 T13, E11-INF 2.16): el servidor de archivos estáticos de
+# Imagen de ca-web, la web separada del API (E11-INF 2.16, D-205 (10)): el servidor de archivos estáticos de
 # web/servidor con la web compilada, en una base mínima y sin root.
 # Contexto de construcción: la raíz del monorepo (docker build -f web/Dockerfile .). Versiones fijadas a mano.
 # Regla de los 7 días (D-201): cada base se fija por el digest de un índice multiarquitectura que lleva al menos 7 días

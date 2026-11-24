@@ -37,7 +37,7 @@ const PN71 = 'Este es tu primer ingreso.';
 const PN01 = 'Todavía no hay movimientos';
 
 type Pedido = { metodo: string; ruta: string; cuerpo?: string };
-// El API de mentira con las cuatro rutas del flujo; `proximas` es lo que contesta el endpoint de L6.
+// El API de mentira con las cuatro rutas del flujo; `proximas` es lo que contesta el endpoint de las próximas fechas (D-165 (1)).
 function api(proximas: string[] = []) {
   const pedidos: Pedido[] = [];
   global.fetch = jest.fn(async (url: string, init: RequestInit) => {

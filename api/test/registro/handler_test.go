@@ -390,7 +390,7 @@ func proximas(t *testing.T, ahora, periodicidad, inicio string) (int, string, ht
 	return llamar(api(t, &repoFalso{}, ahora), "GET", rutaProximas+"?periodicidad="+periodicidad+"&inicio="+inicio, "")
 }
 
-// L6 (US-51): las tres próximas fechas de PN-03 salen del API (D-165), con `fechas.Proximas`, y no guardan nada.
+// Las tres próximas fechas de PN-03 salen del API (D-165 (1)), con `fechas.Proximas`, y no guardan nada.
 func TestProximasDelArriendoDelQuinceDeAgosto(t *testing.T) {
 	repo := &repoFalso{}
 	codigo, resp, cab := llamar(api(t, repo, hoy), "GET", rutaProximas+"?periodicidad=mensual&inicio=2026-08-15", "")

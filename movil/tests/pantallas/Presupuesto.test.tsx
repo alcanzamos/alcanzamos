@@ -313,7 +313,7 @@ describe('PN-06 y PN-07 · Presupuesto, Android (E14-PPA 4.1 y 4.2, US-77)', () 
       return buscarCampo(MONTO);
     }
 
-    it('trae el título, «Monto para noviembre», «Guardar», «Ahora no» y «Cerrar»; sin la aclaración ni «De quién es» (L3)', async () => {
+    it('trae el título, «Monto para noviembre», «Guardar», «Ahora no» y «Cerrar»; sin la aclaración ni «De quién es» (E14-PPA v1.6, 4.1)', async () => {
       apiDelPresupuesto(respuestaJson);
       await abrirPresupuesto();
       await abrirPoner();

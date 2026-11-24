@@ -132,7 +132,7 @@ type Resumen struct {
 	SinAsignarCentavos        *big.Int `json:"sin_asignar_centavos"`
 	AsignadoSuperaPorCentavos *big.Int `json:"asignado_supera_por_centavos"`
 	// LlegaDespuesCentavos es lo esperado del periodo, la línea «Llega después: $X (esperado)», y PorConfirmarCentavos lo
-	// por confirmar, la línea «Por confirmar: $Y» (E14-PPA 4.1; L14 (1) de la US-77). Ninguno cuenta en «Sin asignar» ni
+	// por confirmar, la línea «Por confirmar: $Y» (E14-PPA v1.7, 4.1). Ninguno cuenta en «Sin asignar» ni
 	// decide el modo (D-094, P-1 y P-3) hasta que se confirma.
 	LlegaDespuesCentavos *big.Int `json:"llega_despues_centavos"`
 	PorConfirmarCentavos *big.Int `json:"por_confirmar_centavos"`
@@ -140,7 +140,7 @@ type Resumen struct {
 
 // IngresoPendiente es una fecha pendiente de una repetición de ingreso en el periodo (E15 5.2): esperada si todavía no
 // llega y por confirmar si ya llegó. Se confirma o se omite con las rutas de la US-60, con `recurrente_id` y `fecha`. En
-// «Llega después» van las dos, cada una con su `marca` (L14 (1) de la US-77).
+// «Llega después» van las dos, cada una con su `marca` (E14-PPA v1.7, 4.1).
 type IngresoPendiente struct {
 	RecurrenteID  string `json:"recurrente_id"`
 	Fecha         string `json:"fecha"`
@@ -194,11 +194,11 @@ func (s *Servicio) Ver(ctx context.Context, persona, periodo string) (Vista, err
 }
 
 // resumir hace las cuentas de la tarjeta de resumen. «Sin asignar» es el ingreso registrado menos lo asignado (RF-007);
-// lo esperado y lo por confirmar van aparte, cada uno con su total (D-094, P-1; L14 (1) de la US-77). PN-07 se muestra
+// lo esperado y lo por confirmar van aparte, cada uno con su total (D-094, P-1; E14-PPA v1.7, 4.1). PN-07 se muestra
 // cuando el ingreso registrado es cero o menor que lo asignado (D-094, P-3): lo pendiente no cuenta, así que un salario
 // vencido sin confirmar deja el mes en «ingreso nulo» y se ve en `por_confirmar_centavos`. Con ingreso nulo no hay
 // diferencia que mostrar (E14-PPA 4.2). `en_cero` es la marca de «Dejar el presupuesto en cero» mientras el periodo siga
-// en cero (L6 (5) de la US-77).
+// en cero (E14-PPA 4.2).
 func resumir(d DatosDelPresupuesto, llegaDespues []IngresoPendiente) Resumen {
 	ingreso, asignado, esperado, porConfirmar := new(big.Int), new(big.Int), new(big.Int), new(big.Int)
 	for _, i := range d.Ingresos {

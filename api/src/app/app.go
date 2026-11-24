@@ -227,10 +227,10 @@ func correrTareas(ctx context.Context, log *slog.Logger) error {
 }
 
 // ArmarTareas es el único lugar donde se arman las tareas programadas: `api tareas` (correrTareas) y las pruebas lo
-// llaman, así que lo que se prueba es lo que corre en producción (ítem 294, L10: el servicio de las tareas se armaba sin
+// llaman, así que lo que se prueba es lo que corre en producción (ítem 294, E12-DOO v1.25, 5.11: el servicio de las tareas se armaba sin
 // correo y se caía con el primer aviso). Arma las tres tareas del EjecutorDeTareas de E12, que corren en este orden: la
 // purga de las cuentas sin confirmar o sin autorizar, la limpieza de sesiones y enlaces vencidos y los avisos antes de la
-// purga (L14: los avisos van aparte y al final, con su propio tiempo total de 2 minutos, para que la limpieza nunca espere
+// purga (D-203 (17) y (18): los avisos van aparte y al final, con su propio tiempo total de 2 minutos, para que la limpieza nunca espere
 // al correo). Los avisos envían correo, con el mismo adaptador SMTP y la misma configuración del API. Falla si falta una
 // dependencia del servicio de cuentas, antes de correr nada.
 func ArmarTareas(cfg config.Config, pool *pgxpool.Pool, log *slog.Logger) (*tareas.Ejecutor, error) {

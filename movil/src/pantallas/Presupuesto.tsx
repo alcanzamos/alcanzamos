@@ -152,7 +152,7 @@ function Resumen({
 // Android: una sola pantalla de la pila, apilada sobre PN-71 (su entrada provisional, E14-SDD v2.4, hasta la
 // navegación del ítem 290), que cambia la tarjeta de resumen según el modo del API. Siempre el mes en curso (D-094). La
 // barra dice «Presupuesto de noviembre» y su Atrás vuelve a PN-71. Con «Registrar» fijo abajo, como PN-01. Sin «Para
-// mirar con calma» (L3, punto 1). Al volver del formulario se pide el presupuesto otra vez.
+// mirar con calma» (E14-PPA v1.6, 4.1). Al volver del formulario se pide el presupuesto otra vez.
 export function Presupuesto({ navigation, route }: NativeStackScreenProps<Rutas, 'PresupuestoDelMes'>) {
   const [estado, setEstado] = useState<Estado>({ fase: 'cargando' });
   const [hoja, setHoja] = useState<HojaAbierta | null>(null);

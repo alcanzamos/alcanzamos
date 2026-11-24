@@ -86,7 +86,7 @@ export function Ingresos({ navigation, route }: NativeStackScreenProps<Rutas, 'I
   const datos = estado.fase === 'listo' ? estado.datos : null;
   const actual = datos?.periodo_actual ?? '';
   const elegido = datos?.periodo ?? periodo ?? actual;
-  // El mes anterior, el actual y el siguiente siempre; un mes de «Otro mes» que no está entre ellos sale como chip (L6 (7)).
+  // El mes anterior, el actual y el siguiente siempre; un mes de «Otro mes» que no está entre ellos sale como chip (E14-PPA v1.9, 4.3).
   const periodos = [...new Set([mesAnterior(actual), actual, mesSiguiente(actual), elegido])];
   const pendientes = datos ? fechasPorConfirmar(datos) : [];
 

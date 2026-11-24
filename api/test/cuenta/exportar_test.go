@@ -119,7 +119,7 @@ func TestUnaDescripcionConFormulaNoSeEjecutaEnLaHoja(t *testing.T) {
 	}
 }
 
-// presupuestos.csv (D-180 con la US-77; L6 (5)): las columnas de D-180, una fila por presupuesto propio y una por mes
+// presupuestos.csv (D-180; E13 v1.18): las columnas de D-180, una fila por presupuesto propio y una por mes
 // dejado en cero, con la categoría vacía y el monto en cero, en el orden en que llegan del repositorio (por periodo y, en
 // cada mes, la marca primero y después las categorías en el orden del catálogo).
 func TestPresupuestosCSVTraeLosPresupuestosYLosMesesEnCero(t *testing.T) {

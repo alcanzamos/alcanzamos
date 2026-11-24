@@ -256,9 +256,9 @@ export const textos = {
     apoyoConMedio: "{tipo} · {medio} · {fecha}",
     // E14-PRR 4.8 (PN-72, «Confirmar todos»), fila 4: «Gasto · 5 de noviembre de 2026»
     apoyoSinMedio: "{tipo} · {fecha}",
-    // Aprobado por el dueño el 2026-11-10 (US-71, bug 231 de Azure Boards, ACC-004), un solo texto para la web y Android; va a E14-PRR 4.1 en la T4 de la US-71: el nombre accesible de E14-PRR 4.1 (PN-01), fila «Confirmar» («Confirmar Salario del 16 de noviembre de 2026»), con el monto, para que dos fechas de la misma categoría y día no se anuncien igual. Android dice el monto con `montoHablado` (D-187): «Confirmar Salario de 1200000 pesos del 16 de noviembre de 2026»; la web, con `formatearPesos`: «Confirmar Salario de $1.200.000 del 16 de noviembre de 2026»
+    // Aprobado por el dueño el 2026-11-10 (US-71, bug 231 de Azure Boards, ACC-004), un solo texto para la web y Android; está en E14-PRR v1.11, 4.1: el nombre accesible de E14-PRR 4.1 (PN-01), fila «Confirmar» («Confirmar Salario del 16 de noviembre de 2026»), con el monto, para que dos fechas de la misma categoría y día no se anuncien igual. Android dice el monto con `montoHablado` (D-187): «Confirmar Salario de 1200000 pesos del 16 de noviembre de 2026»; la web, con `formatearPesos`: «Confirmar Salario de $1.200.000 del 16 de noviembre de 2026»
     nombreDeConfirmar: "Confirmar {nombre} de {monto} del {fecha}",
-    // Aprobado por el dueño el 2026-11-10 (US-71, bug 231 de Azure Boards, ACC-004), un solo texto para la web y Android; va a E14-PRR 4.1 y 4.8 en la T4 de la US-71: el nombre accesible de E14-PRR 4.1 (PN-01), fila «Más» («Más opciones de Salario del 16 de noviembre de 2026»), y de «Más» en E14-PRR 4.8 (PN-72, «Confirmar todos»), fila 4, con el monto que muestra la fila (el cambiado, si lo hay). Android dice el monto con `montoHablado` (D-187): «Más opciones de Salario de 1200000 pesos del 16 de noviembre de 2026»; la web, con `formatearPesos`: «Más opciones de Salario de $1.200.000 del 16 de noviembre de 2026»
+    // Aprobado por el dueño el 2026-11-10 (US-71, bug 231 de Azure Boards, ACC-004), un solo texto para la web y Android; está en E14-PRR v1.11, 4.1 y 4.8: el nombre accesible de E14-PRR 4.1 (PN-01), fila «Más» («Más opciones de Salario del 16 de noviembre de 2026»), y de «Más» en E14-PRR 4.8 (PN-72, «Confirmar todos»), fila 4, con el monto que muestra la fila (el cambiado, si lo hay). Android dice el monto con `montoHablado` (D-187): «Más opciones de Salario de 1200000 pesos del 16 de noviembre de 2026»; la web, con `formatearPesos`: «Más opciones de Salario de $1.200.000 del 16 de noviembre de 2026»
     nombreDeMas: "Más opciones de {nombre} de {monto} del {fecha}",
     hoja: {
       // E14-PRR 4.1 (PN-01), «Hoja «Más»»: «Salario · 16 de noviembre de 2026»
@@ -1019,7 +1019,7 @@ export const textos = {
       porConfirmar: "Por confirmar: {monto}",
       // E14-PPA 4.1 (PN-06), fila 3, texto `tipografia.pequeno` (primera frase)
       cuentaLoRegistrado: "Sin asignar cuenta lo que ya registraste.",
-      // Propuesto en la US-77 (T3, web) y aprobado por el dueño (E14-PPA v1.7, 2026-11-11). Sale de E14-PPA 4.1 (PN-06), fila 3 («El salario del 16 de noviembre de 2026 se suma cuando llegue.»), con el nombre de la categoría tal cual; solo con una fecha esperada
+      // Propuesto en la US-77, en la web, y aprobado por el dueño (E14-PPA v1.7, 2026-11-11). Sale de E14-PPA 4.1 (PN-06), fila 3 («El salario del 16 de noviembre de 2026 se suma cuando llegue.»), con el nombre de la categoría tal cual; solo con una fecha esperada
       seSumaCuandoLlegue: "{nombre} del {fecha} se suma cuando llegue.",
       // Aprobado por el dueño (E14-PPA v1.7, 2026-11-11): E14-PPA 4.1 (PN-06), fila 3, nota fechada del 2026-11-11; solo con una fecha por confirmar
       seSumaCuandoLoConfirmes: "{nombre} del {fecha} se suma cuando lo confirmes.",
@@ -1059,9 +1059,9 @@ export const textos = {
       corregir: "Corregir",
       // E14-PPA 4.1 (PN-06), «Cómo se arma cada fila», Acción con presupuesto (D-094)
       quitar: "Quitar",
-      // Propuesto en la US-77 (T3, web) y aprobado por el dueño (E14-PPA v1.8, 2026-11-11). E14-PPA 4.1 (PN-06) pide el nombre de la categoría en el nombre accesible de «Poner presupuesto» (RNF-019, criterio 6)
+      // Propuesto en la US-77, en la web, y aprobado por el dueño (E14-PPA v1.8, 2026-11-11). E14-PPA 4.1 (PN-06) pide el nombre de la categoría en el nombre accesible de «Poner presupuesto» (RNF-019, criterio 6)
       nombreDePoner: "Poner presupuesto a {categoria}",
-      // Propuesto en la US-77 (T3, web) y aprobado por el dueño (E14-PPA v1.8, 2026-11-11). E14-PPA 4.1 (PN-06) pide el nombre de la categoría en el nombre accesible de «Quitar» (SC-E21-13); sale del título de la hoja «¿Quitar el presupuesto de Transporte?»
+      // Propuesto en la US-77, en la web, y aprobado por el dueño (E14-PPA v1.8, 2026-11-11). E14-PPA 4.1 (PN-06) pide el nombre de la categoría en el nombre accesible de «Quitar» (SC-E21-13); sale del título de la hoja «¿Quitar el presupuesto de Transporte?»
       nombreDeQuitar: "Quitar el presupuesto de {categoria}",
       // E14-PPA 4.1 (PN-06), fila 5 (abre «Ver todas» de E14-PPN 3.1)
       agregarOtra: "Agregar otra categoría",
@@ -1075,7 +1075,7 @@ export const textos = {
       monto: "Monto para {mes}",
       // E14-PPA 4.1 (PN-06), hoja «Poner presupuesto», fila 5
       guardar: "Guardar",
-      // Propuesto en la US-77 (T4, Android) y aprobado por el dueño (E14-PPA v1.8, 2026-11-11). Nombre accesible del campo de la hoja «Poner presupuesto» (E14-PPA 4.1, hoja, fila 2: «Monto para noviembre»), con la moneda, como «Monto en pesos» del registro (aprobado por el dueño el 2026-11-08, US-63, ACC-004); el rótulo visible sigue siendo «Monto para noviembre»
+      // Propuesto en la US-77, en Android, y aprobado por el dueño (E14-PPA v1.8, 2026-11-11). Nombre accesible del campo de la hoja «Poner presupuesto» (E14-PPA 4.1, hoja, fila 2: «Monto para noviembre»), con la moneda, como «Monto en pesos» del registro (aprobado por el dueño el 2026-11-08, US-63, ACC-004); el rótulo visible sigue siendo «Monto para noviembre»
       montoNombreAccesible: "Monto para {mes} en pesos",
     },
     quitar: {

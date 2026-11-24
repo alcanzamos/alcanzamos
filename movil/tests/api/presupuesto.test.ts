@@ -77,7 +77,7 @@ describe('API del presupuesto del periodo (US-77, PN-06 a PN-08)', () => {
     expect(pedidos[0]?.init.headers).toMatchObject({ 'Content-Type': 'application/json' });
   });
 
-  it('«Dejar el presupuesto en cero» manda el periodo a la ruta de la marca (L6 (5) de la US-77)', async () => {
+  it('«Dejar el presupuesto en cero» manda el periodo a la ruta de la marca (E14-PPA 4.2)', async () => {
     const { pedidos } = instalarFetchFalso(respuestaJson(204));
     expect(await dejarEnCero('2026-11')).toMatchObject({ ok: true, estado: 204 });
     expect(pedidos[0]?.url).toBe(`${BASE}/api/v1/presupuestos/en-cero`);

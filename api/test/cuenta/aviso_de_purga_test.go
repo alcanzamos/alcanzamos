@@ -206,7 +206,7 @@ func verificacionesEnviadas(e *entorno) int {
 	return n
 }
 
-// L5 (el dueño): el límite de 3 correos por hora a una dirección (D-172 (7)) no mira el aviso de la purga: el aviso no
+// D-203 (12): el límite de 3 correos por hora a una dirección (D-172 (7)) no mira el aviso de la purga: el aviso no
 // pasa por el límite y tampoco suma al contador de la dirección (D-203).
 func TestElAvisoDePurgaNoCuentaEnElLimiteDeCorreosPorHora(t *testing.T) {
 	cuentaPorAvisar := []cuenta.CuentaPorAvisar{{ID: "p1", Correo: "laura@ejemplo.test", CreadaEn: ahoraDePrueba.Add(-6 * dia)}}
@@ -265,7 +265,7 @@ func TestElAvisoDePurgaNoCuentaEnElLimiteDeCorreosPorHora(t *testing.T) {
 	})
 }
 
-// Ítem 294, L14 (4): el aviso es una tarea aparte. La purga no manda correos ni le pide cuentas al repositorio de avisos.
+// Ítem 294, D-203 (17): el aviso es una tarea aparte. La purga no manda correos ni le pide cuentas al repositorio de avisos.
 func TestLaPurgaNoMandaAvisos(t *testing.T) {
 	e := nuevoEntorno()
 	e.repo.porAvisar = []cuenta.CuentaPorAvisar{{ID: "p1", Correo: "laura@ejemplo.test", CreadaEn: ahoraDePrueba.Add(-6 * dia)}}
@@ -278,7 +278,7 @@ func TestLaPurgaNoMandaAvisos(t *testing.T) {
 	}
 }
 
-// Ítem 294, L14 (3): el tiempo total de los avisos es de 2 minutos. caj-tareas (infra/azure/aplicacion.tf) tiene
+// Ítem 294, D-203 (18): el tiempo total de los avisos es de 2 minutos. caj-tareas (infra/azure/aplicacion.tf) tiene
 // replica_timeout_in_seconds = 300 y Azure mata el proceso a los 5 minutos; con el servidor de correo caído, cada envío
 // gasta sus 10 s.
 func TestElPresupuestoDeLosAvisosEsDeDosMinutos(t *testing.T) {
@@ -316,7 +316,7 @@ func cincoPorAvisar() []cuenta.CuentaPorAvisar {
 	return cuentas
 }
 
-// L14 (3): al acabarse el tiempo total, lo que falta queda para la corrida siguiente y queda un aviso (WARN) con cuántas
+// D-203 (18): al acabarse el tiempo total, lo que falta queda para la corrida siguiente y queda un aviso (WARN) con cuántas
 // cuentas faltan y sin ningún correo. No es una falla de la tarea. Lo ya enviado queda registrado y la corrida siguiente
 // sigue con el resto.
 func TestAlAcabarseElPresupuestoLoQueFaltaQuedaParaLaCorridaSiguiente(t *testing.T) {

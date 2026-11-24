@@ -45,7 +45,7 @@ func NuevoEjecutor(c Cuentas, l Limpieza, a Avisos, r reloj.Reloj, log *slog.Log
 // Ejecutar corre las tareas, una tras otra y siempre en este orden: **la purga** de las cuentas sin confirmar o sin
 // autorizar, **la limpieza** de sesiones y enlaces vencidos y, al final, **los avisos** antes de la purga. La limpieza
 // nunca espera al correo: los avisos van al final porque son lo único que depende de un servidor de correo que puede no
-// contestar (ítem 294, L14). Cada tarea corre aunque una anterior falle, y Ejecutar devuelve cuántas terminaron bien; el
+// contestar (ítem 294, D-203 (17)). Cada tarea corre aunque una anterior falle, y Ejecutar devuelve cuántas terminaron bien; el
 // error junta los de las que fallaron. Una tarea que entra en pánico cuenta como fallida (su error lo dice y queda una
 // línea ERROR en el registro) y no salta las demás. Se puede repetir sin efectos de más: el trabajo programado corre cada
 // 15 minutos (CU-43, CU-52).

@@ -86,7 +86,7 @@ jobs:
         workingDirectory: web
         displayName: Compilación (vite build)
 
-      # D3 (L3, L5): el e2e corre dentro de la imagen oficial de Playwright, el mismo paso en el agente propio y en el hospedado.
+      # D-213 (3): el e2e corre dentro de la imagen oficial de Playwright, el mismo paso en el agente propio y en el hospedado.
       # `npx playwright install --with-deps` instala paquetes con apt-get como root y Playwright solo soporta Debian y Ubuntu
       # (https://playwright.dev/docs/browsers): sin sudo y en Arch no funciona. La imagen ya trae el navegador y sus bibliotecas.
       # Opciones, de https://playwright.dev/docs/docker:

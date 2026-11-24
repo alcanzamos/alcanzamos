@@ -39,7 +39,7 @@ type entornoDeAviso struct {
 	// limitadorDeTareas es el de los servicios de las pruebas de la tarea: aparte del que usa `svc` al sembrar, que ya
 	// gastó un correo de la dirección con el enlace de verificación.
 	limitadorDeTareas *seguridad.LimitadorDeIntentos
-	// relojDeTareas es la hora de la tarea: la que lee el servicio justo antes de enviar cada aviso (ítem 294, L10). `corrida`
+	// relojDeTareas es la hora de la tarea: la que lee el servicio justo antes de enviar cada aviso (ítem 294, E12-DOO v1.25, 5.11). `corrida`
 	// la pone en la hora de la pasada; quien llama a la tarea directamente la pone antes, o queda en `ahora`.
 	relojDeTareas *relojtest.Fijo
 }
@@ -63,7 +63,7 @@ func (a *entornoDeAviso) servicioDeTareas(t *testing.T, c correo.Correo, plazo t
 }
 
 // corrida es una corrida del trabajo programado con `hoy` como la hora: la purga y después los avisos, en el orden del
-// ejecutor (L14 (4), la limpieza de sesiones y enlaces va en medio y no toca estas tablas). Devuelve cuántas cuentas borró.
+// ejecutor (D-203 (17), la limpieza de sesiones y enlaces va en medio y no toca estas tablas). Devuelve cuántas cuentas borró.
 func (a *entornoDeAviso) corrida(t *testing.T, hoy time.Time) int {
 	t.Helper()
 	a.relojDeTareas.T = hoy
@@ -499,7 +499,7 @@ func TestSiElEnvioFallaNoSeRegistraYSeReintentaEnLaPasadaSiguiente(t *testing.T)
 	}
 }
 
-// L5 (el dueño): el límite de 3 correos por hora a una dirección (D-172 (7)) no mira el aviso de la purga, ni este suma al
+// D-203 (12): el límite de 3 correos por hora a una dirección (D-172 (7)) no mira el aviso de la purga, ni este suma al
 // contador de la dirección (D-203). Con una cuenta de verdad: los pedidos de la persona son «Crear la cuenta» con su correo
 // ya verificado, que le manda el aviso de «alguien intentó crear una cuenta» (cuenta en el límite).
 func TestElAvisoDePurgaNoPasaPorElLimiteDeCorreosPorHoraNiSumaAlContador(t *testing.T) {
@@ -745,7 +745,7 @@ func lineaDelPresupuesto(registro string) string {
 	return ""
 }
 
-// L14 (3): con el servidor de correo colgado y muchas cuentas pendientes, la tarea de los avisos se detiene al agotar su
+// D-203 (18): con el servidor de correo colgado y muchas cuentas pendientes, la tarea de los avisos se detiene al agotar su
 // tiempo total (aquí acortado: el presupuesto es una dependencia del servicio) y no con el plazo de cada envío ni con todas
 // las cuentas: no registra nada de lo que no salió, deja las filas libres, avisa con un WARN (con la cuenta de las que
 // faltan y sin ningún correo) y no es una falla. La corrida siguiente, con el servidor sano, sigue con todas.
@@ -813,7 +813,7 @@ func TestElPresupuestoDeLosAvisosCortaConElServidorColgado(t *testing.T) {
 	}
 }
 
-// L14 (3): lo que salió antes de agotarse el tiempo queda registrado y no se repite; el resto, y solo el resto, sigue en la
+// D-203 (18): lo que salió antes de agotarse el tiempo queda registrado y no se repite; el resto, y solo el resto, sigue en la
 // corrida siguiente.
 func TestElPresupuestoDeLosAvisosConservaLoYaEnviadoYSigueConElResto(t *testing.T) {
 	ctx := context.Background()

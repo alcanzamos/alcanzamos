@@ -189,7 +189,7 @@ func (s *Servicio) editable(ctx context.Context, persona, id string) (Guardado, 
 }
 
 // DejarEnCero guarda que la persona dejó el mes en curso con el presupuesto en cero («Dejar el presupuesto en cero», PN-07,
-// E14-PPA 4.2, CU-10 2a; L6 (5) de la US-77). Es idempotente. Primero la forma (ErrValidacion con `periodo`), después
+// E14-PPA 4.2, CU-10 2a). Es idempotente. Primero la forma (ErrValidacion con `periodo`), después
 // ErrPeriodoNoEditable si no es el mes en curso, después lo que rechace el repositorio (ErrPeriodoConIngresoOPresupuesto,
 // ErrSoloAdultos, registro.ErrSinCuenta). La marca queda aunque después llegue un ingreso o se asigne algo: la lectura la
 // muestra (`en_cero`) solo mientras el mes siga en cero.

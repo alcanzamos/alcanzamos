@@ -11,7 +11,7 @@ import { SeRepite } from "../../src/pantallas/SeRepite";
 import { json, porTexto, simularApi } from "../ayudas";
 
 // Hoy es el 26 de octubre de 2026 (el día de la prueba del dueño, S4). Las fechas las calcula el API (D-165): cada
-// prueba simula lo que el endpoint de L6 contesta para su periodicidad y su fecha de inicio.
+// prueba simula lo que el endpoint de las próximas fechas (D-165 (1)) contesta para su periodicidad y su fecha de inicio.
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-10-26T15:00:00Z"));

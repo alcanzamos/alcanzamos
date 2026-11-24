@@ -51,7 +51,7 @@ func configDeCorreo(direccion string) config.Config {
 	}
 }
 
-// Ítem 294, L10: ArmarTareas es lo que usa `api tareas` en producción. Con el servidor de correo de mentira, el aviso de
+// Ítem 294, E12-DOO v1.25, 5.11: ArmarTareas es lo que usa `api tareas` en producción. Con el servidor de correo de mentira, el aviso de
 // la purga llega de verdad (destinatario, asunto, enlace a /entrar y la fecha del borrado), queda registrado y no sale dos veces.
 func TestArmarTareasEnviaElAvisoDeVerdad(t *testing.T) {
 	pool := pgtest.Nueva(t)
@@ -100,7 +100,7 @@ func TestArmarTareasEnviaElAvisoDeVerdad(t *testing.T) {
 	}
 }
 
-// Ítem 294, L10: con el servidor de correo caído el aviso no sale ni se registra, la cuenta sigue, y la limpieza de
+// Ítem 294, E12-DOO v1.25, 5.11: con el servidor de correo caído el aviso no sale ni se registra, la cuenta sigue, y la limpieza de
 // sesiones y enlaces vencidos corre igual.
 func TestArmarTareasConElCorreoCaidoNoSaltaLaLimpieza(t *testing.T) {
 	pool := pgtest.Nueva(t)
@@ -129,7 +129,7 @@ func TestArmarTareasConElCorreoCaidoNoSaltaLaLimpieza(t *testing.T) {
 	}
 }
 
-// Ítem 294, L14 (4): la limpieza de sesiones y enlaces nunca espera al correo. El servidor de correo de la prueba, al recibir
+// Ítem 294, D-203 (17): la limpieza de sesiones y enlaces nunca espera al correo. El servidor de correo de la prueba, al recibir
 // la conexión del primer aviso, mira la base: la sesión vencida ya se limpió y la cuenta del caso 2 ya pasó la purga.
 func TestArmarTareasLaLimpiezaTerminaAntesDeQueEmpieceElPrimerEnvio(t *testing.T) {
 	pool := pgtest.Nueva(t)

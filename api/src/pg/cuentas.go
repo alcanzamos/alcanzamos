@@ -326,7 +326,7 @@ const condicionDeLaPurga = `p.etapa = 'adulta'
 // autorizar, o ya la avisó otra pasada, no se manda nada); (3) se envía; (4) solo si salió, se escribe
 // `aviso_de_purga_en` y se confirma. Si el envío falla, la transacción se deshace sin escribir nada y sigue la siguiente
 // cuenta. Si el correo sale y la escritura o la confirmación fallan, la pasada siguiente lo manda otra vez. Si el contexto
-// termina (el tiempo total de la tarea, L14, o una cancelación), no sigue con las demás cuentas: la transacción en curso se
+// termina (el tiempo total de la tarea, D-203 (18), o una cancelación), no sigue con las demás cuentas: la transacción en curso se
 // deshace, así que no queda nada registrado ni ninguna fila bloqueada, y devuelve el error del contexto con cuántas
 // cuentas quedaron sin avisar.
 func (r *Cuentas) AvisarAntesDeLaPurga(ctx context.Context, avisarHasta time.Time, enviar cuenta.EnvioDelAviso) (cuenta.ResultadoDelAviso, error) {
