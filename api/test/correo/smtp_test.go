@@ -542,8 +542,8 @@ func TestEnviarAvisoDePurgaPorSMTP(t *testing.T) {
 	}
 }
 
-// Un servidor que acepta la conexión y no dice nada: con un contexto corto, el envío falla en ese plazo y no antes de
-// tiempo (D-203 (7): la tarea manda el aviso con las filas bloqueadas y no puede quedarse esperando).
+// Un servidor que acepta la conexión y no dice nada: con un contexto corto, el envío falla en ese plazo, como fallo
+// temporal (ErrTransitorio), y no antes de tiempo (D-203 (7): la tarea manda el aviso con las filas bloqueadas y no puede quedarse esperando).
 func TestEnviarAvisoDePurgaConUnServidorQueNoResponde(t *testing.T) {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -564,8 +564,8 @@ func TestEnviarAvisoDePurgaConUnServidorQueNoResponde(t *testing.T) {
 	defer cancelar()
 	inicio := time.Now()
 	err = s.EnviarAvisoDePurga(ctx, "laura@ejemplo.test", momentoDelBorradoDePrueba)
-	if err == nil {
-		t.Fatal("se esperaba un error")
+	if !errors.Is(err, correo.ErrTransitorio) {
+		t.Fatalf("un servidor que no responde es un fallo temporal: se esperaba ErrTransitorio, llegó %v", err)
 	}
 	if tardo := time.Since(inicio); tardo > 3*time.Second {
 		t.Errorf("el envío tardó %v con un plazo de 300 ms", tardo)

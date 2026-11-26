@@ -426,6 +426,7 @@ func TestCategoriasDeLasRespuestas(t *testing.T) {
 		{"451 del destinatario", guion{respuestaRCPT: "451 4.3.0 " + textoDelServidor}, correo.ErrTransitorio, []error{correo.ErrDestinatario, correo.ErrAutenticacion, correo.ErrPermanente}, 451, "destinatario"},
 		{"451 del remitente", guion{respuestaMAIL: "451 4.3.0 " + textoDelServidor}, correo.ErrTransitorio, []error{correo.ErrDestinatario, correo.ErrAutenticacion}, 451, "remitente"},
 		{"550 del remitente no es del destinatario", guion{respuestaMAIL: "550 5.7.1 " + textoDelServidor}, correo.ErrPermanente, []error{correo.ErrDestinatario, correo.ErrTransitorio, correo.ErrAutenticacion}, 550, "remitente"},
+		{"451 al empezar los datos", guion{respuestaDATA: "451 4.3.0 " + textoDelServidor}, correo.ErrTransitorio, []error{correo.ErrDestinatario, correo.ErrAutenticacion, correo.ErrPermanente}, 451, "cuerpo"},
 		{"554 al empezar los datos", guion{respuestaDATA: "554 5.3.0 " + textoDelServidor}, correo.ErrPermanente, []error{correo.ErrDestinatario, correo.ErrTransitorio, correo.ErrAutenticacion}, 554, "cuerpo"},
 		{"451 al terminar el mensaje", guion{respuestaFin: "451 4.3.0 " + textoDelServidor}, correo.ErrTransitorio, []error{correo.ErrDestinatario, correo.ErrAutenticacion, correo.ErrPermanente}, 451, "mensaje"},
 		{"554 al terminar el mensaje", guion{respuestaFin: "554 5.6.0 " + textoDelServidor}, correo.ErrPermanente, []error{correo.ErrDestinatario, correo.ErrTransitorio, correo.ErrAutenticacion}, 554, "mensaje"},
