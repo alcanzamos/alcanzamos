@@ -3,9 +3,10 @@
 #
 # Manda UN correo de verificación a un buzón del dueño, desde una base local nueva y aparte:
 #   1. levanta solo PostgreSQL en un proyecto de compose propio (alc-us80, puerto 55432) y comprueba que no existía;
-#   2. corre las migraciones y arranca el API en 127.0.0.1:18080 con el SMTP de CPaaS;
+#   2. corre las migraciones y arranca el API en el puerto 18080 con el SMTP de CPaaS (el API escucha en todas las
+#      interfaces, como siempre; la prueba dura lo que tarda en llegar el correo);
 #   3. hace un solo POST /api/v1/cuentas con el correo que se le pasa;
-#   4. espera el envío en segundo plano, muestra el resultado y baja todo lo que creó.
+#   4. espera a que confirmes que el correo llegó (Enter), revisa otra vez el registro y baja todo lo que creó.
 #
 # El token del agente de envío se lee del archivo (permisos 600) solo para pasárselo al proceso del API. Nunca se
 # imprime: el script no usa `set -x`, no lo pone en la línea de comandos y revisa que no aparezca en el registro.
@@ -23,7 +24,8 @@ set +x
 case $- in *x*) echo "No corras este script con -x: mostraría el token." >&2; exit 2 ;; esac
 
 destino="${1:-}"
-if [[ -z "$destino" || "$destino" != *@*.* || "$destino" == *[[:space:]]* ]]; then
+# Solo letras, números y . _ % + - antes y después de la @: sin comillas ni barras, el destino no puede cambiar el JSON.
+if ! [[ "$destino" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
   echo "Uso: $0 <correo-del-dueño>" >&2
   exit 2
 fi
@@ -37,7 +39,9 @@ privacidad="${CORREO_PRIVACIDAD:-privacidad@alcanzamos.co}"
 smtp="${CORREO_SMTP:-smtp.zeptomail.com:587}"
 
 raiz="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
-compose=(docker compose -p "$proyecto" -f "$raiz/infra/local/compose.yaml" --env-file "$raiz/infra/local/.env.example")
+# Credenciales de la base solo local, las mismas que documenta infra/local/README.md.
+export POSTGRES_DB=alcanzamos POSTGRES_USER=alcanzamos POSTGRES_PASSWORD=solo-local
+compose=(docker compose -p "$proyecto" -f "$raiz/infra/local/compose.yaml")
 
 # --- comprobaciones antes de crear nada -------------------------------------------------------------------------
 if [[ ! -f "$archivo_token" ]]; then
@@ -98,11 +102,21 @@ PUERTO="$puerto_api" \
   "$temporal/api" >"$temporal/api.log" 2>&1 &
 pid_api=$!
 
+listo=""
 for _ in $(seq 1 60); do
-  curl -fsS "http://127.0.0.1:$puerto_api/salud" >/dev/null 2>&1 && break
-  kill -0 "$pid_api" 2>/dev/null || { echo "El API no arrancó." >&2; break; }
+  if curl -fsS "http://127.0.0.1:$puerto_api/salud" >/dev/null 2>&1; then listo="sí"; break; fi
+  kill -0 "$pid_api" 2>/dev/null || break
   sleep 0.5
 done
+if [[ -z "$listo" ]]; then
+  if grep -qF -f "$archivo_token" "$temporal/api.log"; then
+    echo "El API no arrancó. El registro no se muestra porque contiene el token: avisa." >&2
+  else
+    echo "El API no arrancó en 30 segundos; no se mandó nada. Registro del API:" >&2
+    cat "$temporal/api.log" >&2
+  fi
+  exit 1
+fi
 
 # --- un solo pedido -----------------------------------------------------------------------------------------------
 codigo="$(curl -sS -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:$puerto_api/api/v1/cuentas" \
@@ -110,26 +124,31 @@ codigo="$(curl -sS -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:$pue
   --data "{\"correo\":\"$destino\",\"mayor_de_edad\":true}")"
 echo "POST /api/v1/cuentas → $codigo (202 = aceptado; el envío sigue en segundo plano)"
 
-# El envío corre en segundo plano y solo deja registro si falla: se espera un rato y se revisa.
-error=""
-for _ in $(seq 1 30); do
-  if grep -q 'no se pudo enviar el correo' "$temporal/api.log"; then error="sí"; break; fi
-  sleep 1
-done
-
-if grep -qF -f "$archivo_token" "$temporal/api.log" "$temporal/migrar.log"; then
-  echo "ALERTA: el token aparece en el registro. No se muestra el registro; avisa y revoca el token en CPaaS." >&2
-  exit 1
-fi
+# El envío corre en segundo plano y solo deja registro si falla. El API se queda arriba hasta que confirmes el buzón:
+# bajarlo antes podría cortar el único envío.
+token_en_registro() { grep -qF -f "$archivo_token" "$temporal/api.log" "$temporal/migrar.log"; }
+fallo() { grep -q 'no se pudo enviar el correo' "$temporal/api.log"; }
 
 if [[ "$codigo" != "202" ]]; then
+  if token_en_registro; then echo "ALERTA: el token aparece en el registro; no se muestra. Avisa y revoca el token en CPaaS." >&2; exit 1; fi
   echo "Resultado: el API no aceptó el pedido (HTTP $codigo). Registro del API (sin el token):"
   cat "$temporal/api.log"
   exit 1
-elif [[ -n "$error" ]]; then
+fi
+
+for _ in $(seq 1 30); do fallo && break; sleep 1; done
+if ! fallo; then
+  echo "Sin error de envío por ahora. Revisa el buzón $destino (también spam)."
+  read -r -p "Cuando llegue el correo (o si no llega en unos minutos), presiona Enter para terminar. " _ </dev/tty || true
+fi
+
+if token_en_registro; then
+  echo "ALERTA: el token aparece en el registro; no se muestra. Avisa y revoca el token en CPaaS." >&2
+  exit 1
+fi
+if fallo; then
   echo "Resultado: FALLÓ el envío. Líneas del registro (sin el token ni el destino):"
   grep 'no se pudo enviar el correo' "$temporal/api.log"
   exit 1
-else
-  echo "Resultado: sin error de envío en 30 segundos. Revisa el buzón $destino (también spam)."
 fi
+echo "Resultado: sin error de envío. CPaaS aceptó el mensaje; la prueba vale si el correo llegó al buzón."
