@@ -6,7 +6,7 @@
 #   2. corre las migraciones y arranca el API en el puerto 18080 con el SMTP de CPaaS (el API escucha en todas las
 #      interfaces, como siempre; la prueba dura lo que tarda en llegar el correo);
 #   3. hace un solo POST /api/v1/cuentas con el correo que se le pasa;
-#   4. espera a que confirmes que el correo llegó (Enter), revisa otra vez el registro y baja todo lo que creó.
+#   4. espera el plazo del envío (30 s), apaga el API (que espera el envío en curso), muestra el resultado y baja todo.
 #
 # El token del agente de envío se lee del archivo (permisos 600) solo para pasárselo al proceso del API. Nunca se
 # imprime: el script no usa `set -x`, no lo pone en la línea de comandos y revisa que no aparezca en el registro.
@@ -124,26 +124,31 @@ codigo="$(curl -sS -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:$pue
   --data "{\"correo\":\"$destino\",\"mayor_de_edad\":true}")"
 echo "POST /api/v1/cuentas → $codigo (202 = aceptado; el envío sigue en segundo plano)"
 
-# El envío corre en segundo plano y solo deja registro si falla. El API se queda arriba hasta que confirmes el buzón:
-# bajarlo antes podría cortar el único envío.
+# El envío corre en segundo plano, con un plazo de 30 segundos, y solo deja registro si falla. Se espera ese plazo y
+# después se apaga el API con SIGTERM: al apagarse espera los envíos en curso, así que cuando termina el envío ya
+# terminó. El API queda expuesto el menor tiempo posible (escucha en todas las interfaces).
 token_en_registro() { grep -qF -f "$archivo_token" "$temporal/api.log" "$temporal/migrar.log"; }
 fallo() { grep -q 'no se pudo enviar el correo' "$temporal/api.log"; }
 
-if [[ "$codigo" != "202" ]]; then
-  if token_en_registro; then echo "ALERTA: el token aparece en el registro; no se muestra. Avisa y revoca el token en CPaaS." >&2; exit 1; fi
-  echo "Resultado: el API no aceptó el pedido (HTTP $codigo). Registro del API (sin el token):"
-  cat "$temporal/api.log"
+if [[ "$codigo" == "202" ]]; then
+  for _ in $(seq 1 35); do fallo && break; sleep 1; done
+fi
+kill -TERM "$pid_api" 2>/dev/null || true
+for _ in $(seq 1 60); do kill -0 "$pid_api" 2>/dev/null || break; sleep 1; done
+if kill -0 "$pid_api" 2>/dev/null; then
+  echo "El API no terminó en 60 segundos: no se puede saber si el envío terminó." >&2
   exit 1
 fi
-
-for _ in $(seq 1 30); do fallo && break; sleep 1; done
-if ! fallo; then
-  echo "Sin error de envío por ahora. Revisa el buzón $destino (también spam)."
-  read -r -p "Cuando llegue el correo (o si no llega en unos minutos), presiona Enter para terminar. " _ </dev/tty || true
-fi
+wait "$pid_api" 2>/dev/null || true
+pid_api=""
 
 if token_en_registro; then
   echo "ALERTA: el token aparece en el registro; no se muestra. Avisa y revoca el token en CPaaS." >&2
+  exit 1
+fi
+if [[ "$codigo" != "202" ]]; then
+  echo "Resultado: el API no aceptó el pedido (HTTP $codigo). Registro del API (sin el token):"
+  cat "$temporal/api.log"
   exit 1
 fi
 if fallo; then
@@ -151,4 +156,5 @@ if fallo; then
   grep 'no se pudo enviar el correo' "$temporal/api.log"
   exit 1
 fi
-echo "Resultado: sin error de envío. CPaaS aceptó el mensaje; la prueba vale si el correo llegó al buzón."
+echo "Resultado: sin error de envío. CPaaS aceptó el mensaje (el 250 a DATA); revisa el buzón $destino (también spam)."
+echo "La prueba vale cuando el correo llega."
